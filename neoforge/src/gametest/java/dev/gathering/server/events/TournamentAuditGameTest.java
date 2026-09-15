@@ -160,7 +160,7 @@ public final class TournamentAuditGameTest {
     public static void everyVenueClusterMustSplitBeforePairing(GameTestHelper h) {
         Fixture f=fixture(h,EventSettings.Kind.CONSTRUCTED,false);
         try {
-            for(int x : new int[]{3,9,11}) {
+            for(int x : new int[]{1,7,10}) {
                 BlockPos at=h.absolutePos(new BlockPos(x,2,1));
                 for(TablePart part:TablePart.values()) h.getLevel().setBlock(part.offsetFrom(at),
                         GatheringContent.TABLE.get().defaultBlockState().setValue(TableBlock.PART,part),3);

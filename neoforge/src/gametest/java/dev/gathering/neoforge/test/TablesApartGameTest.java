@@ -33,8 +33,8 @@ public final class TablesApartGameTest {
     @GameTest(template = "tables")
     public static void alongTablePlayedApartRunsAGameAtEachTable(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
-        BlockPos second = place(helper, 3, 2, 1);
-        BlockPos third = place(helper, 5, 2, 1);
+        BlockPos second = place(helper, 4, 2, 1);
+        BlockPos third = place(helper, 7, 2, 1);
         if (TableClusters.at(helper.getLevel(), first).cells().size() != 3) {
             helper.fail("three tables in a line are not one cluster to begin with");
             return;
@@ -83,7 +83,7 @@ public final class TablesApartGameTest {
     @GameTest(template = "tables")
     public static void theShapeDoesNotChangeUnderAGame(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
-        BlockPos second = place(helper, 3, 2, 1);
+        BlockPos second = place(helper, 4, 2, 1);
         TableSeats.take(helper.getLevel(), first, new TableCell(0, 0), Side.NORTH, UUID.randomUUID());
         TableSessions.start(helper.getLevel(), first, MatchRules.single(FormatPresets.COMMANDER));
 
@@ -95,7 +95,7 @@ public final class TablesApartGameTest {
             helper.fail("a refused split still split the tables");
             return;
         }
-        BlockPos alone = place(helper, 9, 2, 1);
+        BlockPos alone = place(helper, 13, 2, 1);
         if (TablesApart.set(helper.getLevel(), alone, true) != TablesApart.Result.ALONE) {
             helper.fail("a table on its own was offered a split");
             return;
@@ -107,7 +107,7 @@ public final class TablesApartGameTest {
     @GameTest(template = "tables")
     public static void backTogetherIsOneTableAndApartSurvivesARestart(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
-        BlockPos second = place(helper, 3, 2, 1);
+        BlockPos second = place(helper, 4, 2, 1);
         TablesApart.set(helper.getLevel(), first, true);
 
         TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), first).orElseThrow();
@@ -130,9 +130,9 @@ public final class TablesApartGameTest {
     @GameTest(template = "tables")
     public static void aTableAddedBesideTablesPlayedApartStandsAlone(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
-        place(helper, 3, 2, 1);
+        place(helper, 4, 2, 1);
         TablesApart.set(helper.getLevel(), first, true);
-        BlockPos added = place(helper, 5, 2, 1);
+        BlockPos added = place(helper, 7, 2, 1);
         if (TableClusters.at(helper.getLevel(), added).cells().size() != 1) {
             helper.fail("a table added beside tables played apart joined one of them");
             return;
@@ -149,7 +149,7 @@ public final class TablesApartGameTest {
     @GameTest(template = "tables")
     public static void onlySomebodySeatedChangesHowTablesArePlayed(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
-        place(helper, 3, 2, 1);
+        place(helper, 4, 2, 1);
         var passerBy = helper.makeMockServerPlayerInLevel();
         passerBy.setPos(first.getX() + 1.0, first.getY(), first.getZ() + 1.0);
         TablesApart.handle(passerBy, new dev.gathering.network.TablesApartPayload(first, true));

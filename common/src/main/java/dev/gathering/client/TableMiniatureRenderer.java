@@ -274,8 +274,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         float span = (float) TableTop.SPAN_BLOCKS;
         step = (float) FlatLayers.step(distanceToTheFarSide(pos, span));
 
+        // A turned table - a line running north to south, or a lone table seating east and west - has
+        // its board laid out the usual way and turned a quarter clockwise onto its blocks: the same
+        // turn TableTop makes for the pointer and the camera, so what is drawn is what is pointed at.
+        boolean turned = dev.gathering.block.TableClusters.at(table.getLevel(), pos).turned();
+
         poseStack.pushPose();
-        poseStack.translate(MARGIN, SURFACE_Y, MARGIN);
+        onTheSurface(poseStack, SURFACE_Y, span, turned);
 
         // Mats first and all of them, then the cards. A mat is drawn for a seat somebody has
         // actually taken: a playmat appearing when a player sits down is how a table shows
@@ -310,7 +315,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         poseStack.popPose();
 
         poseStack.pushPose();
-        poseStack.translate(MARGIN, SURFACE_Y + layer(CARDS_ABOVE_THE_MAT), MARGIN);
+        onTheSurface(poseStack, SURFACE_Y + layer(CARDS_ABOVE_THE_MAT), span, turned);
         int piles = Zone.pilesFor(table.hasCommandZone());
         tallestPile = 0f;
         for (int index = 0; index < board.seats().size(); index++) {
@@ -332,6 +337,21 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         }
         drawFlights(poseStack, buffers, packedLight, board, placement, pos, piles, span);
         poseStack.popPose();
+    }
+
+    /**
+     * Moves the pose onto the table's surface at this height, with the surface's x along the pose's x
+     * and its y along the pose's z - turned a quarter clockwise for a turned table, whose surface x
+     * runs south and whose surface y runs west from its north-east corner.
+     */
+    private static void onTheSurface(PoseStack poseStack, float height, float span, boolean turned) {
+        if (!turned) {
+            poseStack.translate(MARGIN, height, MARGIN);
+            return;
+        }
+        // One table deep across the turn, which is the table's own span.
+        poseStack.translate(MARGIN + span, height, MARGIN);
+        poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-90f));
     }
 
     /**
@@ -367,13 +387,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     }
 
     /**
-     * A card in the air sits above everything lying on the table, including a stack.
-     * <p>One step above the deepest a stack is ever drawn, which is what
-     * {@link TableStacking#shownDepth(int)} answers - not the deepest a stack can be, which
-     * has no limit.
+     * A card in the air sits above everything lying on the table, including a stack: this far over
+     * the tallest thing on the table being drawn, which {@link #tallestPile} keeps.
      */
     private float inTheAir() {
-        return perCard() * (TableStacking.MAX_DEPTH + 1) + layer(ON_A_SLOT + PILE_TOP_LAYERS + 1);
+        return perCard() + layer(ON_A_SLOT + PILE_TOP_LAYERS + 1);
     }
 
     /** How many layers a pile's top card has over it: its sleeve's picture, two rings, a backing, a count. */
@@ -927,23 +945,23 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // nowhere.
             TablePosition where = card.placedAt().orElse(TablePosition.ORIGIN);
 
-            // Two things at once, and both are needed. The lift keeps cards on the same spot
-            // off the same plane, because coplanar quads z-fight and a pile of four flickering
-            // in the middle of a board is worse than not drawing it. The lean is what makes a
-            // pile read as a pile from directly above, where a stack that only went upwards
-            // would be one card.
-            float lean = onSurface(
-                    TableStacking.offsetFor(piles.depth(index), (int) surface.cardWidthOn(seatIndex)),
-                    span);
+            // A stack stands as tall as its cards, each one a card's thickness over the one under
+            // it and squared up on it, the way cards stacked on a real table are. It used to lean
+            // each card up and to the left by a sliver and lift it a hair, which from across the
+            // room was one card, and flickered: the owner asked for every stack to grow the way a
+            // deck does. The seated board, which has no height to show, still leans them.
             // A position is the card's middle, not its corner - see BoardPlacement - and
             // draw() is given a corner. Adding half a card without taking half a card off
             // first put every card on this board half a card down and right of where the
             // seated board draws the same card, so a permanent sitting on the edge of a mat
             // in one view was off the mat in the other.
             Rect placed = placement.rectOf(seat.seat(), where);
-            float x = onSurface(placed.x(), span) + lean;
-            float z = onSurface(placed.y(), span) + lean;
-            float lift = TableStacking.shownDepth(piles.depth(index)) * perCard();
+            float x = onSurface(placed.x(), span);
+            float z = onSurface(placed.y(), span);
+            boolean stacked = piles.pileSize(index) > 1;
+            float thickness = stacked ? cardInAStack(cardWidth) : 0f;
+            float lift = Math.min(piles.depth(index), PileThickness.TALLEST) * thickness + thickness;
+            tallestPile = Math.max(tallestPile, lift);
 
             if (card instanceof CardView.Visible visible && ClientTableHighlight.isLit(visible.id())) {
                 // Under the card rather than over it: a ring drawn on top would cover the art
@@ -955,6 +973,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // right way up to them and upside down from the chair opposite - which is what a
             // card on a table between two people does.
             int angle = where.rotation() + surface.facingDegrees(seatIndex);
+            if (stacked) {
+                drawCardEdges(poseStack, buffers, packedLight, seat.sleeve(), x, z, cardWidth, cardDepth,
+                        angle + (isTapped(card) ? TablePosition.QUARTER_TURN : 0), lift - thickness, lift,
+                        piles.depth(index) % 2 == 0);
+            }
             drawSleeved(poseStack, buffers, packedLight, card, seat.sleeve(),
                     x, z, cardWidth, cardDepth, angle, isTapped(card), lift);
             drawn++;
@@ -1205,6 +1228,41 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 side(consumer, pose, PileThickness.sideCorners(side, halfWidth, halfDepth, bottom, top),
                         PileThickness.sideNormal(side), tint, packedLight);
             }
+        }
+        poseStack.popPose();
+    }
+
+    /**
+     * How thick one card of a stack on the felt is drawn, in blocks: a real card's thickness, or
+     * the step the depth buffer needs from here if that is more, so the face of each card clears
+     * the one under it at any distance.
+     */
+    private float cardInAStack(float cardWidth) {
+        return Math.max((float) PileThickness.of(1, cardWidth), perCard());
+    }
+
+    /**
+     * The four edges of one card in a stack on the felt, from the top of the card under it to its own
+     * face, at the card's own angle - so a tapped card in a stack shows its edges crosswise.
+     * Every other card a shade darker, so the cards of a stack show as cards rather than a block.
+     */
+    private void drawCardEdges(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            dev.gathering.core.card.Sleeve sleeve, float x, float z, float width, float depth,
+            int angle, float bottom, float top, boolean darker) {
+        dev.gathering.core.card.Sleeve drawn =
+                sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
+        int tint = shaded(drawn.isPrinted() ? PRINTED_STOCK : drawn.tint(), darker ? BAND_SHADE : 1f);
+        poseStack.pushPose();
+        poseStack.translate(x + width / 2f, 0f, z + depth / 2f);
+        if (Math.floorMod(angle, 360) != 0) {
+            poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-angle));
+        }
+        PoseStack.Pose pose = poseStack.last();
+        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutout(PLAIN_SLEEVE));
+        for (int side = 0; side < PileThickness.SIDES; side++) {
+            side(consumer, pose, PileThickness.sideCorners(side, width / 2f, depth / 2f, bottom, top),
+                    PileThickness.sideNormal(side), tint, packedLight);
         }
         poseStack.popPose();
     }

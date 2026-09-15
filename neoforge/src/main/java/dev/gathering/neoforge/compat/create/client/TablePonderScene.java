@@ -36,11 +36,16 @@ final class TablePonderScene {
         scene.configureBasePlate(0, 0, 5);
         scene.showBasePlate();
 
-        BlockPos first = util.grid().at(0, 1, 0);
-        Selection firstTable = util.select().fromTo(0, 1, 0, 1, 1, 1);
-        BlockPos second = util.grid().at(2, 1, 0);
-        Selection secondTable = util.select().fromTo(2, 1, 0, 3, 1, 1);
-        BlockPos linkPos = util.grid().at(1, 1, 2);
+        // One table: three blocks by three is as much of Create's five-block plate as a table can take
+        // and still leave room for a chair at either end of it. Pushing tables together into a line is
+        // in the guide rather than here, because two of them do not fit on this plate.
+        BlockPos first = util.grid().at(1, 1, 0);
+        BlockPos middle = util.grid().at(2, 1, 1);
+        Selection firstTable = util.select().fromTo(1, 1, 0, 3, 1, 2);
+        BlockPos westChair = util.grid().at(0, 1, 1);
+        BlockPos eastChair = util.grid().at(4, 1, 1);
+        Selection chairs = util.select().position(westChair).add(util.select().position(eastChair));
+        BlockPos linkPos = util.grid().at(4, 1, 2);
         Selection link = util.select().position(linkPos);
         BlockPos board = util.grid().at(3, 2, 3);
         Selection fullBoard = util.select().fromTo(3, 2, 3, 1, 1, 3);
@@ -50,54 +55,51 @@ final class TablePonderScene {
         BlockState table = GatheringContent.TABLE.get().defaultBlockState();
         for (TablePart part : TablePart.values()) {
             scene.world().setBlock(part.offsetFrom(first), table.setValue(TableBlock.PART, part), false);
-            scene.world().setBlock(part.offsetFrom(second), table.setValue(TableBlock.PART, part), false);
         }
+        // Played across its east and west edges, the way its first sitter would have turned it.
+        scene.world().modifyBlockEntity(first, TableBlockEntity.class, entity -> entity.setTurned(true));
+        BlockState chair = GatheringContent.CHAIR.get().defaultBlockState();
+        scene.world().setBlock(westChair, chair.setValue(dev.gathering.block.ChairBlock.FACING, Direction.EAST), false);
+        scene.world().setBlock(eastChair, chair.setValue(dev.gathering.block.ChairBlock.FACING, Direction.WEST), false);
         scene.world().setBlock(linkPos, AllBlocks.DISPLAY_LINK.getDefaultState()
-                .setValue(DisplayLinkBlock.FACING, Direction.SOUTH), false);
+                .setValue(DisplayLinkBlock.FACING, Direction.EAST), false);
         scene.idle(15);
 
         scene.world().showSection(firstTable, Direction.DOWN);
         scene.idle(15);
         scene.overlay().showText(70)
                 .attachKeyFrame()
-                .text("A table is two blocks by two, and seats two")
-                .pointAt(util.vector().topOf(first.south()))
+                .text("A table is three blocks by three, and seats two")
+                .pointAt(util.vector().topOf(middle))
                 .placeNearTarget();
         scene.idle(80);
 
-        scene.world().showSection(secondTable, Direction.DOWN);
+        scene.world().showSection(chairs, Direction.DOWN);
         scene.idle(15);
+        scene.overlay().showControls(util.vector().topOf(westChair), Pointing.DOWN, 50).rightClick();
+        scene.idle(10);
         scene.overlay().showText(80)
                 .attachKeyFrame()
-                .text("Tables set side by side, in a line, join into one table with room for more")
-                .pointAt(util.vector().topOf(second.south()))
+                .text("Sit in a chair at the middle of an edge to play; the other player sits opposite")
+                .pointAt(util.vector().topOf(westChair))
                 .placeNearTarget();
         scene.idle(90);
 
-        scene.overlay().showControls(util.vector().topOf(first), Pointing.DOWN, 50).rightClick()
+        scene.overlay().showControls(util.vector().topOf(middle), Pointing.DOWN, 50).rightClick()
                 .withItem(new ItemStack(GatheringContent.DECK.get()));
         scene.idle(10);
-        scene.overlay().showText(70)
+        scene.overlay().showText(80)
                 .attachKeyFrame()
-                .text("Right-click holding a deck to sit down and play")
-                .pointAt(util.vector().topOf(first))
+                .text("Right-click the table from your chair to choose a game, then with a deck to put it down")
+                .pointAt(util.vector().topOf(middle))
                 .placeNearTarget();
-        scene.idle(80);
-
-        scene.overlay().showControls(util.vector().topOf(first), Pointing.DOWN, 50).rightClick().whileSneaking();
-        scene.idle(10);
-        scene.overlay().showText(70)
-                .text("Crouch and right-click to choose a format first")
-                .pointAt(util.vector().topOf(first))
-                .placeNearTarget();
-        scene.idle(80);
+        scene.idle(90);
 
         scene.world().modifyBlockEntity(first, TableBlockEntity.class, entity -> entity.setEventLabel(1, "Alice - Chris", 0));
-        scene.world().modifyBlockEntity(second, TableBlockEntity.class, entity -> entity.setEventLabel(2, "Bob - Dana", 0));
         scene.overlay().showText(80)
                 .attachKeyFrame()
                 .text("In a tournament, each table shows its number and who is playing at it")
-                .pointAt(util.vector().topOf(second))
+                .pointAt(util.vector().topOf(middle))
                 .placeNearTarget();
         scene.idle(90);
 

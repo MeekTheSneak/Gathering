@@ -256,7 +256,7 @@ public final class Antes {
                     // the table that declined as of the one that agreed.
                     table.formatWasChosen(formatChosen);
                 });
-        TableBroadcast.sendToTable(level, tableOrigin);
+        TableSetup.begun(level, tableOrigin);
     }
 
     // ------------------------------------------------------------------ bits

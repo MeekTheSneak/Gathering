@@ -345,7 +345,7 @@ public final class PodSignupGameTest {
 
     private static BlockPos twoTables(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
-        place(helper, 3, 2, 1);
+        place(helper, 4, 2, 1);
         return origin;
     }
 

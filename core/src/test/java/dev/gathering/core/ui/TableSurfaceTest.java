@@ -123,25 +123,25 @@ class TableSurfaceTest {
     }
 
     @Test
-    @DisplayName("a playmat is the two-by-one it sits in, less two pixels of border")
+    @DisplayName("a playmat is the half of the table it sits in, less two pixels of border")
     void aMatIsTwoBlocksByOne() {
-        // The surface is the table's whole top, two blocks across, so a pixel is a
-        // thirty-second of the span. Two players get half the depth each, and the border takes
+        // The surface is the table's whole top, three blocks across, so a pixel is a
+        // forty-eighth of the span. Two players get half the depth each, and the border takes
         // two pixels off every side of that.
         TableSurface surface = surfaceFor(new TableCell(0, 0));
         // Two pixels, worked out the way the border is rather than as SPAN/32 doubled - a
         // thirty-second of ten thousand is not a whole number and the rounding is worth two
         // units either way.
-        // Two pixels of the table, at sixteen pixels to the block and two blocks across.
-        int border = 2 * (TableSurface.SPAN / 32);
+        // Two pixels of the table, at sixteen pixels to the block and three blocks across.
+        int border = 2 * (TableSurface.SPAN / (16 * dev.gathering.core.table.TableCell.BLOCKS_PER_TABLE));
 
         for (int seat = 0; seat < 2; seat++) {
             Rect mat = surface.matOf(seat);
             assertThat(mat.width())
-                    .describedAs("two blocks wide less two pixels each side")
+                    .describedAs("the table's width less two pixels each side")
                     .isEqualTo(TableSurface.SPAN - 2 * border);
             assertThat(mat.height())
-                    .describedAs("one block deep less two pixels each side")
+                    .describedAs("half the table's depth less two pixels each side")
                     .isEqualTo(TableSurface.SPAN / 2 - 2 * border);
         }
     }
@@ -479,9 +479,36 @@ class TableSurfaceTest {
         double across = mat.width() / surface.cardWidthOn(0);
         assertThat(across)
                 .describedAs("cards across a playmat")
-                .isBetween(6.0, 11.0);
+                .isBetween(6.0, 15.0);
+        // And in the world: a table grew from two blocks to three, and a card was to stay about the
+        // size it was - more room on the mat, not smaller cards. Eleven across two blocks was a
+        // little over a fifth of a block.
+        double blocks = surface.cardWidthOn(0) / TableSurface.SPAN * dev.gathering.core.table.TableCell.BLOCKS_PER_TABLE;
+        assertThat(blocks).describedAs("a card's width in blocks").isBetween(0.17, 0.21);
         assertThat(surface.cardWidthOn(0) / surface.cardHeightOn(0))
                 .isCloseTo(488.0 / 680.0, within(0.01));
+    }
+
+    @Test
+    @DisplayName("the zones down a mat are the size of the cards on it, with a command zone and without")
+    void zonesAreTheSizeOfTheCards() {
+        // The owner's ask when tables became three blocks: on two, the column of four zones did not fit
+        // down a two-player mat, so the library, graveyard and exile shrank to smaller than the cards
+        // going into them, and a card dropped on one covered it.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        for (int count : new int[] {dev.gathering.core.game.Zone.PILES_WITHOUT_A_COMMAND_ZONE,
+                dev.gathering.core.game.Zone.PILES_WITHOUT_A_COMMAND_ZONE + 1}) {
+            for (int seat = 0; seat < 2; seat++) {
+                for (int index = 0; index < count; index++) {
+                    Rect slot = surface.pileSlot(seat, index, count);
+                    assertThat(slot.height()).as("zone %d of %d, seat %d", index, count, seat)
+                            .isEqualTo((int) Math.round(surface.cardHeightOn(seat)));
+                    Rect mat = surface.matOf(seat);
+                    assertThat(slot.x() >= mat.x() && slot.y() >= mat.y()
+                            && slot.right() <= mat.right() && slot.bottom() <= mat.bottom()).as("inside its mat").isTrue();
+                }
+            }
+        }
     }
 
     @Property(tries = 500)

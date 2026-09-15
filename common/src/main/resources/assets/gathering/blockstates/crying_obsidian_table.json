@@ -1,20 +1,35 @@
 {
   "variants": {
     "part=north_west": {
-      "model": "gathering:block/crying_obsidian_table_corner",
+      "model": "gathering:block/crying_obsidian_table_top",
       "y": 0
     },
+    "part=north": {
+      "model": "gathering:block/crying_obsidian_table_top"
+    },
     "part=north_east": {
-      "model": "gathering:block/crying_obsidian_table_corner",
+      "model": "gathering:block/crying_obsidian_table_top",
       "y": 90
     },
-    "part=south_east": {
-      "model": "gathering:block/crying_obsidian_table_corner",
-      "y": 180
+    "part=west": {
+      "model": "gathering:block/crying_obsidian_table_top"
+    },
+    "part=middle": {
+      "model": "gathering:block/crying_obsidian_table_middle"
+    },
+    "part=east": {
+      "model": "gathering:block/crying_obsidian_table_top"
     },
     "part=south_west": {
-      "model": "gathering:block/crying_obsidian_table_corner",
+      "model": "gathering:block/crying_obsidian_table_top",
       "y": 270
+    },
+    "part=south": {
+      "model": "gathering:block/crying_obsidian_table_top"
+    },
+    "part=south_east": {
+      "model": "gathering:block/crying_obsidian_table_top",
+      "y": 180
     }
   }
 }

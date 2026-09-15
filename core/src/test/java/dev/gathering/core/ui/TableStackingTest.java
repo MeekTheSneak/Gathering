@@ -74,6 +74,25 @@ class TableStackingTest {
         }
 
         @Test
+        @DisplayName("a card put on the top of a stack is the next card of that stack, not a new one")
+        void aStackIsWhole() {
+            // The owner's failure: the top card a hair off the bottom one, and a card put on the top
+            // card a hair further. Asked pair by pair, the third card was on the second and not on
+            // the first - a new stack of two made out of the old stack's top card.
+            TablePosition second = TablePosition.of(SPOT.x() + TableStacking.TIGHT, SPOT.y());
+            TablePosition third = TablePosition.of(SPOT.x() + TableStacking.TIGHT * 2, SPOT.y());
+            List<TablePosition> pile = List.of(SPOT, second, third);
+
+            TableStacking.Piles piles = TableStacking.piles(pile);
+            assertThat(piles.depths()).containsExactly(0, 1, 2);
+            for (int index = 0; index < pile.size(); index++) {
+                assertThat(piles.pileSize(index)).as("stack size from card %d", index).isEqualTo(3);
+                assertThat(piles.baseOf(index)).isZero();
+            }
+            assertThat(piles.isBuried(1)).isTrue();
+        }
+
+        @Test
         @DisplayName("angle does not decide whether two cards are stacked")
         void turningACardDoesNotUnstackIt() {
             // A tapped card lying across the one it is on is still on it.
@@ -199,29 +218,48 @@ class TableStackingTest {
             @ForAll("boards") List<TablePosition> board) {
         // The grid only compares neighbouring cells, so the thing to prove is that nothing
         // stacked is ever two cells apart - including on a cell boundary, at the table's edges, and on
-        // cards with no position. The walk below is the definition, written out plainly.
+        // cards with no position. The walk below is the definition, written out plainly: each card
+        // rests on the latest earlier card it lies on, and is one more card of that card's stack.
         TableStacking.Piles piles = TableStacking.piles(board);
         assertThat(piles.size()).isEqualTo(board.size());
+        int[] stack = new int[board.size()];
+        int[] depth = new int[board.size()];
+        int[] base = new int[board.size()];
         for (int index = 0; index < board.size(); index++) {
-            TablePosition here = board.get(index);
-            int under = 0;
-            int size = 0;
-            boolean covered = false;
-            for (int other = 0; other < board.size(); other++) {
-                boolean stacked = TableStacking.isStackedOn(here, board.get(other));
-                if (stacked && other < index) {
-                    under++;
-                }
-                if (stacked) {
-                    size++;
-                }
-                if (stacked && other > index) {
-                    covered = true;
+            stack[index] = index;
+            base[index] = index;
+            if (board.get(index) == null) {
+                continue;
+            }
+            for (int other = index - 1; other >= 0; other--) {
+                if (board.get(other) != null && TableStacking.isStackedOn(board.get(index), board.get(other))) {
+                    stack[index] = stack[other];
+                    base[index] = base[other];
+                    int under = 0;
+                    for (int earlier = 0; earlier < index; earlier++) {
+                        if (board.get(earlier) != null && stack[earlier] == stack[index]) {
+                            under++;
+                        }
+                    }
+                    depth[index] = under;
+                    break;
                 }
             }
-            assertThat(piles.depth(index)).as("depth of %d", index).isEqualTo(here == null ? 0 : under);
+        }
+        for (int index = 0; index < board.size(); index++) {
+            int size = 0;
+            int top = -1;
+            for (int other = 0; other < board.size(); other++) {
+                if (board.get(other) != null && board.get(index) != null && stack[other] == stack[index]) {
+                    size++;
+                    top = other;
+                }
+            }
+            boolean covered = board.get(index) != null && top != index;
+            assertThat(piles.depth(index)).as("depth of %d", index).isEqualTo(board.get(index) == null ? 0 : depth[index]);
             assertThat(piles.pileSize(index)).as("pile at %d", index).isEqualTo(size > 1 ? size : 0);
             assertThat(piles.isBuried(index)).as("buried at %d", index).isEqualTo(covered);
+            assertThat(piles.baseOf(index)).as("base of %d", index).isEqualTo(base[index]);
             assertThat(TableStacking.pileSizeAt(board, index)).isEqualTo(piles.pileSize(index));
             assertThat(TableStacking.isBuriedAt(board, index)).isEqualTo(piles.isBuried(index));
         }

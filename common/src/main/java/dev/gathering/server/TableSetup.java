@@ -81,7 +81,23 @@ public final class TableSetup {
             TableSessions.anchorOf(level, origin)
                     .flatMap(anchor -> dev.gathering.block.TableBlock.entityAt(level, anchor))
                     .ifPresent(table -> table.formatWasChosen(!freePlay));
-            TableBroadcast.sendToTable(level, origin);
+            begun(level, origin);
+        }
+    }
+
+    /**
+     * A game has just started here: everybody sitting at the table is shown its board, and anybody
+     * sitting there with no deck to put down is offered one to borrow.
+     * <p>The board for everybody, not only whoever pressed Start - they are all in their chairs
+     * waiting for it, most of them looking at the same choice of game. And the loan here rather than
+     * when somebody sat down: a table with nothing on it opens the choice of game, and the shelf opened
+     * at the same moment covered it.
+     */
+    public static void begun(ServerLevel level, BlockPos origin) {
+        TableBroadcast.sendToTable(level, origin);
+        for (TableBroadcast.Seated seated : TableBroadcast.seatedAt(level, origin)) {
+            TableActions.openFor(seated.player(), origin);
+            Lending.offerIfEmptyHanded(seated.player(), origin);
         }
     }
 

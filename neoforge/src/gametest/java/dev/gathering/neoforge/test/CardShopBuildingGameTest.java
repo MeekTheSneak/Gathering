@@ -112,7 +112,7 @@ public final class CardShopBuildingGameTest {
                     tableCorners++;
                 }
             }
-            if (counters < 3 || chests != 1 || tableCorners != 8) {
+            if (counters < 3 || chests != 1 || tableCorners != 18) {
                 helper.fail(village + " is not a card shop: " + counters + " counter(s), "
                         + chests + " chest(s), " + tableCorners + " table corner(s)");
                 return;

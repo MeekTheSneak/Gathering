@@ -124,7 +124,7 @@ public final class DeckCustodyGameTest {
         tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null, null);
         net.minecraft.nbt.CompoundTag carried = tableAt(helper, origin).saveWithFullMetadata(helper.getLevel().registryAccess());
 
-        BlockPos there = place(helper, 5, 2, 5);
+        BlockPos there = place(helper, 7, 2, 7);
         tableAt(helper, there).loadWithComponents(carried, helper.getLevel().registryAccess());
         for (TablePart part : TablePart.values()) {
             helper.getLevel().setBlock(part.offsetFrom(origin), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
@@ -156,7 +156,7 @@ public final class DeckCustodyGameTest {
         clearItems(helper, origin);
         tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null, null);
         net.minecraft.nbt.CompoundTag copied = tableAt(helper, origin).saveWithFullMetadata(helper.getLevel().registryAccess());
-        BlockPos there = place(helper, 5, 2, 5);
+        BlockPos there = place(helper, 7, 2, 7);
         tableAt(helper, there).loadWithComponents(copied, helper.getLevel().registryAccess());
         helper.runAfterDelay(5, () -> {
             helper.getLevel().destroyBlock(TablePart.SOUTH_EAST.offsetFrom(origin), false);

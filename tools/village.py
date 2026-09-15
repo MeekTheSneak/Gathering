@@ -30,14 +30,14 @@ OUT = "common/src/main/resources/data/gathering/structure/village"
 # way to end up with a building nobody meant.
 DATA_VERSION = 3955
 
-# Eleven by nine, which is a room seven by five once the walls and the eaves are counted.
+# Fourteen by nine, which is a room ten by five once the walls and the eaves are counted.
 #
 # The depth is what fixes it. A table seats two people facing each other across its north and
-# south edges - never its sides, because a board read sideways is not a board - so a table
-# needs a clear block in front of it and a clear block behind it. Five deep is a row of seats,
-# a row of table, and a row of seats, and there is no smaller number that works. Seven wide is
-# two tables with room to walk between them, and the counter.
-WIDE, DEEP = 11, 9
+# south edges, each in a chair at the middle of the edge, so a table three blocks deep needs a
+# row of chairs in front of it and a row behind it. Five deep is a row of chairs, three of table,
+# and a row of chairs, and there is no smaller number that works. Ten wide is two tables with room
+# to walk between them, a clear row in front of the counter, the counter, and the stock behind it.
+WIDE, DEEP = 14, 9
 LOW_X, HIGH_X = 1, WIDE - 2      # the walls
 LOW_Z, HIGH_Z = 1, DEEP - 2
 INNER_X = (2, WIDE - 3)          # the room
@@ -45,11 +45,12 @@ INNER_Z = (2, DEEP - 3)
 
 # The shop, in the room. The counter runs down the east side with a gap to get behind it, the
 # stock is behind that, and the two tables face the door.
-COUNTER_X = 7
-BEHIND_X = 8
+COUNTER_X = 10
+BEHIND_X = 11
 COUNTER_GAP_Z = 4
-TABLES_X = ((2, 3), (5, 6))
-TABLE_Z = (3, 4)
+TABLES_WEST_X = (2, 6)
+TABLE_NORTH_Z = 3
+TABLE_BLOCKS = 3
 DOOR_Z = 6
 
 CHEST_LOOT = "gathering:chests/card_shop"
@@ -220,9 +221,9 @@ def shell(build, style, height):
                 elif edge:
                     build.put(x, y, z, style.wall)
 
-    # The way in, at the south end of the west wall. Off center because the middle of that
-    # wall is where somebody sitting at a table would be, and a door opening into a chair is
-    # a door nobody can use.
+    # The way in, at the south end of the west wall, in the row of chairs: the first table's west
+    # edge is a block in from the wall across its middle, and a door opening into a table is a
+    # door nobody can use. Its chairs are at the middle of its north and south edges, clear of it.
     for half, y in (("lower", 1), ("upper", 2)):
         build.put(LOW_X, y, DOOR_Z, style.door, {
             "facing": "east", "half": half, "hinge": "right",
@@ -289,16 +290,24 @@ def shop(build):
               {"facing": "west", "type": "single", "waterlogged": "false"},
               nbt={"id": "minecraft:chest", "LootTable": CHEST_LOOT})
 
-    # A table is two blocks by two, and each quarter has to say which quarter it is: four
-    # blocks all claiming to be the north-west corner are four overlapping tables, not one.
+    # A table is three blocks by three, and each block has to say which one it is: nine blocks
+    # all claiming to be the north-west corner are nine overlapping tables, not one.
     #
     # Both of them sit one row in from the front and back walls, because the two people a
-    # table seats sit across its north and south edges - so those two rows are the chairs.
-    front, back = TABLE_Z
-    for west, east in TABLES_X:
-        for x, z, part in ((west, front, "north_west"), (east, front, "north_east"),
-                           (west, back, "south_west"), (east, back, "south_east")):
-            build.put(x, 1, z, "gathering:table", {"part": part})
+    # table seats sit in chairs at the middle of its north and south edges - so those two rows
+    # are the chairs, and the chairs are already there.
+    parts = (("north_west", "north", "north_east"),
+             ("west", "middle", "east"),
+             ("south_west", "south", "south_east"))
+    for west in TABLES_WEST_X:
+        for down in range(TABLE_BLOCKS):
+            for across in range(TABLE_BLOCKS):
+                build.put(west + across, 1, TABLE_NORTH_Z + down, "gathering:table",
+                          {"part": parts[down][across]})
+        middle = west + TABLE_BLOCKS // 2
+        # A chair's facing is the way somebody sitting in it looks: at the table.
+        build.put(middle, 1, TABLE_NORTH_Z - 1, "gathering:chair", {"facing": "south"})
+        build.put(middle, 1, TABLE_NORTH_Z + TABLE_BLOCKS, "gathering:chair", {"facing": "north"})
 
 
 def roof(build, style, base):

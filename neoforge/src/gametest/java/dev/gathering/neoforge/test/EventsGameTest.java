@@ -86,7 +86,7 @@ public final class EventsGameTest {
     @GameTest(template = "tables")
     public static void theHigherSeedPlaysFirstInACutMatch(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
-        BlockPos second = place(helper, 3, 2, 1);
+        BlockPos second = place(helper, 4, 2, 1);
         List<ServerPlayer> players = new ArrayList<>();
         for (int index = 0; index < 9; index++) {
             ServerPlayer player = helper.makeMockServerPlayerInLevel();
@@ -332,7 +332,7 @@ public final class EventsGameTest {
         ServerPlayer host = helper.makeMockServerPlayerInLevel();
         Tournament signup = Tournament.create(UUID.randomUUID(), "Signing up", host.getUUID(),
                 EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
-        EventState signingUp = Events.stateForTesting(signup, helper.getLevel(), List.of(place(helper, 5, 2, 1)));
+        EventState signingUp = Events.stateForTesting(signup, helper.getLevel(), List.of(place(helper, 7, 2, 1)));
         Events.putForTesting(signingUp);
         Events.markRegistration(host, signup.id());
         if (signingUp.registrationPoint().isEmpty()) {
@@ -518,7 +518,7 @@ public final class EventsGameTest {
         List<BlockPos> tables = new ArrayList<>();
         for (int row = 0; row < 2; row++) {
             for (int column = 0; column < 4; column++) {
-                tables.add(place(helper, column * 3, 2 + row, row * 2));
+                tables.add(place(helper, column * 4, 2 + row, row * 2));
             }
         }
         List<ServerPlayer> players = new ArrayList<>();
@@ -590,7 +590,7 @@ public final class EventsGameTest {
         Tournament tournament = Tournament.create(UUID.randomUUID(), "Desk", host.getUUID(),
                 new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 0, 0,
                         EventSettings.DeckRegistration.OFF, true));
-        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(place(helper, 5, 2, 1)));
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(place(helper, 7, 2, 1)));
         Events.putForTesting(state);
         Events.markRegistration(host, tournament.id());
         player.setPos(desk.getX() + 40.5, desk.getY(), desk.getZ() + 0.5);
@@ -650,7 +650,7 @@ public final class EventsGameTest {
         Tournament signup = Tournament.create(UUID.randomUUID(), "Too few", lonely.getUUID(),
                 EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"))
                 .register(Entrant.registering(lonely.getUUID(), "Only", 1500));
-        EventState few = Events.stateForTesting(signup, helper.getLevel(), List.of(place(helper, 5, 2, 1)));
+        EventState few = Events.stateForTesting(signup, helper.getLevel(), List.of(place(helper, 7, 2, 1)));
         Events.putForTesting(few);
         EventViews.act(lonely, EventActionPayload.of(signup.id(), EventActionPayload.Action.BEGIN));
         if (few.tournament().phase() != Tournament.Phase.SIGNUP) {
@@ -668,7 +668,7 @@ public final class EventsGameTest {
 
     private static Fixture fourPlayersPlaying(GameTestHelper helper, EventSettings settings) {
         BlockPos first = place(helper, 1, 2, 1);
-        BlockPos second = place(helper, 3, 2, 1);
+        BlockPos second = place(helper, 4, 2, 1);
         List<ServerPlayer> players = new ArrayList<>();
         for (int index = 0; index < 4; index++) {
             ServerPlayer player = helper.makeMockServerPlayerInLevel();

@@ -35,6 +35,9 @@ public final class TableSeats {
      */
     public static Claim take(Level level, BlockPos clusterOrigin, TableCell cell, Side side, UUID player) {
         TableCluster cluster = TableClusters.at(level, clusterOrigin);
+        if (!isSeat(cluster, cell, side) && turnsToSeat(level, clusterOrigin, cluster, side)) {
+            cluster = TableClusters.at(level, clusterOrigin);
+        }
         if (!isSeat(cluster, cell, side)) {
             return Claim.NOT_A_SEAT;
         }
@@ -46,6 +49,46 @@ public final class TableSeats {
             return Claim.ALREADY_SEATED;
         }
         return table.get().claim(side, player) ? Claim.TAKEN : Claim.OCCUPIED;
+    }
+
+    /**
+     * Turns a lone, empty table so this edge is one of its seats, if that is allowed, and says whether it
+     * did.
+     * <p>The first person to sit at a table chooses which pair of opposite edges it is played across,
+     * by sitting at one of them; after that only the edge opposite them seats anybody. Only a table on
+     * its own, with nobody at it and nothing on it - no game, no draft, no sign-up - turns: a line of
+     * tables seats along its long sides, and a table somebody is using stays the way they are using it.
+     */
+    private static boolean turnsToSeat(Level level, BlockPos clusterOrigin, TableCluster cluster, Side side) {
+        if (!wouldTurnFor(level, clusterOrigin, cluster, side)) {
+            return false;
+        }
+        tableAt(level, clusterOrigin, cluster.cells().get(0))
+                .ifPresent(table -> table.setTurned(side == Side.EAST || side == Side.WEST));
+        return true;
+    }
+
+    /** Whether sitting at this edge would turn this cluster, without turning it. */
+    private static boolean wouldTurnFor(BlockGetter level, BlockPos clusterOrigin, TableCluster cluster, Side side) {
+        if (cluster.tableCount() != 1 || occupiedSeats(level, clusterOrigin) > 0
+                || TableSessions.hasSession(level, clusterOrigin)) {
+            return false;
+        }
+        boolean wantsTurned = side == Side.EAST || side == Side.WEST;
+        if (wantsTurned == cluster.turned()) {
+            return false;
+        }
+        Optional<TableBlockEntity> table = tableAt(level, clusterOrigin, cluster.cells().get(0));
+        return table.isPresent() && !table.get().hasSignup() && !table.get().hasPod();
+    }
+
+    /**
+     * Whether somebody could sit at this edge now: it is a seat, or it is an edge of a lone empty table
+     * that sitting there would turn to face.
+     */
+    public static boolean couldSeat(BlockGetter level, BlockPos clusterOrigin, TableCell cell, Side side) {
+        TableCluster cluster = TableClusters.at(level, clusterOrigin);
+        return isSeat(cluster, cell, side) || (cluster.contains(cell) && wouldTurnFor(level, clusterOrigin, cluster, side));
     }
 
     /** Gives up whichever seat in this cluster the player holds. */

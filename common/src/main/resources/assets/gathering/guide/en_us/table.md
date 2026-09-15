@@ -1,20 +1,20 @@
 # Sitting down to play
 
-A table is two blocks by two. Push tables together edge to edge and they become one larger table: two seat four, three seat six, four seat eight.
+A table is three blocks by three and seats two, facing each other. Push tables together end to end, in a line, and they become one longer table: two seat four, three seat six, four seat eight, along the two long sides.
 
 ## Taking a seat
 
-- Right-click an edge of the table to sit there.
-- Or sit in a chair set against an edge, which takes that seat and faces you to the table.
-- To leave while a game is on, open the table's menu and choose **Leave table**. With no game on, right-click your own edge again.
+- Set a chair at the middle of a table's edge, facing the table, and right-click the chair to sit in it. That is the only way to take a seat.
+- At a table on its own, the first player may sit at any edge. After that, only the edge opposite them seats anybody.
+- Crouch to get up, which gives up the seat. While a game is on you can also open the table's menu and choose **Leave table**.
 
 ## Starting a game
 
-1. Sit down.
-2. Right-click the table holding a deck. A game starts, your deck goes down shuffled, and nobody's deck is held to a format.
-3. For a format or a longer match, crouch and right-click the table first. Choose the format and how many games, or free play, then press **Start**.
+1. Sit in a chair at the table. With no game on, the choice of game opens.
+2. Choose the format and how many games, or free play, then press **Start**. Right-click the table from your chair to choose again.
+3. Right-click the table holding a deck. Your deck goes down shuffled.
 
-Right-click the table while a game is on to sit at the board. Between games of a match, the same click lets you sideboard.
+Right-click the table while a game is on to sit at the board. Between games of a match, the same click lets you sideboard, or starts the next game.
 
 ## What the board tells you
 

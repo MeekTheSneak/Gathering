@@ -50,4 +50,30 @@ class TableTopClusterTest {
         assertThat(two.at(0.5, two.depthInBlocks() + 0.5)).isEmpty();
         assertThat(two.at(-0.5, 0.5)).isEmpty();
     }
+
+    @Test
+    @DisplayName("a line of tables running north to south lies on its own blocks, and every point comes back")
+    void aTurnedLineIsHitWhereItIs() {
+        // Two tables in a line from (10, 20) south: three blocks wide in x, six deep in z.
+        TableTop turned = TableTop.forCluster(10, 0, 20, 2, 1, true);
+        for (double across = 0; across <= turned.surfaceWidth(); across += turned.surfaceWidth() / 7) {
+            for (double down = 0; down <= turned.surfaceDepth(); down += turned.surfaceDepth() / 5) {
+                double[] world = turned.inTheWorld(turned.worldX(across), turned.worldZ(down));
+                assertThat(world[0]).isBetween(10.0, 10.0 + TableTop.SPAN_BLOCKS);
+                assertThat(world[1]).isBetween(20.0, 20.0 + TableTop.SPAN_BLOCKS * 2);
+                var spot = turned.at(world[0], world[1]);
+                assertThat(spot).as("surface %.0f,%.0f at world %.3f,%.3f", across, down, world[0], world[1]).isPresent();
+                assertThat(spot.get().x()).isCloseTo(across, org.assertj.core.data.Offset.offset(1.0));
+                assertThat(spot.get().y()).isCloseTo(down, org.assertj.core.data.Offset.offset(1.0));
+            }
+        }
+        // A quarter turn clockwise: along the surface is south in the world, and down it is west.
+        double[] start = turned.inTheWorld(turned.worldX(0), turned.worldZ(0));
+        double[] along = turned.inTheWorld(turned.worldX(turned.surfaceWidth()), turned.worldZ(0));
+        double[] down = turned.inTheWorld(turned.worldX(0), turned.worldZ(turned.surfaceDepth()));
+        assertThat(along[1]).isGreaterThan(start[1]);
+        assertThat(down[0]).isLessThan(start[0]);
+        assertThat(turned.at(10.0 + TableTop.SPAN_BLOCKS + 0.5, 21)).isEmpty();
+        assertThat(turned.at(11, 20.0 + TableTop.SPAN_BLOCKS * 2 + 0.5)).isEmpty();
+    }
 }

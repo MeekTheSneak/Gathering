@@ -17,9 +17,9 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Places a whole table, or none of it.
  * <p>The block clicked becomes the table's north-west corner and the table extends east and
- * south from it. All four quarters go down in one go: a table that placed its first quarter
- * and then discovered there was no room for the fourth would leave a stump behind, and the
- * player would have to work out which of the blocks in front of them was the wrong one.
+ * south from it. All nine blocks go down in one go: a table that placed its first block and
+ * then discovered there was no room for the last would leave a stump behind, and the player
+ * would have to work out which of the blocks in front of them was the wrong one.
  */
 public class TableBlockItem extends BlockItem {
 
@@ -57,18 +57,18 @@ public class TableBlockItem extends BlockItem {
 
     /**
      * How to use it, on the thing you are holding.
-     * <p>Two gestures and neither of them is guessable: a table you right-click with a deck
-     * sits you down and starts a game, and one you crouch at asks what kind of game first.
-     * Somebody who has just crafted this has no way to find either out, and a mod whose first
+     * <p>None of it is guessable: a table is sat at from a chair at the middle of an edge, the
+     * game is chosen from that chair, and a deck goes down once the game is on.
+     * Somebody who has just crafted this has no way to find any of it out, and a mod whose first
      * minute is spent clicking a block that does nothing is a mod that gets uninstalled in its
      * second minute.
      */
     @Override
     public void appendHoverText(
             ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_play")
-                .withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_format")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_play")
                 .withStyle(ChatFormatting.DARK_GRAY));
         tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_size")
                 .withStyle(ChatFormatting.DARK_GRAY));

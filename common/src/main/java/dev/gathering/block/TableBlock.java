@@ -193,7 +193,7 @@ public class TableBlock extends BaseEntityBlock {
     /**
      * Whether a table can be placed with its corner here.
      * <p>Two questions, both of which have to be answered before anything is placed: is there
-     * room for four blocks, and would joining what is already there make a cluster bigger than
+     * room for nine blocks, and would joining what is already there make a cluster bigger than
      * a cluster is allowed to be.
      */
     public static boolean canPlaceAt(BlockPlaceContext context, BlockPos origin) {
@@ -363,12 +363,11 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
-     * Right-click an edge to take that seat, or your own seat to leave it.
-     * <p>The edge you clicked, not the nearest free one: a seat is a place at a table and
-     * which place you take is the one social decision this interaction carries. Clicking the
-     * top of the table, or an edge that is not a seat, says what the cluster is instead -
-     * which for now is also the only way to see that cluster shape and capacity are right in
-     * a world, there being no seated view to sit down into yet.
+     * Right-click a table: what it means depends on what is in your hand and what the table is doing.
+     * <p>Never a seat. Seats come from chairs set at the middle of an edge - see {@link Chairs} - so
+     * a click on the table is for the game on it: putting a deck down, opening the board, choosing
+     * what to play, picking from a draft. Somebody standing at a table with nowhere to sit is told
+     * that a chair is how to sit down.
      */
     @Override
     protected ItemInteractionResult useItemOn(
@@ -393,32 +392,19 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
-        // The cluster is worked out relative to the table that was clicked, so that table is
-        // always its origin cell. Only outward faces of a table are reachable, so the face
-        // clicked is the edge meant.
         TableCluster cluster = TableClusters.at(level, tableOrigin);
-        TableCell cell = new TableCell(0, 0);
-        // Where the player stands, in the table's own coordinates: on an airship those are not the
-        // world's, and comparing the two picked a side from somewhere far off. See WorldSpace.
-        Side side = TableClusters.sideFrom(hit.getDirection(),
-                dev.gathering.platform.WorldSpace.get().toLocalOf(level, tableOrigin, player.position()), tableOrigin);
+        boolean seatedHere = TableSeats.seatOf(level, tableOrigin, player.getUUID()).isPresent();
 
         // What is in your hand decides what a click means, before where you clicked does.
-        // A deck in hand and a table in front of you is one thing and only one thing, and it
-        // used to be read as "stand up": the seat toggle came first, saw the player already
-        // sitting at the edge they were standing at, and gave up their chair instead of taking
-        // their deck. Which then left them spectating their own game, with every action
-        // refused, for reasons nothing on screen explained.
         if (DeckItem.deckOf(stack).isPresent()) {
             // Crouching with a deck in hand is the one other thing a deck at a table can
             // mean: draft it. A cube is a decklist, so the gesture that puts a deck down and
             // the gesture that cuts one into packs are the same click with and without a
-            // crouch - which is the same distinction the table already makes between sitting
-            // down and setting a game up.
+            // crouch.
             if (player.isShiftKeyDown()) {
                 startADraft(level, tableOrigin, player, stack);
             } else {
-                sitDownAndPlay(level, tableOrigin, player, stack, side);
+                putADeckDown(level, tableOrigin, player, stack);
             }
             return ItemInteractionResult.SUCCESS;
         }
@@ -436,21 +422,6 @@ public class TableBlock extends BaseEntityBlock {
                 && level instanceof net.minecraft.server.level.ServerLevel draftLevel
                 && DraftPods.hasPod(level, tableOrigin)) {
             dev.gathering.server.DraftActions.openFor(drafting, tableOrigin);
-            return ItemInteractionResult.SUCCESS;
-        }
-
-        // Clicking the edge you are already sitting at used to give up your chair, which
-        // swallowed the one click a seated player most wants to make. Their own side of the
-        // table is where they stand, so opening the board was reachable only by walking round
-        // to somebody else's chair first. Standing up is on the board's own menu now, where
-        // the rest of the seat verbs live, and this click falls through to opening it.
-        boolean alreadySeatedHere = side != null
-                && TableSeats.seatOf(level, tableOrigin, player.getUUID())
-                        .filter(seat -> seat.cell().equals(cell) && seat.side() == side)
-                        .isPresent();
-
-        if (!alreadySeatedHere && side != null && TableSeats.isSeat(cluster, cell, side)) {
-            sitAt(level, tableOrigin, cell, side, player);
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -495,27 +466,25 @@ public class TableBlock extends BaseEntityBlock {
                 && dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin)) {
             if (dev.gathering.server.TableMatch.isSideboarding(server, tableOrigin)) {
                 dev.gathering.server.Sideboarding.offerTo(between, tableOrigin);
+            } else if (seatedHere) {
+                // The next game, on the plain click: the crouch it used to take gets somebody out
+                // of their chair.
+                startOrContinue(level, tableOrigin, player);
             } else {
-                between.sendSystemMessage(
-                        Component.translatable("message.gathering.next_game_ready"));
+                between.sendSystemMessage(Component.translatable("message.gathering.sit_in_a_chair"));
             }
             return ItemInteractionResult.SUCCESS;
         }
 
-        // Your own edge, with no game to open. This is where standing up went: clicking the
-        // seat you are in used to give up the chair, which swallowed the one click a seated
-        // player most wants to make during a game, so it moved onto the board's own menu -
-        // and the board only exists while a game does. Between games, or before one, a player
-        // could take a seat and never get out of it.
-        //
-        // Both, then, decided by whether there is a board to open: during a game the click
-        // opens it and standing up is on its menu, and outside one the click is the way out.
-        if (alreadySeatedHere) {
-            standUp(level, tableOrigin, player);
+        // Sitting at it with nothing on it yet: what shall we play. The same question crouching asks,
+        // on the plain click, because somebody in a chair cannot crouch without getting up.
+        if (seatedHere) {
+            startOrContinue(level, tableOrigin, player);
             return ItemInteractionResult.SUCCESS;
         }
 
         report(level, tableOrigin, cluster, player);
+        player.sendSystemMessage(Component.translatable("message.gathering.sit_in_a_chair"));
         return ItemInteractionResult.SUCCESS;
     }
 
@@ -540,10 +509,9 @@ public class TableBlock extends BaseEntityBlock {
             player.sendSystemMessage(Component.translatable("message.gathering.session_already_running"));
             return;
         }
-        // Sitting down comes first and needs nothing but a world. Only the asking - which is
-        // a packet - needs a connection to ask down, so a player without one still ends up in
-        // a seat rather than being turned away before anything happened.
-        if (!sitDownIfNeeded(level, tableOrigin, player)) {
+        // Only somebody sitting at the table chooses what is played on it, and a chair is how to sit.
+        if (TableSeats.seatOf(level, tableOrigin, player.getUUID()).isEmpty()) {
+            player.sendSystemMessage(Component.translatable("message.gathering.sit_in_a_chair"));
             return;
         }
         if (!(level instanceof net.minecraft.server.level.ServerLevel server)
@@ -611,54 +579,60 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
-     * Everything between holding a deck and playing with it, in one gesture.
-     * <p>Four steps in order - sit, crouch, pick a format, click again - is four things to get
-     * wrong in order, which is most of what "it doesn't work" means to somebody trying a mod
-     * alone. Walking up holding a deck says what you want clearly enough.
-     * <p>The format prompt is still there: crouching asks, which is the deliberate gesture for
-     * a table that wants to be something other than the usual. It is no longer in the way.
+     * A deck put down on a table by somebody sitting at it.
+     * <p>Into the game when there is one. Between games of a set, the next game starts, and the
+     * decks the table is holding go back down by themselves. With nothing running yet the deck
+     * stays in hand and the choice of game opens: a table used to start a Commander game on its
+     * own when a deck was put on it, and the owner asked for that to go - free play is one of
+     * the choices, and a table that picks for you picks the wrong one.
      */
-    private static void sitDownAndPlay(
-            Level level, BlockPos tableOrigin, Player player, ItemStack stack, Side side) {
-        if (!sitDownIfNeeded(level, tableOrigin, player, side)) {
+    private static void putADeckDown(Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
+        if (TableSeats.seatOf(level, tableOrigin, player.getUUID()).isEmpty()) {
+            player.sendSystemMessage(Component.translatable("message.gathering.sit_in_a_chair"));
             return;
         }
-        if (!TableSessions.hasSession(level, tableOrigin)) {
-            // Between games of a set is not the same as no game here. Treating them alike
-            // started a fresh Commander game on top of a best-of-three, which threw away the
-            // score, the format the table had been playing and the sideboard step, and dealt
-            // everybody's held deck back out as though the match had never happened.
-            if (level instanceof net.minecraft.server.level.ServerLevel server
-                    && player instanceof net.minecraft.server.level.ServerPlayer asking
-                    && dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin)) {
-                dev.gathering.server.TableMatch.startNextGame(server, tableOrigin, asking);
-                return;
-            }
-            MatchRules walkUp = MatchRules.single(FormatPresets.COMMANDER);
-            // The same question the setup screen's path asks. Both ways into a game go
-            // through it, because a gate on one of two doors is not a gate.
-            if (level instanceof net.minecraft.server.level.ServerLevel asking
-                    // Nobody named a format on the walk-up path, so nothing holds this
-                    // table to one - the same answer the setup screen's free play gives.
-                    && dev.gathering.server.Antes.askedFirst(
-                            asking, tableOrigin, walkUp, false)) {
-                return;
-            }
-            TableSessions.Outcome outcome =
-                    TableSessions.start(level, tableOrigin, walkUp);
-            if (outcome != TableSessions.Outcome.STARTED) {
-                player.sendSystemMessage(Component.translatable(outcome.messageKey()));
-                return;
-            }
+        if (TableSessions.hasSession(level, tableOrigin)) {
+            commitDeck(level, tableOrigin, player, stack);
+            return;
         }
-        commitDeck(level, tableOrigin, player, stack);
+        if (level instanceof net.minecraft.server.level.ServerLevel server
+                && player instanceof net.minecraft.server.level.ServerPlayer asking
+                && dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin)) {
+            dev.gathering.server.TableMatch.startNextGame(server, tableOrigin, asking);
+            return;
+        }
+        player.sendSystemMessage(Component.translatable("message.gathering.choose_a_game_first"));
+        startOrContinue(level, tableOrigin, player);
+    }
+
+    /**
+     * What a player who has just sat down in a chair at this table is shown: the board when a game is
+     * on, their pack when a draft is, and what to play when nothing is. An event being signed up for
+     * has already been shown by sitting down - see {@link #sitAt}.
+     */
+    public static void satDown(net.minecraft.server.level.ServerPlayer player, BlockPos tableOrigin) {
+        Level level = player.level();
+        if (TableSessions.hasSession(level, tableOrigin)) {
+            dev.gathering.server.TableActions.openFor(player, tableOrigin);
+            return;
+        }
+        if (DraftPods.hasPod(level, tableOrigin)) {
+            dev.gathering.server.DraftActions.openFor(player, tableOrigin);
+            return;
+        }
+        if (entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)
+                || (level instanceof net.minecraft.server.level.ServerLevel server
+                        && dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin))) {
+            return;
+        }
+        dev.gathering.server.TableSetup.ask(player, tableOrigin);
     }
 
     /**
      * Takes this seat for this player, with everything that goes with sitting down: said to them, told
      * to a game already running, asked of a table that is mid-question, shown an event being signed up
      * for, and offered a deck to borrow if they came empty-handed.
-     * <p>One method for every way to sit: right-clicking the edge, and sitting in a chair set against it.
+     * <p>One method for every way to sit: a chair set against the edge, and an event seating its players.
      */
     public static TableSeats.Claim sitAt(Level level, BlockPos tableOrigin, TableCell cell, Side side, Player player) {
         TableSeats.Claim claim = TableSeats.take(level, tableOrigin, cell, side, player.getUUID());
@@ -679,9 +653,12 @@ public class TableBlock extends BaseEntityBlock {
                     dev.gathering.server.PodLobbies.changed(joined, tableOrigin, sat.getUUID());
                 }
             }
-            // Not over an event's signup, which has just been shown to them and is what
-            // they sat down for: a loaner offer on top of it would hide it.
-            if (!entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
+            // Only at a game waiting for decks. Not over an event's signup, which has just been
+            // shown to them and is what they sat down for, and not at a table with nothing on it,
+            // where sitting down opens the choice of game: a loaner offer on top of either hides it.
+            // A game starting offers the shelf then - see TableSetup.begun.
+            if (TableSessions.hasSession(level, tableOrigin)
+                    && !entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
                 dev.gathering.server.Lending.offerIfEmptyHanded(sat, tableOrigin);
             }
         }
@@ -691,8 +668,8 @@ public class TableBlock extends BaseEntityBlock {
     /**
      * Gives up this player's seat at this table, handing back the deck the table is holding for them
      * and telling everybody who needs to know.
-     * <p>One method for every way to stand up outside the board's own menu: clicking your own edge,
-     * and getting up out of a chair.
+     * <p>One method for every way to stand up outside the board's own menu: getting up out of a chair,
+     * however that happens.
      */
     public static void standUp(Level level, BlockPos tableOrigin, Player player) {
         // Their seat, read before the claim goes, because that is what names the deck the
@@ -732,52 +709,6 @@ public class TableBlock extends BaseEntityBlock {
             TableSessions.seatingChanged(level, tableOrigin);
             dev.gathering.server.TableBroadcast.sendToTable(server, tableOrigin);
         }
-    }
-
-    /**
-     * Puts the player in a seat if they are not already in one.
-     * <p>Somebody crouching on a table to start a game has said what they want. Refusing
-     * because they had not clicked an edge first is what makes a mod look broken to the person
-     * trying it alone, which is everybody the first time.
-     * <p>Only ever takes a free seat, and never moves somebody who already has one.
-     *
-     * @return whether they now have a seat
-     */
-    private static boolean sitDownIfNeeded(Level level, BlockPos tableOrigin, Player player) {
-        return sitDownIfNeeded(level, tableOrigin, player, null);
-    }
-
-    /**
-     * @param preferred the edge the player was actually at, tried before anything else - so
-     *     walking up to one side of a four-seat pod and putting a deck down sits you at that
-     *     side rather than at whichever chair happens to come first in cluster order
-     */
-    private static boolean sitDownIfNeeded(
-            Level level, BlockPos tableOrigin, Player player, Side preferred) {
-        if (TableSeats.seatOf(level, tableOrigin, player.getUUID()).isPresent()) {
-            return true;
-        }
-        List<SeatAnchor> anchors = new java.util.ArrayList<>(
-                TableClusters.at(level, tableOrigin).seats());
-        if (preferred != null) {
-            TableCell here = new TableCell(0, 0);
-            anchors.sort(java.util.Comparator.comparingInt(
-                    anchor -> anchor.side() == preferred && anchor.cell().equals(here) ? 0 : 1));
-        }
-        for (SeatAnchor anchor : anchors) {
-            TableSeats.Claim claim = TableSeats.take(
-                    level, tableOrigin, anchor.cell(), anchor.side(), player.getUUID());
-            if (claim == TableSeats.Claim.TAKEN) {
-                player.sendSystemMessage(Component.translatable("message.gathering.seat_taken"));
-                // A game may already be running here - a loaner deck goes down mid-session -
-                // so the session hears about the chair the same way a deliberate click makes
-                // it hear about one.
-                tellTheTableWhoIsSittingAtIt(level, tableOrigin);
-                return true;
-            }
-        }
-        player.sendSystemMessage(Component.translatable("message.gathering.table_full"));
-        return false;
     }
 
     /**

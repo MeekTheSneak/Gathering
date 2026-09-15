@@ -95,7 +95,7 @@ public final class TableGameTest {
     public static void tablesPushedTogetherBecomeOneCluster(GameTestHelper helper) {
         // The gesture the whole design is built on.
         BlockPos first = place(helper, 1, 2, 1);
-        place(helper, 3, 2, 1);
+        place(helper, 4, 2, 1);
 
         TableCluster cluster = TableClusters.at(helper.getLevel(), first);
 
@@ -109,7 +109,7 @@ public final class TableGameTest {
     @GameTest(template = "tables")
     public static void tablesWithAGapBetweenThemStaySeparate(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
-        place(helper, 5, 2, 1);
+        place(helper, 7, 2, 1);
 
         if (TableClusters.at(helper.getLevel(), first).tableCount() != 1) {
             helper.fail("Tables with a gap between them merged");
@@ -122,14 +122,14 @@ public final class TableGameTest {
         // A cluster is capped, and the answer has to arrive when the table is placed rather
         // than as a table that sits next to a cluster without being part of it.
         BlockPos first = place(helper, 1, 2, 1);
-        place(helper, 3, 2, 1);
-        place(helper, 5, 2, 1);
+        place(helper, 4, 2, 1);
         place(helper, 7, 2, 1);
+        place(helper, 10, 2, 1);
 
         if (TableClusters.at(helper.getLevel(), first).tableCount() != 4) {
             helper.fail("Four tables in a row did not make one cluster of four");
         }
-        if (TableClusters.wouldFit(helper.getLevel(), helper.absolutePos(new BlockPos(9, 2, 1)))) {
+        if (TableClusters.wouldFit(helper.getLevel(), helper.absolutePos(new BlockPos(13, 2, 1)))) {
             helper.fail("A fifth table was allowed to join a full cluster");
         }
         helper.succeed();
@@ -140,7 +140,7 @@ public final class TableGameTest {
         // The world coordinates, which the pure arithmetic cannot check on its own: a table
         // is two blocks across, so its far edges are one further out than its corner.
         BlockPos first = place(helper, 1, 2, 1);
-        place(helper, 3, 2, 1);
+        place(helper, 4, 2, 1);
 
         TableCluster cluster = TableClusters.at(helper.getLevel(), first);
         for (SeatAnchor seat : cluster.seats()) {
@@ -340,7 +340,7 @@ public final class TableGameTest {
         // is frozen for the duration, so somebody arriving later should find a seat waiting
         // rather than a game with no room in it.
         BlockPos origin = place(helper, 1, 2, 1);
-        place(helper, 3, 2, 1);
+        place(helper, 4, 2, 1);
         UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
         TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
 
@@ -583,7 +583,7 @@ public final class TableGameTest {
                         + "never hold a game");
                 return;
             }
-            x += 3;
+            x += 4;
         }
         helper.succeed();
     }
@@ -593,7 +593,7 @@ public final class TableGameTest {
         // The brief's promise, and the reason none of the mod's rules ask what a table is
         // made of: push a stone table against a wooden one and it is one table for four.
         BlockPos wooden = placeOf(helper, GatheringContent.TABLE.get(), 1, 2, 1);
-        placeOf(helper, GatheringContent.CRYING_OBSIDIAN_TABLE.get(), 3, 2, 1);
+        placeOf(helper, GatheringContent.CRYING_OBSIDIAN_TABLE.get(), 4, 2, 1);
 
         TableCluster cluster = TableClusters.at(helper.getLevel(), wooden);
 

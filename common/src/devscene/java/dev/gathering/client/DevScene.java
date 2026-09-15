@@ -166,6 +166,9 @@ public final class DevScene {
     private static List<CardInstanceId> cardsTheVerbSearchWillMove = List.of();
     private static boolean asked;
     private static boolean committed;
+
+    /** How far through choosing a game from the chair step 8 is. */
+    private static int opening;
     private static int ticks;
     /**
      * The last step the scene has a case for.
@@ -174,7 +177,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 351;
+    private static final int LAST_STEP = 355;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -322,14 +325,13 @@ public final class DevScene {
                 }
             }
             case 3 -> {
-                // Crouching at a bare table is the other way in: it asks what kind of game
-                // this is going to be, which is the deliberate gesture for a table that wants
-                // to be something other than the usual.
-                askForAGame(client);
+                // Sitting in a chair at a bare table is the way in: it takes the seat, and asks what
+                // kind of game this is going to be.
+                sitInTheChair(client);
                 advance(SETTLE * 2);
             }
             case 4 -> {
-                expectScreen(client, "crouching at a bare table", TableSetupScreen.class);
+                expectScreen(client, "sitting at a bare table", TableSetupScreen.class);
                 shoot(client, "02-what-kind-of-game");
                 // Free play is the shorter answer to "what kind of game", and for a while
                 // this screen could not give it: every game it started was one somebody
@@ -356,9 +358,10 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 8 -> {
-                // What a player does now: get a deck, walk up to the table, right-click it.
-                // No sitting, no crouching, no format screen. If that stops being enough the
-                // pictures will show a table with nothing on it.
+                // What a player does now, from the chair: get a deck and put it on the table. With no
+                // game on it yet the deck stays in hand and the choice of game comes back; free play and
+                // Start begin one; then the same right-click puts the deck down. A table used to start a
+                // game by itself when a deck was put on it, which the owner asked to go.
                 if (!asked) {
                     asked = true;
                     if (client.screen != null) {
@@ -368,6 +371,23 @@ public final class DevScene {
                     waited = SETTLE * 8;
                     return;
                 }
+                if (opening == 0) {
+                    opening = 1;
+                    putTheDeckDown(client);
+                    waited = SETTLE * 2;
+                    return;
+                }
+                if (opening == 1) {
+                    opening = 2;
+                    expectScreen(client, "a deck put on a table with no game", TableSetupScreen.class);
+                    if (table != null && ClientTableState.viewOf(table).isPresent()) {
+                        fail("a deck put on a table with no game chosen started one");
+                    }
+                    press(client, "Free play");
+                    press(client, "Start");
+                    waited = SETTLE * 4;
+                    return;
+                }
                 if (!committed) {
                     committed = true;
                     putTheDeckDown(client);
@@ -375,12 +395,16 @@ public final class DevScene {
                     return;
                 }
                 boolean playing = table != null && ClientTableState.viewOf(table).isPresent();
-                System.out.println("[devscene] one right-click later: board=" + playing);
+                System.out.println("[devscene] a game chosen and a deck put down: board=" + playing);
                 shoot(client, "03-one-click-in");
                 if (playing) {
+                    // The rest of the tour walks the player about the world to photograph it, and getting
+                    // up out of a chair gives the seat up. So from here the seat is held the way an event
+                    // seats a player, without a chair: taken again straight after getting up.
+                    keepTheSeatWithoutTheChair(client);
                     client.setScreen(new TableScreen(table));
                 } else {
-                    fail("one right-click with a deck did not start a game");
+                    fail("choosing free play and putting a deck down did not start a game");
                 }
                 advance(SETTLE);
             }
@@ -3745,6 +3769,10 @@ public final class DevScene {
                 // lit pip in the corner of the Mulligan button, and the owner, having just mulliganed,
                 // could not tell what the mark wanted.
                 // Twice: at a table of eight the first mulligan is free (103.5c), and owes nothing.
+                // The steps from here on are at that table, not the one the tour began at.
+                if (client.screen instanceof TableScreen eight) {
+                    ofEight = eight.tablePosition();
+                }
                 pressAVerbButton(client, TableVerb.MULLIGAN);
                 pressAVerbButton(client, TableVerb.MULLIGAN);
                 advance(SETTLE);
@@ -3762,12 +3790,12 @@ public final class DevScene {
                 shoot(client, "107c-a-mulligan-owes-the-bottom");
                 // Searching a library is typing a name, and the box has to be there and listening
                 // the moment the library opens.
-                SeatId searcher = ClientTableState.seatAt(table).orElse(null);
+                SeatId searcher = ClientTableState.seatAt(ofEight).orElse(null);
                 if (searcher == null) {
                     fail("no seat to search a library from");
                 } else {
-                    ClientTableActions.send(table, new GameEvent.LibrarySearched(searcher, searcher));
-                    client.setScreen(new PileScreen(table, searcher, Zone.LIBRARY, true, client.screen));
+                    ClientTableActions.send(ofEight, new GameEvent.LibrarySearched(searcher, searcher));
+                    client.setScreen(new PileScreen(ofEight, searcher, Zone.LIBRARY, true, client.screen));
                 }
                 advance(SETTLE);
             }
@@ -3781,8 +3809,8 @@ public final class DevScene {
                         fail("a library opened to search has " + (library.searchBox() == null
                                 ? "no search box" : "a search box nobody can type into without clicking it"));
                     }
-                    int inTheLibrary = ClientTableState.viewOf(table)
-                            .flatMap(board -> ClientTableState.seatAt(table).map(me -> board.seat(me).zone(Zone.LIBRARY).count()))
+                    int inTheLibrary = ClientTableState.viewOf(ofEight)
+                            .flatMap(board -> ClientTableState.seatAt(ofEight).map(me -> board.seat(me).zone(Zone.LIBRARY).count()))
                             .orElse(-1);
                     if (librarySearched == 0 || librarySearched != inTheLibrary) {
                         fail("a library of " + inTheLibrary + " being searched showed " + librarySearched + " cards");
@@ -3810,6 +3838,43 @@ public final class DevScene {
                 } else {
                     fail("the library search went away while it was being typed in");
                 }
+                advance(SETTLE / 2);
+            }
+            case 352 -> {
+                // A card let go over a stack joins the stack, however far off its middle the cursor
+                // was. Put down by hand, cards landed a little off each other and made stacks the
+                // owner could not stack onto.
+                expectScreen(client, "the table of eight, to stack on", TableScreen.class);
+                oneCardOnTheFelt(client);
+                advance(SETTLE);
+            }
+            case 353 -> {
+                carryACardOverTheStack(client);
+                advance(SETTLE / 2);
+            }
+            case 354 -> {
+                if (client.screen instanceof TableScreen board) {
+                    TablePosition joining = board.stackTheCardWouldJoin();
+                    if (joining == null || joining.x() != stackedAt.x() || joining.y() != stackedAt.y()) {
+                        fail("a card carried over a card at " + stackedAt + " would join " + joining);
+                    }
+                    shoot(client, "107f-coming-down-on-a-stack");
+                    board.mouseReleased(carriedTo[0], carriedTo[1], 0);
+                }
+                advance(SETTLE);
+            }
+            case 355 -> {
+                GameView view = ClientTableState.viewOf(ofEight).orElse(null);
+                SeatId me = ClientTableState.seatAt(ofEight).orElse(null);
+                TablePosition landed = view == null || me == null || carried == null ? null
+                        : view.seat(me).zone(Zone.BATTLEFIELD).cards().stream()
+                                .filter(card -> card instanceof CardView.Visible visible && visible.id().equals(carried))
+                                .findFirst().flatMap(CardView::placedAt).orElse(null);
+                System.out.println("[devscene] a card let go off the middle of a stack at " + stackedAt + " landed at " + landed);
+                if (landed == null || landed.x() != stackedAt.x() || landed.y() != stackedAt.y()) {
+                    fail("a card let go over a card at " + stackedAt + " landed at " + landed);
+                }
+                shoot(client, "107g-a-stack-of-two");
                 advance(SETTLE / 2);
             }
             default -> {
@@ -4624,6 +4689,50 @@ public final class DevScene {
         }
         System.out.println("[devscene] two cards stacked at " + stackedAt);
     }
+
+    /** The first card in hand, put on this player's felt at a spot of its own. */
+    private static void oneCardOnTheFelt(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(ofEight).orElse(null);
+        GameView view = ofEight == null ? null : ClientTableState.viewOf(ofEight).orElse(null);
+        if (me == null || view == null || view.seat(me).zone(Zone.HAND).cards().isEmpty()
+                || !(view.seat(me).zone(Zone.HAND).cards().get(0) instanceof CardView.Visible first)) {
+            fail("there was no card in hand to put on the felt");
+            return;
+        }
+        stackedAt = TablePosition.of(5200, 4600);
+        ClientTableActions.send(ofEight, new GameEvent.CardMoved(me, first.id(),
+                dev.gathering.core.game.ZoneRef.of(me, Zone.BATTLEFIELD),
+                dev.gathering.core.game.Placement.at(stackedAt)));
+    }
+
+    /** Picks the first card of the hand up and holds it over the card on the felt, well off its middle. */
+    private static void carryACardOverTheStack(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(ofEight).orElse(null);
+        GameView view = ofEight == null ? null : ClientTableState.viewOf(ofEight).orElse(null);
+        if (!(client.screen instanceof TableScreen board) || me == null || view == null || stackedAt == null) {
+            fail("there was no board to carry a card across");
+            return;
+        }
+        List<CardView> hand = view.seat(me).zone(Zone.HAND).cards();
+        if (hand.isEmpty() || !(hand.get(0) instanceof CardView.Visible first)) {
+            fail("there was no card in hand to carry");
+            return;
+        }
+        carried = first.id();
+        Rect from = HandFan.slot(board.handArea(), hand.size(), 0, -1).where();
+        Rect stack = board.board().rectOf(me, stackedAt);
+        carriedTo = new int[] {stack.x() + stack.width() * 3 / 4, stack.y() + stack.height() / 4};
+        board.mouseClicked(from.centerX(), from.centerY(), 0);
+        hover(client, carriedTo);
+        board.mouseDragged(carriedTo[0], carriedTo[1], 0, carriedTo[0] - from.centerX(), carriedTo[1] - from.centerY());
+    }
+
+    /** The table of eight the last steps are played at. */
+    private static BlockPos ofEight;
+
+    /** The card carried onto a stack, and where the cursor let it go. */
+    private static CardInstanceId carried;
+    private static int[] carriedTo;
 
     /** Presses on the stack and holds, without letting go. */
     private static void holdTheStackAndDropItOnAZone(Minecraft client) {
@@ -6033,9 +6142,12 @@ public final class DevScene {
             for (TablePart part : TablePart.values()) {
                 level.setBlock(part.offsetFrom(where), state.setValue(TableBlock.PART, part), 3);
             }
-            // Deliberately not seated or started here. The whole point is that walking up
-            // holding a deck is enough, so the scene has to actually walk up holding a deck.
-            System.out.println("[devscene] table placed, nobody seated");
+            // And a chair at the middle of its north and south edges, which is how anybody sits at it.
+            // Not sat in or started here: the scene sits down the way a player does.
+            BlockState chair = GatheringContent.CHAIR.get().defaultBlockState();
+            level.setBlock(where.offset(1, 0, -1), chair.setValue(dev.gathering.block.ChairBlock.FACING, Direction.SOUTH), 3);
+            level.setBlock(where.offset(1, 0, dev.gathering.core.table.TableCell.BLOCKS_PER_TABLE), chair.setValue(dev.gathering.block.ChairBlock.FACING, Direction.NORTH), 3);
+            System.out.println("[devscene] table placed with its chairs, nobody seated");
         });
     }
 
@@ -6993,9 +7105,9 @@ public final class DevScene {
                 }
                 // A chair at each long edge, facing the table, which is how a table is set.
                 BlockState chair = GatheringContent.CHAIR.get().defaultBlockState();
-                level.setBlock(corner.north(), chair.setValue(dev.gathering.block.ChairBlock.FACING,
+                level.setBlock(corner.offset(1, 0, -1), chair.setValue(dev.gathering.block.ChairBlock.FACING,
                         net.minecraft.core.Direction.SOUTH), 3);
-                level.setBlock(corner.south(2).east(), chair.setValue(dev.gathering.block.ChairBlock.FACING,
+                level.setBlock(corner.offset(1, 0, 3), chair.setValue(dev.gathering.block.ChairBlock.FACING,
                         net.minecraft.core.Direction.NORTH), 3);
                 along += 4;
             }
@@ -7272,7 +7384,7 @@ public final class DevScene {
             ServerLevel level = server.overworld();
             BlockState state = GatheringContent.TABLE.get().defaultBlockState();
             for (int cell = 0; cell < 2; cell++) {
-                BlockPos corner = where.offset(cell * 2, 0, 0);
+                BlockPos corner = where.offset(cell * dev.gathering.core.table.TableCell.BLOCKS_PER_TABLE, 0, 0);
                 for (TablePart part : TablePart.values()) {
                     level.setBlock(
                             part.offsetFrom(corner), state.setValue(TableBlock.PART, part), 3);
@@ -7880,7 +7992,28 @@ public final class DevScene {
      * packet, and a harness that skipped the packet would go on passing after the day somebody
      * broke the way it is asked for.
      */
-    private static void askForAGame(Minecraft client) {
+    /** Right-clicks the chair at the north edge of the tour's table, exactly as a player would. */
+    private static void sitInTheChair(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            return;
+        }
+        BlockPos chair = table.offset(1, 0, -1);
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(chair), Direction.UP, chair, false);
+            player.gameMode.useItemOn(player, server.overworld(), ItemStack.EMPTY, InteractionHand.MAIN_HAND, hit);
+            System.out.println("[devscene] sat in the chair: seat "
+                    + TableSeats.seatOf(server.overworld(), table, player.getUUID()) + ", riding " + player.getVehicle());
+        });
+    }
+
+    /** Gets the player up and seats them again at the same edge without a chair, as an event seats somebody. */
+    private static void keepTheSeatWithoutTheChair(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
         if (server == null || table == null) {
             return;
@@ -7888,9 +8021,15 @@ public final class DevScene {
         BlockPos where = table;
         server.execute(() -> {
             ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
-            if (player != null) {
-                TableBlock.startGameFor(server.overworld(), where, player);
+            if (player == null) {
+                return;
             }
+            var held = TableSeats.seatOf(server.overworld(), where, player.getUUID()).orElse(null);
+            player.stopRiding();
+            if (held != null) {
+                TableBlock.sitAt(server.overworld(), where, held.cell(), held.side(), player);
+            }
+            System.out.println("[devscene] out of the chair, still seated at " + TableSeats.seatOf(server.overworld(), where, player.getUUID()));
         });
     }
 
@@ -9089,7 +9228,7 @@ public final class DevScene {
                 return;
             }
             for (int along = 0; along < 4; along++) {
-                BlockPos table = corner.offset(along * 2, 0, 0);
+                BlockPos table = corner.offset(along * dev.gathering.core.table.TableCell.BLOCKS_PER_TABLE, 0, 0);
                 for (TablePart part : TablePart.values()) {
                     level.setBlock(part.offsetFrom(table), GatheringContent.TABLE.get().defaultBlockState()
                             .setValue(TableBlock.PART, part), 3);

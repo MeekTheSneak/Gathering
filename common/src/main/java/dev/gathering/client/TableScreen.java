@@ -40,6 +40,7 @@ import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableScreenLayout;
 import dev.gathering.core.ui.BoardPresentation;
+import dev.gathering.core.ui.PileThickness;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
@@ -924,7 +925,8 @@ public final class TableScreen extends Screen {
      * for every point past its edge - which is where the second table's mats are drawn.
      */
     private TableTop tableTop() {
-        return TableTop.forCluster(table.getX(), table.getY(), table.getZ(), tablesInTheRow(), 1);
+        return TableTop.forCluster(table.getX(), table.getY(), table.getZ(), tablesInTheRow(), 1,
+                TableCameraView.isTurned(table));
     }
 
     /** How many tables this cluster is, worked out the way the seating is. */
@@ -973,6 +975,28 @@ public final class TableScreen extends Screen {
         for (SeatView seat : board.seats()) {
             if (!seat.hasABoard()) {
                 continue;
+            }
+            // And the stacks on its felt, which stand as tall as their cards as well.
+            for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+                if (!mat.seat().equals(seat.seat())) {
+                    continue;
+                }
+                for (int card = 0; card < mat.cards().size(); card++) {
+                    int size = mat.piles().pileSize(card);
+                    if (size < 2 || mat.piles().isBuried(card) || mat.cards().get(card).placedAt().isEmpty()) {
+                        continue;
+                    }
+                    Rect spot = onBlock.rectOf(seat.seat(), mat.cards().get(card).placedAt().get());
+                    double height = PileThickness.of(size, spot.width());
+                    if (height <= tallest || spot.isEmpty()) {
+                        continue;
+                    }
+                    Optional<TableTop.Spot> hit = TablePointer.at(top.raisedBy(height), mouseX, mouseY);
+                    if (hit.isPresent() && spot.contains((int) Math.floor(hit.get().x()), (int) Math.floor(hit.get().y()))) {
+                        best = hit.get();
+                        tallest = height;
+                    }
+                }
             }
             for (int index = 0; index < pileCount(); index++) {
                 Rect slot = onBlock.pileRect(seat.seat(), index, pileCount());
@@ -2493,7 +2517,8 @@ public final class TableScreen extends Screen {
      */
     private Rect spotOf(SeatId seat, CardView card, int depth) {
         Rect where = board().rectOf(seat, card.placedAt().orElse(TablePosition.ORIGIN));
-        int lean = TableStacking.offsetFor(depth, board().cardWidth(seat));
+        // Not on the block, where a stack stands squared up and as tall as its cards instead.
+        int lean = playingOnTheBlock ? 0 : TableStacking.offsetFor(depth, board().cardWidth(seat));
         return lean == 0
                 ? where
                 : new Rect(where.x() + lean, where.y() + lean, where.width(), where.height());
@@ -3575,6 +3600,20 @@ public final class TableScreen extends Screen {
                 footprint = slot;
             }
         }
+        // Over a card, the footprint is the stack it would join, ringed: the drop snaps onto the
+        // stack, so where the stack stands is where it is drawn coming down. On the block the ring
+        // is the lit card under the cursor, which the world draws.
+        StackTarget onto = landing == null || aimedSlot >= 0
+                ? null : stackTargetAt(board, landing, mouseX, mouseY, held);
+        if (onto != null && !playingOnTheBlock) {
+            Rect stack = board().rectOf(landing, onto.base());
+            footprint = tappedInAir
+                    ? centered((int) Math.round(stack.centerX()), (int) Math.round(stack.centerY()),
+                            stack.height(), stack.width())
+                    : stack;
+            GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                    onto.where().x(), onto.where().y(), onto.where().width(), onto.where().height());
+        }
         int lift = Math.max(3, comingDownOn.height() / 8);
         GatheringSprites.draw(graphics, Element.CARD_CAST,
                 footprint.x(), footprint.y(), footprint.width(), footprint.height());
@@ -3873,21 +3912,37 @@ public final class TableScreen extends Screen {
      * the whole stack bar one.
      */
     private List<CardInstanceId> stackedWith(GameView board, SeatId seat, CardInstanceId card) {
-        TablePosition here = card == null
-                ? null
-                : findCard(board, card).flatMap(CardView::placedAt).orElse(null);
-        if (here == null) {
+        if (card == null) {
             return List.of();
         }
-        List<CardInstanceId> found = new ArrayList<>();
-        for (CardView other : board.seat(seat).zone(Zone.BATTLEFIELD).cards()) {
-            if (other instanceof CardView.Visible visible
-                    && other.placedAt().filter(spot -> TableStacking.isStackedOn(here, spot))
-                            .isPresent()) {
-                found.add(visible.id());
+        // The same stacks the board draws, from the same rule: every card whose stack stands on
+        // the same bottom card. Asked pair by pair against the card pressed, a stack whose cards
+        // had crept a little apart came up without its far end.
+        for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+            if (!mat.seat().equals(seat)) {
+                continue;
             }
+            int pressed = -1;
+            for (int index = 0; index < mat.cards().size(); index++) {
+                if (mat.cards().get(index) instanceof CardView.Visible visible && visible.id().equals(card)) {
+                    pressed = index;
+                    break;
+                }
+            }
+            if (pressed < 0 || mat.cards().get(pressed).placedAt().isEmpty()) {
+                return List.of();
+            }
+            int base = mat.piles().baseOf(pressed);
+            List<CardInstanceId> found = new ArrayList<>();
+            for (int index = 0; index < mat.cards().size(); index++) {
+                if (mat.piles().baseOf(index) == base && mat.cards().get(index).placedAt().isPresent()
+                        && mat.cards().get(index) instanceof CardView.Visible visible) {
+                    found.add(visible.id());
+                }
+            }
+            return found;
         }
-        return found;
+        return List.of();
     }
 
     @Override
@@ -4023,6 +4078,13 @@ public final class TableScreen extends Screen {
 
         TablePosition where = board().positionOn(
                 landing, at[0] - dropped.grabX(), at[1] - dropped.grabY());
+        // Let go over a card, it goes on that card's stack: exactly where the stack stands, not
+        // wherever the cursor happened to be over it. Put down by hand, a card on a stack landed
+        // a little off it, and a little off is either beside the stack or a stack of its own.
+        StackTarget onto = view().map(board -> stackTargetAt(board, landing, x, y, dropped)).orElse(null);
+        if (onto != null) {
+            where = TablePosition.of(onto.base().x(), onto.base().y(), where.rotation());
+        }
         if (dropped.whole() && dropped.fromPile() != null) {
             sendWholePile(dropped, me, ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(where));
             selected.clear();
@@ -4047,6 +4109,71 @@ public final class TableScreen extends Screen {
                     me, dropped.card(), ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(where)));
         }
         return true;
+    }
+
+    /** A stack a card being carried would go onto: its top card, where that is drawn, and where the stack stands. */
+    private record StackTarget(SeatId seat, CardView top, Rect where, TablePosition base) {
+    }
+
+    /**
+     * The stack under the cursor that a card let go of here would join, or null.
+     * <p>The front-most card at the cursor on the mat it would land on, other than the ones being
+     * carried and other than a card attached to something - an aura is placed by attaching it,
+     * and dropping a card on one should not stack it under the creature. Its stack's bottom card
+     * says where the stack stands.
+     */
+    private StackTarget stackTargetAt(GameView board, SeatId landing, int x, int y, TableGesture.Held held) {
+        if (landing == null || held == null) {
+            return null;
+        }
+        java.util.Set<CardInstanceId> carried = new java.util.HashSet<>(movingWith(held));
+        for (Placed placed : everythingAtOrNothing(board, x, y)) {
+            if (!placed.seat().equals(landing) || placed.card().host().isPresent()
+                    || (placed.card() instanceof CardView.Visible visible && carried.contains(visible.id()))) {
+                continue;
+            }
+            for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+                if (!mat.seat().equals(landing)) {
+                    continue;
+                }
+                int index = mat.cards().indexOf(placed.card());
+                if (index < 0) {
+                    continue;
+                }
+                TablePosition base = mat.cards().get(mat.piles().baseOf(index)).placedAt().orElse(null);
+                return base == null ? null : new StackTarget(landing, placed.card(), placed.where(), base);
+            }
+            return null;
+        }
+        return null;
+    }
+
+    /** Everything at a point, front-most first, or nothing when the point is not on the felt. */
+    private List<Placed> everythingAtOrNothing(GameView board, int x, int y) {
+        return everythingAt(everythingOnTheTable(board), x, y);
+    }
+
+    /** The table this board is of. For the harness. */
+    BlockPos tablePosition() {
+        return table;
+    }
+
+    /** Where the hand is fanned on this screen as it is laid out now. For the harness. */
+    Rect handArea() {
+        return layout().hand();
+    }
+
+    /** The stack the card in the air would join if let go now, for the harness: null when none. */
+    TablePosition stackTheCardWouldJoin() {
+        TableGesture.Held held = gesture.held();
+        GameView board = view().orElse(null);
+        if (held == null || board == null) {
+            return null;
+        }
+        double[] at = pointer(cursorX, cursorY);
+        SeatId landing = at == null ? null : board().seatAt(at[0], at[1]);
+        StackTarget onto = stackTargetAt(board, landing, cursorX, cursorY, held);
+        return onto == null ? null : onto.base();
     }
 
     /**

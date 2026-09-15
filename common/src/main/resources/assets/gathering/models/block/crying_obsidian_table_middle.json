@@ -1,0 +1,292 @@
+{
+  "__comment": "The middle block of a crying obsidian table: felt over the apron, on a stepped column ten by ten that the whole table stands on.",
+  "parent": "block/block",
+  "textures": {
+    "particle": "minecraft:block/crying_obsidian",
+    "felt": "gathering:block/table_felt",
+    "frame": "minecraft:block/crying_obsidian"
+  },
+  "elements": [
+    {
+      "__comment": "Felt surface. Tinted, so every table dyes the same way.",
+      "from": [
+        0,
+        13,
+        0
+      ],
+      "to": [
+        16,
+        15,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "__comment": "Apron.",
+      "from": [
+        0,
+        11,
+        0
+      ],
+      "to": [
+        16,
+        13,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "south": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "east": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "west": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        2,
+        3
+      ],
+      "to": [
+        13,
+        11,
+        13
+      ],
+      "faces": {
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        "up": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        "north": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            5,
+            10,
+            14
+          ]
+        },
+        "south": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            5,
+            10,
+            14
+          ]
+        },
+        "east": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            5,
+            10,
+            14
+          ]
+        },
+        "west": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            5,
+            10,
+            14
+          ]
+        }
+      },
+      "__comment": "Column."
+    },
+    {
+      "from": [
+        2,
+        0,
+        2
+      ],
+      "to": [
+        14,
+        2,
+        14
+      ],
+      "faces": {
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            12,
+            12
+          ]
+        },
+        "up": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            12,
+            12
+          ]
+        },
+        "north": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            14,
+            12,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            14,
+            12,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            14,
+            12,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            14,
+            12,
+            16
+          ]
+        }
+      },
+      "__comment": "Foot, one step wider than the column."
+    }
+  ]
+}

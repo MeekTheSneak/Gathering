@@ -87,7 +87,17 @@ public final class TableCameraView {
                 .orElse(dev.gathering.core.table.TableCluster.SEATS_PER_TABLE);
         int tables = Math.max(1, (seats + dev.gathering.core.table.TableCluster.SEATS_PER_TABLE - 1)
                 / dev.gathering.core.table.TableCluster.SEATS_PER_TABLE);
-        return TableTop.forCluster(corner.getX(), corner.getY(), corner.getZ(), tables, 1);
+        return TableTop.forCluster(corner.getX(), corner.getY(), corner.getZ(), tables, 1, isTurned(corner));
+    }
+
+    /**
+     * Whether the table at this corner lies a quarter turn round - a line running north to south, or a
+     * lone table seated east and west - read off the blocks this client has, the same way the board
+     * drawn on it is.
+     */
+    static boolean isTurned(BlockPos corner) {
+        var level = Minecraft.getInstance().level;
+        return level != null && corner != null && dev.gathering.block.TableClusters.at(level, corner).turned();
     }
 
     /** Which way round to draw it, so the player's own mat is the near one. */
@@ -453,10 +463,14 @@ public final class TableCameraView {
         // which on an airship is not where its blocks' coordinates say. See WorldSpace.
         var level = net.minecraft.client.Minecraft.getInstance().level;
         var space = dev.gathering.platform.WorldSpace.get();
-        net.minecraft.world.phys.Vec3 eye = space.toWorld(level, new net.minecraft.world.phys.Vec3(
+        // And in the surface's own frame before that, which a turned table lays a quarter round on its
+        // blocks: framed as though unturned, then turned with it, eye and facing both.
+        double[] over = top.inTheWorld(
                 top.worldX(top.surfaceWidth() / 2.0) + offsetX,
-                top.topY() + height,
-                top.worldZ(top.surfaceDepth() / 2.0) + offsetZ + lift));
-        return Optional.of(new Placement(eye.x, eye.y, eye.z, facing + space.yawOf(level, corner), LOOKING_DOWN));
+                top.worldZ(top.surfaceDepth() / 2.0) + offsetZ + lift);
+        net.minecraft.world.phys.Vec3 eye = space.toWorld(level, new net.minecraft.world.phys.Vec3(
+                over[0], top.topY() + height, over[1]));
+        return Optional.of(new Placement(eye.x, eye.y, eye.z,
+                facing + top.yawTurned() + space.yawOf(level, corner), LOOKING_DOWN));
     }
 }

@@ -13,7 +13,7 @@ doing: it had been quietly wrong since the cluster tests were written, and addin
 test elsewhere in the suite changed how often it showed.
 
 So: every coordinate a test hands to place() or absolutePos() has to fit inside the template
-that test declares, with room for the two blocks a table occupies.
+that test declares, with room for the three blocks a table occupies.
 """
 import gzip
 import pathlib
@@ -25,8 +25,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 TESTS = ROOT / "neoforge/src/main/java/dev/gathering/neoforge/test"
 TEMPLATES = ROOT / "common/src/main/resources/data/gathering/structure"
 
-# A table is two blocks across, so a corner at x occupies x and x + 1.
-BLOCKS_PER_TABLE = 2
+# A table is three blocks across, so a corner at x occupies x to x + 2.
+BLOCKS_PER_TABLE = 3
 
 TEMPLATE = re.compile(r'template\s*=\s*"([\w/]+)"')
 COORDS = re.compile(

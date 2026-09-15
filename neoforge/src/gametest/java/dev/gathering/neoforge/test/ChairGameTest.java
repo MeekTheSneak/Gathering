@@ -5,6 +5,7 @@ import dev.gathering.block.ChairBlock;
 import dev.gathering.block.ChairSeat;
 import dev.gathering.block.Chairs;
 import dev.gathering.block.TableSeats;
+import dev.gathering.block.TableSessions;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.Side;
 import dev.gathering.item.GatheringContent;
@@ -15,6 +16,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -32,7 +34,7 @@ public final class ChairGameTest {
     public static void sittingInAChairAgainstATableTakesThatSeat(GameTestHelper helper) {
         BlockPos table = TestTables.place(helper, 1, 2, 2);
         ServerPlayer player = player(helper);
-        BlockPos chair = chairAt(helper, table.north(), Direction.SOUTH);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
         Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
         Optional<SeatAnchor> seat = TableSeats.seatOf(helper.getLevel(), table, player.getUUID());
         if (seat.isEmpty() || seat.get().side() != Side.NORTH) {
@@ -46,12 +48,101 @@ public final class ChairGameTest {
         helper.succeed();
     }
 
+    /**
+     * A table on its own is played across whichever pair of edges its first sitter chose, and after
+     * that only the edge opposite them seats anybody. The owner's rule for chairs.
+     */
+    @GameTest(template = "tables")
+    public static void aTableOnItsOwnTurnsToItsFirstSitter(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        ServerPlayer first = player(helper);
+        BlockPos east = chairAt(helper, table.offset(3, 0, 1), Direction.WEST);
+        Chairs.sit(first, east, helper.getLevel().getBlockState(east));
+        Optional<SeatAnchor> firstSeat = TableSeats.seatOf(helper.getLevel(), table, first.getUUID());
+        if (firstSeat.isEmpty() || firstSeat.get().side() != Side.EAST || !(first.getVehicle() instanceof ChairSeat)) {
+            helper.fail("sitting in the chair at the east edge of an empty table took " + firstSeat);
+            return;
+        }
+        ServerPlayer second = player(helper);
+        BlockPos north = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
+        Chairs.sit(second, north, helper.getLevel().getBlockState(north));
+        if (TableSeats.seatOf(helper.getLevel(), table, second.getUUID()).isPresent() || second.isPassenger()) {
+            helper.fail("a second player sat at the north edge of a table played east to west");
+            return;
+        }
+        BlockPos west = chairAt(helper, table.offset(-1, 0, 1), Direction.EAST);
+        Chairs.sit(second, west, helper.getLevel().getBlockState(west));
+        Optional<SeatAnchor> secondSeat = TableSeats.seatOf(helper.getLevel(), table, second.getUUID());
+        if (secondSeat.isEmpty() || secondSeat.get().side() != Side.WEST) {
+            helper.fail("the chair opposite the first player took " + secondSeat);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A chair at a table's edge but not at its middle seats nobody, and the table stays the way it was. */
+    @GameTest(template = "tables")
+    public static void aChairOffTheMiddleOfAnEdgeIsNotASeat(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        ServerPlayer player = player(helper);
+        BlockPos chair = chairAt(helper, table.offset(0, 0, -1), Direction.SOUTH);
+        Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
+        if (TableSeats.seatOf(helper.getLevel(), table, player.getUUID()).isPresent() || player.isPassenger()) {
+            helper.fail("a chair at the corner of a table's north edge seated the player");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** Right-clicking a table never seats anybody, and a deck put on a table with no game starts none. */
+    @GameTest(template = "tables")
+    public static void aDeckOnATableStartsNoGame(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        ServerPlayer walkingUp = player(helper);
+        use(helper, table, walkingUp, aDeck());
+        if (TableSeats.seatOf(helper.getLevel(), table, walkingUp.getUUID()).isPresent()
+                || TableSessions.hasSession(helper.getLevel(), table)) {
+            helper.fail("right-clicking a table with a deck seated the player or started a game");
+            return;
+        }
+        ServerPlayer sitting = player(helper);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
+        Chairs.sit(sitting, chair, helper.getLevel().getBlockState(chair));
+        ItemStack deck = aDeck();
+        use(helper, table, sitting, deck);
+        if (TableSessions.hasSession(helper.getLevel(), table)) {
+            helper.fail("a deck put on a table somebody sits at, with no game chosen, started one");
+            return;
+        }
+        if (sitting.getItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND) != deck || deck.isEmpty()) {
+            helper.fail("a deck put on a table with no game left the player's hand");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static ItemStack aDeck() {
+        return dev.gathering.item.DeckItem.of(new dev.gathering.item.DeckComponent(
+                "Deck", "", Optional.empty(), java.util.List.of(), java.util.List.of(), java.util.List.of(),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
+    }
+
+    /** A right-click on the top of this table with this in the main hand, the way a player makes one. */
+    private static void use(GameTestHelper helper, BlockPos table, ServerPlayer player, ItemStack held) {
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, held);
+        BlockPos middle = table.offset(1, 0, 1);
+        helper.getLevel().getBlockState(middle).useItemOn(held, helper.getLevel(), player,
+                net.minecraft.world.InteractionHand.MAIN_HAND,
+                new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(middle),
+                        Direction.UP, middle, false));
+    }
+
     /** Sat in, a player's thighs lie on the seat: not sunk into the chair, not floating over it. */
     @GameTest(template = "tables")
     public static void aSitterSitsOnTheSeat(GameTestHelper helper) {
         BlockPos table = TestTables.place(helper, 1, 2, 2);
         ServerPlayer player = player(helper);
-        BlockPos chair = chairAt(helper, table.north(), Direction.SOUTH);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
         Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
         if (!(player.getVehicle() instanceof ChairSeat seat)) {
             helper.fail("the player sat in the chair is riding " + player.getVehicle());
@@ -76,7 +167,7 @@ public final class ChairGameTest {
     public static void gettingUpGivesTheSeatBack(GameTestHelper helper) {
         BlockPos table = TestTables.place(helper, 1, 2, 2);
         ServerPlayer player = player(helper);
-        BlockPos chair = chairAt(helper, table.north(), Direction.SOUTH);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
         Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
         player.stopRiding();
         if (TableSeats.seatOf(helper.getLevel(), table, player.getUUID()).isPresent()) {
@@ -94,7 +185,7 @@ public final class ChairGameTest {
     public static void breakingTheChairStandsThemUp(GameTestHelper helper) {
         BlockPos table = TestTables.place(helper, 1, 2, 2);
         ServerPlayer player = player(helper);
-        BlockPos chair = chairAt(helper, table.north(), Direction.SOUTH);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
         Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
         helper.getLevel().removeBlock(chair, false);
         if (player.isPassenger()) {
@@ -112,7 +203,7 @@ public final class ChairGameTest {
     public static void leavingTheTableFromTheBoardGetsYouOutOfTheChair(GameTestHelper helper) {
         BlockPos table = TestTables.place(helper, 1, 2, 2);
         ServerPlayer player = player(helper);
-        BlockPos chair = chairAt(helper, table.north(), Direction.SOUTH);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
         Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
         TableSeats.leave(helper.getLevel(), table, player.getUUID());
         if (player.isPassenger()) {
@@ -130,7 +221,7 @@ public final class ChairGameTest {
                 .filter(anchor -> anchor.side() == Side.NORTH).findFirst().orElseThrow();
         TableSeats.take(helper.getLevel(), table, north.cell(), north.side(), somebody);
         ServerPlayer player = player(helper);
-        BlockPos chair = chairAt(helper, table.north(), Direction.SOUTH);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
         Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
         if (player.isPassenger()) {
             helper.fail("a player sat down in a chair at somebody else's seat");
@@ -147,7 +238,7 @@ public final class ChairGameTest {
     public static void aChairAwayFromATableIsOnlyAChair(GameTestHelper helper) {
         BlockPos table = TestTables.place(helper, 1, 2, 2);
         ServerPlayer player = player(helper);
-        BlockPos chair = chairAt(helper, table.offset(0, 0, -3), Direction.SOUTH);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -3), Direction.SOUTH);
         Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
         if (!(player.getVehicle() instanceof ChairSeat)) {
             helper.fail("a chair on its own could not be sat in");

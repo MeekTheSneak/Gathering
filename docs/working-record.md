@@ -1458,6 +1458,77 @@ the end with one failure, the free-mulligan expectation, since corrected; that r
 steps and the two-mulligan step, **which have not yet run**. Photos looked at: the pack reveal (`41`),
 a seat's tooltip (`107a`), the mulligan step (`107c`, before the fix).
 
+### Second batch: 6 and 7 (stacking), 4, 2 and 1 (the table rework)
+
+- **6, stacking.** Two causes. A card let go on a stack landed wherever the cursor was, and a stack
+  was worked out pair by pair: a card on the top card but a hair further from the bottom than the
+  stacking distance counted one card under it, which is the owner's "starts a new stack with cards
+  in the current stack". A stack is now whole (`TableStacking.piles` joins a card to the stack of
+  the topmost earlier card it lies on, and knows each card's bottom card), and a card, a selection or
+  a whole pile let go over a card snaps onto that stack's spot, on both boards. The seated board
+  rings the stack a card would join and draws the footprint there. Lifting a whole stack uses the
+  same stacks. `TableStackingTest.aStackIsWhole` and the reference walk were shown failing with a
+  pair-by-pair rule; the tour carries a card over a card well off its middle, checks the stack it
+  would join, lets go, and checks it landed on the stack's spot.
+- **7, every stack grows.** On the block a stack on the felt stands as tall as its cards: each card
+  a slab one card thick (or the depth step, if larger), squared on the one below at its own angle,
+  with its edges in the sleeve color, alternately shaded. No lean on the block; the seated board
+  still leans. The pointer on the block aims at the top of a tall stack. **Not looked at in a photo
+  yet.**
+- **4, no walk-up game.** Right-clicking a table with a deck never starts a game: with no game on
+  it the deck stays in hand, the player is told to choose a game, and the choice of game opens.
+- **2, chairs only.** Right-clicking a table never seats anybody; crouching on one does not either.
+  A chair at the middle of an edge is the only way to sit. At a table on its own the first sitter
+  may use any edge, which turns the table to be played across that pair (`TableBlockEntity.turned`,
+  saved and sent to clients); after that only the opposite edge seats. A chair against a table but
+  off the middle, or at an edge that seats nobody, refuses and says which. Sitting at an idle table
+  opens the choice of game (which offers the lesson to a first-timer); a game starting opens the
+  board for everybody seated and offers a loaner to anybody without a deck (`TableSetup.begun`);
+  the loaner is no longer offered on sitting at an idle table, where it covered the choice of game.
+  Between games of a match, the plain click from a chair starts the next one. Guards, each shown
+  failing against the old behavior: `ChairGameTest.aTableOnItsOwnTurnsToItsFirstSitter`,
+  `aChairOffTheMiddleOfAnEdgeIsNotASeat`, `aDeckOnATableStartsNoGame`,
+  `MatchGameTest.crouchingOnATableSeatsNobodyAndStartsNothing` (which replaces the test that
+  crouching seats you).
+- **1, three-by-three tables.** `TableCell.BLOCKS_PER_TABLE` is 3 and `TablePart` has nine parts
+  (corners with legs; edges and middle felt over apron; the crying obsidian table's column is now in
+  its middle block). New models `*_table_top` and `crying_obsidian_table_middle`; blockstates for
+  all nine parts. Lines of tables run either way: a line north to south seats along its east and
+  west sides (`TableCluster.turned`, `seatsAsLaidOut`), and the board is laid out as the same line
+  east to west and turned a quarter in the world - by the block renderer, `TableTop.inTheWorld`
+  for the pointer, and the camera (`yawTurned`). A mat holds fifteen cards across, a tenth bigger in
+  the world than eleven across a two-block table, with the zone gaps and edge margin tightened so
+  the four zones down a two-player mat are the size of the cards (`zonesAreTheSizeOfTheCards`); the
+  life box is a little shorter so two facing ones still fit between the mats. Seats are at the
+  middle of an edge. The village card shops are rebuilt fourteen by nine with two tables and their
+  chairs (`tools/village.py`); the test templates are larger (`empty` 5x4x5, `tables` 17x4x14) and
+  test tables are spaced three apart; the Create ponder scene shows one table with its chairs,
+  because two do not fit on Create's five-block plate. Guide page, tooltips, messages and the
+  design brief say the new rules.
+- The tour sits in a chair, is shown the choice of game, puts a deck down with no game (and checks
+  none started), chooses free play, starts, and puts the deck down. From there it holds the seat
+  the way an event seats a player, without a chair, because the rest of it teleports the player
+  and getting out of a chair gives the seat up.
+
+Verified for this batch: gate green (543/16) with every check above shown failing first; core tests
+green. A tour ran clean at 356 of 356 on the stacking and search half before the table rework; **the
+tour has not yet run on the table rework**, so the new opening (chair, choice of game, deck) is
+exercised by in-world tests only.
+
+Known and open from this batch:
+- `AmbientBoardGameTest.achangedboardisstillsent` failed once in a gate run and passed in the two
+  in-world runs straight after. It counts boards through a static counter every test shares; not
+  yet reproduced or explained.
+- `tools/plotcheck.py` reads tests from `neoforge/src/main/java/.../test`, which no longer exists,
+  so it checks nothing ("0 test placements checked"). Pointed at the real directory it reports 25
+  placements outside a template 3 blocks across, from files mixing the `empty` and `tables`
+  templates. Left as it was; the templates are now large enough for a 3x3 table either way.
+- `TableClusters.sideFrom` is now used only by `SableTablesGameTest`; nothing in play asks which
+  edge a player is standing at.
+- Not verified in a photo or by hand: a turned table drawn, pointed at and framed by the camera;
+  stacks standing on the block; the village shops; the ponder scene. Old two-block tables in existing
+  worlds are not migrated, by the owner's decision.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

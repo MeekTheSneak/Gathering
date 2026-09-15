@@ -1,8 +1,35 @@
 {
   "variants": {
-    "part=north_west": { "model": "gathering:block/table_corner", "y": 0 },
-    "part=north_east": { "model": "gathering:block/table_corner", "y": 90 },
-    "part=south_east": { "model": "gathering:block/table_corner", "y": 180 },
-    "part=south_west": { "model": "gathering:block/table_corner", "y": 270 }
+    "part=north_west": {
+      "model": "gathering:block/table_corner",
+      "y": 0
+    },
+    "part=north": {
+      "model": "gathering:block/table_top"
+    },
+    "part=north_east": {
+      "model": "gathering:block/table_corner",
+      "y": 90
+    },
+    "part=west": {
+      "model": "gathering:block/table_top"
+    },
+    "part=middle": {
+      "model": "gathering:block/table_top"
+    },
+    "part=east": {
+      "model": "gathering:block/table_top"
+    },
+    "part=south_west": {
+      "model": "gathering:block/table_corner",
+      "y": 270
+    },
+    "part=south": {
+      "model": "gathering:block/table_top"
+    },
+    "part=south_east": {
+      "model": "gathering:block/table_corner",
+      "y": 180
+    }
   }
 }

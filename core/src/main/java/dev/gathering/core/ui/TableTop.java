@@ -13,6 +13,10 @@ import java.util.Optional;
  * inside a renderer where it could only be checked by looking at it.
  * <p>Surface coordinates are the same ones {@link TableSurface} works in, so a hit comes back
  * ready to hand to {@code seatAt} or {@code positionOn} with nothing in between.
+ * <p>Everything below except {@link #at} and {@link #inTheWorld} is measured in the surface's own
+ * unturned frame - west to east along its x, north to south along its y, from {@code westX} and
+ * {@code northZ} - which for an unturned table is simply the world. The camera frames the table in
+ * that frame and turns the answer at the end, the same way the drawing does.
  *
  * @param westX  the world x of the surface's (0, 0) corner
  * @param topY   the world y the surface sits at
@@ -20,10 +24,17 @@ import java.util.Optional;
  * @param span   how many blocks across one table is
  * @param tablesAcross how many tables the cluster is wide, west to east
  * @param tablesDown   how many tables the cluster is deep, north to south
+ * @param turned       whether the surface lies a quarter turn clockwise in the world, as a line of
+ *     tables running north to south does, or a lone table seating east and west: its x then runs
+ *     south along the world and its y runs west, from the north-east corner of the tables
  */
 public record TableTop(
         double westX, double topY, double northZ, double span,
-        int tablesAcross, int tablesDown) {
+        int tablesAcross, int tablesDown, boolean turned) {
+
+    public TableTop(double westX, double topY, double northZ, double span, int tablesAcross, int tablesDown) {
+        this(westX, topY, northZ, span, tablesAcross, tablesDown, false);
+    }
 
     /**
      * How far in from the block's edge the playing surface starts.
@@ -63,8 +74,14 @@ public record TableTop(
      */
     public static TableTop forCluster(
             double cornerX, double cornerY, double cornerZ, int tablesAcross, int tablesDown) {
+        return forCluster(cornerX, cornerY, cornerZ, tablesAcross, tablesDown, false);
+    }
+
+    /** The same, for a cluster that may lie a quarter turn round in the world. */
+    public static TableTop forCluster(
+            double cornerX, double cornerY, double cornerZ, int tablesAcross, int tablesDown, boolean turned) {
         return new TableTop(cornerX + MARGIN, cornerY + SURFACE_HEIGHT, cornerZ + MARGIN,
-                SPAN_BLOCKS, tablesAcross, tablesDown);
+                SPAN_BLOCKS, tablesAcross, tablesDown, turned);
     }
 
     public TableTop {
@@ -102,7 +119,7 @@ public record TableTop(
      * side of the felt beneath it, so a ray cast at the felt picked the card behind the pile.
      */
     public TableTop raisedBy(double surfaceUnits) {
-        return new TableTop(westX, topY + blocks(surfaceUnits), northZ, span, tablesAcross, tablesDown);
+        return new TableTop(westX, topY + blocks(surfaceUnits), northZ, span, tablesAcross, tablesDown, turned);
     }
 
     /** A point on the shared surface, in {@link TableSurface} units. */
@@ -139,6 +156,13 @@ public record TableTop(
      * table read as off it, and a card let go there quietly went nowhere.
      */
     public Optional<Spot> at(double worldX, double worldZ) {
+        if (turned) {
+            // Back into the surface's own frame first: the inverse of inTheWorld.
+            double unturnedX = westX + (worldZ - northZ);
+            double unturnedZ = northZ + (westX + depthInBlocks() - worldX);
+            worldX = unturnedX;
+            worldZ = unturnedZ;
+        }
         if (worldX < westX || worldX > westX + widthInBlocks()
                 || worldZ < northZ || worldZ > northZ + depthInBlocks()) {
             return Optional.empty();
@@ -152,12 +176,31 @@ public record TableTop(
         return Math.max(0, Math.min(most, surfaceUnits));
     }
 
-    /** The world x of a point on the surface. */
+    /**
+     * Where a point in the surface's own unturned frame is on the table, as {x, z}: itself for an
+     * unturned table, and turned a quarter clockwise about the tables' footprint for a turned one.
+     */
+    public double[] inTheWorld(double unturnedX, double unturnedZ) {
+        if (!turned) {
+            return new double[] {unturnedX, unturnedZ};
+        }
+        return new double[] {westX + depthInBlocks() - (unturnedZ - northZ), northZ + (unturnedX - westX)};
+    }
+
+    /**
+     * How far a view in the surface's own frame is turned in the world, in degrees of yaw: a quarter
+     * for a turned table, whose surface y runs west.
+     */
+    public float yawTurned() {
+        return turned ? 90f : 0f;
+    }
+
+    /** The x of a point on the surface, in the surface's own unturned frame. */
     public double worldX(double surfaceX) {
         return westX + surfaceX / TableSurface.SPAN * span;
     }
 
-    /** The world z of a point on the surface. */
+    /** The z of a point on the surface, in the surface's own unturned frame. */
     public double worldZ(double surfaceY) {
         return northZ + surfaceY / TableSurface.SPAN * span;
     }

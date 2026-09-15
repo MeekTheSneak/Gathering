@@ -103,8 +103,9 @@ public final class TablePointer {
         // Where that place on the felt is in the world - the surface's coordinates are the table's
         // own, which a moving structure carries somewhere else - and then camera-relative,
         // because that is the space the world was drawn in.
+        double[] onTheTable = top.inTheWorld(top.worldX(surfaceX), top.worldZ(surfaceY));
         net.minecraft.world.phys.Vec3 inWorld = dev.gathering.platform.WorldSpace.get().toWorld(client.level,
-                new net.minecraft.world.phys.Vec3(top.worldX(surfaceX), top.topY(), top.worldZ(surfaceY)));
+                new net.minecraft.world.phys.Vec3(onTheTable[0], top.topY(), onTheTable[1]));
         Vector3f point = new Vector3f(
                 (float) (inWorld.x - eye.x),
                 (float) (inWorld.y - eye.y),

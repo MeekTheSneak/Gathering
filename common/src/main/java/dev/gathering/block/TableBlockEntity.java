@@ -57,6 +57,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String SIGNUP_KEY = "pod_signup";
     private static final String POD_RECORD_KEY = "pod_record";
     private static final String APART_KEY = "plays_apart";
+    private static final String TURNED_KEY = "turned";
     private static final String LABEL_NUMBER_KEY = "event_table";
     private static final String LABEL_LINE_KEY = "event_line";
     private static final String LABEL_ENDS_KEY = "event_ends";
@@ -401,6 +402,26 @@ public class TableBlockEntity extends BlockEntity {
             eventTable = number;
             eventLine = cleaned;
             eventEnds = endsAt;
+            tellClients();
+        }
+    }
+
+    /**
+     * Whether this table, standing alone, seats across its east and west edges rather than its north
+     * and south. Whoever sits down first at an empty table chooses, by the edge they sit at; a line of
+     * tables seats along its long sides whatever this says. Sent to clients with the felt, because
+     * the board drawn on the table turns with it.
+     */
+    private boolean turned;
+
+    public boolean turned() {
+        return turned;
+    }
+
+    public void setTurned(boolean turned) {
+        if (this.turned != turned) {
+            this.turned = turned;
+            setChanged();
             tellClients();
         }
     }
@@ -1014,6 +1035,7 @@ public class TableBlockEntity extends BlockEntity {
         tag.putBoolean(COMMAND_ZONE_KEY, hasCommandZone());
         tag.putBoolean(COMMANDER_DAMAGE_KEY, countsCommanderDamage());
         tag.putBoolean(APART_KEY, playsApart);
+        tag.putBoolean(TURNED_KEY, turned);
         tag.putInt(LABEL_NUMBER_KEY, eventTable);
         tag.putString(LABEL_LINE_KEY, eventLine);
         tag.putLong(LABEL_ENDS_KEY, eventEnds);
@@ -1046,6 +1068,7 @@ public class TableBlockEntity extends BlockEntity {
         commanderDamage = tag.getBoolean(COMMANDER_DAMAGE_KEY);
         formatChosen = tag.getBoolean(FORMAT_CHOSEN_KEY);
         playsApart = tag.getBoolean(APART_KEY);
+        turned = tag.getBoolean(TURNED_KEY);
         if (tag.contains(LABEL_NUMBER_KEY)) {
             eventTable = tag.getInt(LABEL_NUMBER_KEY);
             eventLine = tag.getString(LABEL_LINE_KEY);
@@ -1263,6 +1286,9 @@ public class TableBlockEntity extends BlockEntity {
         }
         if (playsApart) {
             tag.putBoolean(APART_KEY, true);
+        }
+        if (turned) {
+            tag.putBoolean(TURNED_KEY, true);
         }
         ListTag seats = new ListTag();
         claims.forEach((side, player) -> {

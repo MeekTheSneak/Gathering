@@ -50,16 +50,20 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /**
      * How many cards fit across a mat, which is what decides how big a card is.
      * <p>Chosen for play rather than derived: a real playmat is nearer nine across, but this
-     * mat is two blocks by one and so wider and shallower than a real one. Eleven leaves three
-     * rows deep - lands, creatures, and the zones along the near edge.
+     * mat is three blocks by one and a half and so wider and shallower than a real one.
+     * <p>Fifteen since tables became three blocks across: a card a tenth bigger in the world than it
+     * was at eleven across a two-block table, and four more of them across a mat. So the bigger table
+     * is more room rather than bigger cards, a card on your own board still opens at a readable size
+     * on a small window, and the column of zones down a mat fits at the size of the cards in it
+     * rather than shrinking - which the owner asked for. Tested; see TableSurfaceTest.
      */
-    private static final int CARDS_ACROSS_A_MAT = 11;
+    private static final int CARDS_ACROSS_A_MAT = 15;
 
     /** The gap between two zones in the column, as a fraction of a slot. */
-    private static final double PILE_GAP = 0.12;
+    private static final double PILE_GAP = 0.05;
 
     /** And the wider one that sets the command zone apart from the other three. */
-    private static final double PILE_GROUP_GAP = 0.45;
+    private static final double PILE_GROUP_GAP = 0.15;
 
     /**
      * How far the box round a group sits outside the zones in it, as a share of the gap. Not
@@ -89,10 +93,10 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      * different gaps, and the mat comes out with an even margin down one side and a zone
      * column jammed against the border on the other.
      */
-    private static final double EDGE_MARGIN = 0.23;
+    private static final double EDGE_MARGIN = 0.2;
 
     /** How tall a seat's life counter is, as a share of a card. */
-    private static final double LIFE_HEIGHT = 0.42;
+    private static final double LIFE_HEIGHT = 0.36;
 
     /** And how wide, as a share of its own height - room for three figures and two halves. */
     private static final double LIFE_WIDTH = 2.4;

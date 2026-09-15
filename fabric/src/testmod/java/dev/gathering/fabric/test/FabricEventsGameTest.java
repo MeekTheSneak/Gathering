@@ -39,7 +39,7 @@ public class FabricEventsGameTest implements FabricGameTest {
 
     @GameTest(template = EMPTY_STRUCTURE)
     public void alongTablePlayedApartRunsThreeGames(GameTestHelper helper) {
-        BlockPos[] tables = {place(helper, 0), place(helper, 2), place(helper, 4)};
+        BlockPos[] tables = {place(helper, 0), place(helper, 3), place(helper, 6)};
         if (TablesApart.set(helper.getLevel(), tables[1], true) != TablesApart.Result.DONE) {
             helper.fail("the long table would not be played apart");
             return;
@@ -60,7 +60,7 @@ public class FabricEventsGameTest implements FabricGameTest {
     /** A tournament round seats each pair at its numbered table and starts its match. */
     @GameTest(template = EMPTY_STRUCTURE)
     public void atournamentRoundSeatsEachPairAtItsTable(GameTestHelper helper) {
-        java.util.List<BlockPos> tables = java.util.List.of(place(helper, 0), place(helper, 3));
+        java.util.List<BlockPos> tables = java.util.List.of(place(helper, 0), place(helper, 4));
         java.util.List<net.minecraft.server.level.ServerPlayer> players = new java.util.ArrayList<>();
         for (int index = 0; index < 4; index++) {
             var player = helper.makeMockServerPlayerInLevel();

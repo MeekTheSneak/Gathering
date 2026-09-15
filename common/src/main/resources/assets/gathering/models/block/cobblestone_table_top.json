@@ -1,0 +1,154 @@
+{
+  "__comment": "The edge and middle blocks of a cobblestone table: the felt and what is under it, and nothing standing on the floor. A table is three blocks by three; its legs are on the four corners.",
+  "parent": "block/block",
+  "textures": {
+    "particle": "minecraft:block/cobblestone",
+    "felt": "gathering:block/table_felt",
+    "frame": "minecraft:block/cobblestone"
+  },
+  "elements": [
+    {
+      "__comment": "Felt surface. Tinted, so every table dyes the same way.",
+      "from": [
+        0,
+        13,
+        0
+      ],
+      "to": [
+        16,
+        15,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "__comment": "Deep apron - three tall where the wooden table has two.",
+      "from": [
+        0,
+        10,
+        0
+      ],
+      "to": [
+        16,
+        13,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            6
+          ]
+        },
+        "south": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            6
+          ]
+        },
+        "east": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            6
+          ]
+        },
+        "west": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            6
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -16,9 +16,9 @@ import net.minecraft.world.phys.AABB;
 
 /**
  * Sitting in a chair, and getting up out of one.
- * <p>A chair set against a table's edge is that edge's seat: sitting in it takes the seat exactly
- * as right-clicking the edge does - the same messages, the same game told, the same deck offered -
- * and opens the board if a game is on. Getting up, however it happens, gives the seat up exactly as
+ * <p>A chair set against the middle of a table's edge is that edge's seat, and the only way to take
+ * one: sitting in it takes the seat - the same messages, the same game told, the same deck offered -
+ * and opens the board if a game is on, or the choice of game if there is none yet. Getting up, however it happens, gives the seat up exactly as
  * clicking your own edge does, and the cards stay on the table as they always do. A chair anywhere
  * else is only a chair.
  * <p>What is kept is the table's own record of who is sitting where; the thing a player rides is
@@ -41,6 +41,17 @@ public final class Chairs {
         }
         Direction facing = state.getValue(ChairBlock.FACING);
         Optional<FacingSeat> atATable = facingSeat(level, chair, facing);
+        Optional<FacingSeat> against = atATable.isPresent() ? atATable : againstATable(level, chair, facing);
+        if (atATable.isEmpty() && against.isPresent()) {
+            // Against a table but not at a seat: off the middle of an edge, or at an edge nobody may sit at -
+            // the end of a line, or the side of a table already being played across the other way. Said
+            // rather than sat in as a chair that is only a chair: somebody in a chair at a table looks, to
+            // everybody including themselves, like somebody playing at it.
+            boolean seatHere = TableSeats.couldSeat(level, against.get().origin(), against.get().cell(), against.get().side());
+            player.displayClientMessage(Component.translatable(seatHere
+                    ? "message.gathering.chair_off_center" : "message.gathering.seat_not_a_seat"), true);
+            return;
+        }
         BlockPos tableOrigin = null;
         if (atATable.isPresent()) {
             FacingSeat seat = atATable.get();
@@ -61,8 +72,8 @@ public final class Chairs {
         // Facing the table, so the board and the world agree about which way is forward.
         player.setYRot(facing.toYRot());
         player.setYHeadRot(facing.toYRot());
-        if (tableOrigin != null && TableSessions.hasSession(level, tableOrigin)) {
-            dev.gathering.server.TableActions.openFor(player, tableOrigin);
+        if (tableOrigin != null) {
+            TableBlock.satDown(player, tableOrigin);
         }
     }
 
@@ -75,6 +86,13 @@ public final class Chairs {
      * table the chair is against, and whether the cluster counts that edge as a seat.
      */
     static Optional<FacingSeat> facingSeat(Level level, BlockPos chair, Direction facing) {
+        return againstATable(level, chair, facing)
+                .filter(seat -> chair.equals(TableClusters.seatPos(seat.origin(), new SeatAnchor(seat.cell(), seat.side()))))
+                .filter(seat -> TableSeats.couldSeat(level, seat.origin(), seat.cell(), seat.side()));
+    }
+
+    /** The table edge a chair is set against and facing, wherever along the edge it is. */
+    private static Optional<FacingSeat> againstATable(Level level, BlockPos chair, Direction facing) {
         BlockPos front = chair.relative(facing);
         BlockState there = level.getBlockState(front);
         if (!(there.getBlock() instanceof TableBlock)) {
@@ -82,13 +100,9 @@ public final class Chairs {
         }
         BlockPos corner = TableBlock.originOf(there, front);
         BlockPos origin = TableSessions.anchorOf(level, corner).orElse(corner);
-        TableCluster cluster = TableClusters.at(level, origin);
         TableCell cell = TableClusters.cellOf(origin, corner);
         Side side = TableClusters.sideFacing(facing.getOpposite());
-        if (side == null || !TableSeats.isSeat(cluster, cell, side)) {
-            return Optional.empty();
-        }
-        return Optional.of(new FacingSeat(origin, cell, side));
+        return side == null ? Optional.empty() : Optional.of(new FacingSeat(origin, cell, side));
     }
 
     /**

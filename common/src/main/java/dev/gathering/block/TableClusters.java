@@ -30,11 +30,15 @@ public final class TableClusters {
      */
     public static TableCluster at(BlockGetter level, BlockPos origin) {
         TableCell home = new TableCell(0, 0);
+        // A table on its own seats across whichever edges its first sitter chose. Asked of this table,
+        // because a cluster of one is this table; a line of more runs the way it runs.
+        boolean turnedWhenAlone = level.getBlockEntity(origin) instanceof TableBlockEntity table && table.turned();
         if (playsApart(level, origin)) {
-            return TableCluster.around(home, cell -> cell.equals(home) && isTableOrigin(level, blockPos(origin, cell)));
+            return TableCluster.around(home, cell -> cell.equals(home) && isTableOrigin(level, blockPos(origin, cell)),
+                    turnedWhenAlone);
         }
         return TableCluster.around(home, cell -> isTableOrigin(level, blockPos(origin, cell))
-                && !playsApart(level, blockPos(origin, cell)));
+                && !playsApart(level, blockPos(origin, cell)), turnedWhenAlone);
     }
 
     /**
@@ -99,17 +103,22 @@ public final class TableClusters {
         return TableCluster.seatsEverySide(joined) ? "" : "message.gathering.cluster_line";
     }
 
-    /** Where a seat is in the world: the block outside that edge of that table. */
+    /**
+     * Where a seat is in the world: the block outside the middle of that edge of that table, which is
+     * where its chair goes.
+     */
     public static BlockPos seatPos(BlockPos origin, SeatAnchor seat) {
         BlockPos table = blockPos(origin, seat.cell());
+        int across = TableCell.BLOCKS_PER_TABLE;
+        int middle = across / 2;
         return switch (seat.side()) {
-            // A table is two blocks across, so its far edges are one further out than its
-            // corner - the offsets are not symmetric and assuming they are puts half the
+            // Measured from the table's corner, so its far edges are a whole table further out than
+            // its near ones - the offsets are not symmetric, and assuming they are puts half the
             // seats inside the table.
-            case NORTH -> table.offset(0, 0, -1);
-            case SOUTH -> table.offset(0, 0, 2);
-            case WEST -> table.offset(-1, 0, 0);
-            case EAST -> table.offset(2, 0, 0);
+            case NORTH -> table.offset(middle, 0, -1);
+            case SOUTH -> table.offset(middle, 0, across);
+            case WEST -> table.offset(-1, 0, middle);
+            case EAST -> table.offset(across, 0, middle);
         };
     }
 
@@ -154,7 +163,7 @@ public final class TableClusters {
                 Math.floorDiv(tableOrigin.getZ() - clusterOrigin.getZ(), TableCell.BLOCKS_PER_TABLE));
     }
 
-    /** A cell of the cluster, back in world coordinates. A table is two blocks wide. */
+    /** A cell of the cluster, back in world coordinates. A table is three blocks wide. */
     public static BlockPos blockPos(BlockPos origin, TableCell cell) {
         return origin.offset(cell.x() * TableCell.BLOCKS_PER_TABLE, 0, cell.z() * TableCell.BLOCKS_PER_TABLE);
     }

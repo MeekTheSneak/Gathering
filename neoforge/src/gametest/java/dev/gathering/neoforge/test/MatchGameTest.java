@@ -249,17 +249,22 @@ public final class MatchGameTest {
     }
 
     @GameTest(template = "tables")
-    public static void crouchingOnAnEmptyTableSitsYouDown(GameTestHelper helper) {
-        // The first thing anybody does alone is put a table down and crouch on it. Making that
-        // fail because they had not clicked an edge first is how a mod looks broken to
-        // somebody trying it for the first time.
+    public static void crouchingOnATableSeatsNobodyAndStartsNothing(GameTestHelper helper) {
+        // Seats come from chairs, and only somebody sitting at a table chooses its game. Crouching
+        // on one used to sit the player down wherever there was room; the owner asked for chairs
+        // to be the one way to sit, and a crouch that seated you was a second way.
         BlockPos origin = place(helper);
         var player = helper.makeMockPlayer(GameType.SURVIVAL);
 
         TableBlock.startGameFor(helper.getLevel(), origin, player);
 
-        if (TableSeats.seatOf(helper.getLevel(), origin, player.getUUID()).isEmpty()) {
-            helper.fail("Crouching on an empty table did not sit the player down");
+        if (TableSeats.seatOf(helper.getLevel(), origin, player.getUUID()).isPresent()) {
+            helper.fail("Crouching on a table sat the player down without a chair");
+            return;
+        }
+        if (TableSessions.hasSession(helper.getLevel(), origin)) {
+            helper.fail("Crouching on a table nobody sits at started a game");
+            return;
         }
         helper.succeed();
     }

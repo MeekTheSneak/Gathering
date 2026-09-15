@@ -96,7 +96,7 @@ public final class EventBoardGameTest {
         try {
             var saved = TableBlock.entityAt(helper.getLevel(), table).orElseThrow()
                     .saveWithFullMetadata(helper.getLevel().registryAccess());
-            BlockPos there = place(helper, 5, 2, 5);
+            BlockPos there = place(helper, 7, 2, 7);
             TableBlock.entityAt(helper.getLevel(), there).orElseThrow().loadWithComponents(saved, helper.getLevel().registryAccess());
             for (TablePart part : TablePart.values()) {
                 helper.getLevel().setBlock(part.offsetFrom(table), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
@@ -118,7 +118,7 @@ public final class EventBoardGameTest {
     @GameTest(template = "empty")
     public static void aCarriedLongTableKeepsBothNumbers(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
-        BlockPos second = place(helper, 3, 2, 1);
+        BlockPos second = place(helper, 4, 2, 1);
         var tournament = Tournament.create(UUID.randomUUID(), "Long", new UUID(7L, 8L),
                 EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
         EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(first, second));
@@ -127,8 +127,8 @@ public final class EventBoardGameTest {
             // Both tables written down and loaded where they went, as a mover does with every block entity.
             var firstSaved = helper.getLevel().getBlockEntity(first).saveWithFullMetadata(helper.getLevel().registryAccess());
             var secondSaved = helper.getLevel().getBlockEntity(second).saveWithFullMetadata(helper.getLevel().registryAccess());
-            BlockPos firstThere = place(helper, 1, 2, 7);
-            BlockPos secondThere = place(helper, 3, 2, 7);
+            BlockPos firstThere = place(helper, 1, 2, 10);
+            BlockPos secondThere = place(helper, 4, 2, 10);
             helper.getLevel().getBlockEntity(firstThere).loadWithComponents(firstSaved, helper.getLevel().registryAccess());
             helper.getLevel().getBlockEntity(secondThere).loadWithComponents(secondSaved, helper.getLevel().registryAccess());
             // The second table's corners before its origin, while the first still stands - so the second's

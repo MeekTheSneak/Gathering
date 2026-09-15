@@ -1,0 +1,154 @@
+{
+  "__comment": "The edge blocks of a crying obsidian table, and its corners: felt over the apron and nothing under it. This table stands on one column, in its middle block.",
+  "parent": "block/block",
+  "textures": {
+    "particle": "minecraft:block/crying_obsidian",
+    "felt": "gathering:block/table_felt",
+    "frame": "minecraft:block/crying_obsidian"
+  },
+  "elements": [
+    {
+      "__comment": "Felt surface. Tinted, so every table dyes the same way.",
+      "from": [
+        0,
+        13,
+        0
+      ],
+      "to": [
+        16,
+        15,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "__comment": "Apron.",
+      "from": [
+        0,
+        11,
+        0
+      ],
+      "to": [
+        16,
+        13,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "south": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "east": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "west": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        }
+      }
+    }
+  ]
+}

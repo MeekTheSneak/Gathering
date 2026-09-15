@@ -152,13 +152,46 @@ class TableClusterTest {
      * Nobody is ever seated where their own board would read sideways.
      * <p>The whole reason a shape that is not a line seats fewer people. Stated over every
      * shape rather than over the ones the placement rule allows, because a world built before
-     * that rule existed still loads and still has to put nobody at a side.
+     * that rule existed still loads and still has to put nobody at an end. A line running north
+     * to south seats along its east and west sides; everything else along north and south.
      */
     @Property(tries = 2000)
     void noSeatIsEverOnASideEdge(@ForAll("shapes") Set<TableCell> shape) {
-        for (SeatAnchor seat : TableCluster.of(shape).seats()) {
-            assertThat(seat.side()).isIn(Side.NORTH, Side.SOUTH);
+        TableCluster cluster = TableCluster.of(shape);
+        for (SeatAnchor seat : cluster.seats()) {
+            if (cluster.turned()) {
+                assertThat(seat.side()).isIn(Side.EAST, Side.WEST);
+            } else {
+                assertThat(seat.side()).isIn(Side.NORTH, Side.SOUTH);
+            }
         }
+    }
+
+    @Test
+    @DisplayName("a line of tables running north to south seats along its long sides, in the order the same line across would")
+    void aLineDownSeatsAlongItsLength() {
+        for (int tables = 2; tables <= TableCluster.MAX_TABLES; tables++) {
+            Set<TableCell> line = new LinkedHashSet<>();
+            for (int z = 0; z < tables; z++) {
+                line.add(cell(5, z));
+            }
+            TableCluster down = TableCluster.of(line);
+            assertThat(down.turned()).isTrue();
+            assertThat(down.capacity()).isEqualTo(tables * TableCluster.SEATS_PER_TABLE);
+            // Laid out as the same line running east to west, which is what every board is drawn from.
+            assertThat(down.seatsAsLaidOut()).isEqualTo(TableCluster.assumedSeating(down.capacity()).stream()
+                    .map(seat -> new SeatAnchor(new TableCell(seat.cell().x(), -5), seat.side())).toList());
+        }
+    }
+
+    @Test
+    @DisplayName("a table on its own seats across whichever pair of edges it was turned to, and only that pair")
+    void aLoneTableSeatsOnePair() {
+        Set<TableCell> one = Set.of(cell(0, 0));
+        assertThat(TableCluster.of(one, false).seats()).extracting(SeatAnchor::side).containsExactly(Side.NORTH, Side.SOUTH);
+        assertThat(TableCluster.of(one, true).seats()).extracting(SeatAnchor::side).containsExactly(Side.EAST, Side.WEST);
+        // A line runs the way it runs, whatever its first table was turned to.
+        assertThat(TableCluster.of(Set.of(cell(0, 0), cell(1, 0)), true).turned()).isFalse();
     }
 
     @Property(tries = 2000)
