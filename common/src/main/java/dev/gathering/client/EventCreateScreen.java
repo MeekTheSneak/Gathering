@@ -48,6 +48,8 @@ public final class EventCreateScreen extends Screen {
     private final List<int[]> labelAt = new ArrayList<>();
     private final List<Component> labels = new ArrayList<>();
     private final List<int[]> numberAt = new ArrayList<>();
+    /** The build clock's number, drawn dim while the event has nothing to build. */
+    private java.util.function.IntSupplier buildNumber;
     private final List<java.util.function.IntSupplier> numbers = new ArrayList<>();
     private String said = "";
 
@@ -118,8 +120,18 @@ public final class EventCreateScreen extends Screen {
                 value -> bestOf = value, value -> "screen.gathering.event.best_of." + value);
         y = stepper(left, y, column, "screen.gathering.event.round_minutes", () -> roundMinutes,
                 () -> roundMinutes = Math.max(10, roundMinutes - 5), () -> roundMinutes = Math.min(EventSettings.MOST_MINUTES, roundMinutes + 5));
+        int beforeBuild = children().size();
+        int buildIndex = numbers.size();
         y = stepper(left, y, column, "screen.gathering.event.build_minutes", () -> buildMinutes,
                 () -> buildMinutes = Math.max(5, buildMinutes - 5), () -> buildMinutes = Math.min(EventSettings.MOST_MINUTES, buildMinutes + 5));
+        // A constructed event brings its decks built: there is no building to time, so its
+        // clock is shown grayed rather than taking presses that change nothing.
+        buildNumber = numbers.get(buildIndex);
+        for (var child : children().subList(beforeBuild, children().size())) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
+                widget.active = kind.isLimited();
+            }
+        }
 
         // Right column.
         y = top;
@@ -229,7 +241,9 @@ public final class EventCreateScreen extends Screen {
         for (int index = 0; index < numbers.size(); index++) {
             int value = numbers.get(index).getAsInt();
             Component text = value == 0 ? Component.translatable("screen.gathering.event.auto") : Component.literal(Integer.toString(value));
-            GuiText.drawCentered(graphics, this.font, text, numberAt.get(index)[0], numberAt.get(index)[1], 60, LABEL);
+            boolean unused = numbers.get(index) == buildNumber && !kind.isLimited();
+            GuiText.drawCentered(graphics, this.font, text, numberAt.get(index)[0], numberAt.get(index)[1], 60,
+                    unused ? DIM : LABEL);
         }
         EventSettings settings = settings();
         String problem = table == null ? "screen.gathering.events.host_at_a_table" : settings.problem().orElse(null);

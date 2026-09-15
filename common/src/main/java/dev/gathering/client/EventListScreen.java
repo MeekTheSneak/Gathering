@@ -81,16 +81,21 @@ public final class EventListScreen extends Screen {
         }
         int bottom = panel.bottom() - MARGIN - 18;
         int quarter = (panel.width() - MARGIN * 2 - 12) / 4;
-        addRenderableWidget(GatheringButtons.of(panel.x() + MARGIN, bottom, quarter, 18, Component.literal("<"), () -> {
+        var back = GatheringButtons.of(panel.x() + MARGIN, bottom, quarter, 18, Component.literal("<"), () -> {
             page = Math.max(0, page - 1);
             rebuildWidgets();
-        }));
-        addRenderableWidget(GatheringButtons.of(panel.x() + MARGIN + quarter + 4, bottom, quarter, 18, Component.literal(">"), () -> {
+        });
+        var forward = GatheringButtons.of(panel.x() + MARGIN + quarter + 4, bottom, quarter, 18, Component.literal(">"), () -> {
             if ((page + 1) * PER_PAGE < events.size()) {
                 page++;
                 rebuildWidgets();
             }
-        }));
+        });
+        // Grayed where there is no page to go to, rather than a press that does nothing.
+        back.active = page > 0;
+        forward.active = (page + 1) * PER_PAGE < events.size();
+        addRenderableWidget(back);
+        addRenderableWidget(forward);
         var host = GatheringButtons.of(panel.x() + MARGIN + (quarter + 4) * 2, bottom, quarter, 18,
                 Component.translatable("screen.gathering.events.host"),
                 () -> this.minecraft.setScreen(new EventCreateScreen(lastTable)));
