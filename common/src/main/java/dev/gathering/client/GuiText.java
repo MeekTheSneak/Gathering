@@ -361,7 +361,10 @@ public final class GuiText {
 
         float scale = Math.max(MINIMUM_SCALE, (float) maxWidth / width);
         FormattedText shown = text;
-        if (width * scale > maxWidth) {
+        // A hair of slack: a line shrunk to exactly its room comes back from the float division a
+        // fraction of a pixel wider than the room, and was cut to an ellipsis for it - "library 8"
+        // drawn as "library ..." in a column it fitted.
+        if (width * scale > maxWidth + 0.01f) {
             // Even at the smallest readable size it does not fit, so the tail goes.
             noteTrim(text);
             int room = Math.round(maxWidth / scale) - font.width(ELLIPSIS);

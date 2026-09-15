@@ -1319,6 +1319,72 @@ one is worth making. In order, each committed on its own after the gate and a to
    - Breaking the chair, a restart, or the table changing shape ends the sit without losing cards.
    - Model: vanilla stair pieces.
 
+Progress (2026-09-15), what each now does:
+
+1. **Stacks.** `PileThickness` sizes a pile at half a millimeter of sleeved card per card against the
+   card's width, capped at 100 cards. `TableMiniatureRenderer` draws banded sides in the owner's
+   sleeve color, puts the top card and count on top, lights the top when aimed at, and flies cards
+   above the tallest pile. On the block, `TableScreen.onTopOfAPile` aims at a pile's top
+   (`TableTop.raisedBy`).
+   - Tour: a 25-card library stands 71 units, and all four edges of its top pick it. Proven failing
+     without the pointer change.
+   - Photographed from beside the table (`61b`).
+2. **Player strip.** Faces come from the skin the client has, or the default skin for the player's
+   id, faded while away. A thin glow marks whose turn it is; the owner found the first ring hid the
+   face. `SeatStrip` puts seats in two rows when one row would leave a seat no room for a face, name
+   and life, with the turn on the first row and the table's terms on the second. Resting on a seat
+   gives name, life, hand, library, graveyard, exile and counters.
+   - Tour: two faces, and eight seats in two rows at 427 wide and one row at GUI scale 1.
+3. **Arrival glow.** `Arrival` fades for 1.4 s, holding steady under reduced motion.
+   `ClientCardFlights` records arrivals, marked from landing. It is drawn with `GuiGlow.around` on
+   the screen and a band on the block.
+   - Tour: the rival's milled graveyard is lit. Proven failing without it.
+4. **Table terms.** `TableTerms` and `TableTermsPayload` (protocol 14) are sent with every board.
+   The turn column says the format, match and game, with for keeps and free play in amber, and the
+   tooltip says everything. A walk-up game is free play.
+   - `TableTermsGameTest` (3), proven failing.
+   - Tour: free play and for keeps.
+5. **How to play.** `GuideScreen` has seven Markdown pages under `assets/gathering/guide/en_us`
+   (`GuidePage` parser), with keys filled from bindings (`[2]` for draw). It opens from a "?" at
+   the end of the top row. `GuideLayout` switches between a column of topics, rows of topics, and
+   one topic at a time.
+   - Found by reading the click path: the top row counted as felt, so the "?" could not be clicked.
+     Clicks now reach it first, and the tour clicks it through the board.
+6. **Chairs.** `ChairBlock`, the unsaved `ChairSeat` entity and `Chairs`. The model is vanilla oak
+   planks and stripped oak, with no new art. Sitting goes through the same `TableBlock.sitAt` as
+   clicking an edge, and getting up through `TableBlock.standUp`. Leaving from the board gets you out
+   of the chair. Disconnecting keeps the seat.
+   - Recipe: stick, three planks, two sticks.
+   - `ChairGameTest` (6): five proven failing; the away-from-a-table case has nothing to remove.
+   - Crafting test.
+
+Not reproduced: one tour run showed four cursor-to-card failures that neither the run before it nor
+the run after it showed. They were a drag out of the graveyard, a hover on the block, and key 9 at a
+card. In that run's photo the hovered hand card was raised over the graveyard. The logs are
+identical up to that step, and the next run with the same code passed all 348 steps. Cause unknown.
+The scripted run's cursor is reflection into the mouse handler, since GLFW ignores
+`glfwSetCursorPos` for an unfocused window; a pointer moved over the game's window is the leading
+guess. Watch for it again.
+
+Found in the pictures and fixed:
+- The chair's back rose above the block with texture coordinates that ran off its texture, and came
+  out green and pink; the UVs are now explicit.
+- The board's top row showed through the guide's panel: the board draws some text raised in depth.
+  `ChildScreen` now clears depth after drawing the screen underneath.
+- On two rows the turn kept a third of the width while the terms had their own row. It now keeps a
+  fifth, for the seats' names.
+- The guide is drawn at a raised depth, because clearing depth in `ChildScreen` alone did not stop
+  the board's top row showing through.
+
+Verified for this batch: gate green (535/16), and the tour clean at 348 of 348 twice. Every new
+check was shown failing without its code; the away-from-a-table chair test is the exception. Photos
+looked at: eight at a table in one and two rows, a seat's tooltip, chairs at the tables, the guide,
+the terms and the arrival glow.
+
+Still open: the tour's side-on photo of a deck (`61b`) catches the seated board rather than the
+world, because something reopens the board between aiming and shooting. An earlier run's photo did
+show the stack standing with its sides.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

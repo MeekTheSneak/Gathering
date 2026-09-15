@@ -38,6 +38,8 @@ final class GatheringRegistration {
 
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, Gathering.MOD_ID);
+    private static final DeferredRegister<net.minecraft.world.entity.EntityType<?>> ENTITY_TYPES =
+            DeferredRegister.create(BuiltInRegistries.ENTITY_TYPE, Gathering.MOD_ID);
 
     private static final DeferredRegister<net.minecraft.world.entity.ai.village.poi.PoiType> POI_TYPES =
             DeferredRegister.create(BuiltInRegistries.POINT_OF_INTEREST_TYPE, Gathering.MOD_ID);
@@ -94,6 +96,13 @@ final class GatheringRegistration {
                     dev.gathering.block.CollectionBlockEntity.ID, () -> BlockEntityType.Builder
                             .of(GatheringContent::createCollectionEntity, COLLECTION.get())
                             .build(null));
+
+    private static final Supplier<Block> CHAIR =
+            BLOCKS.register(GatheringContent.CHAIR_ID, GatheringContent::createChair);
+    private static final Supplier<Item> CHAIR_ITEM =
+            ITEMS.register(GatheringContent.CHAIR_ID, GatheringContent::createChairItem);
+    private static final Supplier<net.minecraft.world.entity.EntityType<dev.gathering.block.ChairSeat>> CHAIR_SEAT =
+            ENTITY_TYPES.register(dev.gathering.block.ChairSeat.ID, GatheringContent::createChairSeat);
 
     private static final Supplier<Block> SCOREKEEPERS_DESK =
             BLOCKS.register(GatheringContent.SCOREKEEPERS_DESK_ID, GatheringContent::createScorekeepersDesk);
@@ -188,6 +197,7 @@ final class GatheringRegistration {
                 output.accept(new ItemStack(CRYING_OBSIDIAN_TABLE_ITEM.get()));
                 output.accept(new ItemStack(COLLECTION_ITEM.get()));
                 output.accept(new ItemStack(SCOREKEEPERS_DESK_ITEM.get()));
+                output.accept(new ItemStack(CHAIR_ITEM.get()));
             })
             .build());
 
@@ -202,6 +212,7 @@ final class GatheringRegistration {
         PROFESSIONS.register(modBus);
         SOUNDS.register(modBus);
         BLOCK_ENTITIES.register(modBus);
+        ENTITY_TYPES.register(modBus);
         ITEMS.register(modBus);
         DATA_COMPONENTS.register(modBus);
         LOOT_ENTRIES.register(modBus);
@@ -245,6 +256,9 @@ final class GatheringRegistration {
         GatheringContent.COLLECTION.bind(COLLECTION);
         GatheringContent.COLLECTION_ITEM.bind(COLLECTION_ITEM);
         GatheringContent.COLLECTION_ENTITY.bind(COLLECTION_ENTITY);
+        GatheringContent.CHAIR.bind(CHAIR);
+        GatheringContent.CHAIR_ITEM.bind(CHAIR_ITEM);
+        GatheringContent.CHAIR_SEAT.bind(CHAIR_SEAT);
         GatheringContent.SCOREKEEPERS_DESK.bind(SCOREKEEPERS_DESK);
         GatheringContent.SCOREKEEPERS_DESK_ITEM.bind(SCOREKEEPERS_DESK_ITEM);
         GatheringContent.SCOREKEEPERS_DESK_ENTITY.bind(SCOREKEEPERS_DESK_ENTITY);

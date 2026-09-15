@@ -58,11 +58,13 @@ public final class GatheringProtocol {
      * <p>Twelve, for choosing to draw: a move an older server cannot read, and a turn marker on
      * the board that says the choice has been made.
      * <p>Thirteen, for a host's controls: an event's view carries why each of them does not apply.
+     * <p>Fourteen, for a table's terms: the format, match length, game and stakes sent beside its
+     * board.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 13;
+    public static final int VERSION = 14;
 
     private GatheringProtocol() {
     }
@@ -231,6 +233,7 @@ public final class GatheringProtocol {
             toClient(CollectionPagePayload.TYPE, CollectionPagePayload.STREAM_CODEC),
             toClient(OpenLoanersPayload.TYPE, OpenLoanersPayload.STREAM_CODEC),
             toClient(AntePotPayload.TYPE, AntePotPayload.STREAM_CODEC),
+            toClient(TableTermsPayload.TYPE, TableTermsPayload.STREAM_CODEC),
             toClient(AnteConsentPayload.TYPE, AnteConsentPayload.STREAM_CODEC),
             toClient(ReplayListPayload.TYPE, ReplayListPayload.STREAM_CODEC),
             toClient(ReplayFramePayload.TYPE, ReplayFramePayload.STREAM_CODEC),

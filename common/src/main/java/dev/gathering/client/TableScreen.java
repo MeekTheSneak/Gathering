@@ -9,6 +9,7 @@ import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.Placement;
+import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
@@ -655,6 +656,38 @@ public final class TableScreen extends Screen {
                     coveredByTheStatus(), coveredByTheHand());
         }
         addTutorialButtons();
+        addTheGuideButton();
+    }
+
+    /** The size of the "?" at the end of the top row, and the room kept for it. */
+    private static final class SeatStripGuide {
+        static final int SIZE = dev.gathering.core.ui.SeatStrip.ROW - 2;
+        static final int ROOM = SIZE + 4;
+    }
+
+    /** The "?" at the end of the top row, which opens how to play. Null where there is no top row. */
+    private net.minecraft.client.gui.components.Button guideButton;
+
+    /**
+     * A "?" at the right-hand end of the top row, for how to play.
+     * <p>The key list is behind F1, and nothing on the board says so; the lesson is offered once. So
+     * the one control every board carries is a question mark in the corner where a player looks for
+     * one. It opens the guide over the table, and closing it comes back to the table as it was.
+     */
+    private void addTheGuideButton() {
+        guideButton = null;
+        Rect area = layout.status();
+        if (area.isEmpty() || mode.isLearning()) {
+            // The lesson has its own buttons and its own words; a second way out of it would be one
+            // too many.
+            return;
+        }
+        int size = SeatStripGuide.SIZE;
+        guideButton = this.addRenderableWidget(GatheringButtons.glyph(
+                area.right() - PAD - size, area.y() + (Math.min(area.height(), dev.gathering.core.ui.SeatStrip.ROW) - size) / 2,
+                size, size, "?",
+                Component.translatable("screen.gathering.table.guide"),
+                () -> Minecraft.getInstance().setScreen(new GuideScreen(this))));
     }
 
     /**
@@ -912,10 +945,46 @@ public final class TableScreen extends Screen {
         }
         askedX = mouseX;
         askedY = mouseY;
-        answered = TablePointer.at(tableTop(), mouseX, mouseY)
+        answered = onTopOfAPile(mouseX, mouseY)
+                .or(() -> TablePointer.at(tableTop(), mouseX, mouseY))
                 .map(spot -> new double[] {spot.x(), spot.y()})
                 .orElse(null);
         return answered;
+    }
+
+    /**
+     * Where the cursor meets the top of a pile, if it is over one.
+     * <p>A pile on the block stands as tall as its cards, and seen from a chair its top is nearer
+     * the eye than the felt under it: a ray cast at the felt went past the top of a deck and
+     * picked whatever lay behind it. So each pile's own top is tried first, and the answer kept
+     * only when it lands inside that pile - the tallest first, where two could both claim it.
+     */
+    private Optional<TableTop.Spot> onTopOfAPile(double mouseX, double mouseY) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return Optional.empty();
+        }
+        TableTop top = tableTop();
+        TableTop.Spot best = null;
+        double tallest = 0;
+        for (SeatView seat : board.seats()) {
+            if (!seat.hasABoard()) {
+                continue;
+            }
+            for (int index = 0; index < pileCount(); index++) {
+                Rect slot = onBlock.pileRect(seat.seat(), index, pileCount());
+                double height = TableMiniatureRenderer.pileHeight(seat.zones().get(Zone.PILES.get(index)), slot);
+                if (height <= tallest || slot.isEmpty()) {
+                    continue;
+                }
+                Optional<TableTop.Spot> spot = TablePointer.at(top.raisedBy(height), mouseX, mouseY);
+                if (spot.isPresent() && slot.contains((int) Math.floor(spot.get().x()), (int) Math.floor(spot.get().y()))) {
+                    best = spot.get();
+                    tallest = height;
+                }
+            }
+        }
+        return Optional.ofNullable(best);
     }
 
     /**
@@ -1892,7 +1961,7 @@ public final class TableScreen extends Screen {
      * call: it comes off the block entity, every loop over the column asks, and the answer
      * changes twice a match.
      */
-    private int pileCount() {
+    int pileCount() {
         return piles;
     }
 
@@ -1946,6 +2015,18 @@ public final class TableScreen extends Screen {
         } else {
             CardSleeves.draw(graphics, view.sleeve(),
                     art.x(), art.y(), art.width(), art.height());
+        }
+
+        // Lit in its seat's color for a moment after cards land in it, so a move made while you
+        // were looking at another board still leaves a mark. See Arrival.
+        float arrived = dev.gathering.core.ui.Arrival.strength(
+                ClientCardFlights.arrivedSince(table, view.seat(), zone, ClientCardFlights.now()),
+                ClientSettings.reducedMotion());
+        if (arrived > 0f) {
+            GuiGlow.around(graphics, art.x(), art.y(), art.width(), art.height(),
+                    Math.max(3, Math.min(art.width(), art.height()) / 4),
+                    (dev.gathering.core.ui.Arrival.alpha(arrived) << 24)
+                            | (SeatColor.at(view.seat().index(), 0xFF) & 0x00FFFFFF));
         }
 
         // Name on the felt beside the slot, count in the slot's own corner. Four unlabeled
@@ -2721,6 +2802,33 @@ public final class TableScreen extends Screen {
         return HandFan.at(layout().hand(), count, x, y);
     }
 
+    /** Faces drawn along the top on the last frame, for the scripted run to count. */
+    int facesDrawn;
+
+    /**
+     * One player's face, from their skin.
+     * <p>The skin the game already holds for a player who is connected, and the default one their
+     * id picks for one who is not - never fetched from anywhere by this. Ringed while it is their
+     * turn, so whose turn it is shows in the row itself rather than only in the sentence at its end.
+     */
+    private void drawFace(GuiGraphics graphics, PlayerRef player, int x, int y, int size, boolean away, boolean theirTurn) {
+        net.minecraft.client.multiplayer.ClientPacketListener connection = Minecraft.getInstance().getConnection();
+        net.minecraft.client.multiplayer.PlayerInfo info = connection == null ? null : connection.getPlayerInfo(player.id());
+        net.minecraft.client.resources.PlayerSkin skin = info != null
+                ? info.getSkin()
+                : net.minecraft.client.resources.DefaultPlayerSkin.get(player.id());
+        if (away) {
+            graphics.setColor(1f, 1f, 1f, 0.45f);
+        }
+        net.minecraft.client.gui.components.PlayerFaceRenderer.draw(graphics, skin, x, y, size);
+        graphics.setColor(1f, 1f, 1f, 1f);
+        if (theirTurn) {
+            // A glow outside the face rather than a ring over it: the ring covered most of a face
+            // this small, which is the one thing the face is there to show.
+            GuiGlow.around(graphics, x, y, size, size, 2, 0xD0000000 | (ACCENT & 0x00FFFFFF));
+        }
+    }
+
     /**
      * The strip along the top: everybody's name and life, and whose turn it is.
      * <p>In both views now. On the block the mats are two blocks away and a life total painted
@@ -2728,6 +2836,7 @@ public final class TableScreen extends Screen {
      * mats to be nothing but board, which is what they are for.
      */
     private void renderStatus(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
+        facesDrawn = 0;
         Rect area = layout().status();
         if (area.isEmpty()) {
             return;
@@ -2740,17 +2849,26 @@ public final class TableScreen extends Screen {
         List<SeatView> seats = board.seats();
         SeatId me = mySeat().orElse(null);
         SeatId active = board.turn().activeSeat();
-        int pad = PAD;
+        int inside = stripInside(this.width);
+        int turnWidth = turnWidthFor(inside);
         // A gap between one seat's line and the next, so "library 1" and the next name do
         // not read as one sentence on a narrow window.
         int gap = 8;
-        int inside = Math.max(1, area.width() - pad * 2);
-        int turnWidth = Math.min(inside / 3, 190);
-        int column = seats.isEmpty() ? inside : (inside - turnWidth) / seats.size();
-        int line = area.y() + (area.height() - this.font.lineHeight) / 2;
+        int rows = Math.max(1, Math.min(dev.gathering.core.ui.SeatStrip.MOST_ROWS, area.height() / dev.gathering.core.ui.SeatStrip.ROW));
+        if (rows > 1) {
+            // On two rows the table's terms have a row of their own, so the turn needs only its own
+            // few words - and every pixel it does not keep is a seat's name.
+            turnWidth = Math.min(inside / 5, 150);
+        }
+        dev.gathering.core.ui.SeatStrip strip = dev.gathering.core.ui.SeatStrip.of(
+                area, rows, seats.size(), area.x() + PAD, inside, turnWidth, gap);
+        lastStrip = strip;
+        int hovered = strip.seatAt(mouseX, mouseY);
 
         for (int index = 0; index < seats.size(); index++) {
             SeatView seat = seats.get(index);
+            Rect cell = strip.seats().get(index);
+            int line = cell.y() + (cell.height() - this.font.lineHeight) / 2;
             // A chair nobody is in says so and stops. Forty life, no cards and no deck are
             // all true of a player who does not exist, and printing them makes an empty seat
             // look like somebody who is losing badly.
@@ -2763,10 +2881,30 @@ public final class TableScreen extends Screen {
             // The seat's own mark in front of its name, so the mark an owner badge shows is
             // a thing the board says somewhere else too. Colour and mark together, for the
             // same reason the badge carries both.
+            // The player's face first, from the skin the game already has for them: a name is
+            // something to read and a face is somebody sitting there. Only where there is a board
+            // with a name on it - a free chair has nobody to show - and faded for a player who has
+            // got up and left their cards, the same way the line says they are away.
+            int left = cell.x();
+            int room = cell.width();
+            PlayerRef whose = seat.whoseBoard().orElse(null);
+            int face = faceSize(cell.height());
+            if (whose != null && room > face * 3) {
+                drawFace(graphics, whose, left, cell.y() + (cell.height() - face) / 2, face,
+                        seat.occupant().isEmpty(), seat.seat().equals(active));
+                facesDrawn++;
+                left += face + 4;
+                room -= face + 4;
+            }
             GuiText.drawOverTheBoard(graphics, this.font,
-                    seatLine(seat, column - gap),
-                    area.x() + pad + index * column, line, column - gap,
+                    seatLine(seat, room),
+                    left, line, room,
                     SeatColor.at(seat.seat().index(), 0xFF));
+            // Everything about the seat on a rest, whatever the column had room for: with eight at
+            // a table a column holds a face and a life total, and the rest is one move away.
+            if (index == hovered) {
+                setTooltipForNextRenderPass(seatDetails(seat).stream().map(Component::getVisualOrderText).toList());
+            }
         }
 
         // A chair nobody is in is named by its number rather than called "(empty)". The
@@ -2782,11 +2920,99 @@ public final class TableScreen extends Screen {
         // checked against it, and the tables people already play on do not have one either.
         // What it actually did was spend a third of this strip telling four people something
         // they had just said out loud.
-        GuiText.drawOverTheBoard(graphics, this.font,
-                Component.translatable("screen.gathering.table.turn",
-                        board.turn().turnNumber(), who),
-                area.right() - pad - turnWidth, line, turnWidth, mine ? ACCENT : QUIET);
+        Component turn = Component.translatable("screen.gathering.table.turn", board.turn().turnNumber(), who)
+                .withColor(mine ? ACCENT : QUIET);
+        Rect turnAt = strip.turn();
+        int turnLine = turnAt.y() + (turnAt.height() - this.font.lineHeight) / 2;
+        // And what the table is playing, as much of that as there is room for: the unusual parts -
+        // for keeps, no format - are the last to go. See TableTermsText. Beside the turn on one
+        // row; under it, with the whole width to itself, on two.
+        dev.gathering.core.match.TableTerms terms = ClientTableState.termsOf(table).orElse(null);
+        Component said = turn;
+        String shown;
+        if (terms != null && !strip.terms().isEmpty()) {
+            Component termsLine = fitting(TableTermsText.candidates(null, terms), turnWidth);
+            GuiText.drawOverTheBoard(graphics, this.font, termsLine, strip.terms().x(),
+                    strip.terms().y() + (strip.terms().height() - this.font.lineHeight) / 2, turnWidth, QUIET);
+            shown = turn.getString() + " " + termsLine.getString();
+        } else {
+            if (terms != null) {
+                said = fitting(TableTermsText.candidates(turn, terms), turnWidth);
+            }
+            shown = said.getString();
+        }
+        termsShown = shown;
+        GuiText.drawOverTheBoard(graphics, this.font, said, turnAt.x(), turnLine, turnWidth, mine ? ACCENT : QUIET);
+        if (terms != null && mouseX >= turnAt.x() && mouseX < turnAt.right()
+                && mouseY >= area.y() && mouseY < area.bottom()) {
+            setTooltipForNextRenderPass(TableTermsText.tooltip(terms).stream()
+                    .map(Component::getVisualOrderText).toList());
+        }
     }
+
+    /** The strip as it was last drawn, for the scripted run to rest the pointer on a seat. */
+    dev.gathering.core.ui.SeatStrip lastStrip;
+
+    /** The first of these that fits this width at the text size asked, or the last. */
+    private Component fitting(List<Component> ways, int width) {
+        for (Component way : ways) {
+            if (this.font.width(way) * GuiText.askedScale() <= width) {
+                return way;
+            }
+        }
+        return ways.get(ways.size() - 1);
+    }
+
+    /** The room the strip's columns and the turn share: the window less padding and the "?" at the end. */
+    private int stripInside(int windowWidth) {
+        int guideRoom = mode.isLearning() ? 0 : SeatStripGuide.ROOM;
+        return Math.max(1, windowWidth - PAD * 2 - guideRoom);
+    }
+
+    /** How much of the strip the turn keeps: wider than the turn alone, for what the table is playing. */
+    private static int turnWidthFor(int inside) {
+        return Math.min(inside / 3, 260);
+    }
+
+    /** How big a face is in a row of the strip this tall. */
+    private int faceSize(int rowHeight) {
+        return Math.max(6, Math.min(rowHeight - 4, this.font.lineHeight + 2));
+    }
+
+    /** How many rows the strip wants at this window width: two when one would leave a seat no room for a name. */
+    private int statusRows(int windowWidth) {
+        int seatCount = view().map(board -> board.seats().size()).orElse(anchors().size());
+        int inside = stripInside(windowWidth);
+        int least = faceSize(dev.gathering.core.ui.SeatStrip.ROW) + 4
+                + Math.round(this.font.width("8 Somebody - 40 life") * GuiText.askedScale()) + 8;
+        return dev.gathering.core.ui.SeatStrip.rowsFor(inside, seatCount, turnWidthFor(inside), least);
+    }
+
+    /** Everything the strip knows about a seat, one fact a line, for the tooltip over its column. */
+    private List<Component> seatDetails(SeatView seat) {
+        List<Component> lines = new java.util.ArrayList<>();
+        String mark = SeatMark.of(seat.seat().index());
+        if (!seat.hasABoard()) {
+            lines.add(Component.translatable("screen.gathering.table.seat_marked", mark,
+                    Component.translatable("screen.gathering.table.free_seat")).withColor(SeatColor.at(seat.seat().index(), 0xFF)));
+            return lines;
+        }
+        lines.add(Component.translatable("screen.gathering.table.seat_marked", mark, SeatNames.of(seat))
+                .withColor(SeatColor.at(seat.seat().index(), 0xFF)));
+        if (seat.occupant().isEmpty()) {
+            lines.add(Component.translatable("screen.gathering.table.seat_tip.away"));
+        }
+        lines.add(Component.translatable("screen.gathering.table.seat_tip.life", seat.life()));
+        lines.add(Component.translatable("screen.gathering.table.seat_tip.cards",
+                count(seat, Zone.HAND), count(seat, Zone.LIBRARY), count(seat, Zone.GRAVEYARD), count(seat, Zone.EXILE)));
+        if (!seat.counters().isEmpty()) {
+            lines.add(Component.literal(describeCounters(seat)));
+        }
+        return lines;
+    }
+
+    /** What the top row said about the turn and the table on the last frame, for the scripted run. */
+    String termsShown = "";
 
     /**
      * One seat's column in the strip along the top, said as fully as the column has room for.
@@ -3394,6 +3620,13 @@ public final class TableScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int x = (int) mouseX;
         int y = (int) mouseY;
+
+        // The "?" first. Everything below treats the top row as felt - a press there starts a box
+        // selection - so a button drawn on it was a button no click could reach.
+        if (guideButton != null && guideButton.visible && guideButton.isMouseOver(mouseX, mouseY)
+                && menu == null && palette == null) {
+            return guideButton.mouseClicked(mouseX, mouseY, button);
+        }
 
         if (mode.isWatching()) {
             return watcherClicked(x, y, button);
@@ -6238,9 +6471,10 @@ public final class TableScreen extends Screen {
      * would have to learn about a replay's scrubber one at a time.
      */
     private TableScreenLayout freshLayout() {
+        int rows = statusRows(this.width);
         return mode.isWatching()
-                ? TableScreenLayout.watching(this.width, this.height)
-                : TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
+                ? TableScreenLayout.watching(this.width, this.height, rows)
+                : TableScreenLayout.of(this.width, this.height, mySeat().isPresent(), rows);
     }
 
     /**

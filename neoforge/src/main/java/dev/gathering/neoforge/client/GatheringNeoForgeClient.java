@@ -73,6 +73,8 @@ public final class GatheringNeoForgeClient {
         event.registerBlockEntityRenderer(
                 GatheringContent.SCOREKEEPERS_DESK_ENTITY.get(),
                 dev.gathering.client.ScorekeepersDeskRenderer::new);
+        // A chair's seat is never drawn: the chair is the block, and the seat is only what is sat on.
+        event.registerEntityRenderer(GatheringContent.CHAIR_SEAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
     }
 
     @SubscribeEvent

@@ -64,6 +64,14 @@ public final class CraftingGameTest {
                 new ItemStack(Items.SPRUCE_PLANKS), ItemStack.EMPTY, new ItemStack(Items.SPRUCE_PLANKS)));
     }
 
+    @GameTest(template = "empty")
+    public static void aChairCanBeCrafted(GameTestHelper helper) {
+        crafts(helper, GatheringContent.CHAIR_ITEM.get(), List.of(
+                new ItemStack(Items.STICK), ItemStack.EMPTY, ItemStack.EMPTY,
+                new ItemStack(Items.OAK_PLANKS), new ItemStack(Items.BIRCH_PLANKS), new ItemStack(Items.OAK_PLANKS),
+                new ItemStack(Items.STICK), ItemStack.EMPTY, new ItemStack(Items.STICK)));
+    }
+
     /** Lays the nine stacks out on a bench and checks what comes off it. */
     private static void crafts(GameTestHelper helper, Item wanted, List<ItemStack> grid) {
         NonNullList<ItemStack> slots = NonNullList.withSize(9, ItemStack.EMPTY);

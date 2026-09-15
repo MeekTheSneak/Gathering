@@ -78,6 +78,41 @@ public final class GuiGlow {
     }
 
     /**
+     * A glow around the outside of a rectangle, solid at its edge and gone a little way out.
+     * <p>For a pile cards have just landed in: lit in its seat's color, which is a meaning rather
+     * than a look, so it is drawn rather than taken from a theme's sprite - tinting a themed ring
+     * multiplies the theme's own color into the seat's and comes out a brown nobody chose.
+     * <p>Rings rather than discs, each a hair further out and fainter, on the same squared curve
+     * as the round glow and for the same reason: a linear falloff shows where it ends.
+     *
+     * @param spread how many pixels out the glow reaches
+     * @param color  the glow at its brightest, alpha included
+     */
+    public static void around(GuiGraphics graphics, int x, int y, int width, int height, int spread, int color) {
+        float brightest = ((color >>> 24) & 0xFF) / 255f;
+        if (spread <= 0 || brightest <= 0f || width <= 0 || height <= 0) {
+            return;
+        }
+        int rgb = color & 0x00FFFFFF;
+        for (int out = 1; out <= spread; out++) {
+            float left = 1f - (out - 1) / (float) spread;
+            int alpha = Math.round(brightest * left * left * 255f);
+            if (alpha <= 0) {
+                continue;
+            }
+            int ring = (alpha << 24) | rgb;
+            int left0 = x - out;
+            int top = y - out;
+            int right = x + width + out;
+            int bottom = y + height + out;
+            graphics.fill(left0, top, right, top + 1, ring);
+            graphics.fill(left0, bottom - 1, right, bottom, ring);
+            graphics.fill(left0, top + 1, left0 + 1, bottom - 1, ring);
+            graphics.fill(right - 1, top + 1, right, bottom - 1, ring);
+        }
+    }
+
+    /**
      * One filled circle, a row at a time.
      * <p>A row rather than a pixel: a circle's half-width at each row is one square root, and
      * a row is one fill. Per pixel it would be a thousand calls for a thing the size of a

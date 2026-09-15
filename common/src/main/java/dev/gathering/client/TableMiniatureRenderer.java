@@ -13,6 +13,7 @@ import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
+import dev.gathering.core.ui.PileThickness;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.Shaking;
 import dev.gathering.core.ui.SeatColor;
@@ -290,6 +291,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         poseStack.pushPose();
         poseStack.translate(MARGIN, CARD_Y, MARGIN);
         int piles = Zone.pilesFor(table.hasCommandZone());
+        tallestPile = 0f;
         for (int index = 0; index < board.seats().size(); index++) {
             // Same rule as the mats: a seat nobody has taken shows nothing at all. Drawing
             // its zones but not its mat left four empty boxes floating on bare felt, which
@@ -337,7 +339,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                     onSurface(where.x(), span), onSurface(where.y(), span),
                     onSurface(where.width(), span), onSurface(where.height(), span),
                     surface(board).facingDegrees(flight.move().to().seat().index()),
-                    false, IN_THE_AIR);
+                    // Over the tallest pile rather than through it: a card coming off the top of
+                    // a sixty-card library leaves from the top.
+                    false, IN_THE_AIR + tallestPile);
         }
     }
 
@@ -348,6 +352,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * has no limit.
      */
     private static final float IN_THE_AIR = STACK_LIFT * (TableStacking.MAX_DEPTH + 1);
+
+    /** The tallest pile on the table being drawn, so a card in the air clears it. */
+    private float tallestPile;
 
     private static TableSurface surface(GameView board) {
         return TableSurface.forSeatCount(board.seats().size());
@@ -481,10 +488,33 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             ZoneView contents = seat.zones().get(Zone.PILES.get(index));
             int held = contents == null ? 0 : showing(contents);
             int angle = surface.facingDegrees(seatIndex);
+            // As tall as the cards in it, so a deck stands on the table like a deck and a
+            // graveyard of three is a few cards thick. How many is already written on it; the
+            // height says roughly the same thing to somebody across the room.
+            float standing = onSurface((float) pileHeight(contents, slot), span);
+            tallestPile = Math.max(tallestPile, standing);
             if (held > 0) {
+                drawPileSides(poseStack, buffers, packedLight, seat.sleeve(), held,
+                        x, z, width, depth, angle, standing);
                 CardView top = topOf(contents);
                 drawSleeved(poseStack, buffers, packedLight, top, seat.sleeve(),
-                        x, z, width, depth, angle, false, SLOT_LIFT);
+                        x, z, width, depth, angle, false, SLOT_LIFT + standing);
+                if (aimed) {
+                    // The recess under a pile lights up when a card is held over it, and a tall
+                    // pile covers its own recess - so the top of the pile lights up as well.
+                    drawAimedTop(poseStack, buffers, x, z, width, depth, SLOT_LIFT + standing);
+                }
+            }
+
+            // The glow a pile gets when cards land in it, the same one the seated board draws,
+            // around the top of the pile so a tall one does not hide it.
+            float arrived = dev.gathering.core.ui.Arrival.strength(
+                    ClientCardFlights.arrivedSince(table, seat.seat(), Zone.PILES.get(index), ClientCardFlights.now()),
+                    ClientSettings.reducedMotion());
+            if (arrived > 0f) {
+                drawArrival(poseStack, buffers, x, z, width, depth, SLOT_LIFT + standing,
+                        (dev.gathering.core.ui.Arrival.alpha(arrived) << 24)
+                                | (SeatColor.at(seatIndex, 0xFF) & 0x00FFFFFF));
             }
 
             // The board played on the block said nothing about which box was which or how
@@ -511,7 +541,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 writing(poseStack, buffers, packedLight,
                         Component.literal(Integer.toString(held)),
                         x + width / 2f, z + lineHeight * 0.6f,
-                        lineHeight, width * WRITING_ROOM, angle, held > 0 ? COUNT_BACKING : 0);
+                        lineHeight, width * WRITING_ROOM, angle, held > 0 ? COUNT_BACKING : 0,
+                        WRITING_LIFT + standing);
             } else {
                 CardInstanceId commander =
                         CommandSlots.commanderIn(seat, Zone.PILES.get(index));
@@ -530,7 +561,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 // room is the difference between a number and a smudge.
                 writing(poseStack, buffers, packedLight, Component.literal("+" + tax),
                         x + width / 2f, bandZ, onSurface(taxBand.height(), span),
-                        onSurface(taxBand.width(), span) * WRITING_ROOM, angle, COUNT_BACKING);
+                        onSurface(taxBand.width(), span) * WRITING_ROOM, angle, COUNT_BACKING,
+                        WRITING_LIFT + standing);
             }
             // The name goes on the felt beside it, in the space the seated board writes it
             // in, so the two views read the same.
@@ -591,6 +623,15 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
             Component text, float centerX, float centerZ, float lineHeight, float maxWidth,
             int angle, int backing) {
+        writing(poseStack, buffers, packedLight, text, centerX, centerZ, lineHeight, maxWidth,
+                angle, backing, WRITING_LIFT);
+    }
+
+    /** The same, this far above the felt - on the top of a pile, say. */
+    private void writing(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            Component text, float centerX, float centerZ, float lineHeight, float maxWidth,
+            int angle, int backing, float lift) {
         if (lineHeight <= 0f) {
             return;
         }
@@ -601,7 +642,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         }
         float scale = writingScale(text, lineHeight, maxWidth);
         poseStack.pushPose();
-        poseStack.translate(centerX, WRITING_LIFT, centerZ);
+        poseStack.translate(centerX, lift, centerZ);
         if (Math.floorMod(angle, 360) != 0) {
             poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-angle));
         }
@@ -627,6 +668,15 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             }
         }
         return null;
+    }
+
+    /**
+     * How tall a pile stands, in surface units: the one answer the drawing and the pointer share,
+     * so a player aiming at the top of a deck aims where it is drawn.
+     */
+    static double pileHeight(ZoneView contents, Rect slot) {
+        int held = contents == null ? 0 : showing(contents);
+        return PileThickness.of(held, Math.min(slot.width(), slot.height()));
     }
 
     /**
@@ -1053,6 +1103,118 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** A point on the shared surface, in blocks across the table's own footprint. */
     private static float onSurface(double surfaceUnits, float span) {
         return (float) (surfaceUnits / TableSurface.SPAN * span);
+    }
+
+    /** How much darker each band down a pile's side is than the one above it, alternately. */
+    private static final float BAND_SHADE = 0.84f;
+
+    /** The foot of a pile, where it meets the felt, darker again: that edge is in its own shadow. */
+    private static final float FOOT_SHADE = 0.62f;
+
+    /**
+     * The four sides of a pile, from the felt up to where its top card lies.
+     * <p>In the owner's sleeve color, because the edge of a sleeved deck is the sleeves, and a
+     * printed sleeve's edge is its dark stock. Banded every few cards, darker and lighter by
+     * turns, which is what a deck's side looks like from a step away: layers rather than a
+     * painted block. Lit like the cards on it, so a pile in a dark room is not a glowing brick.
+     * <p>Nothing about which cards are in it: the sides of a library are the same whatever it
+     * holds, and its count is already written on the table.
+     */
+    private void drawPileSides(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            dev.gathering.core.card.Sleeve sleeve, int cards,
+            float x, float z, float width, float depth, int angle, float height) {
+        if (height <= 0f) {
+            return;
+        }
+        dev.gathering.core.card.Sleeve drawn =
+                sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
+        int color = drawn.isPrinted() ? PRINTED_STOCK : drawn.tint();
+        poseStack.pushPose();
+        poseStack.translate(x + width / 2f, SLOT_LIFT, z + depth / 2f);
+        if (Math.floorMod(angle, 360) != 0) {
+            poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-angle));
+        }
+        PoseStack.Pose pose = poseStack.last();
+        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutout(PLAIN_SLEEVE));
+        float halfWidth = width / 2f;
+        float halfDepth = depth / 2f;
+        int bands = PileThickness.bands(cards);
+        for (int band = 0; band < bands; band++) {
+            float bottom = height * band / bands;
+            float top = height * (band + 1) / bands;
+            float shade = band == 0 && bands > 1 ? FOOT_SHADE : band % 2 == 0 ? BAND_SHADE : 1f;
+            int tint = shaded(color, shade);
+            side(consumer, pose, -halfWidth, -halfDepth, halfWidth, -halfDepth, bottom, top, 0f, -1f, tint, packedLight);
+            side(consumer, pose, halfWidth, halfDepth, -halfWidth, halfDepth, bottom, top, 0f, 1f, tint, packedLight);
+            side(consumer, pose, halfWidth, -halfDepth, halfWidth, halfDepth, bottom, top, 1f, 0f, tint, packedLight);
+            side(consumer, pose, -halfWidth, halfDepth, -halfWidth, -halfDepth, bottom, top, -1f, 0f, tint, packedLight);
+        }
+        poseStack.popPose();
+    }
+
+    /** The edge color of a sleeve with a picture printed on it: dark card stock. */
+    private static final int PRINTED_STOCK = 0x2E2A26;
+
+    /** One upright face of a pile, wound to face outward along the normal given. */
+    private static void side(
+            VertexConsumer consumer, PoseStack.Pose pose, float x1, float z1, float x2, float z2,
+            float bottom, float top, float normalX, float normalZ, int tint, int light) {
+        // A patch from the middle of the sleeve texture, which is its plain cloth, stretched
+        // along the side: the border and the pattern belong to the face.
+        sideVertex(consumer, pose, x1, bottom, z1, 0.45f, 0.55f, normalX, normalZ, tint, light);
+        sideVertex(consumer, pose, x2, bottom, z2, 0.55f, 0.55f, normalX, normalZ, tint, light);
+        sideVertex(consumer, pose, x2, top, z2, 0.55f, 0.45f, normalX, normalZ, tint, light);
+        sideVertex(consumer, pose, x1, top, z1, 0.45f, 0.45f, normalX, normalZ, tint, light);
+    }
+
+    private static void sideVertex(
+            VertexConsumer consumer, PoseStack.Pose pose, float x, float y, float z, float u, float v,
+            float normalX, float normalZ, int tint, int light) {
+        consumer.addVertex(pose.pose(), x, y, z)
+                .setColor(tint)
+                .setUv(u, v)
+                .setOverlay(OverlayTexture.NO_OVERLAY)
+                .setLight(light)
+                .setNormal(pose, normalX, 0f, normalZ);
+    }
+
+    private static int shaded(int rgb, float shade) {
+        int red = Math.round(((rgb >> 16) & 0xFF) * shade);
+        int green = Math.round(((rgb >> 8) & 0xFF) * shade);
+        int blue = Math.round((rgb & 0xFF) * shade);
+        return 0xFF000000 | red << 16 | green << 8 | blue;
+    }
+
+    /**
+     * A pile's arrival glow on the block: a band just outside its edge, at the height of its top.
+     * Outside rather than over, so the card on top keeps its face.
+     */
+    private void drawArrival(
+            PoseStack poseStack, MultiBufferSource buffers,
+            float x, float z, float width, float depth, float lift, int argb) {
+        float edge = Math.min(width, depth) * SLOT_EDGE_THICKNESS * 1.6f;
+        VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
+        Matrix4f pose = poseStack.last().pose();
+        float above = lift + EMBLEM_LIFT * 3;
+        flat(consumer, pose, x - edge, z - edge, x + width + edge, z, argb, above);
+        flat(consumer, pose, x - edge, z + depth, x + width + edge, z + depth + edge, argb, above);
+        flat(consumer, pose, x - edge, z, x, z + depth, argb, above);
+        flat(consumer, pose, x + width, z, x + width + edge, z + depth, argb, above);
+    }
+
+    /** The aimed-at ring, drawn on the top of a pile rather than on the felt under it. */
+    private void drawAimedTop(
+            PoseStack poseStack, MultiBufferSource buffers,
+            float x, float z, float width, float depth, float lift) {
+        float edge = Math.min(width, depth) * SLOT_EDGE_THICKNESS;
+        VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
+        Matrix4f pose = poseStack.last().pose();
+        float above = lift + EMBLEM_LIFT * 2;
+        flat(consumer, pose, x, z, x + width, z + edge, RING_COLOR, above);
+        flat(consumer, pose, x, z + depth - edge, x + width, z + depth, RING_COLOR, above);
+        flat(consumer, pose, x, z, x + edge, z + depth, RING_COLOR, above);
+        flat(consumer, pose, x + width - edge, z, x + width, z + depth, RING_COLOR, above);
     }
 
     /**

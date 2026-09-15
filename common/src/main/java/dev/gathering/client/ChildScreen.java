@@ -92,6 +92,10 @@ public abstract class ChildScreen extends Screen {
         // they were still queued when the panel went down. A screen drawn underneath has to
         // be finished being drawn.
         graphics.flush();
+        // And its depth forgotten. The board draws some of itself lifted off the screen's plane -
+        // the writing along its top among it - and anything this screen then drew at the ordinary
+        // depth went behind it: the guide's panel had the board's top row showing through it.
+        com.mojang.blaze3d.systems.RenderSystem.clear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
         GatheringSprites.draw(graphics, GatheringSprites.Element.SCREEN_SCRIM,
                 0, 0, this.width, this.height);
     }

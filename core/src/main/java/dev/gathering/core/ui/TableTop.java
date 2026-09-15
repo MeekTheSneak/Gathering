@@ -95,6 +95,16 @@ public record TableTop(
         return (double) TableSurface.SPAN * tablesDown;
     }
 
+    /**
+     * The same surface lifted this far, in surface units.
+     * <p>For aiming at the top of something standing on the table - a pile is as tall as the cards
+     * in it - rather than at the felt under it. Seen from a chair a pile's top is well to the near
+     * side of the felt beneath it, so a ray cast at the felt picked the card behind the pile.
+     */
+    public TableTop raisedBy(double surfaceUnits) {
+        return new TableTop(westX, topY + blocks(surfaceUnits), northZ, span, tablesAcross, tablesDown);
+    }
+
     /** A point on the shared surface, in {@link TableSurface} units. */
     public record Spot(double x, double y) {
     }

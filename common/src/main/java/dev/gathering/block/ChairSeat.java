@@ -1,0 +1,109 @@
+package dev.gathering.block;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * What somebody sitting in a chair is riding: nothing anybody sees, at the height of the seat.
+ * <p>Minecraft seats a player by putting them on something - a boat, a minecart, a horse - and a
+ * chair has to be something to be sat on in the same way, or the player stands on it. So a chair
+ * that is sat in has one of these in it for as long as somebody is.
+ * <p>Never saved. A seat outliving the person in it would be an invisible thing in a chair after a
+ * restart that the next player could not sit down through; the seat at the table is the table's own
+ * record and comes back on its own. One with nobody in it, or no chair under it, removes itself.
+ */
+public final class ChairSeat extends Entity {
+
+    public static final String ID = "chair_seat";
+
+    /** The table whose seat this chair took, or null for a chair that is only a chair. */
+    private BlockPos tableOrigin;
+
+    public ChairSeat(EntityType<? extends ChairSeat> type, Level level) {
+        super(type, level);
+        this.noPhysics = true;
+    }
+
+    /** A seat in the chair at this position, for a table's seat or none. */
+    public static ChairSeat in(Level level, BlockPos chair, BlockPos tableOrigin) {
+        ChairSeat seat = new ChairSeat(dev.gathering.item.GatheringContent.CHAIR_SEAT.get(), level);
+        seat.setPos(chair.getX() + 0.5, chair.getY() + ChairBlock.SEAT_HEIGHT - 0.35, chair.getZ() + 0.5);
+        seat.tableOrigin = tableOrigin == null ? null : tableOrigin.immutable();
+        return seat;
+    }
+
+    /** The table this chair's sitter holds a seat at, or null. */
+    public BlockPos tableOrigin() {
+        return tableOrigin;
+    }
+
+    /** The chair this seat is in. */
+    public BlockPos chair() {
+        return BlockPos.containing(getX(), getY() + 0.35, getZ());
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+    }
+
+    @Override
+    protected void readAdditionalSaveData(CompoundTag tag) {
+    }
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag tag) {
+    }
+
+    @Override
+    public boolean shouldBeSaved() {
+        return false;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (!level().isClientSide()
+                && (getPassengers().isEmpty() || !(level().getBlockState(chair()).getBlock() instanceof ChairBlock))) {
+            discard();
+        }
+    }
+
+    @Override
+    protected Vec3 getPassengerAttachmentPoint(Entity passenger, EntityDimensions dimensions, float scale) {
+        return Vec3.ZERO;
+    }
+
+    /** Getting out of a chair is standing up: see {@link Chairs#gotUp}. */
+    @Override
+    protected void removePassenger(Entity passenger) {
+        super.removePassenger(passenger);
+        if (!level().isClientSide() && passenger instanceof ServerPlayer player) {
+            Chairs.gotUp(player, this);
+        }
+    }
+
+    /** Stood up beside the chair rather than on top of it. */
+    @Override
+    public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
+        BlockPos chair = chair();
+        net.minecraft.core.Direction facing = level().getBlockState(chair).getBlock() instanceof ChairBlock
+                ? level().getBlockState(chair).getValue(ChairBlock.FACING)
+                : net.minecraft.core.Direction.NORTH;
+        // Out of the back of the chair, which is the side away from the table.
+        BlockPos behind = chair.relative(facing.getOpposite());
+        return new Vec3(behind.getX() + 0.5, behind.getY(), behind.getZ() + 0.5);
+    }
+
+    @Override
+    public boolean isPickable() {
+        return false;
+    }
+}

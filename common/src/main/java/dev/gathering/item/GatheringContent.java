@@ -44,6 +44,7 @@ public final class GatheringContent {
     public static final String SEALED_ID = "sealed";
     public static final String SHOP_COUNTER_ID = "shop_counter";
     public static final String SCOREKEEPERS_DESK_ID = "scorekeepers_desk";
+    public static final String CHAIR_ID = "chair";
 
     public static final Registered<Item> CARD = new Registered<>(CARD_ID);
     public static final Registered<Item> DECK = new Registered<>(DECK_ID);
@@ -80,6 +81,10 @@ public final class GatheringContent {
     public static final Registered<BlockEntityType<dev.gathering.block.CollectionBlockEntity>>
             COLLECTION_ENTITY = new Registered<>(
                     dev.gathering.block.CollectionBlockEntity.ID);
+    public static final Registered<Block> CHAIR = new Registered<>(CHAIR_ID);
+    public static final Registered<Item> CHAIR_ITEM = new Registered<>(CHAIR_ID);
+    public static final Registered<net.minecraft.world.entity.EntityType<dev.gathering.block.ChairSeat>> CHAIR_SEAT =
+            new Registered<>(dev.gathering.block.ChairSeat.ID);
     public static final Registered<Block> SCOREKEEPERS_DESK = new Registered<>(SCOREKEEPERS_DESK_ID);
     public static final Registered<Item> SCOREKEEPERS_DESK_ITEM = new Registered<>(SCOREKEEPERS_DESK_ID);
     public static final Registered<BlockEntityType<dev.gathering.block.ScorekeepersDeskBlockEntity>>
@@ -250,6 +255,31 @@ public final class GatheringContent {
                 .mapColor(MapColor.WOOD)
                 .strength(2.5f)
                 .sound(SoundType.WOOD));
+    }
+
+    /** Wood, and as light to move as any chair. */
+    public static Block createChair() {
+        return new dev.gathering.block.ChairBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.WOOD)
+                .strength(2.0f)
+                .sound(SoundType.WOOD)
+                .noOcclusion());
+    }
+
+    public static Item createChairItem() {
+        return new DescribedBlockItem(CHAIR.get(), new Item.Properties(),
+                java.util.List.of("tooltip.gathering.chair_sit", "tooltip.gathering.chair_stand"));
+    }
+
+    /** The invisible thing a player sitting in a chair rides: tiny, unsaved, and never sent to be drawn as anything. */
+    public static net.minecraft.world.entity.EntityType<dev.gathering.block.ChairSeat> createChairSeat() {
+        return net.minecraft.world.entity.EntityType.Builder
+                .<dev.gathering.block.ChairSeat>of(dev.gathering.block.ChairSeat::new, net.minecraft.world.entity.MobCategory.MISC)
+                .sized(0.001f, 0.001f)
+                .noSave()
+                .noSummon()
+                .clientTrackingRange(10)
+                .build(dev.gathering.Gathering.MOD_ID + ":" + dev.gathering.block.ChairSeat.ID);
     }
 
     public static Item createScorekeepersDeskItem() {

@@ -120,6 +120,16 @@ public final class ClientCardFlights {
     public static void arrived(BlockPos table, GameView board, long now) {
         Map<CardTravel.Place, CardTravel.Held> shape = shapeOf(board);
         if (ClientSettings.reducedMotion()) {
+            synchronized (ClientCardFlights.class) {
+                Snapshot before = SEEN.get(table.immutable());
+                if (before != null && CardTravel.worthComparing(now - before.seen())) {
+                    // Nothing flies, so the cards are where they went at once - and the pile they
+                    // went into is marked from now.
+                    for (CardTravel.Move move : CardTravel.between(before.shape(), shape)) {
+                        noteArrival(table, move, now);
+                    }
+                }
+            }
             // The board is still followed - the shape is recorded below, so the next update
             // is compared against this one - but nothing is put in the air. A card that moved
             // is simply where it moved to, which is what this setting is asking for: the game
@@ -144,11 +154,46 @@ public final class ClientCardFlights {
             flying.removeIf(flight -> flight.landed(now));
             OWN_DOING.entrySet().removeIf(entry -> now - entry.getValue() > OWN_DOING_LASTS);
             for (CardTravel.Move move : CardTravel.between(before.shape(), shape)) {
+                // Marked from when it lands, not when it sets off: a pile that glows before the
+                // card has reached it is pointing at the wrong moment.
+                noteArrival(table, move, now + CROSSING);
                 if (move.card().map(OWN_DOING::containsKey).orElse(false)) {
                     continue;
                 }
                 flying.add(new Flight(move, now));
             }
+        }
+    }
+
+    /** A pile cards have just landed in, at a table. */
+    private record Arrived(BlockPos table, SeatId seat, Zone zone) {
+    }
+
+    /** When cards last landed in each pile, for the glow that marks it. See {@link dev.gathering.core.ui.Arrival}. */
+    private static final Map<Arrived, Long> ARRIVED = new HashMap<>();
+
+    /** Notes that cards land in a pile at this moment. Piles only: a card on a mat is itself the mark. Holds the lock. */
+    private static void noteArrival(BlockPos table, CardTravel.Move move, long lands) {
+        if (!Zone.PILES.contains(move.to().zone())) {
+            return;
+        }
+        long stale = lands - dev.gathering.core.ui.Arrival.LASTS - CROSSING;
+        ARRIVED.values().removeIf(when -> when < stale);
+        ARRIVED.put(new Arrived(table.immutable(), move.to().seat(), move.to().zone()), lands);
+    }
+
+    /**
+     * How long ago cards landed in this pile: negative when nothing has lately, or when what is
+     * coming is still in the air - which is what {@link dev.gathering.core.ui.Arrival#strength}
+     * reads as no glow.
+     */
+    public static long arrivedSince(BlockPos table, SeatId seat, Zone zone, long now) {
+        synchronized (ClientCardFlights.class) {
+            Long lands = ARRIVED.get(new Arrived(table, seat, zone));
+            if (lands == null || now - lands >= dev.gathering.core.ui.Arrival.LASTS) {
+                return Long.MIN_VALUE;
+            }
+            return now - lands;
         }
     }
 
@@ -169,6 +214,7 @@ public final class ClientCardFlights {
         synchronized (ClientCardFlights.class) {
             SEEN.remove(table);
             FLYING.remove(table);
+            ARRIVED.keySet().removeIf(arrived -> arrived.table().equals(table));
         }
     }
 
@@ -177,6 +223,7 @@ public final class ClientCardFlights {
             SEEN.clear();
             FLYING.clear();
             OWN_DOING.clear();
+            ARRIVED.clear();
         }
     }
 

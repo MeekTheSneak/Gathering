@@ -63,6 +63,24 @@ class TableTopTest {
         }
 
         @Test
+        @DisplayName("aimed at the top of a pile, an angled ray lands short of the felt behind it")
+        void aRaisedSurfaceIsMetSooner() {
+            // A pile stands on the table; seen at forty-five degrees its top is met a pile's height
+            // nearer the eye than the felt under it, which is the card behind the pile.
+            double startX = TABLE.worldX(TableSurface.SPAN / 2.0);
+            double startZ = TABLE.worldZ(0);
+            double pile = TableSurface.SPAN / 20.0;
+            double eye = TABLE.topY() + 1.0;
+
+            TableTop.Spot felt = TABLE.hit(startX, eye, startZ, 0, -1, 1).orElseThrow();
+            TableTop.Spot top = TABLE.raisedBy(pile).hit(startX, eye, startZ, 0, -1, 1).orElseThrow();
+
+            assertThat(TABLE.raisedBy(pile).topY()).isCloseTo(TABLE.topY() + TABLE.blocks(pile), within(1e-9));
+            assertThat(felt.y() - top.y()).isCloseTo(pile, within(0.001));
+            assertThat(top.x()).isCloseTo(felt.x(), within(0.001));
+        }
+
+        @Test
         @DisplayName("looking up, level, or away from the table hits nothing")
         void raysThatCannotReachItMiss() {
             double x = TABLE.worldX(TableSurface.SPAN / 2.0);

@@ -174,7 +174,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 343;
+    private static final int LAST_STEP = 347;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -1088,9 +1088,16 @@ public final class DevScene {
                 // at the table sees a card move, and most of them are not sitting at it.
                 aCardIsInTheAir(client, "drawing one on the block");
                 shoot(client, "22b-a-card-in-the-air-on-the-table");
+                // The library is down to a few cards by now, too short for its top to be anywhere
+                // but on the felt. For a moment it is a real deck again: most of the hand goes back
+                // on top of it at the server, and comes back out in the next step.
+                stashTheHand(client, true);
                 advance(SETTLE);
             }
             case 72 -> {
+                aDeckStandsLikeADeck(client);
+                shoot(client, "22d-a-deck-standing-on-the-table");
+                stashTheHand(client, false);
                 // The counter has to be inside the window in this view as well. Framed on
                 // the mat alone it came out under the status row here, the same way it came
                 // out past the top of the window on the seated board.
@@ -1167,9 +1174,25 @@ public final class DevScene {
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
+                // And how to play, from the "?" at the end of the board's top row - clicked where it is
+                // drawn, through the board's own click handling, because that is the path that has to
+                // let the click reach it.
+                if (client.screen instanceof TableScreen withTheGuide) {
+                    net.minecraft.client.gui.components.AbstractWidget guide = withTheGuide.children().stream()
+                            .filter(child -> child instanceof net.minecraft.client.gui.components.AbstractWidget widget
+                                    && widget.getMessage().getString().equals("How to play"))
+                            .map(child -> (net.minecraft.client.gui.components.AbstractWidget) child)
+                            .findFirst().orElse(null);
+                    if (guide == null) {
+                        fail("the board has no \"?\" for how to play");
+                    } else {
+                        withTheGuide.mouseClicked(guide.getX() + guide.getWidth() / 2.0, guide.getY() + guide.getHeight() / 2.0, 0);
+                    }
+                }
                 advance(SETTLE / 2);
             }
             case 79 -> {
+                howToPlayReadsAndComesBack(client);
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
@@ -1177,12 +1200,25 @@ public final class DevScene {
             }
             case 80 -> {
                 shoot(client, "23-two-players");
+                // Two players at the table, so two faces along the top: the rival's the default skin
+                // its id picks, since nobody by that id is connected.
+                if (client.screen instanceof TableScreen seatedBoard && seatedBoard.facesDrawn != 2) {
+                    fail("two players at the table and " + seatedBoard.facesDrawn + " faces along the top");
+                }
+                // And what the table is playing, beside the turn. This game was started by walking up
+                // with a deck (step 8) - the setup screen was only photographed - so nobody named a
+                // format, and the table says free play, in the warning color.
+                if (client.screen instanceof TableScreen terms && !terms.termsShown.contains("free play")) {
+                    fail("a game nobody chose a format for said \"" + terms.termsShown + "\" beside the turn");
+                }
                 // Both seats now, which is the only moment this run can check the far one.
                 everyLifeCounterHasItsEnds(client);
                 // A card somebody else moves across their own mat. The commonest movement in
                 // the game and the last one still teleporting: a card changing zones was
                 // followed, and a card sliding from one spot to another was not.
                 theRivalSlidesACardAcrossTheirMat(client);
+                // And puts the top of their library into their graveyard, which should light it.
+                theRivalMillsOne(client);
                 advance(A_MOMENT);
             }
             case 81 -> {
@@ -1193,9 +1229,19 @@ public final class DevScene {
                 // passes shows none.
                 HEARD.clear();
                 theTurnPasses(client, new SeatId(0), new SeatId(1));
-                advance(SETTLE);
+                // Half a second: the rival's graveyard is still lit when the next step looks.
+                advance(SETTLE / 4);
             }
             case 82 -> {
+                shoot(client, "23b-a-pile-lit-where-cards-landed");
+                float lit = dev.gathering.core.ui.Arrival.strength(ClientCardFlights.arrivedSince(
+                        table, new SeatId(1), Zone.GRAVEYARD, ClientCardFlights.now()), ClientSettings.reducedMotion());
+                if (lit <= 0f) {
+                    fail("a card went into the rival's graveyard and the graveyard did not light up");
+                } else {
+                    System.out.println("[devscene] the rival's graveyard is lit at " + String.format("%.2f", lit)
+                            + " where a card landed");
+                }
                 heard("pass_turn", "the turn going over to the rival");
                 HEARD.clear();
                 theTurnPasses(client, new SeatId(1), new SeatId(0));
@@ -1828,9 +1874,24 @@ public final class DevScene {
                 }
                 thePotIsDrawnBesideTheTable(client);
                 shoot(client, "49-the-pot");
-                advance(SETTLE / 2);
+                // A table with a pot is played for keeps, and the board says so beside the turn. The
+                // scene's server has ante off (see theQuestionBeforePlayingForKeeps), so the terms
+                // are handed to the client the way the server hands them; the server's own side of
+                // it is an in-world test.
+                ClientTableState.termsOf(table).ifPresent(terms -> ClientTableState.acceptTerms(table,
+                        new dev.gathering.core.match.TableTerms(terms.formatId(), terms.bestOf(), terms.gameNumber(),
+                                terms.freePlay(), true, terms.practice(), terms.eventTable())));
+                advance(A_MOMENT);
             }
             case 155 -> {
+                if (!(client.screen instanceof TableScreen keeps)) {
+                    fail("no board to read a table played for keeps off");
+                } else if (!keeps.termsShown.contains("for keeps")) {
+                    fail("a table played for keeps said \"" + keeps.termsShown + "\" beside the turn");
+                } else {
+                    System.out.println("[devscene] beside the turn: " + keeps.termsShown);
+                }
+                shoot(client, "49a-a-table-played-for-keeps");
                 // Back in the chair. The run stood up forty steps ago to check what a
                 // spectator sees, and a spectator cannot pick anything up at all.
                 sitBackDown(client);
@@ -2589,9 +2650,19 @@ public final class DevScene {
             }
             case 228 -> {
                 shoot(client, "61-a-table-in-every-material");
-                advance(SETTLE / 2);
+                // And the game's own table from where somebody standing beside it sees it, with a
+                // real deck on it: the board has only ever been photographed from straight above,
+                // where a pile's height is the one thing that cannot show.
+                stashTheHand(client, true);
+                lookAtMyLibrary(client);
+                // With nothing held up in front of the camera, which at this range covered the pile.
+                client.options.hideGui = true;
+                advance(SETTLE);
             }
             case 229 -> {
+                shoot(client, "61b-a-deck-standing-on-the-table");
+                client.options.hideGui = false;
+                stashTheHand(client, false);
                 // A card thrown on the floor. Its own step because a dropped card is the one
                 // state of the item nothing else photographs, and it was landing face down -
                 // the model's ground transform turned it the wrong way about X, so the
@@ -3602,6 +3673,55 @@ public final class DevScene {
             case 343 -> {
                 // A frame after the tab changed, so the picture is of the standings and not the tab before.
                 shoot(client, "106-final-standings");
+                advance(SETTLE / 2);
+            }
+            case 344 -> {
+                // Eight at a table, last because nothing after it depends on the world it leaves: four
+                // tables in a row, seven other players sat round them with decks down, and this one in
+                // the eighth chair. The strip along the top has to say who, how much life and how many
+                // cards for every one of them - which one row of eight columns in this window cannot.
+                client.setScreen(null);
+                eightAtATable(client);
+                advance(SETTLE * 2);
+            }
+            case 345 -> {
+                expectScreen(client, "a table of eight", TableScreen.class);
+                if (client.screen instanceof TableScreen eight) {
+                    if (eight.lastStrip == null || eight.lastStrip.seats().size() != 8) {
+                        fail("a table of eight drew a strip of " + (eight.lastStrip == null ? 0 : eight.lastStrip.seats().size()));
+                    } else {
+                        System.out.println("[devscene] eight seats in " + eight.lastStrip.rows() + " rows along the top, "
+                                + eight.lastStrip.seats().get(0).width() + " wide each, " + eight.facesDrawn + " faces");
+                        if (eight.lastStrip.rows() != 2) {
+                            fail("eight seats in a " + client.getWindow().getGuiScaledWidth()
+                                    + "-wide window stayed in one row of columns " + eight.lastStrip.seats().get(0).width() + " wide");
+                        }
+                        if (eight.facesDrawn != 8) {
+                            fail("eight players at the table and " + eight.facesDrawn + " faces along the top");
+                        }
+                        Rect sixth = eight.lastStrip.seats().get(5);
+                        hover(client, new int[] {sixth.x() + 3, (int) sixth.centerY()});
+                    }
+                }
+                shoot(client, "107-eight-at-a-table");
+                advance(SETTLE / 4);
+            }
+            case 346 -> {
+                shoot(client, "107a-resting-on-a-seat");
+                // And a window wide enough for one row, where eight columns do have the room.
+                resizeTo(client, 1, "an interface four times smaller");
+                advance(SETTLE / 2);
+            }
+            case 347 -> {
+                if (client.screen instanceof TableScreen wide && wide.lastStrip != null) {
+                    System.out.println("[devscene] at GUI scale 1, eight seats in " + wide.lastStrip.rows() + " rows, "
+                            + wide.lastStrip.seats().get(0).width() + " wide each");
+                    if (wide.lastStrip.rows() != 1) {
+                        fail("eight seats in a " + client.getWindow().getGuiScaledWidth() + "-wide window went into two rows");
+                    }
+                }
+                shoot(client, "107b-eight-in-a-wide-window");
+                resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
             default -> {
@@ -6783,6 +6903,12 @@ public final class DevScene {
                     level.setBlock(
                             part.offsetFrom(corner), state.setValue(TableBlock.PART, part), 3);
                 }
+                // A chair at each long edge, facing the table, which is how a table is set.
+                BlockState chair = GatheringContent.CHAIR.get().defaultBlockState();
+                level.setBlock(corner.north(), chair.setValue(dev.gathering.block.ChairBlock.FACING,
+                        net.minecraft.core.Direction.SOUTH), 3);
+                level.setBlock(corner.south(2).east(), chair.setValue(dev.gathering.block.ChairBlock.FACING,
+                        net.minecraft.core.Direction.NORTH), 3);
                 along += 4;
             }
             System.out.println("[devscene] a cobblestone, a blackstone and a crying obsidian table");
@@ -8650,6 +8776,96 @@ public final class DevScene {
         });
     }
 
+    /**
+     * The library on the block stands as tall as its cards, and pointing at the top of it points at it.
+     * <p>A deck on the table in the world was one card lying flat; it is a stack now, and a stack is
+     * tall enough that seen from a chair its top is nowhere near the felt under it. So this aims just
+     * inside each edge of the top as drawn - found by running the camera forwards from the top, not
+     * from the felt - and asks the screen what is under each point. The far edge is the one a pointer
+     * aimed at the felt gets wrong: it goes past the pile.
+     */
+    private static void aDeckStandsLikeADeck(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)) {
+            fail("the board was not on the block to see a deck standing on it");
+            return;
+        }
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            fail("no seat to look at a deck from");
+            return;
+        }
+        int library = Zone.PILES.indexOf(Zone.LIBRARY);
+        int graveyard = Zone.PILES.indexOf(Zone.GRAVEYARD);
+        Rect slot = board.board().pileRect(me, library, board.pileCount());
+        var cards = view.seat(me).zone(Zone.LIBRARY);
+        double height = TableMiniatureRenderer.pileHeight(cards, slot);
+        double one = dev.gathering.core.ui.PileThickness.of(1, Math.min(slot.width(), slot.height()));
+        if (cards.count() < 2 || height < one * Math.min(cards.count(), dev.gathering.core.ui.PileThickness.TALLEST) - 1e-9) {
+            fail("a library of " + cards.count() + " stands " + height + " tall on the block, not a card's thickness per card");
+            return;
+        }
+        double graveyardHeight = TableMiniatureRenderer.pileHeight(view.seat(me).zone(Zone.GRAVEYARD),
+                board.board().pileRect(me, graveyard, board.pileCount()));
+        if (view.seat(me).zone(Zone.GRAVEYARD).count() < cards.count() && graveyardHeight >= height) {
+            fail("a graveyard of " + view.seat(me).zone(Zone.GRAVEYARD).count() + " stands as tall as a library of "
+                    + cards.count());
+        }
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ()).raisedBy(height);
+        double insetX = slot.width() * 0.08;
+        double insetY = slot.height() * 0.08;
+        double[][] edges = {
+            {slot.centerX(), slot.y() + insetY}, {slot.centerX(), slot.bottom() - insetY},
+            {slot.x() + insetX, slot.centerY()}, {slot.right() - insetX, slot.centerY()}};
+        for (double[] edge : edges) {
+            double[] onScreen = TablePointer.onScreen(top, edge[0], edge[1]).orElse(null);
+            if (onScreen == null) {
+                fail("the top of the library, near " + Math.round(edge[0]) + "," + Math.round(edge[1]) + ", is not on the window");
+                return;
+            }
+            int under = board.slotUnder(me, (int) Math.round(onScreen[0]), (int) Math.round(onScreen[1]));
+            if (under != library) {
+                fail("pointing at the top of a library of " + cards.count() + " near its edge at "
+                        + Math.round(edge[0]) + "," + Math.round(edge[1]) + " found pile " + under + ", not the library");
+                return;
+            }
+        }
+        System.out.println("[devscene] a library of " + cards.count() + " stands " + String.format("%.0f", height)
+                + " units tall on the block, and every edge of its top points at it");
+    }
+
+    /**
+     * The guide opened from the board has a page, its keys are the player's own, and closing it goes
+     * back to the board.
+     * <p>The page is read out of the resource pack and broken into lines here, so a page that is
+     * missing, unreadable or laid out to nothing shows up as no lines; and a key written in the page
+     * as the action it performs has to come out as what that action is bound to.
+     */
+    private static void howToPlayReadsAndComesBack(Minecraft client) {
+        if (!(client.screen instanceof GuideScreen guide)) {
+            fail("pressing the board's \"?\" opened " + (client.screen == null ? "nothing" : client.screen.getClass().getSimpleName()));
+            return;
+        }
+        if (guide.lineCount() < 5) {
+            fail("the first page of how to play came to " + guide.lineCount() + " lines");
+        }
+        shoot(client, "22e-how-to-play");
+        press(client, net.minecraft.network.chat.Component.translatable("guide.gathering.turn").getString());
+        String draw = "[" + TableShortcuts.labelOrUnbound("draw").getString() + "]";
+        if (guide.topic() != GuideScreen.Topic.TURN) {
+            fail("choosing Your turn in how to play left it on " + guide.topic());
+        } else if (!guide.pageText().contains(draw)) {
+            fail("the page about a turn does not name the draw key as " + draw + ": " + guide.pageText());
+        } else {
+            System.out.println("[devscene] how to play names the draw key as " + draw);
+        }
+        guide.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        if (!(client.screen instanceof TableScreen)) {
+            fail("closing how to play left " + (client.screen == null ? "nothing" : client.screen.getClass().getSimpleName())
+                    + " rather than the board");
+        }
+    }
+
     /** The mod's sounds the client has been asked to play since listening started, by path. */
     private static final java.util.Set<String> HEARD = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -8679,6 +8895,179 @@ public final class DevScene {
         } else {
             System.out.println("[devscene] heard " + sound + " after " + after);
         }
+    }
+
+    /** The cards put from the hand onto the library for a moment, to be handed back. */
+    private static final List<CardInstanceId> STASHED = new ArrayList<>();
+
+    /**
+     * Puts all but two of this player's hand on top of their library, or hands those same cards back.
+     * <p>At the server, as moves the game already has, so the board that arrives is an ordinary one.
+     */
+    private static void stashTheHand(Minecraft client, boolean away) {
+        MinecraftServer server = client.getSingleplayerServer();
+        SeatId me = table == null ? null : ClientTableState.seatAt(table).orElse(null);
+        if (server == null || me == null) {
+            fail("no server or seat to move the hand at");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            GameSession session = TableSessions.sessionAt(server.overworld(), where).orElse(null);
+            if (session == null) {
+                return;
+            }
+            if (away) {
+                List<CardInstanceId> hand = new ArrayList<>(session.state().contents(me, Zone.HAND));
+                STASHED.clear();
+                // The last of them, not the first: handed back to the end of the hand in the same order,
+                // the hand comes back exactly as it was - later steps drag cards to its ends and
+                // compare the order.
+                STASHED.addAll(hand.subList(Math.min(2, hand.size()), hand.size()));
+                for (CardInstanceId card : STASHED) {
+                    session.submit(new GameEvent.CardMoved(me, card,
+                            dev.gathering.core.game.ZoneRef.of(me, Zone.LIBRARY), dev.gathering.core.game.Placement.TOP));
+                }
+            } else {
+                for (CardInstanceId card : STASHED) {
+                    session.submit(new GameEvent.CardMoved(me, card,
+                            dev.gathering.core.game.ZoneRef.of(me, Zone.HAND), dev.gathering.core.game.Placement.BOTTOM));
+                }
+                STASHED.clear();
+            }
+            TableBroadcast.sendToTable(server.overworld(), where);
+        });
+    }
+
+    /**
+     * Stands the player beside their own side of the game's table, a little back from their
+     * library, looking down at it the way somebody at the table would.
+     */
+    private static void lookAtMyLibrary(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        SeatId me = table == null ? null : ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (server == null || me == null || view == null || client.level == null) {
+            fail("no seat or board to look at a deck standing on the table from");
+            return;
+        }
+        client.setScreen(null);
+        boolean commandZone = dev.gathering.block.TableBlock.entityAt(client.level, table)
+                .map(dev.gathering.block.TableBlockEntity::hasCommandZone).orElse(false);
+        Rect slot = TableSurface.forSeatCount(view.seats().size())
+                .pileSlot(me.index(), Zone.PILES.indexOf(Zone.LIBRARY), Zone.pilesFor(commandZone));
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        double pileX = top.worldX(slot.centerX());
+        double pileZ = top.worldZ(slot.centerY());
+        double pileY = top.topY() + top.blocks(TableMiniatureRenderer.pileHeight(view.seat(me).zone(Zone.LIBRARY), slot));
+        // Back from the pile, away from the middle of the table, and a little to the side.
+        double awayX = pileX - (table.getX() + 1.0);
+        double awayZ = pileZ - (table.getZ() + 1.0);
+        double length = Math.max(0.01, Math.hypot(awayX, awayZ));
+        double standX = pileX + awayX / length * 1.2;
+        double standZ = pileZ + awayZ / length * 1.2;
+        double standY = table.getY();
+        double eyeY = standY + 1.62;
+        // Aimed a little past the pile, so the crosshair is on the felt beyond it rather than over it.
+        double lookX = pileX - awayX / length * 0.15;
+        double lookZ = pileZ - awayZ / length * 0.15;
+        double dx = lookX - standX;
+        double dz = lookZ - standZ;
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) -Math.toDegrees(Math.atan2(pileY - eyeY, Math.hypot(dx, dz)));
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (player != null) {
+                player.connection.teleport(standX, standY, standZ, yaw, pitch);
+            }
+        });
+        System.out.println("[devscene] looking at a library of " + view.seat(me).zone(Zone.LIBRARY).count()
+                + " from beside the table");
+    }
+
+    /** Four tables in a row, eight seated with decks down - seven made up and this player - and the board opened. */
+    private static void eightAtATable(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("no server to seat eight at a table on");
+            return;
+        }
+        BlockPos corner = client.player.blockPosition().offset(20, 0, -12);
+        java.util.UUID mine = client.player.getUUID();
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer player = server.getPlayerList().getPlayer(mine);
+            if (player == null) {
+                return;
+            }
+            for (int along = 0; along < 4; along++) {
+                BlockPos table = corner.offset(along * 2, 0, 0);
+                for (TablePart part : TablePart.values()) {
+                    level.setBlock(part.offsetFrom(table), GatheringContent.TABLE.get().defaultBlockState()
+                            .setValue(TableBlock.PART, part), 3);
+                }
+            }
+            player.connection.teleport(corner.getX() + 1.5, corner.getY(), corner.getZ() - 1.5, 0f, 30f);
+            List<dev.gathering.core.table.SeatAnchor> seats = dev.gathering.block.TableClusters.at(level, corner).seats();
+            if (seats.size() != 8) {
+                System.out.println("[devscene] FAIL four tables in a row made " + seats.size() + " seats, not eight");
+                return;
+            }
+            dev.gathering.block.TableSeats.take(level, corner, seats.get(0).cell(), seats.get(0).side(), mine);
+            List<String> names = List.of("Ada", "Bram", "Cleo", "Dov", "Esme", "Finn", "Gus");
+            for (int index = 1; index < 8; index++) {
+                dev.gathering.block.TableSeats.take(level, corner, seats.get(index).cell(), seats.get(index).side(),
+                        new java.util.UUID(0L, 7000L + index));
+            }
+            TableSessions.start(level, corner, dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.COMMANDER));
+            GameSession session = TableSessions.sessionAt(level, corner).orElse(null);
+            if (session == null) {
+                System.out.println("[devscene] FAIL the table of eight did not start");
+                return;
+            }
+            dev.gathering.core.card.Sleeve[] sleeves = dev.gathering.core.card.Sleeve.values();
+            for (int index = 0; index < 8; index++) {
+                SeatId seat = new SeatId(index);
+                if (index > 0) {
+                    session.submit(new GameEvent.SeatTaken(seat,
+                            new PlayerRef(new java.util.UUID(0L, 7000L + index), names.get(index - 1))));
+                }
+                List<CardIdentity> library = new ArrayList<>();
+                for (int card = 0; card < 20 + index * 5; card++) {
+                    library.add(CardIdentity.ofPrinting(new java.util.UUID(0L, 900 + card), false));
+                }
+                session.submit(new GameEvent.DeckLoaded(seat, library, List.of(), sleeves[1 + index % (sleeves.length - 1)]));
+                session.submit(new GameEvent.CardsDrawn(seat, seat, 7));
+            }
+            TableBroadcast.sendToTable(level, corner);
+            dev.gathering.server.TableActions.openFor(player, corner);
+            System.out.println("[devscene] eight seated at four tables");
+        });
+    }
+
+    /** The rival puts the top card of their library into their graveyard, at the server. */
+    private static void theRivalMillsOne(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            fail("no server for the rival to mill a card on");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            GameSession session = TableSessions.sessionAt(server.overworld(), where).orElse(null);
+            if (session == null) {
+                return;
+            }
+            SeatId theirs = new SeatId(1);
+            CardInstanceId top = session.state().contents(theirs, Zone.LIBRARY).stream().findFirst().orElse(null);
+            if (top == null) {
+                System.out.println("[devscene] the rival had no library to mill from");
+                return;
+            }
+            session.submit(new GameEvent.CardMoved(theirs, top,
+                    dev.gathering.core.game.ZoneRef.of(theirs, Zone.GRAVEYARD), dev.gathering.core.game.Placement.TOP));
+            TableBroadcast.sendToTable(server.overworld(), where);
+        });
     }
 
     /** Hands the turn from one seat to another at the server, as a player's pass would. */

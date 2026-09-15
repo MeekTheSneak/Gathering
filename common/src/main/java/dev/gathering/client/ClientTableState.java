@@ -38,6 +38,9 @@ public final class ClientTableState {
     private static final Map<BlockPos, java.util.List<dev.gathering.item.CardComponent>> POTS =
             new ConcurrentHashMap<>();
 
+    /** What each table is playing, as its server last said. See {@link dev.gathering.core.match.TableTerms}. */
+    private static final Map<BlockPos, dev.gathering.core.match.TableTerms> TERMS = new ConcurrentHashMap<>();
+
     /** The table this player is seated at, whose view is theirs rather than the public one. */
     private static volatile BlockPos seatedAt;
 
@@ -103,6 +106,18 @@ public final class ClientTableState {
     /** The pot at this table, which is empty at almost every table there will ever be. */
     public static java.util.List<dev.gathering.item.CardComponent> potOf(BlockPos table) {
         return table == null ? java.util.List.of() : POTS.getOrDefault(table, java.util.List.of());
+    }
+
+    /** What this table is playing, when its server has said. */
+    public static Optional<dev.gathering.core.match.TableTerms> termsOf(BlockPos table) {
+        return table == null ? Optional.empty() : Optional.ofNullable(TERMS.get(table));
+    }
+
+    /** What the server says this table is playing. */
+    public static void acceptTerms(BlockPos table, dev.gathering.core.match.TableTerms terms) {
+        if (table != null && terms != null) {
+            TERMS.put(table.immutable(), terms);
+        }
     }
 
     /** What the server says is in the pot here. */
@@ -179,6 +194,7 @@ public final class ClientTableState {
     /** Stops watching one table, without forgetting the rest of the room. */
     public static void forget(BlockPos table) {
         POTS.remove(table);
+        TERMS.remove(table);
         BOARDS.remove(table);
         ClientCardFlights.forget(table);
         ClientTableNews.forget(table);
@@ -195,6 +211,7 @@ public final class ClientTableState {
     /** On disconnect: what one server's tables showed is not true of the next. */
     public static void clear() {
         POTS.clear();
+        TERMS.clear();
         BOARDS.clear();
         ClientCardFlights.clear();
         ClientTableNews.clear();

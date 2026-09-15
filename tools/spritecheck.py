@@ -359,7 +359,7 @@ def main():
     # information rather than decoration, which tints by meaning: those files are named here.
     painted_on_purpose = {
         "TableCardRenderer.java": "the pointing ring, tinted by how long ago it was pointed at",
-        "GuiGlow.java": "a rarity's glow, the color of the rarity",
+        "GuiGlow.java": "a rarity's glow, the color of the rarity; a pile's arrival, the color of its seat",
     }
     for name in sorted(os.listdir(JAVA)):
         if not name.endswith(".java") or name in painted_on_purpose:

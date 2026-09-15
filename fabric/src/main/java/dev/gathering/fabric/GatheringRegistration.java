@@ -141,6 +141,13 @@ final class GatheringRegistration {
                         .create(GatheringContent::createCollectionEntity, collection)
                         .build()));
 
+        GatheringContent.CHAIR.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.CHAIR_ID), GatheringContent.createChair()));
+        GatheringContent.CHAIR_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CHAIR_ID), GatheringContent.createChairItem()));
+        GatheringContent.CHAIR_SEAT.bindValue(Registry.register(
+                BuiltInRegistries.ENTITY_TYPE, Gathering.id(dev.gathering.block.ChairSeat.ID), GatheringContent.createChairSeat()));
+
         net.minecraft.world.level.block.Block desk = Registry.register(
                 BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.SCOREKEEPERS_DESK_ID),
                 GatheringContent.createScorekeepersDesk());
@@ -210,6 +217,7 @@ final class GatheringRegistration {
                                     new ItemStack(GatheringContent.COLLECTION_ITEM.get()));
                             output.accept(
                                     new ItemStack(GatheringContent.SCOREKEEPERS_DESK_ITEM.get()));
+                            output.accept(new ItemStack(GatheringContent.CHAIR_ITEM.get()));
                         })
                         .build());
     }

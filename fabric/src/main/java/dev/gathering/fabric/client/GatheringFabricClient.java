@@ -96,6 +96,9 @@ public final class GatheringFabricClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
                 GatheringContent.SCOREKEEPERS_DESK_ENTITY.get(),
                 dev.gathering.client.ScorekeepersDeskRenderer::new);
+        // A chair's seat is never drawn: the chair is the block, and the seat is only what is sat on.
+        net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
+                GatheringContent.CHAIR_SEAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
 
         // The felt is one texture tinted per table, so the tint needs a handler on each loader.
         // Every table, not only the wooden one: the felt is the same dyeable surface on all

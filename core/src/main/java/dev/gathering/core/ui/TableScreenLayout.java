@@ -51,12 +51,20 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
      * card still has a hand; it is empty, and the strip is where the next one arrives.
      */
     public static TableScreenLayout of(int screenWidth, int screenHeight, boolean holdingAHand) {
+        return of(screenWidth, screenHeight, holdingAHand, 1);
+    }
+
+    /**
+     * The same, with the strip along the top given this many rows - two when there are too many
+     * seats for one. See {@link SeatStrip}.
+     */
+    public static TableScreenLayout of(int screenWidth, int screenHeight, boolean holdingAHand, int statusRows) {
         int height = Math.max(1, screenHeight);
         int handHeight = holdingAHand
                 ? Math.min(clamp(Math.round(height * HAND_HEIGHT_FRACTION),
                         HAND_HEIGHT_MIN, HAND_HEIGHT_MAX), height / 2)
                 : 0;
-        return withStrip(screenWidth, screenHeight, handHeight);
+        return withStrip(screenWidth, screenHeight, handHeight, statusRows);
     }
 
     /**
@@ -74,11 +82,16 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
      * knowing what is in it.
      */
     public static TableScreenLayout watching(int screenWidth, int screenHeight) {
-        return withStrip(screenWidth, screenHeight,
-                Math.min(SCRUBBER_HEIGHT, Math.max(1, screenHeight) / 2));
+        return watching(screenWidth, screenHeight, 1);
     }
 
-    private static TableScreenLayout withStrip(int screenWidth, int screenHeight, int stripHeight) {
+    /** The same, with the strip along the top given this many rows. */
+    public static TableScreenLayout watching(int screenWidth, int screenHeight, int statusRows) {
+        return withStrip(screenWidth, screenHeight,
+                Math.min(SCRUBBER_HEIGHT, Math.max(1, screenHeight) / 2), statusRows);
+    }
+
+    private static TableScreenLayout withStrip(int screenWidth, int screenHeight, int stripHeight, int statusRows) {
         int width = Math.max(1, screenWidth);
         int height = Math.max(1, screenHeight);
 
@@ -88,7 +101,8 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
         return new TableScreenLayout(
                 new Rect(0, 0, width, height),
                 stripHeight <= 0 ? Rect.NONE : new Rect(0, height - stripHeight, width, stripHeight),
-                new Rect(0, 0, width, Math.min(STATUS_HEIGHT, height / 4)));
+                new Rect(0, 0, width, Math.min(STATUS_HEIGHT * Math.max(1, Math.min(SeatStrip.MOST_ROWS, statusRows)),
+                        height / 4)));
     }
 
     /**

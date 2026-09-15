@@ -450,30 +450,7 @@ public class TableBlock extends BaseEntityBlock {
                         .isPresent();
 
         if (!alreadySeatedHere && side != null && TableSeats.isSeat(cluster, cell, side)) {
-            TableSeats.Claim claim = TableSeats.take(level, tableOrigin, cell, side, player.getUUID());
-            player.sendSystemMessage(Component.translatable(claim.messageKey()));
-            tellTheTableWhoIsSittingAtIt(level, tableOrigin);
-            // Sitting down with nothing to play is the moment a loaner is for, and it is the
-            // only moment somebody who has just joined a server will find one. Offered rather
-            // than mentioned: a chat line saying decks exist is a thing to go and look up.
-            if (claim == TableSeats.Claim.TAKEN
-                    && player instanceof net.minecraft.server.level.ServerPlayer sat) {
-                // Somebody joining a table that is mid-question has to be asked too, or the
-                // rest could agree without them and stake a card of theirs.
-                if (level instanceof net.minecraft.server.level.ServerLevel joined) {
-                    dev.gathering.server.Antes.seatsChanged(joined, tableOrigin);
-                    // And sitting down at an event being signed up for is joining it: they are
-                    // shown it, and everybody already there sees them arrive.
-                    if (entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
-                        dev.gathering.server.PodLobbies.changed(joined, tableOrigin, sat.getUUID());
-                    }
-                }
-                // Not over an event's signup, which has just been shown to them and is what
-                // they sat down for: a loaner offer on top of it would hide it.
-                if (!entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
-                    dev.gathering.server.Lending.offerIfEmptyHanded(sat, tableOrigin);
-                }
-            }
+            sitAt(level, tableOrigin, cell, side, player);
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -534,20 +511,7 @@ public class TableBlock extends BaseEntityBlock {
         // Both, then, decided by whether there is a board to open: during a game the click
         // opens it and standing up is on its menu, and outside one the click is the way out.
         if (alreadySeatedHere) {
-            // Their seat, read before the claim goes, because that is what names the deck the
-            // table is holding for them. Between games of a set the table keeps everybody's
-            // deck to put it back down for the next one - so a player leaving then had no way
-            // at all to get theirs back short of the whole set ending.
-            java.util.Optional<dev.gathering.core.game.SeatId> leaving =
-                    TableSessions.seatIdOf(level, tableOrigin, player.getUUID());
-            TableSeats.leave(level, tableOrigin, player.getUUID());
-            leaving.ifPresent(seat -> TableSessions.returnDeckTo(level, tableOrigin, seat));
-            player.sendSystemMessage(Component.translatable("message.gathering.seat_left"));
-            tellTheTableWhoIsSittingAtIt(level, tableOrigin);
-            if (level instanceof net.minecraft.server.level.ServerLevel stood) {
-                dev.gathering.server.Antes.seatsChanged(stood, tableOrigin);
-                dev.gathering.server.PodSignups.seatReleased(stood, tableOrigin, player.getUUID());
-            }
+            standUp(level, tableOrigin, player);
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -688,6 +652,63 @@ public class TableBlock extends BaseEntityBlock {
             }
         }
         commitDeck(level, tableOrigin, player, stack);
+    }
+
+    /**
+     * Takes this seat for this player, with everything that goes with sitting down: said to them, told
+     * to a game already running, asked of a table that is mid-question, shown an event being signed up
+     * for, and offered a deck to borrow if they came empty-handed.
+     * <p>One method for every way to sit: right-clicking the edge, and sitting in a chair set against it.
+     */
+    public static TableSeats.Claim sitAt(Level level, BlockPos tableOrigin, TableCell cell, Side side, Player player) {
+        TableSeats.Claim claim = TableSeats.take(level, tableOrigin, cell, side, player.getUUID());
+        player.sendSystemMessage(Component.translatable(claim.messageKey()));
+        tellTheTableWhoIsSittingAtIt(level, tableOrigin);
+        // Sitting down with nothing to play is the moment a loaner is for, and it is the
+        // only moment somebody who has just joined a server will find one. Offered rather
+        // than mentioned: a chat line saying decks exist is a thing to go and look up.
+        if (claim == TableSeats.Claim.TAKEN
+                && player instanceof net.minecraft.server.level.ServerPlayer sat) {
+            // Somebody joining a table that is mid-question has to be asked too, or the
+            // rest could agree without them and stake a card of theirs.
+            if (level instanceof net.minecraft.server.level.ServerLevel joined) {
+                dev.gathering.server.Antes.seatsChanged(joined, tableOrigin);
+                // And sitting down at an event being signed up for is joining it: they are
+                // shown it, and everybody already there sees them arrive.
+                if (entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
+                    dev.gathering.server.PodLobbies.changed(joined, tableOrigin, sat.getUUID());
+                }
+            }
+            // Not over an event's signup, which has just been shown to them and is what
+            // they sat down for: a loaner offer on top of it would hide it.
+            if (!entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
+                dev.gathering.server.Lending.offerIfEmptyHanded(sat, tableOrigin);
+            }
+        }
+        return claim;
+    }
+
+    /**
+     * Gives up this player's seat at this table, handing back the deck the table is holding for them
+     * and telling everybody who needs to know.
+     * <p>One method for every way to stand up outside the board's own menu: clicking your own edge,
+     * and getting up out of a chair.
+     */
+    public static void standUp(Level level, BlockPos tableOrigin, Player player) {
+        // Their seat, read before the claim goes, because that is what names the deck the
+        // table is holding for them. Between games of a set the table keeps everybody's
+        // deck to put it back down for the next one - so a player leaving then had no way
+        // at all to get theirs back short of the whole set ending.
+        java.util.Optional<dev.gathering.core.game.SeatId> leaving =
+                TableSessions.seatIdOf(level, tableOrigin, player.getUUID());
+        TableSeats.leave(level, tableOrigin, player.getUUID());
+        leaving.ifPresent(seat -> TableSessions.returnDeckTo(level, tableOrigin, seat));
+        player.sendSystemMessage(Component.translatable("message.gathering.seat_left"));
+        tellTheTableWhoIsSittingAtIt(level, tableOrigin);
+        if (level instanceof net.minecraft.server.level.ServerLevel stood) {
+            dev.gathering.server.Antes.seatsChanged(stood, tableOrigin);
+            dev.gathering.server.PodSignups.seatReleased(stood, tableOrigin, player.getUUID());
+        }
     }
 
     /**

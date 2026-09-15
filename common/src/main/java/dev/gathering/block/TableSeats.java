@@ -58,7 +58,10 @@ public final class TableSeats {
             }
             Optional<Side> held = table.get().sideHeldBy(player);
             if (held.isPresent()) {
-                return table.get().release(held.get(), player);
+                boolean released = table.get().release(held.get(), player);
+                // Somebody leaving a seat they were sitting in a chair at gets up out of the chair.
+                Chairs.leftTheSeat(level, player);
+                return released;
             }
         }
         return false;

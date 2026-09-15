@@ -191,6 +191,10 @@ public final class TableBroadcast {
             boardsSent++;
             Sending.to(player,
                     new TableViewPayload(tableOrigin, ViewCodec.write(seen), open));
+            // What the table is playing, beside it. Nothing about it is hidden, so it is the same for
+            // everybody who can see the board.
+            Sending.to(player, new dev.gathering.network.TableTermsPayload(tableOrigin,
+                    termsAt(player.serverLevel(), tableOrigin)));
             // And the pictures for what is in it. A client only ever asked about cards in its
             // own inventory, so a rival's graveyard opened onto empty recesses under a count
             // that said there was something there. Sent from the view rather than asked for,
@@ -200,6 +204,27 @@ public final class TableBroadcast {
             LOGGER.error("Could not send the board at {} to {}: {}",
                     tableOrigin, player.getGameProfile().getName(), e.getMessage());
         }
+    }
+
+    /**
+     * What this table is playing, as the server knows it: the match it started, the table's own
+     * record of whether a format was chosen, and whether it is for keeps.
+     */
+    public static dev.gathering.core.match.TableTerms termsAt(ServerLevel level, BlockPos tableOrigin) {
+        var match = dev.gathering.block.TableSessions.matchAt(level, tableOrigin).orElse(null);
+        var table = dev.gathering.block.TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> dev.gathering.block.TableBlock.entityAt(level, anchor)).orElse(null);
+        boolean formatChosen = table != null && table.formatWasChosen();
+        return new dev.gathering.core.match.TableTerms(
+                match == null ? "" : match.rules().format().id(),
+                match == null ? 1 : match.rules().bestOf(),
+                match == null ? 1 : match.gameNumber(),
+                // A tournament names its format for every table, and a practice table is not a
+                // format at all; neither is somebody's game with none.
+                !formatChosen && table != null && table.eventTable() == 0 && !table.isPractice(),
+                table != null && table.playingForKeeps(),
+                table != null && table.isPractice(),
+                table == null ? 0 : table.eventTable());
     }
 
     /** Tells everyone at this cluster that the game is over and to stop watching it. */
