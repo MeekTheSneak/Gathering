@@ -64,6 +64,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String STARTING_LIFE_KEY = "starting_life";
     private static final String FORMAT_KEY = "format";
     private static final String BEST_OF_KEY = "best_of";
+    private static final String NEEDS_A_WINNER_KEY = "needs_a_winner";
     private static final String GAME_NUMBER_KEY = "game_number";
     private static final String LAST_WINNER_KEY = "last_winner";
     private static final String DRAWN_GAME_CHOOSER_KEY = "drawn_game_chooser";
@@ -1308,6 +1309,9 @@ public class TableBlockEntity extends BlockEntity {
         }
         tag.putString(FORMAT_KEY, match.rules().format().id());
         tag.putInt(BEST_OF_KEY, match.rules().bestOf());
+        if (match.rules().needsAWinner()) {
+            tag.putBoolean(NEEDS_A_WINNER_KEY, true);
+        }
         tag.putInt(GAME_NUMBER_KEY, match.gameNumber());
 
         ListTag wins = new ListTag();
@@ -1338,7 +1342,7 @@ public class TableBlockEntity extends BlockEntity {
             return null;
         }
         try {
-            MatchRules rules = new MatchRules(format.get(), tag.getInt(BEST_OF_KEY));
+            MatchRules rules = new MatchRules(format.get(), tag.getInt(BEST_OF_KEY), tag.getBoolean(NEEDS_A_WINNER_KEY));
             java.util.Map<dev.gathering.core.game.SeatId, Integer> wins = new java.util.LinkedHashMap<>();
             ListTag stored = tag.getList(WINS_KEY, Tag.TAG_COMPOUND);
             for (int index = 0; index < stored.size(); index++) {

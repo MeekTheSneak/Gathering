@@ -46,7 +46,7 @@ import java.util.UUID;
 public final class ViewCodec {
 
     /** Four: a seat's mulligans and the cards it owes to the bottom for them. */
-    public static final int VERSION = 4;
+    public static final int VERSION = 5;
 
     /** A ceiling on any length read from the wire, checked before it sizes anything. */
     public static final int MAX_ENTRIES = 20_000;
@@ -199,6 +199,7 @@ public final class ViewCodec {
         if (present) {
             out.writeInt(turn.activeSeat().index());
             out.writeInt(turn.turnNumber());
+            out.writeBoolean(turn.drawChosen());
         }
     }
 
@@ -206,7 +207,7 @@ public final class ViewCodec {
         if (!in.readBoolean()) {
             return null;
         }
-        return new TurnMarker(new SeatId(in.readInt()), in.readInt());
+        return new TurnMarker(new SeatId(in.readInt()), in.readInt(), in.readBoolean());
     }
 
     private static void seat(DataOutput out, SeatView seat) throws IOException {

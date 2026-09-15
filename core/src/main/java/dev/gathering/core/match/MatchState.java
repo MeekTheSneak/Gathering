@@ -2,6 +2,7 @@ package dev.gathering.core.match;
 
 import dev.gathering.core.game.SeatId;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -77,7 +78,15 @@ public record MatchState(
         updated.merge(winner, 1, Integer::sum);
 
         MatchState next = new MatchState(rules, updated, gameNumber, winner, null);
-        return next.isDecided() ? next : new MatchState(rules, updated, gameNumber + 1, winner, null);
+        if (next.isDecided()) {
+            return next;
+        }
+        if (rules.needsAWinner() && gameNumber >= rules.bestOf() && next.leader().isEmpty()) {
+            // Level on games with the games gone - a drawn game earlier made room for it - and a
+            // cut match cannot end level, so another game is played.
+            return next;
+        }
+        return new MatchState(rules, updated, gameNumber + 1, winner, null);
     }
 
     /**
@@ -97,20 +106,49 @@ public record MatchState(
      * @param whoChose the player the drawn game's first turn went to, or null if nobody was named
      */
     public MatchState afterDrawnGame(SeatId whoChose) {
+        if (rules.needsAWinner() && gameNumber >= rules.bestOf() && leader().isEmpty()) {
+            // A cut match level on games cannot end drawn, so its last game is played again.
+            return new MatchState(rules, wins, gameNumber, null, whoChose);
+        }
         // Past the length when it was the last game, which is what "no game to play" reads. It
         // used to stay on the last game instead, so a drawn decider was simply played again.
         return new MatchState(rules, wins, gameNumber + 1, null, whoChose);
     }
 
+    /** Whether somebody has won the games it takes to win the match. */
     public boolean isDecided() {
-        return winner().isPresent();
+        return wins.values().stream().anyMatch(won -> won >= rules.gamesToWin());
     }
 
+    /**
+     * Who took the match: whoever won the games it takes, or - once the games have run out with
+     * drawn games among them - whoever won more of them. A best of three that went won, drawn,
+     * drawn is one game to none, and one game to none is a match won, the same as the tournament
+     * reports it; calling it drawn gave the pot back from a match somebody took.
+     */
     public Optional<SeatId> winner() {
-        return wins.entrySet().stream()
+        Optional<SeatId> reached = wins.entrySet().stream()
                 .filter(entry -> entry.getValue() >= rules.gamesToWin())
                 .map(Map.Entry::getKey)
                 .findFirst();
+        return reached.isPresent() || hasGameToPlay() ? reached : leader();
+    }
+
+    /** The one seat with more games won than any other, if there is one. */
+    private Optional<SeatId> leader() {
+        int most = wins.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        List<SeatId> leading = wins.entrySet().stream()
+                .filter(entry -> entry.getValue() == most && most > 0)
+                .map(Map.Entry::getKey)
+                .toList();
+        return leading.size() == 1 ? Optional.of(leading.get(0)) : Optional.empty();
+    }
+
+    /** Games played in this match that nobody won. */
+    public int drawnGames() {
+        int played = isDecided() ? gameNumber : gameNumber - 1;
+        int won = wins.values().stream().mapToInt(Integer::intValue).sum();
+        return Math.max(0, played - won);
     }
 
     /**

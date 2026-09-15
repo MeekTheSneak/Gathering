@@ -87,6 +87,47 @@ class MatchStateTest {
         assertThat(drawsFirst.afterGameWonBy(BOB).hasGameToPlay()).isFalse();
     }
 
+    /**
+     * Games run out with drawn games among them: whoever won more took the match, as the
+     * tournament scores it, and the drawn games are counted.
+     */
+    @Test
+    void theGamesRunningOutGoToWhoeverWonMore() {
+        MatchState wonDrawnDrawn = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
+                .afterGameWonBy(ALICE).afterDrawnGame(ALICE).afterDrawnGame(BOB);
+        assertThat(wonDrawnDrawn.hasGameToPlay()).isFalse();
+        assertThat(wonDrawnDrawn.winner()).contains(ALICE);
+        assertThat(wonDrawnDrawn.drawnGames()).isEqualTo(2);
+
+        MatchState level = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
+                .afterGameWonBy(ALICE).afterGameWonBy(BOB).afterDrawnGame(ALICE);
+        assertThat(level.winner()).isEmpty();
+        assertThat(level.drawnGames()).isEqualTo(1);
+        assertThat(MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3)).afterGameWonBy(ALICE)
+                .afterGameWonBy(ALICE).drawnGames()).isZero();
+    }
+
+    /** A cut match cannot end level: its last game is played again while the players are level. */
+    @Test
+    void aCutMatchLevelOnGamesPlaysAnother() {
+        MatchRules cut = new MatchRules(FormatPresets.MODERN, 3, true);
+        MatchState decider = MatchState.beginning(cut).afterGameWonBy(ALICE).afterGameWonBy(BOB).afterDrawnGame(ALICE);
+        assertThat(decider.hasGameToPlay()).isTrue();
+        assertThat(decider.startsNextGame(List.of(ALICE, BOB))).contains(ALICE);
+
+        MatchState drawThenLevel = MatchState.beginning(cut).afterDrawnGame(ALICE).afterGameWonBy(ALICE)
+                .afterGameWonBy(BOB);
+        assertThat(drawThenLevel.hasGameToPlay()).isTrue();
+        assertThat(drawThenLevel.afterGameWonBy(BOB).winner()).contains(BOB);
+
+        MatchState bestOfOne = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 1, true)).afterDrawnGame(BOB);
+        assertThat(bestOfOne.hasGameToPlay()).isTrue();
+        // Ahead when the games run out is still a winner, cut or not.
+        MatchState ahead = MatchState.beginning(cut).afterGameWonBy(ALICE).afterDrawnGame(ALICE).afterDrawnGame(ALICE);
+        assertThat(ahead.hasGameToPlay()).isFalse();
+        assertThat(ahead.winner()).contains(ALICE);
+    }
+
     @Test
     @DisplayName("best of three is won by two, not by three")
     void twoWinsTakeABestOfThree() {

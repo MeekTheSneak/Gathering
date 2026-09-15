@@ -260,6 +260,33 @@ public final class EventsGameTest {
         helper.succeed();
     }
 
+    /**
+     * One player stands up and the other moves into their chair: the one still sitting is found,
+     * and the one who stood up gets the chair left over rather than the same chair twice - which
+     * handed both players the same games and suggested a draw.
+     */
+    @GameTest(template = "tables")
+    public static void aPlayerWhoStoodUpKeepsTheOtherChair(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        BlockPos table = fixture.state.table(2).orElseThrow();
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(2).orElseThrow();
+        var session = TableSessions.sessionAt(helper.getLevel(), table).orElseThrow();
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatReleased(new SeatId(0)));
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatReleased(new SeatId(1)));
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatTaken(new SeatId(0),
+                new dev.gathering.core.game.PlayerRef(pairing.b(), "B")));
+        // Chair 0 - the second player, now - won both.
+        MatchState won = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
+                .afterGameWonBy(new SeatId(0)).afterGameWonBy(new SeatId(0));
+        Events.gameEnded(helper.getLevel(), table, won);
+        Optional<MatchResult> suggested = Events.suggested(fixture.state, 2);
+        if (suggested.isEmpty() || !suggested.get().equals(new MatchResult(0, 2, 0))) {
+            helper.fail("a player who stood up was suggested " + suggested + ", not 0-2 for the first player");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** A locked registration: the registered deck is accepted, sideboarded or not, and no other. */
     @GameTest(template = "tables")
     public static void alockedDeckIsTheOnlyDeckAccepted(GameTestHelper helper) {

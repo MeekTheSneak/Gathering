@@ -282,10 +282,17 @@ public record Tournament(
      * game in progress as a draw.
      */
     public Tournament endAtTime(int table, int winsA, int winsB, boolean gameInProgress) {
+        return endAtTime(table, winsA, winsB, 0, gameInProgress);
+    }
+
+    /** The same, with the games already drawn in the match counted among its games. */
+    public Tournament endAtTime(int table, int winsA, int winsB, int drawnGames, boolean gameInProgress) {
         Round round = playingRound();
         Pairing pairing = round.atTable(table).orElseThrow(() ->
                 new IllegalArgumentException("message.gathering.event.no_such_table"));
-        MatchResult result = MatchResult.atTime(winsA, winsB, gameInProgress);
+        MatchResult atTime = MatchResult.atTime(winsA, winsB, gameInProgress);
+        MatchResult result = new MatchResult(winsA, winsB,
+                Math.min(MatchResult.MOST_GAMES - winsA - winsB, Math.max(0, drawnGames) + atTime.draws()));
         if (round.elimination() && result.isDraw()) {
             // A cut cannot end in a draw; the host decides a tied match at time.
             return this;
@@ -299,10 +306,17 @@ public record Tournament(
      * too, nothing is recorded and the host decides.
      */
     public Tournament endAtTime(int table, int winsA, int winsB, boolean gameInProgress, int lifeA, int lifeB) {
+        return endAtTime(table, winsA, winsB, 0, gameInProgress, lifeA, lifeB);
+    }
+
+    /** The same, with the games already drawn in the match counted among its games. */
+    public Tournament endAtTime(int table, int winsA, int winsB, int drawnGames, boolean gameInProgress, int lifeA,
+            int lifeB) {
         if (playingRound().elimination() && gameInProgress && winsA == winsB && lifeA != lifeB) {
-            return endAtTime(table, lifeA > lifeB ? winsA + 1 : winsA, lifeB > lifeA ? winsB + 1 : winsB, false);
+            return endAtTime(table, lifeA > lifeB ? winsA + 1 : winsA, lifeB > lifeA ? winsB + 1 : winsB, drawnGames,
+                    false);
         }
-        return endAtTime(table, winsA, winsB, gameInProgress);
+        return endAtTime(table, winsA, winsB, drawnGames, gameInProgress);
     }
 
     /**

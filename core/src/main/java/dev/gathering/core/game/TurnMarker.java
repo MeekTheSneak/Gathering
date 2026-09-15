@@ -12,7 +12,12 @@ package dev.gathering.core.game;
  * either, and a group that wants to announce a step says so out loud, which is what they were
  * doing anyway. Passing the turn is the whole of the structure now.
  */
-public record TurnMarker(SeatId activeSeat, int turnNumber) {
+public record TurnMarker(SeatId activeSeat, int turnNumber, boolean drawChosen) {
+
+    /** A turn marker nobody has chosen to draw on. */
+    public TurnMarker(SeatId activeSeat, int turnNumber) {
+        this(activeSeat, turnNumber, false);
+    }
 
     public TurnMarker {
         if (activeSeat == null) {
@@ -23,12 +28,20 @@ public record TurnMarker(SeatId activeSeat, int turnNumber) {
         }
     }
 
+    /**
+     * The first turn handed on by a player who chose to draw. Marked, because the choice is
+     * made once: the player it went to has no choice left, or it went round the table forever.
+     */
+    public TurnMarker handedOnTo(SeatId seat) {
+        return new TurnMarker(seat, 1, true);
+    }
+
     public static TurnMarker start(SeatId firstSeat) {
         return new TurnMarker(firstSeat, 1);
     }
 
     /** Hands the turn to the next seat in the seating order. */
     public TurnMarker passTo(SeatId nextSeat) {
-        return new TurnMarker(nextSeat, turnNumber + 1);
+        return new TurnMarker(nextSeat, turnNumber + 1, false);
     }
 }

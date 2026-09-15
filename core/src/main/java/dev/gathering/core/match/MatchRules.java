@@ -10,7 +10,17 @@ import java.util.List;
  * Commander is the format that does not want this, so one is a supported answer rather than
  * the absence of one.
  */
-public record MatchRules(FormatPreset format, int bestOf) {
+public record MatchRules(FormatPreset format, int bestOf, boolean needsAWinner) {
+
+    /**
+     * A match that may end drawn, which is every match but a tournament's cut.
+     *
+     * @param needsAWinner a single-elimination match, which cannot end drawn: a drawn last game
+     *                     is played again rather than ending it level (MTR 2.4)
+     */
+    public MatchRules(FormatPreset format, int bestOf) {
+        this(format, bestOf, false);
+    }
 
     /** Odd numbers only: an even one can be drawn, and a drawn match settles nothing. */
     public static final List<Integer> SUPPORTED_LENGTHS = List.of(1, 3, 5);

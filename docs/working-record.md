@@ -359,6 +359,24 @@ only). Nine findings; checked, and these fixed:
 Left, and why: a cut game restarted by hand rather than by the event starts at
 random.
 
+**Second independent review** (reviewer agent, read only, given the requirements and the diff of
+the drawn-game, chair, player-count and choose-to-draw work). Five findings, all fixed:
+- A cut match drawn in its deciding game ended "drawn", which a cut cannot be, and left the players
+  no game to play. A cut match level on games now plays its last game again (`MatchRules.needsAWinner`,
+  saved as `needs_a_winner`); the owner's "a draw counts as a game" holds everywhere else.
+- A best of three that went won, drawn, drawn was announced as a drawn match and the pot went back,
+  while the tournament scored it 1-0 for the player ahead. The player ahead when the games run out
+  now takes the match, and drawn games are counted in the suggested result and at time.
+- A player who stood up while the other moved into their chair was given the same chair: both got the
+  same games. One player found now puts the other in the chair left over.
+- "Choose to draw" could be handed back and forth forever. The first turn marker now records that the
+  choice was made (board view version 5), and it is refused after that.
+- The catalogue path offered it in a game of one.
+Guards: `MatchStateTest.aCutMatchLevelOnGamesPlaysAnother` and `theGamesRunningOutGoToWhoeverWonMore`,
+`DrawChosenTest` (handing it back), `EventsGameTest.aPlayerWhoStoodUpKeepsTheOtherChair` - each shown to
+fail on the old code. Left: players who swap chairs between games still swap the running score, because
+the score and the held decks are kept by chair.
+
 **Choosing to draw** (MTR 2.2). The table starts the chosen player playing; passing the turn to draw
 instead made the other player's first turn "turn 2", so the first-draw reminder went to nobody and
 the log showed a pass. The felt's menu now offers "Choose to draw" to the player going first on

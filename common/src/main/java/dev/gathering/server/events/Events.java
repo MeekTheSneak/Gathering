@@ -624,7 +624,7 @@ public final class Events {
                     ? new SeatId(state.tournament.firstSeededHigher(pairing) ? 0 : 1)
                     : null;
             TableSessions.Outcome outcome = TableSessions.start(level, table,
-                    new MatchRules(format, state.tournament.settings().bestOf()), null, higherSeed);
+                    new MatchRules(format, state.tournament.settings().bestOf(), round.elimination()), null, higherSeed);
             if (outcome == TableSessions.Outcome.STARTED) {
                 TableBlock.entityAt(level, table).ifPresent(entity -> entity.formatWasChosen(true));
                 dev.gathering.server.TableBroadcast.sendToTable(level, table);
@@ -952,9 +952,9 @@ public final class Events {
             int[] wins = winsAt(level, origin, pairing);
             var session = TableSessions.sessionAt(level, origin).orElse(null);
             int[] life = session == null ? new int[] {0, 0}
-                    : new int[] {lifeOf(session.state(), chairOf(level, origin, pairing.a(), 0)),
-                            lifeOf(session.state(), chairOf(level, origin, pairing.b(), 1))};
-            state.tournament = state.tournament.endAtTime(table, wins[0], wins[1], session != null, life[0], life[1]);
+                    : new int[] {lifeOf(session.state(), chairsOf(level, origin, pairing)[0]),
+                            lifeOf(session.state(), chairsOf(level, origin, pairing)[1])};
+            state.tournament = state.tournament.endAtTime(table, wins[0], wins[1], wins[2], session != null, life[0], life[1]);
             boolean recorded = state.tournament.currentRound().flatMap(r -> r.atTable(table)).map(Pairing::isConfirmed).orElse(false);
             // A cut match still tied on games and life is left open for the host, and saying it
             // was recorded would send both players away from a match nobody has decided.
@@ -980,8 +980,8 @@ public final class Events {
         if (pairing == null) {
             return;
         }
-        state.seen.put(table, new int[] {match.winsFor(chairOf(level, origin, pairing.a(), 0)),
-                match.winsFor(chairOf(level, origin, pairing.b(), 1))});
+        SeatId[] chairs = chairsOf(level, origin, pairing);
+        state.seen.put(table, new int[] {match.winsFor(chairs[0]), match.winsFor(chairs[1]), match.drawnGames()});
         state.tournament.currentRound().ifPresent(round -> state.playedAtTable.add(round.number() + ":" + table));
         if (match.isDecided() || !match.hasGameToPlay()) {
             for (UUID player : new UUID[] {pairing.a(), pairing.b()}) {
@@ -994,7 +994,9 @@ public final class Events {
     /** The result the table saw, from the first player's chair, if a game ended there this round. */
     public static Optional<MatchResult> suggested(EventState state, int table) {
         int[] seen = state.seen.get(table);
-        return seen == null ? Optional.empty() : Optional.of(new MatchResult(seen[0], seen[1], 0));
+        return seen == null ? Optional.empty()
+                // Drawn games counted too, now that a drawn game is one of the match's games.
+                : Optional.of(new MatchResult(seen[0], seen[1], seen.length > 2 ? seen[2] : 0));
     }
 
     private static int lifeOf(dev.gathering.core.game.GameState game, SeatId seat) {
@@ -1004,36 +1006,49 @@ public final class Events {
     private static int[] winsAt(ServerLevel level, BlockPos origin, Pairing pairing) {
         MatchState match = TableSessions.matchAt(level, origin).orElse(null);
         if (match == null) {
-            return new int[] {0, 0};
+            return new int[] {0, 0, 0};
         }
-        return new int[] {match.winsFor(chairOf(level, origin, pairing.a(), 0)),
-                match.winsFor(chairOf(level, origin, pairing.b(), 1))};
+        SeatId[] chairs = chairsOf(level, origin, pairing);
+        return new int[] {match.winsFor(chairs[0]), match.winsFor(chairs[1]), match.drawnGames()};
     }
 
     /**
-     * The chair a player of this pairing is playing from at this table.
+     * The chairs the pairing's two players are playing from at this table, first player first.
      * <p>A round seats the first player in chair 0 and the second in chair 1, and that is where
      * they usually stay - but nothing keeps them there, and results read by chair credited a
-     * pair who had swapped with each other's games. The game in progress says who is where:
-     * whoever is sitting in a chair, or failing that whose board it is. With no game, or no
-     * sign of them in it, the chair the round gave them.
+     * pair who had swapped with each other's games. The game in progress says who is sitting
+     * where; one player found puts the other in the chair left over, and with neither found - or
+     * both answering to the same chair, as when one stood up and the other moved across - the
+     * chairs the round gave them.
      */
-    private static SeatId chairOf(ServerLevel level, BlockPos origin, UUID player, int seatedAt) {
+    private static SeatId[] chairsOf(ServerLevel level, BlockPos origin, Pairing pairing) {
+        SeatId first = new SeatId(0);
+        SeatId second = new SeatId(1);
         var session = TableSessions.sessionAt(level, origin).orElse(null);
-        if (session != null && player != null) {
-            var game = session.state();
-            for (SeatId seat : game.seats()) {
-                if (game.seatState(seat).player().map(ref -> ref.id().equals(player)).orElse(false)) {
-                    return seat;
-                }
-            }
-            for (SeatId seat : game.seats()) {
-                if (game.seatState(seat).whoseBoard().map(ref -> ref.id().equals(player)).orElse(false)) {
-                    return seat;
-                }
+        if (session == null) {
+            return new SeatId[] {first, second};
+        }
+        SeatId a = seatedIn(session.state(), pairing.a());
+        SeatId b = seatedIn(session.state(), pairing.b());
+        if (a != null && b == null) {
+            b = a.equals(first) ? second : first;
+        } else if (b != null && a == null) {
+            a = b.equals(first) ? second : first;
+        }
+        return a == null || a.equals(b) ? new SeatId[] {first, second} : new SeatId[] {a, b};
+    }
+
+    /** The chair this player is sitting in during this game, or null. */
+    private static SeatId seatedIn(dev.gathering.core.game.GameState game, UUID player) {
+        if (player == null) {
+            return null;
+        }
+        for (SeatId seat : game.seats()) {
+            if (game.seatState(seat).player().map(ref -> ref.id().equals(player)).orElse(false)) {
+                return seat;
             }
         }
-        return new SeatId(seatedAt);
+        return null;
     }
 
     /**

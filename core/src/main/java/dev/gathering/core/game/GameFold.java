@@ -163,14 +163,15 @@ public final class GameFold {
                     state.withTurn(state.turn().passTo(requireSeat(state, passed.toSeat())));
 
             case GameEvent.DrawChosen chosen -> {
-                if (state.turn().turnNumber() != 1 || !state.turn().activeSeat().equals(chosen.actor())
+                if (state.turn().turnNumber() != 1 || state.turn().drawChosen()
+                        || !state.turn().activeSeat().equals(chosen.actor())
                         || chosen.toSeat().equals(chosen.actor())) {
                     // Refused out loud: the log would otherwise say a choice was made that
                     // changed nothing.
                     throw new IllegalArgumentException(
                             "Only the player going first can choose to draw, and only on the first turn.");
                 }
-                yield state.withTurn(TurnMarker.start(requireSeat(state, chosen.toSeat())));
+                yield state.withTurn(state.turn().handedOnTo(requireSeat(state, chosen.toSeat())));
             }
         };
     }

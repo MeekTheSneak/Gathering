@@ -272,6 +272,9 @@ class TournamentTest {
         Tournament swiss = readyWith(4, constructed()).startSwiss().callTime();
         assertThat(swiss.endAtTime(1, 1, 1, true, 20, 3).currentRound().orElseThrow().atTable(1).orElseThrow().result())
                 .isEqualTo(new MatchResult(1, 1, 1));
+        // Games already drawn in the match count among its games.
+        assertThat(swiss.endAtTime(1, 1, 0, 1, true, 20, 3).currentRound().orElseThrow().atTable(1).orElseThrow().result())
+                .isEqualTo(new MatchResult(1, 0, 2));
     }
 
     /** Appendix B's building times: 25 minutes after a draft, 30 for sealed. */

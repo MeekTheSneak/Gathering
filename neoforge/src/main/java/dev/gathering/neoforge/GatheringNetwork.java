@@ -42,7 +42,8 @@ public final class GatheringNetwork {
      * view carries the seconds left, and a host can mark where players register.
      * <p>Ten, for loaner decks: a deck on the wire carries whether it was lent.
      * <p>Eleven, for the London mulligan: a seat on the board carries its mulligans.
-     * <p>Twelve, for choosing to draw: a move an older server cannot read.
+     * <p>Twelve, for choosing to draw: a move an older server cannot read, and a turn marker on
+     * the board that says the choice has been made.
      */
     private static final String PROTOCOL_VERSION = "12";
 

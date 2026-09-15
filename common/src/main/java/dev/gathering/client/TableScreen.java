@@ -4778,8 +4778,7 @@ public final class TableScreen extends Screen {
         view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
         // The other half of going first: the choice of drawing instead, while it is still a
         // choice. See GameEvent.DrawChosen.
-        view().filter(board -> board.turn().turnNumber() == 1 && board.turn().activeSeat().equals(me)
-                        && board.players() > 1)
+        view().filter(board -> offersDrawFirst(board, me))
                 .ifPresent(board -> entries.add(entry("draw_first", () -> doAction(me, "draw_first"))));
         entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
         entries.add(entry("lose_life", () -> send(new GameEvent.LifeChanged(me, me, -1))));
@@ -5550,7 +5549,7 @@ public final class TableScreen extends Screen {
             case "draw_first" -> {
                 // Only while it is still a choice; anywhere else the server would refuse it.
                 GameView board = view().orElse(null);
-                if (board == null || board.turn().turnNumber() != 1 || !board.turn().activeSeat().equals(me)) {
+                if (board == null || !offersDrawFirst(board, me)) {
                     yield false;
                 }
                 send(new GameEvent.DrawChosen(me, board.nextSeatWithABoard(me)));
@@ -5884,6 +5883,12 @@ public final class TableScreen extends Screen {
         eachCard(board, targets, seen ->
                 seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null);
         return !targets.isEmpty();
+    }
+
+    /** Whether this player may still choose to draw: going first, on turn one, with somebody to hand it to. */
+    private static boolean offersDrawFirst(GameView board, SeatId me) {
+        return board.turn().turnNumber() == 1 && !board.turn().drawChosen() && board.turn().activeSeat().equals(me)
+                && board.players() > 1 && !board.nextSeatWithABoard(me).equals(me);
     }
 
     /**

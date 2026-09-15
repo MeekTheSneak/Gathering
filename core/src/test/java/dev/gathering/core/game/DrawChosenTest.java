@@ -32,7 +32,11 @@ class DrawChosenTest {
 
         assertThat(session.submit(new GameEvent.DrawChosen(first, other)))
                 .isInstanceOf(GameSession.Result.Accepted.class);
-        assertThat(session.state().turn()).isEqualTo(TurnMarker.start(other));
+        assertThat(session.state().turn().activeSeat()).isEqualTo(other);
+        assertThat(session.state().turn().turnNumber()).isEqualTo(1);
+        // Made once: the player it went to cannot hand it back.
+        assertThat(session.submit(new GameEvent.DrawChosen(other, first)))
+                .isInstanceOf(GameSession.Result.Rejected.class);
         assertThat(FirstDraw.isSkippedBy(2, session.state().turn(), other)).isTrue();
         assertThat(FirstDraw.isSkippedBy(2, session.state().turn(), first)).isFalse();
     }
