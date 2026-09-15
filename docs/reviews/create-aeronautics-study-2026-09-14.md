@@ -72,8 +72,9 @@ scene, a Create schematic's preview - a table at the same coordinates drew some 
 and overwrote the projection the pointer picks cards with. Shown in a photograph with the guard off
 (a real board filed under the scene table's position drew on it); with the guard, nothing is drawn.
 
-**7. Mechanical conventions.** Create has an `.editorconfig` (spaces, LF, final newline; JSON at 2);
-Gathering has none. Create imports what it names; Gathering's main sources name about 620 classes
+**7. Mechanical conventions.** Create has an `.editorconfig` (spaces, LF, final newline; JSON at 2).
+**Done:** Gathering has one now, written from what its files already do (Java and Python at 4, JSON
+and mcmeta at 2, LF, a final newline). Create imports what it names; Gathering's main sources name about 620 classes
 fully qualified inline, many in the largest files. Changing that across the tree would be a large
 diff of no behavior, against the repository's own "reads like the surrounding code" rule; new code
 imports where its neighbors do.
