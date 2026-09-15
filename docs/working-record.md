@@ -348,6 +348,17 @@ it mid-scene: the board shows standings and the desk's label "Friday Night / Rou
 run, not a gate test. Its first run found the
 label invisible (faced to the player's camera, not Ponder's) and that was fixed. The line check was shown failing with one lang line changed.
 
+**Scripted tour after tonight's client changes (2026-09-15).** A first run straight from Gradle
+failed 7 steps - it had inherited `run/saves/GatheringDevScene` from an earlier run (made 21:34 the day
+before), whose tournaments and decks the steps did not expect; `runClient -Pdevscene` now clears it, as
+`tools/shots.sh` does. The rerun on a fresh world: `[devscene] failures: 0`. Looked at: the board on
+the block and a numbered table's floating label, both drawn as before the renderer guard.
+
+**Desk comparator and "Time" label.** A comparator beside a linked desk reads 15 while the round being
+played has had time called, 0 otherwise; the label says "Time: extra turns". Guard
+`aDeskSignalsWhenTimeIsCalled` runs the round's real clock through and reads a real comparator; proved
+failing with the signal removed.
+
 **Second independent review** (Create, Ponder, labels; a reviewer agent given the requirements and the
 diff) found, all fixed: the desk's label was culled with the desk's own cube on NeoForge (a render box
 now covers it); an old desk kept saying "Sign up here" after sign-up moved (it says "Signing up" unless
