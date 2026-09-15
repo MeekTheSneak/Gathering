@@ -92,8 +92,10 @@ pairing and the round clock floating over it.
 
 **Who plays first** (MTR 2.2). The first game of a Swiss match goes to a player chosen at random;
 the first game of a cut match to the player who finished the Swiss rounds higher; every later game
-to the loser of the one before, or after a drawn game to whoever went first in it. A drawn game counts as one of the match's games, the last one too. The mod picks
-*play* for them - the usual choice - and they can pass the turn to draw instead.
+to the loser of the one before, or after a drawn game to whoever went first in it. A drawn game
+counts as one of the match's games, the last one too. The mod picks *play* for them - the usual
+choice - and *Choose to draw* on the felt's menu, on the first turn, hands the first turn to the
+other player instead.
 
 **Reporting.** The result buttons cover every way a match ends: won and lost at each count, won at
 time a game up with no game in progress (1-0), drawn at games apiece or with a game unfinished

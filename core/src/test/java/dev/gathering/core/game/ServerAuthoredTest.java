@@ -28,7 +28,7 @@ class ServerAuthoredTest {
             "LibrarySearched", "LibraryClosed", "LibraryMilled", "LibraryExiled", "LibraryRevealed",
             "LibraryLooked", "LibraryReordered", "Surveiled", "CounterChanged", "TokenCreated",
             "TokenCopyCreated", "TokenRemoved", "PaperCardCreated", "HandShown", "SeatCounterChanged",
-            "LifeChanged", "CommanderDamageChanged", "CommanderTaxChanged", "Conceded", "TurnPassed",
+            "LifeChanged", "CommanderDamageChanged", "CommanderTaxChanged", "Conceded", "TurnPassed", "DrawChosen",
             "CardPinged");
 
     /** And everything the server writes, for the same reason. */

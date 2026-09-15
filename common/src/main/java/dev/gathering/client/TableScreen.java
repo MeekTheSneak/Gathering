@@ -4776,6 +4776,12 @@ public final class TableScreen extends Screen {
                 () -> net.minecraft.client.Minecraft.getInstance()
                         .setScreen(new SettingsScreen(this))));
         view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
+        // The other half of going first: the choice of drawing instead, while it is still a
+        // choice. See GameEvent.DrawChosen.
+        view().filter(board -> board.turn().turnNumber() == 1 && board.turn().activeSeat().equals(me)
+                        && board.players() > 1)
+                .ifPresent(board -> entries.add(entry("draw_first",
+                        () -> send(new GameEvent.DrawChosen(me, board.nextSeatWithABoard(me))))));
         entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
         entries.add(entry("lose_life", () -> send(new GameEvent.LifeChanged(me, me, -1))));
         view().ifPresent(board -> entries.add(entry("my_counters",

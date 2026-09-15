@@ -356,9 +356,14 @@ only). Nine findings; checked, and these fixed:
   falls back to two across when one column will not fit.
 - Switching an event to Sealed and back to Draft lost the pick clock.
 
-Left, and why: a first player who passes the turn to draw leaves the opponent starting on turn two
-unreminded (reminders only); a cut game restarted by hand rather than by the event starts at
+Left, and why: a cut game restarted by hand rather than by the event starts at
 random.
+
+**Choosing to draw** (MTR 2.2). The table starts the chosen player playing; passing the turn to draw
+instead made the other player's first turn "turn 2", so the first-draw reminder went to nobody and
+the log showed a pass. The felt's menu now offers "Choose to draw" to the player going first on
+turn one: the first turn goes to the next player and stays turn one, logged as a choice. Refused
+from anybody else or later. `DrawChosenTest`, proved failing without the fold. Protocol 12.
 
 **A chair somebody sat in and left before their deck went down is not a player.** It kept the name,
 so a two-player game counted three: the first mulligan went free (103.5c) and the first-draw

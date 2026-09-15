@@ -812,6 +812,23 @@ public sealed interface GameEvent {
     }
 
     /**
+     * The player the table started chooses to draw rather than play, and hands the first turn on.
+     * <p>MTR 2.2 gives whoever goes first the choice of playing or drawing, and the table starts
+     * them playing because nearly everybody does. Passing the turn to draw instead made the
+     * other player's first turn turn two, so nothing said theirs was the turn with no draw
+     * (rule 103.8a) and the log recorded a pass rather than a choice. This keeps it turn one.
+     * <p>Only the player going first, on the first turn: after that there is no choice left to
+     * make, and a line in the log saying somebody chose to draw halfway through a game would be
+     * a line that lies.
+     */
+    record DrawChosen(SeatId actor, SeatId toSeat) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of("log.gathering.draw_chosen", actor, toSeat);
+        }
+    }
+
+    /**
      * Pointing at the table. Highlights a public card for everyone for a few seconds and
      * changes nothing, which is precisely why it is worth having: "in response to that" needs
      * a "that".

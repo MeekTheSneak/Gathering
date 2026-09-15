@@ -235,6 +235,10 @@ public final class EventCodec {
                 seat(out, e.actor());
                 seat(out, e.toSeat());
             }
+            case GameEvent.DrawChosen e -> {
+                seat(out, e.actor());
+                seat(out, e.toSeat());
+            }
             case GameEvent.StartingPlayerChosen e -> {
                 seat(out, e.actor());
                 out.writeByte(e.why().ordinal());
@@ -349,6 +353,7 @@ public final class EventCodec {
                 yield null;
             }
             case "TurnPassed" -> new GameEvent.TurnPassed(seat(in), seat(in));
+            case "DrawChosen" -> new GameEvent.DrawChosen(seat(in), seat(in));
             case "DiceRolled" -> new GameEvent.DiceRolled(seat(in), in.readInt(), in.readInt());
             case "StartingPlayerChosen" -> new GameEvent.StartingPlayerChosen(seat(in), startingWhy(in.readUnsignedByte()));
             case "CoinFlipped" -> new GameEvent.CoinFlipped(seat(in), in.readBoolean());

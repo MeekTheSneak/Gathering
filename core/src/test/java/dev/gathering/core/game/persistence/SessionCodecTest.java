@@ -249,6 +249,7 @@ class SessionCodecTest {
                 new GameEvent.CommanderTaxChanged(a, b, card, 2),
                 new GameEvent.Conceded(a),
                 new GameEvent.TurnPassed(a, b),
+                new GameEvent.DrawChosen(a, b),
                 new GameEvent.CardPinged(a, card),
                 new GameEvent.DiceRolled(a, 20, 17),
                 new GameEvent.CoinFlipped(a, true),
