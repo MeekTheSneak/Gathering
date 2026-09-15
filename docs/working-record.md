@@ -1213,12 +1213,14 @@ is still the owner's to make.
    test `aClientOnAnotherProtocolIsTurnedAway` (registration and rule), shown failing with the check
    unregistered; the same class now also checks the desk's block, item and block entity on Fabric.
 
-1. **A person plays the lesson and a real game.** The scripted tour now completes cleanly on this machine (315/315) and its screenshots were reviewed; what is left is how it feels to somebody who has not read the code (`./gradlew :neoforge:runClient -Pdevscene`
-   on macOS; `tools/shots.sh` under Xvfb). Every client-side change since the last clean run is
-   unseen: the tutorial overlay, menu fitting, the arrange preview, pile and attachment drawing
-   on both views, the replay strip, reading a card chosen from a pile, and a selection verb
-   animating after it became one batch.
-2. With a known-good run to compare against: the second half of CL-08 (DevScene out of the
-   release jar behind a development hook) and the rest of CL-10 (mode context, pointer
-   controller, shared action binding). Both change what the scripted client exercises.
-3. CL-14 once the pack's exact Create, Aeronautics and Cataclysm versions are known.
+1. **A person plays the lesson, a real game, and a tournament run from a Scorekeeper's Desk.** The
+   scripted tour passes on this machine (`[devscene] failures: 0`, 2026-09-15, after the renderer,
+   label, Settle, footer and sprite changes) and its screenshots were looked at; how it feels to
+   somebody who has not read the code is still unknown. Not yet seen by anyone: the pick clock
+   tooltips, the verb reminder's lit pip, the desk's comparator driving a real lamp, Create's Show
+   selector scrolled by hand, and a table on a moving Aeronautics ship.
+2. The rest of CL-10 (mode context, pointer controller, shared action binding), each extraction
+   paired with a tour run. CL-08 is done (release jars inspected).
+3. CL-14: Create 6.0.10, Aeronautics 1.3.2 and Sable 2.0.5 are qualified by the pack tests and the
+   pack scene; Cataclysm's version is still unknown, and the crowded-board timing matrix is not run.
+4. The owner decisions above (Appendix E for 9-16 players; starter boosters).
