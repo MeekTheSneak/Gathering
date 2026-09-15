@@ -5902,6 +5902,16 @@ public final class TableScreen extends Screen {
      * it saved a keystroke and cost the rule the rest of the table is trusting.
      */
     private void passTurn(GameView board, SeatId me) {
+        // Handing on your own turn with more than seven in hand: the cleanup step's discard,
+        // said once over the hotbar. Never done - see HandSize.
+        if (board.turn().activeSeat().equals(me) && this.minecraft != null && this.minecraft.player != null
+                && board.seats().stream().anyMatch(seat -> seat.seat().equals(me))) {
+            int over = dev.gathering.core.game.HandSize.overBy(count(board.seat(me), Zone.HAND));
+            if (over > 0) {
+                this.minecraft.player.displayClientMessage(
+                        Component.translatable("message.gathering.hand_over_maximum", over), true);
+            }
+        }
         send(new GameEvent.TurnPassed(me, board.nextSeatWithABoard(board.turn().activeSeat())));
     }
 
