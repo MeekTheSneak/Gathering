@@ -85,3 +85,43 @@ Aeronautics' `index`; Gathering's `GatheringContent`). In-world tests grouped by
 regressions class (Create's `TestRegressions`; Gathering's review regression tests, far more of
 them). Every sound with a subtitle (both). Gathering's gate - static checks for language, docs,
 sprites, textures and a proof that tests were discovered - has no counterpart in either repository.
+
+## Second pass (2026-09-15): the code-quality side
+
+The first pass followed the desk and display-board work. This one read both trees for how they are
+built rather than what they add.
+
+**Taken up.**
+
+- **Settings from the mods list.** Create registers `IConfigScreenFactory`, so NeoForge's mods list
+  has a Config button for it. Gathering's own settings screen - text size, control size, reduced
+  motion - opened only from a table's menu. It opens from the mods list now (the pack scene checks
+  the factory's screen is the settings screen; shown failing without the registration). Fabric has no
+  equivalent without depending on Mod Menu; not added.
+- **One set of test helpers.** Create keeps its game-test helpers in `CreateGameTestHelper` (45
+  public members). Gathering's in-world tests wrote out table placement in eleven classes, six
+  variations; they call `TestTables` now. Other repeated helpers (`tableAt`, `deckOnTheFloor`,
+  `clearItems`) are fewer and left for when a change touches them.
+
+**Considered and left, with the reason.**
+
+- **A `Mods` enum.** Create names every integration in one enum with its load state. Gathering asks
+  whether another mod is loaded in four places; an enum for four checks is ceremony.
+- **Config comments and ranges.** Create's `ConfigBase` gives every value a range and a comment.
+  Gathering's settings file already writes its own explanations and refuses a value that would not
+  take (`ServerSettings.set`), so there is nothing to borrow.
+- **Refusal sounds.** Create plays a quiet "declining boop" (a vanilla note-block bass) on 44
+  refusals. Gathering's refusals are text only, and a seated player's board covers the chat - a sound
+  would help there. Not done yet: a sound sent from the server would ignore Gathering's own volume
+  preference, so it wants a client-side cue, which is a protocol change.
+- **Placement helpers.** Create shows a ghost of where the next shaft or cogwheel will go and snaps
+  it into line. Tables join only side to side in a line, and a table that will not fit says why only
+  after it is refused. A ghost of where a held table would join is the most Create-like polish left,
+  and a real piece of client work.
+- **Wrench, goggles and hovering information.** Create's are interfaces a block entity implements.
+  Gathering's blocks live in `:common`, which cannot name a Create class, so each would need a
+  NeoForge-only subclass or a mixin. Not worth either.
+- **CI and issue templates.** Create builds and runs its game tests on every push and pull request
+  and asks bug and crash reports for versions and logs through issue forms; Aeronautics has the forms.
+  Gathering has neither. Both touch the owner's GitHub account (Actions minutes, the public issue
+  page), so they are the owner's call.
