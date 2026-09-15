@@ -139,7 +139,11 @@ public final class PackOpening {
                     return openAndName(cards, reading, config, false);
                 }, collation.worker())
                 .whenComplete(ServerRun.onServerThread(player, (opened, failure) -> {
-                    if (player.hasDisconnected()) {
+                    // Removed as well as disconnected: a player who died and came back is a new
+                    // entity, and the old one is removed - cards given to it went nowhere. So is a
+                    // Deployer's stand-in broken with the Deployer. Either way what came out is
+                    // written down for them and handed over when they are next here.
+                    if (player.hasDisconnected() || player.isRemoved()) {
                         // The pack left their hand before any of this started, so there is
                         // nothing of theirs still in the world to fall back on: what they are
                         // owed is written down and handed over the next time they join. It

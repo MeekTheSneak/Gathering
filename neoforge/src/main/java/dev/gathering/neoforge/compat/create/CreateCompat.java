@@ -16,6 +16,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  * classes are ever touched on a server without it.
  * <p>Display sources, for a Display Link placed against any table: a tournament's standings, its
  * pairings, its round and clock, the match at that table, and the life totals of the game on it.
+ * <p>And boosters opened by Deployers: see {@link DeployerPacks}.
  */
 public final class CreateCompat {
 
@@ -34,6 +35,10 @@ public final class CreateCompat {
     public static void init(IEventBus modBus) {
         SOURCES.register(modBus);
         modBus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(CreateCompat::attachToTables));
+        // An empty-handed Deployer pressing on a booster on a Depot or a belt opens it.
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(DeployerPacks::onRightClickBlock);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> DeployerPacks.clear());
     }
 
     /** Every table offers every source: a Display Link against any of its blocks reads that table. */

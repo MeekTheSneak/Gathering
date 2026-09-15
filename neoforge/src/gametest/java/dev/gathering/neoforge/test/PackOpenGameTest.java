@@ -23,6 +23,24 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class PackOpenGameTest {
 
+    /**
+     * A pack whose opener is removed before its cards arrive - died and respawned, or a Deployer's
+     * stand-in broken with the Deployer - is written down for them rather than handed to an entity
+     * that is gone. It used to go into the removed entity's inventory, which is nowhere.
+     */
+    @GameTest(template = "empty", timeoutTicks = 1000000)
+    public static void aPackWhoseOpenerIsGoneIsOwedToThem(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        java.util.UUID who = player.getUUID();
+        dev.gathering.server.PackOpening.openFor(player, "m21", "draft");
+        player.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(dev.gathering.server.Owed.waitingFor(who) > 0,
+                    "the cards of a pack whose opener was removed were not written down for them");
+            dev.gathering.server.Owed.forget(who);
+        });
+    }
+
     @GameTest(template = "empty")
     public static void aPackThatWillNotOpenComesBack(GameTestHelper helper) {
         TestConfig.withPlayer(helper, "[modes]\ncollection_enabled = false\n", player -> {
