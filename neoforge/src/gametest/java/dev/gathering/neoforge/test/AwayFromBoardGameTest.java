@@ -74,6 +74,89 @@ public final class AwayFromBoardGameTest {
         }
     }
 
+    /**
+     * Leaving the server in the middle of a game is getting up: the seat is kept for eight minutes, not for ever.
+     * A player gone from the server used to keep it, cards and all, with nothing anybody could do.
+     */
+    @GameTest(template = "tables")
+    public static void leavingTheServerMidGameKeepsTheSeatForEightMinutes(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        BlockPos north = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
+        ServerPlayer owner = sit(helper, north);
+        start(helper, table);
+        cardsFor(helper, table, owner);
+        long started = 4_000_000L;
+        AwayFromBoard.clock = server -> started;
+        try {
+            // What the server does to a player who loses their connection: marked gone, then out of the chair.
+            owner.disconnect();
+            owner.stopRiding();
+            if (TableSeats.seatOf(helper.getLevel(), table, owner.getUUID()).isEmpty()
+                    || !AwayFromBoard.isAway(helper.getLevel(), table, owner.getUUID())) {
+                helper.fail("a player who left the server mid-game has no clock running on their seat");
+                return;
+            }
+            AwayFromBoard.clock = server -> started + AwayFromBoard.MINUTES * 60 * 20L;
+            AwayFromBoard.tick(helper.getLevel().getServer());
+            if (TableSeats.seatOf(helper.getLevel(), table, owner.getUUID()).isPresent()) {
+                helper.fail("the seat of a player who left the server was still held after eight minutes");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            AwayFromBoard.clock = net.minecraft.server.MinecraftServer::getTickCount;
+        }
+    }
+
+    /**
+     * A restart keeps a seat for what was left of its time, with its votes, and remembers a seat given up. Saved,
+     * forgotten from memory, and read back the way a server starting again reads it.
+     */
+    @GameTest(template = "tables")
+    public static void aKeptSeatSurvivesARestart(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        BlockPos north = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
+        ServerPlayer owner = sit(helper, north);
+        start(helper, table);
+        SeatId seat = cardsFor(helper, table, owner);
+        long started = 5_000_000L;
+        AwayFromBoard.clock = server -> started;
+        try {
+            owner.stopRiding();
+            // Five minutes gone, then the server goes down; it comes back with its tick count started again.
+            AwayFromBoard.clock = server -> started + 5 * 60 * 20L;
+            AwayFromBoard.saveForTesting(helper.getLevel().getServer());
+            AwayFromBoard.forgetForTesting();
+            long restarted = 100L;
+            AwayFromBoard.clock = server -> restarted;
+            if (!AwayFromBoard.isAway(helper.getLevel(), table, owner.getUUID())) {
+                helper.fail("a seat kept for a player away from the board was forgotten by a restart");
+                return;
+            }
+            AwayFromBoard.clock = server -> restarted + 3 * 60 * 20L - 20;
+            AwayFromBoard.tick(helper.getLevel().getServer());
+            if (TableSeats.seatOf(helper.getLevel(), table, owner.getUUID()).isEmpty()) {
+                helper.fail("after a restart the seat was freed before the three minutes it had left");
+                return;
+            }
+            AwayFromBoard.clock = server -> restarted + 3 * 60 * 20L;
+            AwayFromBoard.tick(helper.getLevel().getServer());
+            if (TableSeats.seatOf(helper.getLevel(), table, owner.getUUID()).isPresent()) {
+                helper.fail("after a restart the seat was still held once its time was up");
+                return;
+            }
+            AwayFromBoard.saveForTesting(helper.getLevel().getServer());
+            AwayFromBoard.forgetForTesting();
+            if (!AwayFromBoard.wasGivenUp(helper.getLevel(), table, seat.index(), owner.getUUID())) {
+                helper.fail("a restart forgot that a seat was given up, so its board would wait for ever");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            AwayFromBoard.clock = net.minecraft.server.MinecraftServer::getTickCount;
+        }
+    }
+
     /** Eight minutes on, the seat is free, and the next player to sit down there may take it with its board. */
     @GameTest(template = "tables")
     public static void aKeptSeatIsFreedWhenTheTimeRunsOut(GameTestHelper helper) {

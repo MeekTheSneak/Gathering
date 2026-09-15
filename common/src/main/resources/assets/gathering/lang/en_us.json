@@ -26,6 +26,7 @@
   "message.gathering.afb.you": "You are away from the board. Your seat is kept for %s minutes: sit back down to play, or choose Leave table to give it up.",
   "message.gathering.afb.table": "%1$s is away from the board. Their seat is kept for %2$s minutes.",
   "message.gathering.afb.back": "%s is back at the board.",
+  "message.gathering.afb.left_server": "%1$s left the server in the middle of the game. Their seat is kept for %2$s minutes.",
   "message.gathering.afb.expired": "%s was away from the board too long. Their seat is free.",
   "message.gathering.afb.voted_free": "The table voted to free %s's seat. It is free.",
   "message.gathering.afb.vote": "%1$s voted to free %2$s's seat (%3$s of %4$s).",

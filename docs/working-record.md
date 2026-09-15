@@ -1754,6 +1754,22 @@ Verified: gate green (559/16); tour steps 0-30, no failures. **Not verified with
 
 Verified: gate green (560/16).
 
+### Tenth batch: away from the board when leaving the server, and through a restart (2026-09-15)
+
+- **Leaving the server mid-game** starts the same eight-minute hold, with the same vote, instead of
+  keeping the seat and its cards for ever (`Chairs.gotUp` no longer returns early for a disconnected
+  player when `AwayFromBoard.keepsTheSeat`). The table is told the player left the server. With no game
+  on, leaving the server keeps the seat as before. Guard:
+  `AwayFromBoardGameTest.leavingTheServerMidGameKeepsTheSeatForEightMinutes`, shown failing with the old
+  early return.
+- **Saved.** Kept seats (time left, name, votes) and seats given up are written to
+  `<save>/tables/away_from_board.dat` on every change and every 20 seconds while anybody is away, and read
+  back the first time they are asked for after a start. Time left rather than a moment, since the server's
+  tick count starts again every launch; a restart loses at most 20 seconds of anybody's eight minutes.
+  Guard: `AwayFromBoardGameTest.aKeptSeatSurvivesARestart` (time left counted from the restart, freed on
+  time, the given-up mark kept), shown failing with the file not read.
+- Verified: gate green (562/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

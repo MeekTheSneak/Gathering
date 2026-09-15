@@ -186,13 +186,13 @@ public final class Chairs {
 
     /**
      * A player got out of a chair: stood up, was knocked out of it, or the chair went. Gives up the seat
-     * the chair took, if they still hold it - unless they left the server, which keeps a seat as it
-     * always has, or they are in the middle of a game they have not conceded, which keeps it for them for
-     * a while: see {@link dev.gathering.server.AwayFromBoard}.
+     * the chair took, if they still hold it - unless they are in the middle of a game they have not conceded,
+     * which keeps it for them for a while however they got up, leaving the server included (see
+     * {@link dev.gathering.server.AwayFromBoard}), or they left the server with no game on, which keeps it.
      */
     static void gotUp(ServerPlayer player, ChairSeat seat) {
         seat.discard();
-        if (player.hasDisconnected() || seat.tableOrigin() == null) {
+        if (seat.tableOrigin() == null) {
             return;
         }
         BlockPos origin = seat.tableOrigin();
@@ -201,8 +201,11 @@ public final class Chairs {
             return;
         }
         if (dev.gathering.server.AwayFromBoard.keepsTheSeat(level, origin, player)) {
+            // In the middle of a game: kept for eight minutes, whether they stood up or left the server - a
+            // player gone from the server used to keep the seat for ever, and their cards with it.
             dev.gathering.server.AwayFromBoard.start(level, origin, player);
-        } else {
+        } else if (!player.hasDisconnected()) {
+            // Leaving the server with no game on keeps a seat, as it always has.
             TableBlock.standUp(level, origin, player);
         }
     }
