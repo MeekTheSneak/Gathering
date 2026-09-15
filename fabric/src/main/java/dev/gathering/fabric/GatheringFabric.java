@@ -50,6 +50,7 @@ public final class GatheringFabric implements ModInitializer {
     public void onInitialize() {
         GatheringRegistration.bootstrap();
         GatheringNetwork.bootstrap();
+        ProtocolCheck.bootstrap();
 
         CommandRegistrationCallback.EVENT.register(
                 (dispatcher, registry, environment) -> dispatcher.register(GatheringCommands.root()));

@@ -42,7 +42,8 @@ public class DescribedBlockItem extends BlockItem {
             tooltip.add(Component.translatable(lines.get(index))
                     .withStyle(index == 0 ? ChatFormatting.GRAY : ChatFormatting.DARK_GRAY));
         }
-        if (!withCreate.isEmpty() && Platform.get().isModLoaded("create")) {
+        // Create's Display Links are read on NeoForge only; on Fabric with Create there is nothing to promise.
+        if (!withCreate.isEmpty() && Platform.get().isModLoaded("create") && "NeoForge".equals(Platform.get().loaderName())) {
             tooltip.add(Component.translatable(withCreate).withStyle(ChatFormatting.DARK_GRAY));
         }
     }

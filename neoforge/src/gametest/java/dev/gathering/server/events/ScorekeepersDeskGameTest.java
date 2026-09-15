@@ -110,9 +110,15 @@ public final class ScorekeepersDeskGameTest {
             helper.fail("a desk just linked is labeled " + label);
             return;
         }
+        java.util.List<String> phases = new java.util.ArrayList<>(java.util.List.of("signup_elsewhere", "over"));
         for (Tournament.Phase phase : Tournament.Phase.values()) {
-            String key = "label.gathering.desk." + phase.name().toLowerCase(java.util.Locale.ROOT);
-            if (phase != Tournament.Phase.CANCELLED && !net.minecraft.locale.Language.getInstance().has(key)) {
+            if (phase != Tournament.Phase.CANCELLED) {
+                phases.add(phase.name().toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        for (String phase : phases) {
+            String key = "label.gathering.desk." + phase;
+            if (!net.minecraft.locale.Language.getInstance().has(key)) {
                 Events.removeForTesting(state);
                 helper.fail("a desk's label has nothing to say for " + phase);
                 return;
@@ -122,6 +128,15 @@ public final class ScorekeepersDeskGameTest {
         if (sent.contains("event") || !sent.contains("label")) {
             Events.removeForTesting(state);
             helper.fail("a desk sends clients " + sent);
+            return;
+        }
+        // Signing up moved to another spot: this desk no longer says it happens here - and says so
+        // in what it sends a client arriving now, not only after its next tick.
+        state.registrationPoint = desk.offset(12, 0, 0);
+        entity.getUpdateTag(helper.getLevel().registryAccess());
+        if (!entity.label().phase().equals("signup_elsewhere")) {
+            Events.removeForTesting(state);
+            helper.fail("a desk signing up has moved away from is labeled " + entity.label());
             return;
         }
         Events.setForTesting(state, state.tournament.cancel());

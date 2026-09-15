@@ -30,6 +30,7 @@ public class FabricRegistrationGameTest implements FabricGameTest {
                 GatheringContent.CRYING_OBSIDIAN_TABLE.get());
         check(helper, GatheringContent.COLLECTION_ID, GatheringContent.COLLECTION.get());
         check(helper, GatheringContent.SHOP_COUNTER_ID, GatheringContent.SHOP_COUNTER.get());
+        check(helper, GatheringContent.SCOREKEEPERS_DESK_ID, GatheringContent.SCOREKEEPERS_DESK.get());
         helper.succeed();
     }
 
@@ -40,6 +41,38 @@ public class FabricRegistrationGameTest implements FabricGameTest {
         check(helper, GatheringContent.PACK_ID, GatheringContent.PACK.get());
         check(helper, GatheringContent.SEALED_ID, GatheringContent.SEALED.get());
         check(helper, GatheringContent.COLLECTION_ID, GatheringContent.COLLECTION_ITEM.get());
+        check(helper, GatheringContent.SCOREKEEPERS_DESK_ID, GatheringContent.SCOREKEEPERS_DESK_ITEM.get());
+        helper.succeed();
+    }
+
+    /** The desk's block entity attaches to the desk, which is how it keeps its tournament and its label. */
+    @GameTest(template = EMPTY_STRUCTURE)
+    public void theDeskBlockEntityAcceptsTheDesk(GameTestHelper helper) {
+        if (!GatheringContent.SCOREKEEPERS_DESK_ENTITY.get().isValid(GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState())) {
+            helper.fail("The desk's block entity will not attach to the desk");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A joining client is asked for its protocol number: the receiver for its answer is registered,
+     * and only the server's own number is let in. The connection itself is not something an in-world
+     * test has; this is the registration and the rule it applies.
+     */
+    @GameTest(template = EMPTY_STRUCTURE)
+    public void aClientOnAnotherProtocolIsTurnedAway(GameTestHelper helper) {
+        if (!net.fabricmc.fabric.api.networking.v1.ServerConfigurationNetworking.getGlobalReceivers()
+                .contains(dev.gathering.fabric.ProtocolCheck.TYPE.id())) {
+            helper.fail("Nothing on this server receives a joining client's protocol number");
+            return;
+        }
+        int ours = dev.gathering.network.GatheringProtocol.VERSION;
+        if (!dev.gathering.fabric.ProtocolCheck.accepts(ours) || dev.gathering.fabric.ProtocolCheck.accepts(ours - 1)
+                || dev.gathering.fabric.ProtocolCheck.accepts(ours + 1)) {
+            helper.fail("The protocol check does not let in exactly this server's number");
+            return;
+        }
         helper.succeed();
     }
 

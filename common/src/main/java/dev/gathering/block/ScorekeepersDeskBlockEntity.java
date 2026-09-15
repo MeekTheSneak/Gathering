@@ -42,12 +42,17 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
             return !name.isEmpty();
         }
 
-        static Label of(EventBoard.Board board) {
-            if (board.phase() == dev.gathering.core.tournament.Tournament.Phase.CANCELLED) {
+        static Label of(EventBoard.DeskLabel event) {
+            if (event.phase() == dev.gathering.core.tournament.Tournament.Phase.CANCELLED) {
                 return NONE;
             }
-            return new Label(board.name(), board.phase().name().toLowerCase(java.util.Locale.ROOT), board.round(),
-                    board.plannedRounds(), board.places().isEmpty() ? "" : board.places().get(0));
+            String phase = event.phase().name().toLowerCase(java.util.Locale.ROOT);
+            // "Sign up here" only where signing up happens: a desk the tournament's sign-up has moved
+            // away from says the tournament is signing up, and not that it is here.
+            if (event.phase() == dev.gathering.core.tournament.Tournament.Phase.SIGNUP && !event.signsUpHere()) {
+                phase = "signup_elsewhere";
+            }
+            return new Label(event.name(), phase, event.round(), event.rounds(), event.winner());
         }
 
         CompoundTag save() {
@@ -68,6 +73,8 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
 
     private UUID event;
     private Label label = Label.NONE;
+    private Label drawnLabel;
+    private Object drawnLines;
 
     public ScorekeepersDeskBlockEntity(BlockPos pos, BlockState state) {
         super(GatheringContent.SCOREKEEPERS_DESK_ENTITY.get(), pos, state);
@@ -104,11 +111,26 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
     }
 
     void refreshLabel(ServerLevel level) {
-        Label now = EventBoard.atDesk(level, worldPosition).map(Label::of).orElse(Label.NONE);
+        Label now = labelNow(level);
         if (!now.equals(label)) {
             label = now;
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
         }
+    }
+
+    private Label labelNow(ServerLevel level) {
+        return EventBoard.labelAtDesk(level, worldPosition).map(Label::of).orElse(Label.NONE);
+    }
+
+    /** What the renderer draws, kept until the label changes rather than built every frame. Client side. */
+    public <T> T linesFor(java.util.function.Function<Label, T> lines) {
+        if (drawnLabel != label) {
+            drawnLabel = label;
+            drawnLines = lines.apply(label);
+        }
+        @SuppressWarnings("unchecked")
+        T kept = (T) drawnLines;
+        return kept;
     }
 
     @Override
@@ -130,6 +152,12 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
     /** The label, and nothing else: which tournament a desk runs is the server's business. */
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        // Worked out now, not only on the tick: a desk that has just loaded, or stands beyond the
+        // distance the server ticks at while inside the distance it is seen from, would otherwise be
+        // sent with no label or an old one.
+        if (level instanceof ServerLevel server) {
+            label = labelNow(server);
+        }
         CompoundTag tag = new CompoundTag();
         tag.put(LABEL_KEY, label.save());
         return tag;

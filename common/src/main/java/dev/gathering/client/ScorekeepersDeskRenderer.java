@@ -30,16 +30,26 @@ public class ScorekeepersDeskRenderer implements BlockEntityRenderer<Scorekeeper
             return;
         }
         // High enough to clear a Display Link or a lantern put on top of the desk.
+        List<Component> lines = desk.linesFor(ScorekeepersDeskRenderer::lines);
         if (desk.getLevel() == Minecraft.getInstance().level) {
-            FloatingLabel.draw(poseStack, buffers, lines(label), 0.5, 2.4, 0.5);
+            FloatingLabel.draw(poseStack, buffers, lines, 0.5, 2.4, 0.5);
         } else {
             // Somewhere other than the world being played - a Ponder scene - whose camera is not the
             // player's: turned to face the player's camera it is edge-on or backwards there, so it
             // faces the way the desk does, as a sign's words do.
             Direction facing = desk.getBlockState().getValue(ScorekeepersDeskBlock.FACING);
-            FloatingLabel.draw(poseStack, buffers, lines(label), 0.5, 2.4, 0.5,
+            FloatingLabel.draw(poseStack, buffers, lines, 0.5, 2.4, 0.5,
                     Axis.YP.rotationDegrees(-facing.toYRot()));
         }
+    }
+
+    /**
+     * Tall and wide enough for the label over the desk, so it is not culled with the desk's own cube -
+     * looking up at the label from beside the desk, or with the desk just below the window's edge.
+     * <p>Not an {@code @Override}: NeoForge's extension, found by name; Fabric culls by chunk section.
+     */
+    public net.minecraft.world.phys.AABB getRenderBoundingBox(ScorekeepersDeskBlockEntity desk) {
+        return new net.minecraft.world.phys.AABB(desk.getBlockPos()).expandTowards(0, 2, 0).inflate(1.5, 0.5, 1.5);
     }
 
     /** The heading and the line under it. Visible for tests and the scene. */

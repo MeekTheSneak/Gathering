@@ -32,6 +32,37 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class GatheringProtocol {
 
+    /**
+     * Bumped when a payload's shape changes in a way an older client cannot read.
+     * <p>Two, because several did at once and version one stayed put through all of them: the
+     * deck component was split into a public copy and an owner's copy, the owner's push grew
+     * a number, a trade action and a trade view grew the trade's own identity, a build request
+     * and its result grew the press they belong to, and closing a table grew the table it is
+     * about. A mixed old-and-new pair does not fail gracefully on any of those - it fails
+     * while decoding a payload, which disconnects whoever is on the wrong side of it with a
+     * message about a byte count. Refusing to connect at all is the honest answer, and it is
+     * what a different number here buys.
+     * <p>Three, for the batched table action: a client that sends a selection's verbs as one
+     * payload cannot play at a server that does not know the payload.
+     * <p>Four, for tokens by printing: a card summary now carries the printing of each token a
+     * card makes, and a name that matches several tokens is answered with a choice.
+     * <p>Five, for card lookups that end without a name: a server now says whether a printing
+     * does not exist or could not be looked up, in a payload an older client cannot read.
+     * <p>Six, for draft and sealed signups: creating one, acting at one, and being shown one.
+     * <p>Seven, for playing a long table apart.
+     * <p>Eight, for tournaments: creating, acting in and being shown one, and being pointed to a seat.
+     * <p>Nine, for the pick clock and registration points: pack settings carry a clock, a draft
+     * view carries the seconds left, and a host can mark where players register.
+     * <p>Ten, for loaner decks: a deck on the wire carries whether it was lent.
+     * <p>Eleven, for the London mulligan: a seat on the board carries its mulligans.
+     * <p>Twelve, for choosing to draw: a move an older server cannot read, and a turn marker on
+     * the board that says the choice has been made.
+     * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
+     * registering its payloads under it, Fabric by asking a joining client for its number while
+     * the connection is configured.
+     */
+    public static final int VERSION = 12;
+
     private GatheringProtocol() {
     }
 

@@ -34,9 +34,12 @@ public final class GatheringNeoForge {
         // after asking, so a server without Create never touches a class of Create's.
         if (net.neoforged.fml.ModList.get().isLoaded("create")) {
             dev.gathering.neoforge.compat.create.CreateCompat.init(modBus);
-            // And its Ponder scene, on a client: added before Ponder gathers its plugins.
+            // And its Ponder scenes, on a client. In client setup's queued work rather than here: mod
+            // constructors run in parallel, Ponder's plugin list is not guarded, and Create's own mods
+            // add theirs from their constructors. Ponder reads the list once loading completes.
             if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
-                dev.gathering.neoforge.compat.create.client.GatheringPonderPlugin.register();
+                modBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent setup) -> setup.enqueueWork(
+                        dev.gathering.neoforge.compat.create.client.GatheringPonderPlugin::register));
             }
         }
 

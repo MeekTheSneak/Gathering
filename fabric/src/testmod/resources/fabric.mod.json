@@ -7,7 +7,8 @@
   "environment": "*",
   "entrypoints": {
     "client": [
-      "dev.gathering.fabric.test.DevSceneTicks"
+      "dev.gathering.fabric.test.DevSceneTicks",
+      "dev.gathering.fabric.test.ProtocolScene"
     ],
     "fabric-gametest": [
       "dev.gathering.fabric.test.FabricLootGameTest",

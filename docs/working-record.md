@@ -348,6 +348,17 @@ it mid-scene: the board shows standings and the desk's label "Friday Night / Rou
 run, not a gate test. Its first run found the
 label invisible (faced to the player's camera, not Ponder's) and that was fixed. The line check was shown failing with one lang line changed.
 
+**Second independent review** (Create, Ponder, labels; a reviewer agent given the requirements and the
+diff) found, all fixed: the desk's label was culled with the desk's own cube on NeoForge (a render box
+now covers it); an old desk kept saying "Sign up here" after sign-up moved (it says "Signing up" unless
+it is the registration point - guard in `aLinkedDeskLabelsItsTournament`, proved failing); a desk sent
+a blank label on chunk load and never refreshed beyond simulation distance (the label is worked out
+when the update tag is built); Ponder's plugin list is unguarded and mod constructors run in parallel
+(the plugin is added in client setup's queued work); the label refresh built a whole board each second
+(a cheap `EventBoard.labelAtDesk`); the Create tooltip line showed on Fabric, which has no Display Link
+support (NeoForge only); the label's lines were built every frame (kept until the label changes).
+It found no dedicated-server, hidden-information or Fabric registration problem.
+
 **Independent review of the desk** (a reviewer agent, given the requirements and the diff) found, all
 fixed: (1) a host's own desk could never take signing up back once it moved elsewhere - after *Register
 here*, a second desk, or a Create contraption carrying the desk, whose removal clears the point - now
@@ -1146,10 +1157,14 @@ is still the owner's to make.
 
 ## Next concrete action
 
-0. **Fabric has no protocol handshake.** NeoForge refuses a client on a different protocol number
-   (now 12); Fabric registers the same payloads with no version check, so a mismatched client
-   connects and fails on the first payload it cannot read. Needs a configuration-phase check, and a
-   run with two real processes to verify it - not something the in-world tests can reach.
+0. ~~Fabric has no protocol handshake.~~ **Done 2026-09-15:** `ProtocolCheck` asks a joining client
+   for its number while the connection is configured and turns a different one away with a message
+   naming both versions. `GatheringProtocol.VERSION` is the one number both loaders use. Verified with
+   two real clients (`:fabric:runProtocolHost`, `:fabric:runProtocolJoin -PpretendProtocol=11`, a LAN
+   world so no EULA is accepted for anybody): the joiner on 11 was turned away with "This server runs
+   Gathering's protocol 12 and your game has 11...", and one on 12 joined and played. Fabric in-world
+   test `aClientOnAnotherProtocolIsTurnedAway` (registration and rule), shown failing with the check
+   unregistered; the same class now also checks the desk's block, item and block entity on Fabric.
 
 1. **A person plays the lesson and a real game.** The scripted tour now completes cleanly on this machine (315/315) and its screenshots were reviewed; what is left is how it feels to somebody who has not read the code (`./gradlew :neoforge:runClient -Pdevscene`
    on macOS; `tools/shots.sh` under Xvfb). Every client-side change since the last clean run is

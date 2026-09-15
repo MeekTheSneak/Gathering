@@ -123,6 +123,31 @@ loom.runs.client {
     source sourceSets.testmod
 }
 
+// Two clients and the protocol check between them: a host opening a world to LAN, and a joiner
+// that may answer with another protocol number (-PpretendProtocol=11). Each in its own run
+// directory, so neither writes over the other's options or worlds. See ProtocolScene.
+loom.runs {
+    protocolHost {
+        client()
+        name 'Protocol check: host'
+        runDir 'runs/protocol-host'
+        source sourceSets.testmod
+        property 'gathering.protocolscene', 'host'
+        programArgs '--username', 'Host'
+    }
+    protocolJoin {
+        client()
+        name 'Protocol check: joiner'
+        runDir 'runs/protocol-join'
+        source sourceSets.testmod
+        property 'gathering.protocolscene', 'join'
+        if (project.hasProperty('pretendProtocol')) {
+            property 'gathering.pretendProtocol', project.property('pretendProtocol').toString()
+        }
+        programArgs '--username', 'Joiner'
+    }
+}
+
 // Dev runs need the shared classes and assets without dragging :common's own Minecraft
 // dependency into Loom's remapped runtime, so take the outputs rather than the projects.
 sharedModules.each {

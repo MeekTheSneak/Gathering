@@ -79,6 +79,32 @@ public final class EventBoard {
                 .map(state -> boardOf(state, null));
     }
 
+    /**
+     * Just what a desk's floating label says, without building the board: the name, the phase, the
+     * round, the winner, and whether signing up happens at this desk.
+     *
+     * @param signsUpHere whether this desk is the tournament's registration point
+     */
+    public record DeskLabel(String name, Tournament.Phase phase, int round, int rounds, String winner, boolean signsUpHere) {
+    }
+
+    /** What the label over a Scorekeeper's Desk says, if it runs a tournament here. Cheap enough to ask once a second. */
+    public static Optional<DeskLabel> labelAtDesk(ServerLevel level, BlockPos desk) {
+        if (!(level.getBlockEntity(desk) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity entity)) {
+            return Optional.empty();
+        }
+        String dimension = level.dimension().location().toString();
+        return entity.event().flatMap(Events::get).filter(state -> dimension.equals(state.dimension)).map(state -> {
+            Tournament tournament = state.tournament;
+            String winner = tournament.phase() == Tournament.Phase.FINISHED && !tournament.finalPlaces().isEmpty()
+                    ? Events.nameOf(state, tournament.finalPlaces().get(0))
+                    : "";
+            return new DeskLabel(tournament.name(), tournament.phase(),
+                    tournament.currentRound().map(Round::number).orElse(0), tournament.plannedRounds(), winner,
+                    desk.equals(state.registrationPoint));
+        });
+    }
+
     private static Optional<EventState> eventUsing(ServerLevel level, BlockPos origin) {
         Optional<EventState> running = Events.atTable(level, origin);
         if (running.isPresent()) {

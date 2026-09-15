@@ -575,6 +575,17 @@ python3 tools/doccheck.py   # no paragraph left attached to the wrong method
 python3 tools/spritecheck.py  # every drawn element has art, in every theme
 ```
 
+Two checks need more than one process, or another mod's jars, and are run by hand:
+
+```bash
+# Fabric's protocol check: a client on another protocol number is turned away before it plays.
+./gradlew :fabric:runProtocolHost                        # opens a flat world to LAN on 25599
+./gradlew :fabric:runProtocolJoin -PpretendProtocol=11   # in a second terminal; the host's log says why it left
+# Create, Create Aeronautics and Sable: jars in neoforge/runs/pack/mods and neoforge/runs/pack-tests/mods.
+./gradlew :neoforge:runPackGameTestServer                # the in-world tests with the pack loaded
+./gradlew :neoforge:runPackClient -Ppackscene            # photographs the integrations in a real client
+```
+
 The last three run inside `smoke.sh` as well, along with six more; `tools/README.md` lists
 every check and every art generator. They are listed separately here because they take a
 second and catch three failures the compiler is completely blind to. A missing translation key

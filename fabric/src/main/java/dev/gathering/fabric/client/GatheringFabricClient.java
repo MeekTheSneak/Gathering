@@ -66,6 +66,14 @@ public final class GatheringFabricClient implements ClientModInitializer {
         dev.gathering.client.RecentThings.bindServerLookup(
                 dev.gathering.client.WhichServer::name);
         ClientNetworking.bindSender(ClientPlayNetworking::send);
+        // The client's half of the protocol check: answer with our number. A development run may
+        // pretend to another, which is how a mismatched pair is tried without building two jars.
+        int ours = net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment()
+                ? Integer.getInteger("gathering.pretendProtocol", dev.gathering.network.GatheringProtocol.VERSION)
+                : dev.gathering.network.GatheringProtocol.VERSION;
+        net.fabricmc.fabric.api.client.networking.v1.ClientConfigurationNetworking.registerGlobalReceiver(
+                dev.gathering.fabric.ProtocolCheck.TYPE,
+                (question, context) -> context.responseSender().sendPacket(new dev.gathering.fabric.ProtocolCheck(ours)));
         ClientFetching.identifyAs(
                 Gathering.MOD_NAME + " client (+https://github.com/MeekTheSneak/Gathering)");
 
