@@ -76,6 +76,33 @@ public final class ScorekeepersDeskGameTest {
         helper.succeed();
     }
 
+    /** A host running two tournaments links the one whose tables are beside the desk. */
+    @GameTest(template = "empty")
+    public static void aHostOfTwoLinksTheOneBesideTheDesk(GameTestHelper helper) {
+        BlockPos desk = placeDesk(helper);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        // The far one first, so the order they were made in is not what picks.
+        EventState far = hostedBy(helper, host, "Across the Hall", List.of(desk.offset(60, 0, 0)));
+        EventState near = hostedBy(helper, host, "Here", List.of(desk.offset(0, 0, 3)));
+        try {
+            helper.useBlock(DESK, host);
+            if (!runs(helper, desk, near)) {
+                helper.fail("the desk linked " + deskOf(helper, desk).event() + " rather than the tournament beside it");
+                return;
+            }
+            // Using it again only looks, even though the host has another tournament without a desk.
+            helper.useBlock(DESK, host);
+            if (!runs(helper, desk, near) || far.registrationPoint != null) {
+                helper.fail("the host's second click moved their own desk to their other tournament");
+                return;
+            }
+        } finally {
+            Events.removeForTesting(far);
+            Events.removeForTesting(near);
+        }
+        helper.succeed();
+    }
+
     /** Somebody hosting nothing only looks: a desk is never linked by a passer-by. */
     @GameTest(template = "empty")
     public static void aPlayerHostingNothingOnlyLooks(GameTestHelper helper) {
@@ -187,9 +214,13 @@ public final class ScorekeepersDeskGameTest {
     }
 
     private static EventState hostedBy(GameTestHelper helper, ServerPlayer host, String name) {
+        return hostedBy(helper, host, name, List.of());
+    }
+
+    private static EventState hostedBy(GameTestHelper helper, ServerPlayer host, String name, List<BlockPos> tables) {
         Tournament tournament = Tournament.create(UUID.randomUUID(), name, host.getUUID(),
                 EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
-        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of());
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), tables);
         Events.putForTesting(state);
         return state;
     }

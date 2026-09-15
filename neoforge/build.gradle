@@ -189,6 +189,15 @@ tasks.matching { it.name == 'runPackGameTestServer' }.configureEach {
         delete file('runs/pack-tests/world')
     }
 }
+// The pack scene makes its world fresh, but a world made under a name already in use keeps the old
+// one's folders - its tournaments among them, which a later step then found in place of its own.
+tasks.matching { it.name == 'runPackClient' }.configureEach {
+    doFirst {
+        if (project.hasProperty('packscene')) {
+            delete file('runs/pack/saves/GatheringPackScene')
+        }
+    }
+}
 
 tasks.named('compileJava') {
     dependsOn ':common:classes', ':core:classes'

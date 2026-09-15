@@ -24,6 +24,7 @@ import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
 import dev.gathering.item.DeckItem;
 import dev.gathering.item.DraftedPool;
+import dev.gathering.platform.WorldSpace;
 import dev.gathering.registry.GatheringComponents;
 import dev.gathering.server.DeckCheck;
 import dev.gathering.server.PodLobbies;
@@ -359,12 +360,17 @@ public final class Events {
         }
         String dimension = level.dimension().location().toString();
         EventState running = desk.event().flatMap(Events::get).filter(state -> dimension.equals(state.dimension)).orElse(null);
+        // A host running more than one tournament means the one played beside this desk.
+        Vec3 deskInWorld = WorldSpace.get().centerInWorld(level, deskPos);
         EventState hosting = events().values().stream()
-                .filter(state -> !state.tournament.isOver() && dimension.equals(state.dimension)
+                .filter(state -> state != running && !state.tournament.isOver() && dimension.equals(state.dimension)
                         && state.tournament.host().equals(player.getUUID()))
-                .findFirst().orElse(null);
+                .min(java.util.Comparator.comparingDouble(state -> state.tables.stream()
+                        .mapToDouble(table -> WorldSpace.get().centerInWorld(level, table).distanceToSqr(deskInWorld))
+                        .min().orElse(Double.MAX_VALUE)))
+                .orElse(null);
         boolean free = running == null || running.tournament.isOver();
-        if (hosting != null && hosting != running && (free || player.isShiftKeyDown())) {
+        if (hosting != null && (free || player.isShiftKeyDown())) {
             if (running != null && deskPos.equals(running.registrationPoint)) {
                 running.registrationPoint = null;
                 changed(player.getServer(), running);
@@ -377,7 +383,7 @@ public final class Events {
             return;
         }
         if (running != null) {
-            if (hosting != null && hosting != running) {
+            if (hosting != null && !running.tournament.host().equals(player.getUUID())) {
                 player.sendSystemMessage(Component.translatable("message.gathering.desk.taken", running.tournament.name()));
             }
             EventViews.show(player, running, true);

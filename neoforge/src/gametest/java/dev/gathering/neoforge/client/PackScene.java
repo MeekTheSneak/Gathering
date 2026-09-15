@@ -114,6 +114,31 @@ public final class PackScene {
                 advance(SETTLE * 8);
             }
             case 3 -> {
+                // The host walks up to the desk and uses it, the way a player does.
+                onTheServer(client, (server, player) -> {
+                    var hit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(desk), Direction.SOUTH, desk, false);
+                    player.gameMode.useItemOn(player, server.overworld(), net.minecraft.world.item.ItemStack.EMPTY,
+                            net.minecraft.world.InteractionHand.MAIN_HAND, hit);
+                });
+                advance(SETTLE * 2);
+            }
+            case 4 -> {
+                if (!(client.screen instanceof dev.gathering.client.EventScreen)) {
+                    fail("using the desk opened " + client.screen + " rather than the tournament");
+                }
+                shoot(client, "p01-the-desk-shows-its-tournament");
+                client.setScreen(null);
+                onTheServer(client, (server, player) -> {
+                    if (!event.registrationPoint().filter(desk::equals).isPresent()) {
+                        fail("the host's click left signing up at " + event.registrationPoint() + ", not the desk");
+                    }
+                    if (server.overworld().getBlockEntity(boardLink) instanceof DisplayLinkBlockEntity link) {
+                        link.updateGatheredData();
+                    }
+                });
+                advance(SETTLE * 4);
+            }
+            case 5 -> {
                 onTheServer(client, (server, player) -> {
                     BlockPos topLeft = boardTable.offset(-1, 3, -2);
                     if (server.overworld().getBlockEntity(topLeft)
@@ -122,7 +147,7 @@ public final class PackScene {
                                 + flap.isSpeedRequirementFulfilled() + ", speed " + flap.getSpeed() + ", size " + flap.xSize + "x" + flap.ySize);
                     }
                 });
-                shoot(client, "p01-standings-on-a-display-board");
+                shoot(client, "p02-standings-on-a-display-board");
                 // The same board, set to this round's pairings the way a player sets the link.
                 onTheServer(client, (server, player) -> {
                     if (server.overworld().getBlockEntity(boardLink) instanceof DisplayLinkBlockEntity link) {
@@ -135,27 +160,54 @@ public final class PackScene {
                 });
                 advance(SETTLE * 2);
             }
-            case 4 -> {
-                shoot(client, "p01b-pairings-on-the-same-board");
+            case 6 -> {
+                shoot(client, "p03-pairings-on-the-same-board");
+                // Create's own screen for the link: the Show setting should read back what was chosen.
+                if (client.level.getBlockEntity(boardLink) instanceof DisplayLinkBlockEntity link) {
+                    client.setScreen(new com.simibubi.create.content.redstone.displayLink.DisplayLinkScreen(link));
+                } else {
+                    fail("the client has no Display Link at " + boardLink);
+                }
+                advance(SETTLE);
+            }
+            case 7 -> {
+                shoot(client, "p04-the-link-set-to-pairings");
+                // Closing Create's screen sends what it shows back to the server: a setting it could not
+                // read back would arrive as the first choice.
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                advance(SETTLE);
+            }
+            case 8 -> {
+                onTheServer(client, (server, player) -> {
+                    if (server.overworld().getBlockEntity(boardLink) instanceof DisplayLinkBlockEntity link) {
+                        int show = link.getSourceConfig().getInt("Show");
+                        System.out.println("[packscene] after Create's screen closed the link shows " + show);
+                        if (show != dev.gathering.neoforge.compat.create.TournamentDisplaySource.Show.PAIRINGS.ordinal()) {
+                            fail("Create's screen set the link back to choice " + show);
+                        }
+                    }
+                });
                 onTheServer(client, PackScene::buildTheStructure);
                 advance(SETTLE * 3);
             }
-            case 5 -> {
-                shoot(client, "p02-a-table-on-a-structure");
+            case 9 -> {
+                shoot(client, "p05-a-table-on-a-structure");
                 onTheServer(client, PackScene::sitAtTheStructure);
                 advance(SETTLE * 2);
             }
-            case 6 -> {
+            case 10 -> {
                 if (!(client.screen instanceof TableScreen)) {
                     fail("sitting at the table on the structure opened " + client.screen);
                     finish(client);
                     return;
                 }
-                shoot(client, "p03-seated-at-a-table-on-a-structure");
+                shoot(client, "p06-seated-at-a-table-on-a-structure");
                 client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 advance(SETTLE * 2);
             }
-            case 7 -> {
+            case 11 -> {
 
                 TableCameraView.wanted().ifPresentOrElse(placement -> {
                     Vec3 table = WorldSpace.get().centerInWorld(client.level, structureTable);
@@ -165,7 +217,7 @@ public final class PackScene {
                         fail("the camera over a table on a structure is " + across + " blocks away from it");
                     }
                 }, () -> fail("the board on the block has no camera placement"));
-                shoot(client, "p04-the-board-on-a-table-on-a-structure");
+                shoot(client, "p07-the-board-on-a-table-on-a-structure");
                 advance(SETTLE);
             }
             default -> finish(client);
@@ -215,13 +267,11 @@ public final class PackScene {
             }
         }
         BlockPos topLeft = boardLeft.offset(0, 2, 0);
-        // The board reads the tournament off its Scorekeeper's Desk, beside the table, set to standings.
+        // The board reads the tournament off its Scorekeeper's Desk, beside the table, set to standings. The
+        // desk runs nothing until the host uses it, in the next step.
         desk = boardTable.offset(-2, 0, 0);
         level.setBlock(desk, GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState()
                 .setValue(dev.gathering.block.ScorekeepersDeskBlock.FACING, Direction.SOUTH), 3);
-        if (level.getBlockEntity(desk) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity entity) {
-            entity.runs(tournament.id());
-        }
         boardLink = link(level, desk.above(), Direction.UP, topLeft, "the board",
                 dev.gathering.neoforge.compat.create.CreateCompat.tournamentForScenes());
 

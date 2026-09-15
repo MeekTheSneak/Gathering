@@ -310,12 +310,15 @@ setting ignored and with the tournament attached to tables.
 their unfinished tournament and makes the desk its registration point; anybody else's click shows the
 tournament; another host takes a desk over only by sneaking, and the tournament that loses it loses
 its registration point; a finished or cancelled tournament's desk is free; breaking the desk clears the
-registration point. Crafted paper-book-paper over planks. Model borrows vanilla's lectern (no texture
-of its own - the owner's to draw). `ScorekeepersDeskGameTest` (5, gate) goes through the block's real
+registration point. A host running more than one tournament links the one whose tables are nearest the
+desk - found in the pack scene, where a tournament left over from an earlier run was linked in place of
+the one beside the desk (guard `aHostOfTwoLinksTheOneBesideTheDesk`, proved failing; the scene's save
+is now cleared before each run, as `shots.sh` does for DevScene). Crafted paper-book-paper over planks. Model borrows vanilla's lectern (no texture
+of its own - the owner's to draw). `ScorekeepersDeskGameTest` (6, gate) goes through the block's real
 use: linking, look-only for a passer-by, sneak takeover, a free finished desk, breaking, save and load;
 plus `CraftingGameTest.aScorekeepersDeskCanBeCrafted`. Each proved failing with its code broken.
-**Not verified:** the Display Link's *Show* selector clicked by hand in a real client (the scene sets
-it the way the screen stores it); Fabric has the block and recipe but no Create.
+**Not verified:** the *Show* selector scrolled by hand (the scene sets the choice and opens Create's
+screen over it, which reads it back and keeps it); Fabric has the block and recipe but no Create.
 
 **Deployers open boosters.** An empty-handed Deployer tears a booster open (`DeployerPacks`) when it
 presses a booster lying loose on the ground, facing any way, or a booster on a Depot or belt it faces
@@ -340,9 +343,11 @@ here - in the archive pack's path too, which had the same check. Guard
 and timed out in the gate when Scryfall rate limited the run; it asks the question directly now.)
 
 **Seen in a real client with the pack** (`runPackClient -Ppackscene`, Create + Aeronautics + Sable):
-the client starts and plays with all three; a Display Link on a Scorekeeper's Desk writes the standings
-to a powered 4x3 Create display board, and set to pairings rewrites it; a link on a table writes its
-match to an oak sign; a table assembled into a Sable structure and
+the client starts and plays with all three; the host's click on a Scorekeeper's Desk links it and opens
+the tournament; a Display Link on the desk writes the standings to a powered 4x3 Create display board,
+and set to pairings rewrites it; Create's own link screen shows the *Show* setting reading "Pairings"
+and closing it keeps that choice; a link on a table writes its match to an oak sign (a sign is too
+narrow for the whole line, which it cuts off); a table assembled into a Sable structure and
 turned 25 degrees renders on its platform; sitting at it opens the seated board, and the board on the
 block puts its camera half a block from the table's real position. On a display board the standings
 leave out the win-loss-draw record, which a four-wide board cut off mid-bracket. One start-up crashed
