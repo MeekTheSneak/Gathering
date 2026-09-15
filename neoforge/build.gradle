@@ -61,6 +61,12 @@ neoForge {
                 if (project.hasProperty('gallery')) {
                     systemProperty 'gathering.gallery', '1'
                 }
+                // And -PdevsceneFrom=N goes straight to step N once there is a world, for working on
+                // one late section without the twenty minutes before it. Not a check: the steps it
+                // skips set up things later ones may read.
+                if (project.hasProperty('devsceneFrom')) {
+                    systemProperty 'gathering.devscene.from', project.property('devsceneFrom').toString()
+                }
             }
         }
         server {

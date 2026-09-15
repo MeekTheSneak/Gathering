@@ -26,6 +26,7 @@ public final class GatheringTableRules {
                 .ifPresent(why -> {
                     event.setCanceled(true);
                     event.getPlayer().sendSystemMessage(why);
+                    BreakRules.refused(event.getLevel(), event.getPos());
                 });
     }
 }

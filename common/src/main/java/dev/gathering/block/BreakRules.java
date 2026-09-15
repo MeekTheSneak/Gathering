@@ -37,4 +37,33 @@ public final class BreakRules {
         }
         return Optional.empty();
     }
+
+    /**
+     * After a break was refused: sends the table the block belongs to out to clients again, block and
+     * everything the table carries.
+     * <p>The client does not wait to be told. It breaks the block the moment the swing lands, and for a
+     * table's corner that throws away the client's copy of the table - the felt, whether it has a
+     * command zone, which way it is turned. The server's refusal puts the block back and nothing else,
+     * so the table came back as a blank one: a Commander game carried on with its command zone gone.
+     * <p>A couple of ticks later rather than now. The client holds a block it broke itself until the
+     * server acknowledges the swing, and anything about the table sent before that acknowledgement
+     * arrives finds no table to apply to. Sent straight away, it fixed nothing.
+     */
+    public static void refused(net.minecraft.world.level.LevelAccessor level, BlockPos pos) {
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server) || !(state.getBlock() instanceof TableBlock)) {
+            return;
+        }
+        BlockPos origin = TableBlock.originOf(state, pos).immutable();
+        dev.gathering.server.ServerTicks.on(java.util.List.of("refused break", server.dimension(), origin),
+                server.getServer().getTickCount() + TICKS_UNTIL_ACKNOWLEDGED, () -> {
+                    net.minecraft.world.level.block.state.BlockState corner = server.getBlockState(origin);
+                    if (corner.getBlock() instanceof TableBlock) {
+                        server.sendBlockUpdated(origin, corner, corner, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+                    }
+                });
+    }
+
+    /** How long after a refused swing the client has certainly been told, in ticks. */
+    private static final int TICKS_UNTIL_ACKNOWLEDGED = 2;
 }

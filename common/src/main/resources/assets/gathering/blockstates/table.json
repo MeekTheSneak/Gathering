@@ -9,7 +9,8 @@
     },
     "part=north_east": {
       "model": "gathering:block/table_corner",
-      "y": 90
+      "y": 90,
+      "uvlock": true
     },
     "part=west": {
       "model": "gathering:block/table_top"
@@ -22,14 +23,16 @@
     },
     "part=south_west": {
       "model": "gathering:block/table_corner",
-      "y": 270
+      "y": 270,
+      "uvlock": true
     },
     "part=south": {
       "model": "gathering:block/table_top"
     },
     "part=south_east": {
       "model": "gathering:block/table_corner",
-      "y": 180
+      "y": 180,
+      "uvlock": true
     }
   }
 }

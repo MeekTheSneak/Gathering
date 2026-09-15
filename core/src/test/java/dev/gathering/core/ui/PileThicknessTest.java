@@ -30,12 +30,14 @@ class PileThicknessTest {
     }
 
     @Test
-    @DisplayName("a sixty-card deck stands close to a real one's proportions: under half a card's width")
+    @DisplayName("a sixty-card deck stands close to a sleeved one's proportions: about two thirds of a card's width")
     void aDeckLooksLikeADeck() {
         double deck = PileThickness.of(60, 1.0);
-        assertThat(deck).isBetween(0.3, 0.5);
-        // A hundred cards never stands taller than four fifths of a card is wide.
-        assertThat(PileThickness.of(PileThickness.TALLEST, 1.0)).isLessThan(0.8);
+        assertThat(deck).isBetween(0.55, 0.7);
+        // A hundred cards never stands taller than a card is wide.
+        assertThat(PileThickness.of(PileThickness.TALLEST, 1.0)).isLessThan(1.1);
+        // And three times the cards is three times as tall, which is what a player reads a stack's size off.
+        assertThat(PileThickness.of(12, 1.0)).isCloseTo(PileThickness.of(4, 1.0) * 3, within(1e-9));
     }
 
     @Test

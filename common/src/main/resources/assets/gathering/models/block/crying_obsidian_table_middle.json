@@ -3,7 +3,7 @@
   "parent": "block/block",
   "textures": {
     "particle": "minecraft:block/crying_obsidian",
-    "felt": "gathering:block/table_felt",
+    "felt": "minecraft:block/white_wool",
     "frame": "minecraft:block/crying_obsidian"
   },
   "elements": [

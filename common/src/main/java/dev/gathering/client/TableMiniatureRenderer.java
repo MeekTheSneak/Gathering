@@ -155,6 +155,17 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     private static final int WRITING_COLOR = 0xFFE8E4DC;
 
+    /** And writing and lines drawn straight onto a light felt, where the light ones would not show. */
+    private static final int WRITING_ON_LIGHT_FELT = 0xFF2B2622;
+    private static final int GROUP_EDGE_ON_LIGHT_FELT = 0x77000000;
+
+    /**
+     * The colors for what is written and ruled straight onto the felt of the table being drawn: light
+     * on a dark felt and dark on a light one. See {@link dev.gathering.core.ui.FeltContrast}.
+     */
+    private int feltWriting = WRITING_COLOR;
+    private int feltEdge = GROUP_EDGE_COLOR;
+
     /** How much of a slot's width a line of writing may take up. */
     private static final float WRITING_ROOM = 0.86f;
 
@@ -278,6 +289,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // its board laid out the usual way and turned a quarter clockwise onto its blocks: the same
         // turn TableTop makes for the pointer and the camera, so what is drawn is what is pointed at.
         boolean turned = dev.gathering.block.TableClusters.at(table.getLevel(), pos).turned();
+        boolean lightFelt = dev.gathering.core.ui.FeltContrast.isLight(
+                table.felt().map(dye -> dye.getTextureDiffuseColor() & 0xFFFFFF).orElse(TableColors.UNDYED));
+        feltWriting = lightFelt ? WRITING_ON_LIGHT_FELT : WRITING_COLOR;
+        feltEdge = lightFelt ? GROUP_EDGE_ON_LIGHT_FELT : GROUP_EDGE_COLOR;
+        if (turned) {
+            turnedBoardsDrawn++;
+        }
 
         poseStack.pushPose();
         onTheSurface(poseStack, SURFACE_Y, span, turned);
@@ -308,7 +326,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                     flat(buffers.getBuffer(RenderType.debugQuads()), poseStack.last().pose(),
                             onSurface(divider.x(), span), onSurface(divider.y(), span),
                             onSurface(divider.right(), span), onSurface(divider.bottom(), span),
-                            GROUP_EDGE_COLOR, layer(MAT_MARKING));
+                            feltEdge, layer(MAT_MARKING));
                 }
             }
         }
@@ -338,6 +356,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         drawFlights(poseStack, buffers, packedLight, board, placement, pos, piles, span);
         poseStack.popPose();
     }
+
+    /** How many times a turned table's board has been drawn. For the scripted harness. */
+    static int turnedBoardsDrawn;
 
     /**
      * Moves the pose onto the table's surface at this height, with the surface's x along the pose's x
@@ -507,7 +528,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             writing(poseStack, buffers, packedLight,
                     Component.translatable(TableVerb.values()[index].key()),
                     x + width / 2f, z + depth / 2f, lineHeight, width * WRITING_ROOM,
-                    surface.facingDegrees(seatIndex), 0);
+                    surface.facingDegrees(seatIndex), 0, layer(ON_THE_FELT), feltWriting);
         }
     }
 
@@ -641,7 +662,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                         ? onSurface(named.right(), span) - half
                         : onSurface(named.x(), span) + half;
                 writing(poseStack, buffers, packedLight, zoneName,
-                        middle, onSurface(named.centerY(), span), nameHeight, room, angle, 0);
+                        middle, onSurface(named.centerY(), span), nameHeight, room, angle, 0, layer(ON_THE_FELT), feltWriting);
             }
         }
     }
@@ -695,6 +716,15 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
             Component text, float centerX, float centerZ, float lineHeight, float maxWidth,
             int angle, int backing, float lift) {
+        writing(poseStack, buffers, packedLight, text, centerX, centerZ, lineHeight, maxWidth,
+                angle, backing, lift, WRITING_COLOR);
+    }
+
+    /** The same, in this color. */
+    private void writing(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            Component text, float centerX, float centerZ, float lineHeight, float maxWidth,
+            int angle, int backing, float lift, int color) {
         if (lineHeight <= 0f) {
             return;
         }
@@ -722,7 +752,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         }
         poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90f));
         poseStack.scale(scale, scale, scale);
-        font.drawInBatch(text, -drawn / 2f, -font.lineHeight / 2f, WRITING_COLOR,
+        font.drawInBatch(text, -drawn / 2f, -font.lineHeight / 2f, color,
                 false, poseStack.last().pose(), buffers, Font.DisplayMode.NORMAL,
                 0, packedLight);
         poseStack.popPose();
@@ -851,7 +881,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void drawGroup(
             PoseStack poseStack, MultiBufferSource buffers, Rect group, float span) {
-        drawGroup(poseStack, buffers, group, span, GROUP_EDGE_COLOR, layer(MAT_MARKING));
+        drawGroup(poseStack, buffers, group, span, feltEdge, layer(MAT_MARKING));
     }
 
     private void drawGroup(
@@ -925,6 +955,12 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         TableStacking.Piles piles = mat.piles();
         java.util.Map<CardInstanceId, List<CardView>> attachments = mat.attachments();
 
+        // The top card of each stack, by its bottom card, so a buried card knows what is lying on it.
+        java.util.Map<Integer, Integer> topOfStack = new java.util.HashMap<>();
+        for (int index = 0; index < cards.size(); index++) {
+            topOfStack.put(piles.baseOf(index), index);
+        }
+
         int drawn = 0;
         for (int index = 0; index < cards.size() && drawn < budget; index++) {
             CardView card = cards.get(index);
@@ -959,7 +995,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             float x = onSurface(placed.x(), span);
             float z = onSurface(placed.y(), span);
             boolean stacked = piles.pileSize(index) > 1;
-            float thickness = stacked ? cardInAStack(cardWidth) : 0f;
+            float thickness = stacked ? oneCardThick(cardWidth) : 0f;
             float lift = Math.min(piles.depth(index), PileThickness.TALLEST) * thickness + thickness;
             tallestPile = Math.max(tallestPile, lift);
 
@@ -978,15 +1014,27 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                         angle + (isTapped(card) ? TablePosition.QUARTER_TURN : 0), lift - thickness, lift,
                         piles.depth(index) % 2 == 0);
             }
-            drawSleeved(poseStack, buffers, packedLight, card, seat.sleeve(),
-                    x, z, cardWidth, cardDepth, angle, isTapped(card), lift);
+            // A card with another lying square on it shows nothing but its edges, so its face is not
+            // drawn: a card's thickness apart, two faces fight for the same pixels from across the room.
+            // One turned differently from the card on top of it still shows its corners, and is drawn.
+            int top = topOfStack.getOrDefault(piles.baseOf(index), index);
+            boolean covered = piles.isBuried(index) && top != index
+                    && cards.get(top).placedAt().map(TablePosition::rotation).orElse(0) == where.rotation()
+                    && isTapped(cards.get(top)) == isTapped(card);
+            if (!covered) {
+                drawSleeved(poseStack, buffers, packedLight, card, seat.sleeve(),
+                        x, z, cardWidth, cardDepth, angle, isTapped(card), lift);
+            }
             drawn++;
+            // What is attached to a card is fanned out beside it, so it shows whatever is on top.
             drawn += drawAttached(poseStack, buffers, packedLight, attachments, card,
                     seat.sleeve(), placed, angle, lift, span, budget - drawn);
-            // On the card rather than at a height of their own: the writing on a card further
-            // down a stack was drawn at one fixed height, under every card piled on top of it.
-            writeOn(poseStack, buffers, packedLight, card, x, z, cardWidth, cardDepth, angle, lift + layer(2));
-            markUp(poseStack, buffers, packedLight, card, x, z, cardWidth, cardDepth, angle, lift + layer(2));
+            if (!covered) {
+                // On the card rather than at a height of their own: the writing on a card further
+                // down a stack was drawn at one fixed height, under every card piled on top of it.
+                writeOn(poseStack, buffers, packedLight, card, x, z, cardWidth, cardDepth, angle, lift + layer(2));
+                markUp(poseStack, buffers, packedLight, card, x, z, cardWidth, cardDepth, angle, lift + layer(2));
+            }
         }
         return drawn;
     }
@@ -1233,12 +1281,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     }
 
     /**
-     * How thick one card of a stack on the felt is drawn, in blocks: a real card's thickness, or
-     * the step the depth buffer needs from here if that is more, so the face of each card clears
-     * the one under it at any distance.
+     * How thick one card of a stack on the felt is drawn, in blocks: a real card's thickness, the
+     * same as a card in a pile in a zone, so a stack is as tall as the cards in it wherever it is
+     * seen from. It was the depth step when that was more, which grows with distance - so a stack
+     * grew taller as the camera went further off, and did not match the deck beside it.
      */
-    private float cardInAStack(float cardWidth) {
-        return Math.max((float) PileThickness.of(1, cardWidth), perCard());
+    private static float oneCardThick(float cardWidth) {
+        return (float) PileThickness.of(1, cardWidth);
     }
 
     /**

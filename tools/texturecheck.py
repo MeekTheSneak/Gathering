@@ -40,6 +40,9 @@ TEXTURES = "common/src/main/resources/assets/gathering/textures"
 #: says so.
 FROM_CODE = {
     "item/pack.png": "common/src/main/java/dev/gathering/client/PackFaceRenderer.java",
+    # The advancement tab's background. The tables' tops were this until the owner asked for white
+    # wool, and it is still the cloth behind the mod's advancements.
+    "block/table_felt.png": "common/src/main/resources/data/gathering/advancement/root.json",
 }
 
 #: Whole trees that are not named one at a time.

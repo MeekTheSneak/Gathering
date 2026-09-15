@@ -451,9 +451,8 @@ public final class TableScreen extends Screen {
      */
     private List<Component> tooltip = List.of();
 
-    /** Measured once per screen: how much room the longest of each set needs. Nought is unasked. */
+    /** Measured once per screen: how much room the longest zone name needs. Nought is unasked. */
     private int longestZoneNameWidth;
-    private int longestVerbNameWidth;
 
     /**
      * Where the leftmost mat starts on the screen, for anything that must not cover a mat.
@@ -1873,11 +1872,16 @@ public final class TableScreen extends Screen {
             // a pixel a side, the longest name ran to the very edge and the frame drawn round
             // it took the last letter: the scripted client photographed "Mulliga" and "Shuffl".
             int writable = where.width() - VERB_LABEL_INSET * 2;
-            if (everyVerbNameFits(writable)) {
+            // Whatever size the board is drawn at, the word goes on the button. They were left blank
+            // below the size a word stays crisp at, and the owner, zoomed out, found a column of empty
+            // boxes: a small word on a button says more than no word. One size for the set, fitted
+            // to the longest.
+            int longest = this.font.width(longestOf(VERB_NAMES));
+            if (writable > 0 && longest > 0) {
+                float scale = Math.min(1f, writable / (float) longest);
                 GuiText.drawCenteredAt(graphics, this.font, VERB_NAMES[index],
                         (int) where.centerX(), (int) where.centerY() - this.font.lineHeight / 2,
-                        GuiText.scaleForTheSet(this.font, longestOf(VERB_NAMES), writable),
-                        hovered ? LABEL : ZONE_LABEL);
+                        scale, hovered ? LABEL : ZONE_LABEL);
             }
         }
     }
@@ -2287,21 +2291,6 @@ public final class TableScreen extends Screen {
             longestZoneNameWidth = this.font.width(longestOf(ZONE_NAMES));
         }
         return room >= Legibility.roomToWrite(longestZoneNameWidth, guiScale());
-    }
-
-    /**
-     * And the same for the buttons down the other side.
-     * <p>Measured against its own longest word rather than against the longest word anywhere
-     * on the mat. Sharing one measurement was tried, so that the labels on the two sides would
-     * come and go together: the buttons are narrower than the strip of felt the zone names are
-     * written on, so a threshold set by "Graveyard" left every button blank at a size where
-     * "Mulligan" fitted them perfectly well. Two sets of labels, two rooms, two answers.
-     */
-    private boolean everyVerbNameFits(int room) {
-        if (longestVerbNameWidth == 0) {
-            longestVerbNameWidth = this.font.width(longestOf(VERB_NAMES));
-        }
-        return room >= Legibility.roomToWrite(longestVerbNameWidth, guiScale());
     }
 
     /**

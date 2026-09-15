@@ -404,14 +404,16 @@ public final class GatheringSprites {
      * agree on it - four draw a panel at sixteen pixels where the other ten draw it at eight.
      * A number in the mod would have been wrong for one of those groups.
      * <p>Stricter than the game's own rule, which only refuses a nine-slice with no middle
-     * at all. See {@link #across}.
+     * at all - except for art drawn no smaller than it was painted. See
+     * {@link dev.gathering.core.ui.SpriteFrames#maySlice}.
      */
     private static boolean hasRoomForItsBorder(TextureAtlasSprite drawn, int width, int height) {
         GuiSpriteScaling.NineSlice nine = sliced(drawn);
         // Null where it is stretched or tiled, or before the atlas is stitched: nothing to
         // run out of room for, so it is drawn the way it always was.
         return nine == null
-                || (width >= across(nine.border()) && height >= along(nine.border()));
+                || (dev.gathering.core.ui.SpriteFrames.maySlice(width, nine.border().left(), nine.border().right(), nine.width())
+                        && dev.gathering.core.ui.SpriteFrames.maySlice(height, nine.border().top(), nine.border().bottom(), nine.height()));
     }
 
     /**
@@ -433,22 +435,6 @@ public final class GatheringSprites {
     private static TextureAtlasSprite drawn(ResourceLocation sprite) {
         Minecraft client = Minecraft.getInstance();
         return client == null ? null : client.getGuiSprites().getSprite(sprite);
-    }
-
-    /**
-     * How wide a box has to be for this border: its two edges, and a middle as wide as one.
-     * <p>The game refuses only a nine-slice with no middle at all. That is not enough for a
-     * board somebody has scrolled out: a card there is about seventeen pixels across, and a
-     * border of eight leaves one pixel of middle - a solid block of border with a hairline of
-     * picture in it.
-     */
-    private static int across(GuiSpriteScaling.NineSlice.Border border) {
-        return dev.gathering.core.ui.SpriteFrames.smallestFor(border.left(), border.right());
-    }
-
-    /** And how tall, the same way. */
-    private static int along(GuiSpriteScaling.NineSlice.Border border) {
-        return dev.gathering.core.ui.SpriteFrames.smallestFor(border.top(), border.bottom());
     }
 
     /**

@@ -67,4 +67,17 @@ class SpriteFramesTest {
         assertThat(SpriteFrames.smallestFor(frame))
                 .isEqualTo(SpriteFrames.smallestFor(frame, frame));
     }
+
+    @Test
+    @DisplayName("art drawn no smaller than it was painted is sliced, however thin its middle")
+    void atItsOwnSizeArtIsSliced() {
+        // A progress bar's track: painted 48 by 11 with borders of 6 across and 4 up and down, and drawn
+        // eleven tall along a row hundreds of pixels long.
+        assertThat(SpriteFrames.maySlice(11, 4, 4, 11)).isTrue();
+        assertThat(SpriteFrames.maySlice(790, 6, 6, 48)).isTrue();
+        // Squeezed below both its own size and the rule, it is squashed whole.
+        assertThat(SpriteFrames.maySlice(10, 4, 4, 11)).isFalse();
+        // And a slot at the far end of the zoom is still too small for an eight-pixel border.
+        assertThat(SpriteFrames.maySlice(17, 8, 8, 32)).isFalse();
+    }
 }

@@ -3,7 +3,7 @@
   "parent": "block/block",
   "textures": {
     "particle": "minecraft:block/polished_blackstone",
-    "felt": "gathering:block/table_felt",
+    "felt": "minecraft:block/white_wool",
     "frame": "minecraft:block/polished_blackstone",
     "accent": "minecraft:block/chiseled_polished_blackstone"
   },

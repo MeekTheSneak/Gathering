@@ -63,6 +63,9 @@ public final class GatheringFabric implements ModInitializer {
             java.util.Optional<net.minecraft.network.chat.Component> why =
                     dev.gathering.block.BreakRules.refuse(level, pos, player);
             why.ifPresent(player::sendSystemMessage);
+            if (why.isPresent()) {
+                dev.gathering.block.BreakRules.refused(level, pos);
+            }
             return why.isEmpty();
         });
 

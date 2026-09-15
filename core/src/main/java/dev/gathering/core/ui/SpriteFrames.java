@@ -39,6 +39,19 @@ public final class SpriteFrames {
         return edges <= 0 ? 0 : edges + Math.max(nearEdge, farEdge);
     }
 
+    /**
+     * Whether a box this long, along one axis, may be drawn sliced from art painted this long with a
+     * border of these thicknesses.
+     * <p>At least {@link #smallestFor}, or at least the length it was painted at. A sprite drawn no
+     * shorter than it was painted is the picture as painted, borders and middle and all, whatever the
+     * rule above would ask of a box that size: a progress bar's track is painted eleven pixels tall
+     * with four at top and bottom, and drawn at eleven the rule wanted twelve - so the whole bar was
+     * squashed and stretched instead, and its slanted ends ran the length of the row.
+     */
+    public static boolean maySlice(int length, int nearEdge, int farEdge, int paintedLength) {
+        return length >= Math.min(smallestFor(nearEdge, farEdge), Math.max(1, paintedLength));
+    }
+
     /** The same for a border the same thickness all the way round, which most art is. */
     public static int smallestFor(int frame) {
         return smallestFor(frame, frame);

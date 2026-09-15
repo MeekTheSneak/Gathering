@@ -1529,6 +1529,39 @@ Known and open from this batch:
   stacks standing on the block; the village shops; the ponder scene. Old two-block tables in existing
   worlds are not migrated, by the owner's decision.
 
+### Third batch: the owner's notes during the rework (2026-09-15)
+
+- **Tour on the rework.** A full run reached 358 of 358 with no failures, sitting in a chair, choosing
+  free play and putting a deck down for real; its photo of the turned table showed only felt. A run
+  from step 356 (`-PdevsceneFrom`, new, see TESTING.md) drew the turned board correctly, and the step
+  now also asserts the renderer drew a turned board. Two later full runs broke on the known cursor
+  flake - hover and menu steps that had passed - one early and one at step 54a, both while the machine
+  was in use; the last section was run on its own since (363 of 363, no failures).
+- **The set progress bars** were stretched whole rather than sliced: the room rule wanted a nine-slice
+  to have a middle as tall as a border, the bar is painted eleven tall with borders of four, and it is
+  drawn at eleven. Art drawn no smaller than it was painted is now always sliced
+  (`SpriteFrames.maySlice`; the test was shown failing with the old rule). **Not seen in a photo since;
+  the section of the tour that shows it needs the whole tour.**
+- **White wool** on every table's top, corners locked to the world's texture direction (`uvlock`), dye
+  still tinting it. What the board on a table writes straight onto the felt - zone names, button words,
+  the lines round groups - is dark on a light felt and light on a dark one (`FeltContrast`, tested).
+  `table_felt.png` stays as the advancement background, recorded in texturecheck.
+- **Mat buttons** in the seated view carry their words at every zoom, fitted to the button and
+  centered; the legibility rule still governs the zone names. Photographed at the table of eight.
+- **A refused break.** Breaking a table somebody sits at was refused on the server after the client had
+  already broken the block, and a broken corner took the client's copy of the table with it: the table
+  came back blank, a Commander board without its command zone. The table is now sent again two ticks
+  after a refusal, past the client's acknowledgement of the swing (sent at once, it arrived before
+  there was a table to apply it to). The tour swings at a seated Commander table and checks the
+  command zone survives; it failed before the fix, and with the resend sent immediately.
+- **Stacks on the block** are a real sleeved card thick per card, the same as the piles in the zones,
+  rather than the depth step when that was more - which grew with distance, so a stack grew as the
+  camera went further off. The face of a card lying square under another is not drawn. A card is now
+  0.7 mm to 66 mm (sleeved) rather than 0.5, so a sixty-card deck is about two thirds of a card tall.
+  Photographed side on, stacks of four and twelve.
+- `TableScreen` board labels, the pile box rebuilding before it draws new cards (a frame drawn between
+  cut the footer short), and the tour's mat-button helper aiming at the board on screen.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

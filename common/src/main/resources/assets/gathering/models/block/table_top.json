@@ -2,8 +2,8 @@
   "__comment": "The edge and middle blocks of a wooden table: the felt and what is under it, and nothing standing on the floor. A table is three blocks by three; its legs are on the four corners.",
   "parent": "block/block",
   "textures": {
-    "particle": "gathering:block/table_felt",
-    "felt": "gathering:block/table_felt",
+    "particle": "minecraft:block/white_wool",
+    "felt": "minecraft:block/white_wool",
     "wood": "minecraft:block/stripped_oak_log"
   },
   "elements": [

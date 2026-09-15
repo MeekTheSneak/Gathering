@@ -470,6 +470,12 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Cards that arrived since the box was built get a box built for them before they are drawn,
+        // not on the next tick: a frame drawn in between wrote a footer about scrolling into a box
+        // sized for an empty pile, cut short.
+        if (sizedFor != cards().size()) {
+            rebuildWidgets();
+        }
         super.render(graphics, mouseX, mouseY, partialTick);
 
         List<CardView> cards = shown();

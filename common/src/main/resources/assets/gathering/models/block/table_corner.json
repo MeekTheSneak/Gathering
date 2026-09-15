@@ -2,8 +2,8 @@
   "__comment": "One quarter of a table: a felt top over a wooden apron, with a leg on the outside corner. Rotated by the blockstate into each of the four quarters, so the leg always lands on an outer corner and the four pieces meet flush.",
   "parent": "block/block",
   "textures": {
-    "particle": "gathering:block/table_felt",
-    "felt": "gathering:block/table_felt",
+    "particle": "minecraft:block/white_wool",
+    "felt": "minecraft:block/white_wool",
     "wood": "minecraft:block/stripped_oak_log"
   },
   "elements": [

@@ -7,9 +7,10 @@ package dev.gathering.core.ui;
  * the height of from across the room, and how tall it is tells you roughly how much is left
  * before anybody reads the number. The owner asked for piles that grow as they fill.
  * <p>Measured against the card, not in blocks, so a pile keeps its shape at every table size: a
- * sleeved Magic card is about 66 millimeters wide and half a millimetre thick, which makes a
- * sixty-card deck a little under half as tall as a card is wide. Drawn at that scale: thinner and
- * a small graveyard is a line, taller and a deck becomes a brick.
+ * sleeved Magic card is about 66 millimeters wide and seven tenths of a millimeter thick, which makes
+ * a sixty-card deck about two thirds as tall as a card is wide. It was drawn at half a millimeter, an
+ * unsleeved card, and the owner looking along a table could not tell a stack of four from one of
+ * twelve: every stack is the same cards sleeved, so it is drawn as sleeved cards stack.
  * <p>Capped, because a hundred-card pile and a two-hundred-card one are both "a lot" and a
  * pile half a card tall stops reading as a deck and starts hiding the cards behind it.
  * <p>Pure, so the drawing and the pointer - which has to aim at the top of a pile, not at the
@@ -17,8 +18,8 @@ package dev.gathering.core.ui;
  */
 public final class PileThickness {
 
-    /** How thick one sleeved card is, as a fraction of the card's width: half a millimetre in 66. */
-    public static final double PER_CARD = 0.5 / 66.0;
+    /** How thick one sleeved card is, as a fraction of the card's width: seven tenths of a millimeter in 66. */
+    public static final double PER_CARD = 0.7 / 66.0;
 
     /** The most cards a pile grows for. A Commander library is under this at the start. */
     public static final int TALLEST = 100;

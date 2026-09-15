@@ -177,7 +177,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 355;
+    private static final int LAST_STEP = 362;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -322,6 +322,12 @@ public final class DevScene {
                     ClientSettings.tutorialOffered(true);
                     setATableUp(client);
                     advance(SETTLE * 2);
+                    // Straight on to a later section, when asked - see -PdevsceneFrom in the build.
+                    int from = Integer.getInteger("gathering.devscene.from", 0);
+                    if (from > step) {
+                        System.out.println("[devscene] going straight to step " + from + "; the steps before it are skipped");
+                        step = from;
+                    }
                 }
             }
             case 3 -> {
@@ -3877,6 +3883,84 @@ public final class DevScene {
                 shoot(client, "107g-a-stack-of-two");
                 advance(SETTLE / 2);
             }
+            case 356 -> {
+                // A table on its own, sat at from the east: it turns to be played east to west, and the board
+                // on it, the pointer and the camera all turn with it.
+                client.setScreen(null);
+                aTableSatAtFromTheEast(client);
+                advance(SETTLE * 2);
+            }
+            case 357 -> {
+                expectScreen(client, "a table played east to west", TableScreen.class);
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                }
+                advance(SETTLE * 2);
+            }
+            case 358 -> {
+                if (client.screen instanceof TableScreen turned && turnedTable != null) {
+                    int width = client.getWindow().getGuiScaledWidth();
+                    int height = client.getWindow().getGuiScaledHeight();
+                    TableTop top = TableTop.forCluster(turnedTable.getX(), turnedTable.getY(), turnedTable.getZ(), 1, 1, true);
+                    // The camera frames the player's own mat, so the middle of the window is on it - and the board
+                    // there is the one the block draws, which is what the picture is for.
+                    TableTop.Spot middle = TablePointer.at(top, width / 2.0, height / 2.0).orElse(null);
+                    SeatId me = ClientTableState.seatAt(turnedTable).orElse(null);
+                    SeatId under = middle == null ? null : turned.board().seatAt(middle.x(), middle.y());
+                    System.out.println("[devscene] a turned table: the middle of the window is on " + middle + ", seat " + under + "; mine " + me
+                            + "; turned boards drawn " + TableMiniatureRenderer.turnedBoardsDrawn + "; on the block " + turned.board().getClass().getSimpleName()
+                            + "; camera " + TableCameraView.report() + " at " + client.gameRenderer.getMainCamera().getPosition()
+                            + " over the table at " + turnedTable);
+                    if (TableMiniatureRenderer.turnedBoardsDrawn == 0) {
+                        fail("a table played east to west was never drawn turned");
+                    }
+                    if (middle == null || me == null || !me.equals(under)) {
+                        fail("on a table played east to west the camera framed " + under + " rather than my own mat " + me);
+                    }
+                } else {
+                    fail("there was no board on the table played east to west");
+                }
+                shoot(client, "108-a-table-played-east-to-west");
+                advance(SETTLE / 2);
+            }
+            case 359 -> {
+                lookAtTheStacksFromBesideTheTable(client);
+                advance(SETTLE * 2);
+            }
+            case 360 -> {
+                client.options.hideGui = true;
+                advance(SETTLE / 4);
+            }
+            case 361 -> {
+                shoot(client, "108a-stacks-of-four-and-twelve-standing");
+                client.options.hideGui = false;
+                // Breaking a table somebody is sitting at is refused. The client breaks the block before
+                // the server says no, and the owner saw the command zone vanish off a Commander board
+                // when it came back.
+                boolean before = client.level != null
+                        && client.level.getBlockEntity(turnedTable) instanceof dev.gathering.block.TableBlockEntity held
+                        && held.hasCommandZone();
+                commandZoneBeforeTheBreak = before;
+                client.setScreen(null);
+                if (client.gameMode != null) {
+                    client.gameMode.startDestroyBlock(turnedTable, Direction.UP);
+                }
+                System.out.println("[devscene] swung at a table somebody is sitting at; command zone before: " + before);
+                advance(SETTLE * 2);
+            }
+            case 362 -> {
+                boolean table = client.level != null
+                        && client.level.getBlockState(turnedTable).getBlock() instanceof TableBlock;
+                boolean after = client.level != null
+                        && client.level.getBlockEntity(turnedTable) instanceof dev.gathering.block.TableBlockEntity held
+                        && held.hasCommandZone();
+                System.out.println("[devscene] after the refused break: a table " + table + ", command zone " + after);
+                if (!table || after != commandZoneBeforeTheBreak) {
+                    fail("a refused break left the client's table " + (table ? "" : "gone and ") + "with a command zone "
+                            + after + " where it had " + commandZoneBeforeTheBreak);
+                }
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -4725,6 +4809,124 @@ public final class DevScene {
         board.mouseClicked(from.centerX(), from.centerY(), 0);
         hover(client, carriedTo);
         board.mouseDragged(carriedTo[0], carriedTo[1], 0, carriedTo[0] - from.centerX(), carriedTo[1] - from.centerY());
+    }
+
+    /** Stands beside the turned table, level with its felt, looking along the player's mat at its stacks. */
+    private static void lookAtTheStacksFromBesideTheTable(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        SeatId me = turnedTable == null ? null : ClientTableState.seatAt(turnedTable).orElse(null);
+        GameView view = turnedTable == null ? null : ClientTableState.viewOf(turnedTable).orElse(null);
+        if (server == null || me == null || view == null) {
+            fail("no board on the turned table to look at its stacks");
+            return;
+        }
+        client.setScreen(null);
+        TableTop top = TableTop.forCluster(turnedTable.getX(), turnedTable.getY(), turnedTable.getZ(), 1, 1, true);
+        dev.gathering.core.ui.SurfaceBoard board = new dev.gathering.core.ui.SurfaceBoard(
+                dev.gathering.core.table.TableCluster.assumedSeating(view.seats().size()));
+        Rect four = board.rectOf(me, TablePosition.of(3000, 3000));
+        Rect twelve = board.rectOf(me, TablePosition.of(5000, 3000));
+        double[] a = top.inTheWorld(top.worldX(four.centerX()), top.worldZ(four.centerY()));
+        double[] b = top.inTheWorld(top.worldX(twelve.centerX()), top.worldZ(twelve.centerY()));
+        double middleX = (a[0] + b[0]) / 2;
+        double middleZ = (a[1] + b[1]) / 2;
+        // Off the east edge of the table, a little above the felt, looking back across the two stacks.
+        double standX = turnedTable.getX() + TableTop.SPAN_BLOCKS + 1.1;
+        double standZ = middleZ + 0.3;
+        double standY = turnedTable.getY();
+        double eyeY = standY + 1.62;
+        double dx = middleX - standX;
+        double dz = middleZ - standZ;
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) -Math.toDegrees(Math.atan2(top.topY() - eyeY, Math.hypot(dx, dz)));
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (player != null) {
+                player.stopRiding();
+                player.connection.teleport(standX, standY, standZ, yaw, pitch);
+            }
+        });
+    }
+
+    /** Whether the turned table had a command zone on the client before somebody swung at it. */
+    private static boolean commandZoneBeforeTheBreak;
+
+    /** A lone table the player sits at from its east edge, which turns it. */
+    private static BlockPos turnedTable;
+
+    /**
+     * Stands a table on its own, seats the player at its east edge the way a chair does - through the seat
+     * claim, which is what turns it - and somebody opposite, starts a game with a stack on the player's mat,
+     * and opens the board.
+     */
+    private static void aTableSatAtFromTheEast(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("no server to turn a table on");
+            return;
+        }
+        BlockPos where = client.player.blockPosition().offset(-4, -1, -14);
+        turnedTable = where;
+        java.util.UUID mine = client.player.getUUID();
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer player = server.getPlayerList().getPlayer(mine);
+            if (player == null) {
+                return;
+            }
+            BlockState state = GatheringContent.TABLE.get().defaultBlockState();
+            for (TablePart part : TablePart.values()) {
+                level.setBlock(part.offsetFrom(where), state.setValue(TableBlock.PART, part), 3);
+            }
+            BlockState chair = GatheringContent.CHAIR.get().defaultBlockState();
+            level.setBlock(where.offset(3, 0, 1), chair.setValue(dev.gathering.block.ChairBlock.FACING, Direction.WEST), 3);
+            level.setBlock(where.offset(-1, 0, 1), chair.setValue(dev.gathering.block.ChairBlock.FACING, Direction.EAST), 3);
+            // Out of every other table first: one seat a player.
+            for (BlockPos other : java.util.Arrays.asList(table, ofEight)) {
+                if (other != null) {
+                    TableSeats.leave(level, other, mine);
+                }
+            }
+            player.connection.teleport(where.getX() + 4.5, where.getY() + 1, where.getZ() + 1.5, 90f, 30f);
+            var east = TableSeats.take(level, where, new dev.gathering.core.table.TableCell(0, 0),
+                    dev.gathering.core.table.Side.EAST, mine);
+            var west = TableSeats.take(level, where, new dev.gathering.core.table.TableCell(0, 0),
+                    dev.gathering.core.table.Side.WEST, new java.util.UUID(0L, 7100L));
+            boolean turned = TableBlock.entityAt(level, where).map(dev.gathering.block.TableBlockEntity::turned).orElse(false);
+            System.out.println("[devscene] a table sat at from the east: " + east + ", opposite " + west + ", turned " + turned);
+            if (east != TableSeats.Claim.TAKEN || west != TableSeats.Claim.TAKEN || !turned) {
+                System.out.println("[devscene] FAIL sitting at the east edge of a table on its own did not turn it");
+                return;
+            }
+            TableSessions.start(level, where, dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.COMMANDER));
+            GameSession session = TableSessions.sessionAt(level, where).orElse(null);
+            SeatId me = TableSessions.seatIdOf(level, where, mine).orElse(null);
+            if (session == null || me == null) {
+                System.out.println("[devscene] FAIL the turned table did not start a game");
+                return;
+            }
+            List<CardIdentity> library = new ArrayList<>();
+            for (int card = 0; card < 30; card++) {
+                library.add(CardIdentity.ofPrinting(new java.util.UUID(0L, 900 + card), false));
+            }
+            session.submit(new GameEvent.DeckLoaded(me, library, List.of(), dev.gathering.core.card.Sleeve.DEFAULT));
+            session.submit(new GameEvent.CardsDrawn(me, me, 7));
+            // Stacks on the felt, which on the block stand as tall as their cards: four, and beside it twelve.
+            session.submit(new GameEvent.CardsDrawn(me, me, 9));
+            List<CardInstanceId> hand = session.state().contents(me, Zone.HAND);
+            for (int index = 4; index < 16 && index < hand.size(); index++) {
+                session.submit(new GameEvent.CardMoved(me, hand.get(index),
+                        dev.gathering.core.game.ZoneRef.of(me, Zone.BATTLEFIELD),
+                        dev.gathering.core.game.Placement.at(TablePosition.of(5000, 3000))));
+            }
+            for (int index = 0; index < 4 && index < hand.size(); index++) {
+                session.submit(new GameEvent.CardMoved(me, hand.get(index),
+                        dev.gathering.core.game.ZoneRef.of(me, Zone.BATTLEFIELD),
+                        dev.gathering.core.game.Placement.at(TablePosition.of(3000, 3000))));
+            }
+            TableBroadcast.sendToTable(level, where);
+            dev.gathering.server.TableActions.openFor(player, where);
+        });
     }
 
     /** The table of eight the last steps are played at. */
@@ -10394,7 +10596,8 @@ public final class DevScene {
             fail("there was no board to find a mat button on");
             return null;
         }
-        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        // The board's own table, which is the one on screen - not necessarily the one the tour began at.
+        SeatId me = ClientTableState.seatAt(board.tablePosition()).orElse(null);
         if (me == null) {
             fail("no seat to find a mat button for");
             return null;
