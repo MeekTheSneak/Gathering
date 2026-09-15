@@ -35,6 +35,7 @@ public final class ServerState {
         SealedLoot.clear();
         ServerTicks.clear();
         PackWrappers.clear();
+        DeckVault.clear();
         TradeSessions.clear();
         TableActions.clear();
         Lending.clear();

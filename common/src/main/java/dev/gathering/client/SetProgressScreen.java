@@ -40,6 +40,9 @@ public final class SetProgressScreen extends ChildScreen {
     private static final int BAR_HIGH = 11;
     private static final int BAR_WALL = 3;
 
+    /** The narrowest the fill's art is drawn before it is cut to how far the set has got. */
+    private static final int SHORTEST_FILL = 48;
+
     private static final int TEXT = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
     private static final int WARNING = 0xFFFFD98A;
@@ -140,7 +143,7 @@ public final class SetProgressScreen extends ChildScreen {
     }
 
     private Rect rowAt(int index) {
-        Rect row = layout(0).rowAt(index);
+        Rect row = layout(0).rowAt(index, hiddenBelow() > 0);
         return row.isEmpty() ? row : new Rect(row.x(), row.y(), row.width(), row.height() - 2);
     }
 
@@ -197,15 +200,11 @@ public final class SetProgressScreen extends ChildScreen {
             }
             drawRow(graphics, set, row);
         }
-        // Three things share the foot: the hint, the count of what is out of sight, and the
-        // way out. Laid out right to left in ListScreenLayout, so the hint is what gives way.
-        Component more = hiddenBelow() > 0
-                ? Component.translatable("screen.gathering.sets.more", hiddenBelow())
-                : null;
-        ListScreenLayout foot = layout(more == null ? 0 : this.font.width(more));
-        if (more != null) {
-            GuiText.drawFlushRight(graphics, this.font, more,
-                    foot.more().right(), foot.more().y(), 1f, DIM);
+        // A scrollbar down the right says how much more there is and where in it this is. It was a
+        // line of words at the foot, "12 more below", which says the count and not the place.
+        ListScreenLayout foot = layout(0);
+        if (hiddenBelow() > 0) {
+            ListScrollbar.draw(graphics, foot.scrollbar(), scroll, rowsThatFit(), sets.size());
         }
         // Said, because the two buttons now do two different things and a row that answers
         // one question on the left and another on the right is a row nobody would guess at.
@@ -249,9 +248,14 @@ public final class SetProgressScreen extends ChildScreen {
         int room = row.width() - BAR_WALL * 2;
         int full = Math.round(room * set.share());
         if (full > 0) {
+            // A sliver of fill is its left end, cut off, rather than the whole bar squeezed into a pixel
+            // or two: two cards of three hundred drew the fill's art squashed to a speck at the start.
+            int drawn = Math.max(full, SHORTEST_FILL);
+            graphics.enableScissor(row.x() + BAR_WALL, barTop, row.x() + BAR_WALL + full, barTop + barHigh);
             GatheringSprites.draw(graphics,
                     set.isComplete() ? Element.BAR_DONE : Element.BAR_FILL,
-                    row.x() + BAR_WALL, barTop + BAR_WALL, full, barHigh - BAR_WALL * 2);
+                    row.x() + BAR_WALL, barTop + BAR_WALL, drawn, barHigh - BAR_WALL * 2);
+            graphics.disableScissor();
         }
     }
 

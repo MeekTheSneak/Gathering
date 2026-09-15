@@ -80,6 +80,15 @@ public record DeckComponent(
     public record Kept(CardComponent card, dev.gathering.core.story.CardStory story) {
     }
 
+    /**
+     * This deck's box - name, note, owner, commanders, color, sleeves, the loaner mark - holding another's
+     * cards and their histories. For putting a deck's real cards back on a copy whose cards arrived hidden.
+     */
+    public DeckComponent holding(DeckComponent cards) {
+        return new DeckComponent(name, description, owner, cards.entries(), commanders, cards.sideboard(),
+                color, sleeve, cards.stories(), loaner);
+    }
+
     /** A deck built without any histories to carry, which is most of the ways one is made. */
     public DeckComponent(
             String name, String description, Optional<UUID> owner,

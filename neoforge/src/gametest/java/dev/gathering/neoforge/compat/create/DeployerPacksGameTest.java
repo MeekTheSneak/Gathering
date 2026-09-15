@@ -76,7 +76,7 @@ public final class DeployerPacksGameTest {
     }
 
     /** A loose booster becomes its cards beside it; one taken away first becomes nothing. */
-    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "tables")
     public static void aLooseBoosterBecomesItsCardsUnlessItIsGone(GameTestHelper helper) {
         BlockPos floor = helper.absolutePos(new BlockPos(1, 1, 1));
         net.minecraft.world.entity.item.ItemEntity loose = new net.minecraft.world.entity.item.ItemEntity(helper.getLevel(),

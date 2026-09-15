@@ -162,7 +162,7 @@ public final class ScorekeepersDeskGameTest {
      * A comparator beside a desk is lit while the round has had time called, and dark before and after:
      * the round's own clock calls it, the desk's tick notices, and the comparator is told.
      */
-    @GameTest(template = "empty", timeoutTicks = 120)
+    @GameTest(template = "tables", timeoutTicks = 120)
     public static void aDeskSignalsWhenTimeIsCalled(GameTestHelper helper) {
         BlockPos table = EventBoardGameTest.place(helper, 4, 2, 4);
         EventState state = EventBoardGameTest.fourPlayerEvent(helper, table);

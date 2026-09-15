@@ -89,7 +89,7 @@ public final class EventBoardGameTest {
      * A tournament's table carried somewhere - its data loaded where it went and the old table cleared
      * in the same tick, as any mover does it - is still that tournament's table, with its number.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aCarriedTableStaysInItsTournament(GameTestHelper helper) {
         BlockPos table = place(helper, 1, 2, 1);
         EventState state = fourPlayerEvent(helper, table);
@@ -115,7 +115,7 @@ public final class EventBoardGameTest {
      * The same for a long table - two joined, both numbered - carried with the second table's blocks
      * cleared first: each keeps its own number where it went, rather than both becoming the first.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aCarriedLongTableKeepsBothNumbers(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
         BlockPos second = place(helper, 4, 2, 1);

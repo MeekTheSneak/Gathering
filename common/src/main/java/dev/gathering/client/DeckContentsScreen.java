@@ -254,6 +254,27 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         }
     }
 
+    /** How many card rows have no name to show, for the scripted run. */
+    int unnamedRows() {
+        int unnamed = 0;
+        for (Row row : rows) {
+            if (row.card() != null && ClientCardCache.get().summary(row.card()).isEmpty()) {
+                unnamed++;
+            }
+        }
+        return unnamed;
+    }
+
+    /** The first card listed, for the scripted run to take out. */
+    CardComponent firstCard() {
+        for (Row row : rows) {
+            if (row.card() != null) {
+                return row.card();
+            }
+        }
+        return null;
+    }
+
     /** How many lines the list is showing, for the scripted run to check it is showing any. */
     int listedRows() {
         return rows.size();
@@ -332,7 +353,13 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
             return;
         }
         if (!deck.equals(shown)) {
+            // And asked about: the list the screen opened on can be the box with its cards hidden, and
+            // the real one arriving a moment later is a list of printings nobody has asked the names of.
+            boolean newPrintings = shown == null || !shown.distinctPrintings().containsAll(deck.distinctPrintings());
             rebuild(deck);
+            if (newPrintings) {
+                requestNames(deck);
+            }
             // The row this menu was opened on may not exist any more.
             menu = null;
         }

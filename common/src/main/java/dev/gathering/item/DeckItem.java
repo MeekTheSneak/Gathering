@@ -172,7 +172,9 @@ public class DeckItem extends Item {
             // because the deck is full or holds something else.
             return insertable(cards);
         }
-        insert(stack, slot.safeTake(room, room, player));
+        ItemStack taken = slot.safeTake(room, room, player);
+        tellACreativeServer(player, stack, taken);
+        insert(stack, taken);
         playAssembleSound(player);
         return true;
     }
@@ -188,9 +190,22 @@ public class DeckItem extends Item {
         if (room <= 0) {
             return insertable(other);
         }
-        insert(stack, other.split(room));
+        ItemStack taken = other.split(room);
+        tellACreativeServer(player, stack, taken);
+        insert(stack, taken);
         playAssembleSound(player);
         return true;
+    }
+
+    /** Says which cards went into this deck, when the click was on a client's creative menu. See DeckVault. */
+    private static void tellACreativeServer(Player player, ItemStack deck, ItemStack cards) {
+        Optional<CardComponent> card = CardItem.cardOf(cards);
+        java.util.UUID handle = handleOf(deck).orElse(null);
+        if (!player.level().isClientSide() || card.isEmpty() || handle == null) {
+            return;
+        }
+        dev.gathering.service.CreativeDeckHook.Binding.cardsWentIn(player, handle,
+                java.util.Collections.nCopies(cards.getCount(), card.get()));
     }
 
     /**
@@ -262,6 +277,16 @@ public class DeckItem extends Item {
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
         if (level.isClientSide()) {
             return;
+        }
+        // Its real cards, whatever copy of it arrived: see DeckVault. Before anything else reads it.
+        DeckComponent carried = deckOf(stack).orElse(null);
+        if (carried != null) {
+            java.util.UUID handle = handleOf(stack).orElse(null);
+            DeckComponent real = dev.gathering.server.DeckVault.real(handle, carried).orElse(null);
+            if (real != null && real != carried) {
+                stack.set(GatheringComponents.DECK.get(), real);
+            }
+            dev.gathering.server.DeckVault.remember(handle, real == null ? carried : real);
         }
         if (deckOf(stack).filter(DeckComponent::isEmpty).isPresent()) {
             stack.setCount(0);

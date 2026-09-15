@@ -55,4 +55,15 @@ class ListScrollTest {
     void aStillWheel() {
         assertThat(ListScroll.after(5, 40, 10, 0.0)).isEqualTo(5);
     }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("a scrollbar's thumb is the share showing, and runs from the top of the track to the bottom")
+    void theThumb() {
+        org.assertj.core.api.Assertions.assertThat(ListScroll.thumb(10, 100, 0, 10, 40)).containsExactly(10, 25);
+        org.assertj.core.api.Assertions.assertThat(ListScroll.thumb(10, 100, 30, 10, 40)).containsExactly(85, 25);
+        // Nothing hidden: the thumb is the track.
+        org.assertj.core.api.Assertions.assertThat(ListScroll.thumb(10, 100, 0, 10, 5)).containsExactly(10, 100);
+        // A long list keeps a thumb to see.
+        org.assertj.core.api.Assertions.assertThat(ListScroll.thumb(0, 100, 0, 5, 5000)[1]).isEqualTo(ListScroll.SHORTEST_THUMB);
+    }
 }

@@ -30,6 +30,15 @@ public final class BreakRules {
         if (!TableSeats.mayBreak(level, pos)) {
             return Optional.of(Component.translatable("message.gathering.table_in_use"));
         }
+        // Nor a chair somebody else is sitting in at a game: breaking it gets them up out of their seat.
+        if (level.getBlockState(pos).getBlock() instanceof ChairBlock && level instanceof net.minecraft.world.level.Level world) {
+            for (ChairSeat seat : world.getEntitiesOfClass(ChairSeat.class, new net.minecraft.world.phys.AABB(pos))) {
+                if (seat.tableOrigin() != null && TableSessions.hasSession(world, seat.tableOrigin())
+                        && seat.getPassengers().stream().anyMatch(sitter -> !sitter.getUUID().equals(player.getUUID()))) {
+                    return Optional.of(Component.translatable("message.gathering.chair_in_use"));
+                }
+            }
+        }
         if (level.getBlockEntity(pos) instanceof CollectionBlockEntity collection
                 && !collection.rights().mayTake(player.getUUID())) {
             return Optional.of(

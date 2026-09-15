@@ -78,7 +78,7 @@ public final class CreateDisplayGameTest {
      * A link on a Scorekeeper's Desk offers its tournament, and shows whichever part the link is set
      * to: every choice the setting offers says something of its own.
      */
-    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "tables")
     public static void aDisplayLinkOnADeskShowsWhatItIsSetTo(GameTestHelper helper) {
         BlockPos table = EventBoardGameTest.placeForCompat(helper, 1, 2, 1);
         EventState state = EventBoardGameTest.fourPlayerEventForCompat(helper, table);
@@ -142,7 +142,7 @@ public final class CreateDisplayGameTest {
      * A Clipboard used on a desk takes down the pairings, ticking each whose result is in, and the
      * standings - through the use a player's click makes. On a desk running nothing it is left alone.
      */
-    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "tables")
     public static void aClipboardOnADeskTakesDownTheRound(GameTestHelper helper) {
         BlockPos table = EventBoardGameTest.placeForCompat(helper, 1, 2, 1);
         EventState state = EventBoardGameTest.fourPlayerEventForCompat(helper, table);

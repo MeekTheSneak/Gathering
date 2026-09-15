@@ -177,7 +177,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 362;
+    private static final int LAST_STEP = 368;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -3961,6 +3961,120 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            case 363 -> {
+                // Two loose cards put together by right-clicking one onto the other make a deck, and the
+                // deck has to say what is in it. The owner watched one say "Loading" for ever, and a card
+                // taken out of it came out blank.
+                client.setScreen(null);
+                twoLooseCardsInTheHotbar(client);
+                advance(SETTLE);
+            }
+            case 364 -> {
+                if (client.player != null && inCreative) {
+                    var creative = new net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen(
+                            client.player, client.player.connection.enabledFeatures(), false);
+                    client.setScreen(creative);
+                    try {
+                        var select = net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class
+                                .getDeclaredMethod("selectTab", net.minecraft.world.item.CreativeModeTab.class);
+                        select.setAccessible(true);
+                        select.invoke(creative, net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB
+                                .getOrThrow(net.minecraft.world.item.CreativeModeTabs.INVENTORY));
+                    } catch (ReflectiveOperationException e) {
+                        fail("could not open the creative menu's inventory: " + e);
+                    }
+                } else if (client.player != null) {
+                    client.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(client.player));
+                }
+                advance(SETTLE / 2);
+            }
+            case 365 -> {
+                if (inCreative && client.screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen creative) {
+                    try {
+                        var click = net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class.getDeclaredMethod(
+                                "slotClicked", net.minecraft.world.inventory.Slot.class, int.class, int.class,
+                                net.minecraft.world.inventory.ClickType.class);
+                        click.setAccessible(true);
+                        var slots = creative.getMenu().slots;
+                        click.invoke(creative, slots.get(36), 36, 0, net.minecraft.world.inventory.ClickType.PICKUP);
+                        click.invoke(creative, slots.get(37), 37, 1, net.minecraft.world.inventory.ClickType.PICKUP);
+                        System.out.println("[devscene] on the creative menu, right-clicked one card onto another; hotbar 1 is now "
+                                + client.player.getInventory().getItem(1).getItem());
+                    } catch (ReflectiveOperationException e) {
+                        fail("could not click in the creative menu: " + e);
+                    }
+                } else if (client.screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen inventory && client.gameMode != null) {
+                    var menu = inventory.getMenu();
+                    client.gameMode.handleInventoryMouseClick(menu.containerId, 36, 0,
+                            net.minecraft.world.inventory.ClickType.PICKUP, client.player);
+                    client.gameMode.handleInventoryMouseClick(menu.containerId, 37, 1,
+                            net.minecraft.world.inventory.ClickType.PICKUP, client.player);
+                    System.out.println("[devscene] right-clicked one card onto another; hotbar 1 is now "
+                            + client.player.getInventory().getItem(1).getItem());
+                } else {
+                    fail("no inventory to put two cards together in");
+                }
+                advance(SETTLE);
+            }
+            case 366 -> {
+                if (client.player != null) {
+                    client.setScreen(null);
+                    client.player.getInventory().selected = 1;
+                    client.setScreen(new DeckContentsScreen(InteractionHand.MAIN_HAND));
+                }
+                advance(SETTLE * 3);
+            }
+            case 367 -> {
+                if (client.screen instanceof DeckContentsScreen deck) {
+                    int unnamed = deck.unnamedRows();
+                    System.out.println("[devscene] a deck made of two cards lists " + deck.listedRows() + " rows, " + unnamed + " unnamed");
+                    if (deck.listedRows() == 0 || unnamed > 0) {
+                        fail("a deck made by putting two cards together shows " + unnamed + " of its cards without a name");
+                    }
+                    shoot(client, "109-a-deck-of-two-cards");
+                    dev.gathering.item.CardComponent first = deck.firstCard();
+                    if (first != null) {
+                        ClientNetworking.send(dev.gathering.network.DeckEditPayload.take(
+                                InteractionHand.MAIN_HAND, dev.gathering.item.DeckComponent.Section.MAINBOARD, first));
+                    }
+                } else {
+                    fail("the deck made of two cards did not open");
+                }
+                advance(SETTLE);
+            }
+            case 368 -> {
+                int blank = 0;
+                int named = 0;
+                if (client.player != null) {
+                    var inventory = client.player.getInventory();
+                    for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+                        net.minecraft.world.item.ItemStack stack = inventory.getItem(slot);
+                        if (stack.getItem() instanceof dev.gathering.item.CardItem) {
+                            if (dev.gathering.item.CardItem.cardOf(stack).filter(card -> !card.isHidden()).isPresent()) {
+                                named++;
+                            } else {
+                                blank++;
+                            }
+                        }
+                    }
+                }
+                System.out.println("[devscene] after taking a card out of the deck" + (inCreative ? " in creative" : "") + ": "
+                        + named + " card(s) with a printing, " + blank + " blank");
+                if (blank > 0 || named == 0) {
+                    fail("a card taken out of a deck of two came out blank (" + blank + ") or not at all"
+                            + (inCreative ? ", in creative" : ""));
+                }
+                client.setScreen(null);
+                if (!inCreative) {
+                    // And again on the creative menu, where the owner found it: that menu sends the server
+                    // the client's copy of every slot it touches.
+                    inCreative = true;
+                    step = 363;
+                    waited = SETTLE / 2;
+                    return;
+                }
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -4845,6 +4959,35 @@ public final class DevScene {
                 player.stopRiding();
                 player.connection.teleport(standX, standY, standZ, yaw, pitch);
             }
+        });
+    }
+
+    /** Whether the two-card deck steps are on their second pass, on the creative menu. */
+    private static boolean inCreative;
+
+    /** Clears the player's pockets and puts two different loose cards in the first two hotbar slots. */
+    private static void twoLooseCardsInTheHotbar(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null) {
+            fail("no server to hand out two cards on");
+            return;
+        }
+        List<dev.gathering.item.CardComponent> cards = someCards(client, 1);
+        if (cards.size() < 2) {
+            fail("no two looked-up cards to put together");
+            return;
+        }
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            player.setGameMode(inCreative ? net.minecraft.world.level.GameType.CREATIVE : net.minecraft.world.level.GameType.SURVIVAL);
+            player.getInventory().clearContent();
+            player.getInventory().setItem(0, dev.gathering.item.CardItem.of(cards.get(0)));
+            player.getInventory().setItem(1, dev.gathering.item.CardItem.of(cards.get(1)));
+            player.getInventory().selected = 1;
+            player.inventoryMenu.broadcastChanges();
         });
     }
 

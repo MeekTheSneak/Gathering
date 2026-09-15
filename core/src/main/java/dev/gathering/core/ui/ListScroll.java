@@ -40,4 +40,22 @@ public final class ListScroll {
     public static boolean scrolls(int total, int showing) {
         return total > showing;
     }
+
+    /** The shortest a scrollbar's thumb is drawn, so a long list still has one to see. */
+    public static final int SHORTEST_THUMB = 8;
+
+    /**
+     * Where a scrollbar's thumb sits in its track, as {top, height}: as tall as the share of the list
+     * showing, and as far down the track as the list is scrolled. The whole track when nothing is hidden.
+     */
+    public static int[] thumb(int trackTop, int trackHeight, int first, int showing, int total) {
+        int track = Math.max(1, trackHeight);
+        if (!scrolls(total, showing)) {
+            return new int[] {trackTop, track};
+        }
+        int tall = Math.max(Math.min(SHORTEST_THUMB, track), Math.round((float) track * showing / total));
+        int deepest = Math.max(1, total - showing);
+        int down = Math.round((float) (track - tall) * Math.clamp(first, 0, deepest) / deepest);
+        return new int[] {trackTop + down, tall};
+    }
 }

@@ -496,10 +496,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // dropping a card on felt is most of what anybody does with one.
             flat(consumer, pose, left, top, right, bottom, MAT_LANDING, layer(MAT_WASH));
         }
-        flat(consumer, pose, left, top, right, top + edge, border, layer(MAT_BORDER));
-        flat(consumer, pose, left, bottom - edge, right, bottom, border, layer(MAT_BORDER));
-        flat(consumer, pose, left, top, left + edge, bottom, border, layer(MAT_BORDER));
-        flat(consumer, pose, right - edge, top, right, bottom, border, layer(MAT_BORDER));
+        frame(consumer, pose, left, top, right, bottom, edge, border, layer(MAT_BORDER));
     }
 
     /**
@@ -898,10 +895,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         Matrix4f pose = poseStack.last().pose();
-        flat(consumer, pose, left, top, right, top + edge, color, lift);
-        flat(consumer, pose, left, bottom - edge, right, bottom, color, lift);
-        flat(consumer, pose, left, top, left + edge, bottom, color, lift);
-        flat(consumer, pose, right - edge, top, right, bottom, color, lift);
+        frame(consumer, pose, left, top, right, bottom, edge, color, lift);
     }
 
     /**
@@ -921,10 +915,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // The recess under its own border, for the reason the mat's felt is under the mat's.
         flat(consumer, pose, x, z, x + width, z + depth,
                 aimed ? SLOT_AIMED : SLOT_COLOR, layer(SLOT_RECESS));
-        flat(consumer, pose, x, z, x + width, z + edge, border, layer(SLOT_EDGE));
-        flat(consumer, pose, x, z + depth - edge, x + width, z + depth, border, layer(SLOT_EDGE));
-        flat(consumer, pose, x, z, x + edge, z + depth, border, layer(SLOT_EDGE));
-        flat(consumer, pose, x + width - edge, z, x + width, z + depth, border, layer(SLOT_EDGE));
+        frame(consumer, pose, x, z, x + width, z + depth, edge, border, layer(SLOT_EDGE));
     }
 
     /**
@@ -1374,10 +1365,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         Matrix4f pose = poseStack.last().pose();
         float above = lift + layer(2);
-        flat(consumer, pose, x, z, x + width, z + edge, RING_COLOR, above);
-        flat(consumer, pose, x, z + depth - edge, x + width, z + depth, RING_COLOR, above);
-        flat(consumer, pose, x, z, x + edge, z + depth, RING_COLOR, above);
-        flat(consumer, pose, x + width - edge, z, x + width, z + depth, RING_COLOR, above);
+        frame(consumer, pose, x, z, x + width, z + depth, edge, RING_COLOR, above);
     }
 
     /**
@@ -1463,6 +1451,15 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(light)
                 .setNormal(0f, 1f, 0f);
+    }
+
+    /** A frame of four flat strips that cover it once each; see {@link dev.gathering.core.ui.FrameStrips}. */
+    private static void frame(
+            VertexConsumer consumer, Matrix4f pose,
+            float left, float top, float right, float bottom, float edge, int argb, float lift) {
+        for (float[] strip : dev.gathering.core.ui.FrameStrips.of(left, top, right, bottom, edge)) {
+            flat(consumer, pose, strip[0], strip[1], strip[2], strip[3], argb, lift);
+        }
     }
 
     /** A flat colored rectangle on the surface, wound to face the sky. */

@@ -137,6 +137,48 @@ public final class ChairGameTest {
                         Direction.UP, middle, false));
     }
 
+    /**
+     * A chair taken away some other way than by a player's hand - a machine, an explosion - gets its sitter
+     * up, and their cards stay theirs: somebody else sitting down there is refused, never shown the hand,
+     * and the player who left sits back down to the same board.
+     */
+    @GameTest(template = "tables")
+    public static void aBoardWaitsForItsOwnerWhenTheirChairGoes(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        ServerPlayer owner = player(helper);
+        BlockPos chair = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
+        Chairs.sit(owner, chair, helper.getLevel().getBlockState(chair));
+        if (TableSessions.start(helper.getLevel(), table, TableSessions.defaultRules()) != TableSessions.Outcome.STARTED) {
+            helper.fail("fixture: the game did not start");
+            return;
+        }
+        var session = TableSessions.sessionAt(helper.getLevel(), table).orElseThrow();
+        var seat = TableSessions.seatIdOf(helper.getLevel(), table, owner.getUUID()).orElseThrow();
+        session.submit(new dev.gathering.core.game.event.GameEvent.DeckLoaded(seat,
+                java.util.List.of(dev.gathering.core.card.CardIdentity.ofPrinting(new UUID(9L, 9L), false)), java.util.List.of()));
+        session.submit(new dev.gathering.core.game.event.GameEvent.CardsDrawn(seat, seat, 1));
+
+        helper.getLevel().removeBlock(chair, false);
+        if (owner.isPassenger()) {
+            helper.fail("fixture: the chair went and the owner is still sitting");
+            return;
+        }
+        chairAt(helper, chair, Direction.SOUTH);
+        ServerPlayer somebodyElse = player(helper);
+        Chairs.sit(somebodyElse, chair, helper.getLevel().getBlockState(chair));
+        if (somebodyElse.isPassenger() || TableSeats.seatOf(helper.getLevel(), table, somebodyElse.getUUID()).isPresent()
+                || TableSessions.seatIdOf(helper.getLevel(), table, somebodyElse.getUUID()).isPresent()) {
+            helper.fail("another player sat down at a seat whose cards are somebody else's");
+            return;
+        }
+        Chairs.sit(owner, chair, helper.getLevel().getBlockState(chair));
+        if (!TableSessions.seatIdOf(helper.getLevel(), table, owner.getUUID()).equals(java.util.Optional.of(seat))) {
+            helper.fail("the owner sat back down and did not get their own board back");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** Sat in, a player's thighs lie on the seat: not sunk into the chair, not floating over it. */
     @GameTest(template = "tables")
     public static void aSitterSitsOnTheSeat(GameTestHelper helper) {

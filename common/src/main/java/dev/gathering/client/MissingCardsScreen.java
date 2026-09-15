@@ -103,7 +103,7 @@ public final class MissingCardsScreen extends ChildScreen {
     }
 
     private Rect rowAt(int index) {
-        return layout(0).rowAt(index);
+        return layout(0).rowAt(index, hiddenBelow() > 0);
     }
 
     @Override
@@ -149,15 +149,11 @@ public final class MissingCardsScreen extends ChildScreen {
         // is the same gesture as reading a card anywhere else in the mod.
         offerToInspector();
 
-        // Three things share the foot: the hint, the count of what is out of sight, and the
-        // way out. Laid out right to left in ListScreenLayout, so the hint is what gives way.
-        Component more = hiddenBelow() > 0
-                ? Component.translatable("screen.gathering.missing.more", hiddenBelow())
-                : null;
-        ListScreenLayout foot = layout(more == null ? 0 : this.font.width(more));
-        if (more != null) {
-            GuiText.drawFlushRight(graphics, this.font, more,
-                    foot.more().right(), foot.more().y(), 1f, DIM);
+        // A scrollbar down the right, rather than "12 more below" at the foot: where in the list this
+        // is, as well as how much of it there is.
+        ListScreenLayout foot = layout(0);
+        if (hiddenBelow() > 0) {
+            ListScrollbar.draw(graphics, foot.scrollbar(), scroll, rowsThatFit(), missing.count());
         }
         if (foot.hint().width() > 0) {
             GuiText.draw(graphics, this.font,
@@ -193,8 +189,11 @@ public final class MissingCardsScreen extends ChildScreen {
     private static final int MARK_WIDTH = 5;
     private static final int WANTED_MARK = MARK_WIDTH + 3;
 
-    /** A card on the list is named in the color of the list rather than of its rarity. */
-    private static final int WANTED_TEXT = 0xFFFFD479;
+    /**
+     * A card on the list is named in the color of the list rather than of its rarity: green, which no
+     * rarity is. It was a warm yellow, and the owner could not tell a wanted card from a rare one.
+     */
+    private static final int WANTED_TEXT = 0xFF7FD67A;
 
     /**
      * Pressing a card puts it on the wants list, or takes it off.

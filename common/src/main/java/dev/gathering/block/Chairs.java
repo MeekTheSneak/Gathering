@@ -52,29 +52,38 @@ public final class Chairs {
                     ? "message.gathering.chair_off_center" : "message.gathering.seat_not_a_seat"), true);
             return;
         }
-        BlockPos tableOrigin = null;
-        if (atATable.isPresent()) {
-            FacingSeat seat = atATable.get();
-            Optional<SeatAnchor> held = TableSeats.seatOf(level, seat.origin(), player.getUUID());
-            boolean alreadyHere = held.filter(anchor -> anchor.cell().equals(seat.cell()) && anchor.side() == seat.side())
-                    .isPresent();
-            if (!alreadyHere
-                    && TableBlock.sitAt(level, seat.origin(), seat.cell(), seat.side(), player) != TableSeats.Claim.TAKEN) {
-                // Somebody else's seat, or a player already seated elsewhere at this table: said by sitAt,
-                // and not sat in - a chair at a seat is that seat, not a place to wait for it.
-                return;
-            }
-            tableOrigin = seat.origin();
+        // Into the chair first, and only then the table's seat, undone if the table says no. The seat was
+        // claimed first once, and the mount's own answer ignored: a mount something refused - another mod,
+        // a cancelled spawn - left a player standing beside the table holding its seat.
+        ChairSeat seat = ChairSeat.in(level, chair, null);
+        if (!level.addFreshEntity(seat)) {
+            return;
         }
-        ChairSeat seat = ChairSeat.in(level, chair, tableOrigin);
-        level.addFreshEntity(seat);
-        player.startRiding(seat, true);
+        if (!player.startRiding(seat, true)) {
+            seat.discard();
+            return;
+        }
         // Facing the table, so the board and the world agree about which way is forward.
         player.setYRot(facing.toYRot());
         player.setYHeadRot(facing.toYRot());
-        if (tableOrigin != null) {
-            TableBlock.satDown(player, tableOrigin);
+        if (atATable.isEmpty()) {
+            return;
         }
+        FacingSeat at = atATable.get();
+        Optional<SeatAnchor> held = TableSeats.seatOf(level, at.origin(), player.getUUID());
+        boolean alreadyHere = held.filter(anchor -> anchor.cell().equals(at.cell()) && anchor.side() == at.side())
+                .isPresent();
+        if (!alreadyHere
+                && TableBlock.sitAt(level, at.origin(), at.cell(), at.side(), player) != TableSeats.Claim.TAKEN) {
+            // Somebody else's seat, somebody's cards on it, or a player already seated elsewhere at this
+            // table: said by sitAt, and back out of the chair - a chair at a seat is that seat, not a place
+            // to wait for it. Out before the seat is marked as this chair's, so getting up gives nothing up.
+            player.stopRiding();
+            seat.discard();
+            return;
+        }
+        seat.holdsTheSeatAt(at.origin());
+        TableBlock.satDown(player, at.origin());
     }
 
     /** A seat at a table, found from the chair against its edge. */

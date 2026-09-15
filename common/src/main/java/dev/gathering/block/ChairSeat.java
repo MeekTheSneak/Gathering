@@ -59,6 +59,11 @@ public final class ChairSeat extends Entity {
         return seat;
     }
 
+    /** Marks this chair as holding its sitter's seat at the table here, once the table has given it. */
+    void holdsTheSeatAt(BlockPos tableOrigin) {
+        this.tableOrigin = tableOrigin == null ? null : tableOrigin.immutable();
+    }
+
     /** The table this chair's sitter holds a seat at, or null. */
     public BlockPos tableOrigin() {
         return tableOrigin;
@@ -109,16 +114,49 @@ public final class ChairSeat extends Entity {
         }
     }
 
-    /** Stood up beside the chair rather than on top of it. */
+    /**
+     * Stood up beside the chair rather than on top of it: behind it if there is room, else to either side,
+     * else diagonally behind, and on the chair only when none of those will take a player.
+     * <p>Room is asked of the world the way a minecart asks it - a floor to stand on, a block up or down,
+     * and the player's own box clear of everything. It always said "behind" once, and an audit put a
+     * wall there and the player's body in the wall.
+     */
     @Override
     public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
         BlockPos chair = chair();
         net.minecraft.core.Direction facing = level().getBlockState(chair).getBlock() instanceof ChairBlock
                 ? level().getBlockState(chair).getValue(ChairBlock.FACING)
                 : net.minecraft.core.Direction.NORTH;
-        // Out of the back of the chair, which is the side away from the table.
-        BlockPos behind = chair.relative(facing.getOpposite());
-        return new Vec3(behind.getX() + 0.5, behind.getY(), behind.getZ() + 0.5);
+        net.minecraft.core.Direction back = facing.getOpposite();
+        net.minecraft.core.Direction left = facing.getCounterClockWise();
+        net.minecraft.core.Direction right = facing.getClockWise();
+        BlockPos[] ways = {
+                chair.relative(back), chair.relative(left), chair.relative(right),
+                chair.relative(back).relative(left), chair.relative(back).relative(right)};
+        BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
+        for (net.minecraft.world.entity.Pose pose : passenger.getDismountPoses()) {
+            net.minecraft.world.entity.EntityDimensions size = passenger.getDimensions(pose);
+            float half = Math.min(size.width(), 1.0F) / 2.0F;
+            for (int up : new int[] {0, 1, -1}) {
+                for (BlockPos way : ways) {
+                    probe.set(way.getX(), way.getY() + up, way.getZ());
+                    double floor = level().getBlockFloorHeight(
+                            net.minecraft.world.entity.vehicle.DismountHelper.nonClimbableShape(level(), probe),
+                            () -> net.minecraft.world.entity.vehicle.DismountHelper.nonClimbableShape(level(), probe.below()));
+                    if (!net.minecraft.world.entity.vehicle.DismountHelper.isBlockFloorValid(floor)) {
+                        continue;
+                    }
+                    Vec3 standing = Vec3.upFromBottomCenterOf(probe, floor);
+                    net.minecraft.world.phys.AABB body = new net.minecraft.world.phys.AABB(
+                            -half, 0.0, -half, half, size.height(), half).move(standing);
+                    if (net.minecraft.world.entity.vehicle.DismountHelper.canDismountTo(level(), passenger, body)) {
+                        passenger.setPose(pose);
+                        return standing;
+                    }
+                }
+            }
+        }
+        return super.getDismountLocationForPassenger(passenger);
     }
 
     @Override

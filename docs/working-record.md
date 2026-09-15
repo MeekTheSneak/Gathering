@@ -1578,6 +1578,54 @@ Known and open from this batch:
   because the card the script had just played was under a cursor that, with the window focused, really
   hovered it. A harness race, not a lesson change; recorded here with the cursor flake above.
 
+### Fifth batch: the owner's playtest after the fourth, and the update audit (2026-09-15)
+
+The owner reported ten things; this batch is 1, 5, 6, 7, 8, 9 and the audit (10). The join and
+spectate prompt with a deck picker (2), illegal decks allowed with a warning to the table (3), the
+Scorekeeper's Desk as the only way to host (4), chairs at edges that seat nobody seating spectators,
+and an away-from-board hold on an empty seat are the next batch.
+
+- **1, a deck made from two cards loaded forever, and a card taken out while it loaded came out
+  blank.** In creative the inventory is the creative menu, which sends the client's copy of every
+  stack it moves back to the server; the client's copy of a deck is the public one, every card hidden,
+  so the server's deck was overwritten with hidden cards. The server now keeps each deck's real list
+  by its handle (`DeckVault`) and a deck turning up redacted is restored from it on its next inventory
+  tick; cards a creative player puts into a deck, or two cards made into one, are declared by the
+  client (`CreativeDeckEditPayload`, protocol 16, accepted only from a creative player and only face-up
+  cards, at most 64). `DeckVaultGameTest` (2); tour steps 363-368 make a deck from two loose cards in
+  survival and in the creative menu, open it, check every row is named, take a card out and check it is
+  not blank. The steps were shown failing without the restore ("1 unnamed", "1 blank"). A deck already
+  spoiled in an existing world before this fix cannot be recovered.
+- **5, a pixel at the start of the set progress bar.** A fill narrower than its art's borders was
+  sliced into nothing but border. The fill is drawn at least 48 wide and clipped to its true width.
+- **6, wanted cards were yellow like rares.** Green now.
+- **7, "# more below".** Gone from both set screens; a scrollbar (`ListScrollbar`,
+  `ListScroll.thumb`, `ListScreenLayout.scrollbar`, tested) takes its place.
+- **8, a card clicked out of a collection with a deck in hand goes into the deck.** Intentional and
+  documented on `CollectionView.take` and in the footer hint; asked of the owner rather than changed.
+- **9, mat corners still flickered.** Each frame was four overlapping quads, so every corner was drawn
+  twice on the same plane. Frames are now strips that meet without overlap (`FrameStrips`, tested,
+  shown failing with the old overlap) on mats, groups, slots and the aimed-at top. **Flicker is not
+  visible in a photo; unverified until somebody looks.**
+- **10, the update audit** (`Gathering-update-audit-2c00769c.zip`), its tests added unchanged as
+  `CurrentAuditGameTest`:
+  - UA-01, a broken chair handing over a hidden hand. A seat whose last occupant still has cards in any
+    zone of a running game is theirs: the claim is refused ("Somebody's cards are on that seat") and the
+    session's seat mapping skips it (`TableSessions.boardBelongsToAnother`). A chair somebody sits in
+    at a game cannot be broken by anybody else. `ChairGameTest.aBoardWaitsForItsOwnerWhenTheirChairGoes`
+    removes the chair without a player, so the refused break cannot pass it; shown failing without the
+    ownership check.
+  - UA-02, a refused mount keeping the seat. `Chairs.sit` mounts first, claims second, and backs out of
+    the chair if the table says no.
+  - UA-03, standing up into a wall. `ChairSeat` looks behind, to either side and the back diagonals, at
+    three heights, for a place a player fits.
+  - UA-04, plotcheck checked nothing. It reads the real test directory, fails on finding none, and
+    takes each method's own template. It found eight placements spilling out of `empty`; those tests
+    use `tables` now. 130 placements checked.
+
+Verified for this batch: gate green (549/16); tour steps 363-368 passed in survival and creative. Not
+run since: the full tour.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

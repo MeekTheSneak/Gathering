@@ -71,6 +71,22 @@ public record ListScreenLayout(
         return new ListScreenLayout(rows, done, hint, more, Math.max(1, listHeight / row), row);
     }
 
+    /** How wide a scrollbar down the right of the rows is, and the gap left of it. */
+    private static final int SCROLLBAR = 6;
+    private static final int SCROLLBAR_GAP = 4;
+
+    /** The scrollbar's track, down the right of the rows, as tall as the rows that fit. */
+    public Rect scrollbar() {
+        return new Rect(rows.right() - SCROLLBAR, rows.y(), SCROLLBAR, rowsThatFit * rowHeight);
+    }
+
+    /** The nth row, narrowed to leave the scrollbar its column when the list scrolls. */
+    public Rect rowAt(int index, boolean scrolls) {
+        Rect row = rowAt(index);
+        return row.isEmpty() || !scrolls ? row
+                : new Rect(row.x(), row.y(), row.width() - SCROLLBAR - SCROLLBAR_GAP, row.height());
+    }
+
     /** Where the nth row on screen sits. Rows past the window come back empty. */
     public Rect rowAt(int index) {
         return index < 0 || index >= rowsThatFit

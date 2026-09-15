@@ -48,6 +48,11 @@ public final class TableSeats {
         if (seatOf(level, clusterOrigin, player).isPresent()) {
             return Claim.ALREADY_SEATED;
         }
+        // Somebody else's cards are on it: the seat waits for them, and a chair set there is not a way
+        // to their hand.
+        if (TableSessions.boardBelongsToAnother(level, clusterOrigin, cluster.seats().indexOf(new SeatAnchor(cell, side)), player)) {
+            return Claim.SOMEONE_ELSES_BOARD;
+        }
         return table.get().claim(side, player) ? Claim.TAKEN : Claim.OCCUPIED;
     }
 
@@ -171,7 +176,8 @@ public final class TableSeats {
         TAKEN,
         OCCUPIED,
         ALREADY_SEATED,
-        NOT_A_SEAT;
+        NOT_A_SEAT,
+        SOMEONE_ELSES_BOARD;
 
         public String messageKey() {
             return "message.gathering.seat_" + name().toLowerCase(java.util.Locale.ROOT);

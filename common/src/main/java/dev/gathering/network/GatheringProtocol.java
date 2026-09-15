@@ -61,11 +61,12 @@ public final class GatheringProtocol {
      * <p>Fourteen, for a table's terms: the format, match length, game and stakes sent beside its
      * board.
      * <p>Fifteen, for a pack's cards waiting under its wrapper until it is torn.
+     * <p>Sixteen, for the cards a creative click put into a deck.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 15;
+    public static final int VERSION = 16;
 
     private GatheringProtocol() {
     }
@@ -157,6 +158,13 @@ public final class GatheringProtocol {
             toServer(MakeTokenPayload.TYPE, MakeTokenPayload.STREAM_CODEC,
                     budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, (player, payload) -> CardDataService.active().ifPresent(service ->
                             dev.gathering.server.TokenCreation.handleChosen(player, service, payload)))),
+            toServer(CreativeDeckEditPayload.TYPE, CreativeDeckEditPayload.STREAM_CODEC,
+                    (player, payload) -> {
+                        // Creative only: anybody else's clicks are the server's own to see.
+                        if (player.isCreative()) {
+                            dev.gathering.server.DeckVault.cardsWentIn(payload.deck(), player.getUUID(), payload.cards());
+                        }
+                    }),
             toServer(PackTornPayload.TYPE, PackTornPayload.STREAM_CODEC,
                     (player, payload) -> dev.gathering.server.PackWrappers.torn(player, payload.wrapper())),
             toServer(StarterPayload.TYPE, StarterPayload.STREAM_CODEC,

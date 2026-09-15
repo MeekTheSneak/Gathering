@@ -560,13 +560,48 @@ public final class TableSessions {
                 .map(level::getPlayerByUUID);
     }
 
-    /** Which session seat a player holds at this cluster, if any. */
+    /**
+     * Which session seat a player holds at this cluster, if any.
+     * <p>Not a seat whose cards are somebody else's. Holding the chair and playing the seat are two
+     * things: a board outlives its player, and whoever sits down in that chair next watches it rather
+     * than plays it - their hand, library and face-down cards are the first player's. The chair's claim
+     * alone used to decide both, so an audit broke a seated player's chair, sat in a new one, and was
+     * sent their hand.
+     */
     public static Optional<SeatId> seatIdOf(BlockGetter level, BlockPos tableOrigin, java.util.UUID player) {
         TableCluster cluster = TableClusters.at(level, tableOrigin);
         return TableSeats.seatOf(level, tableOrigin, player)
                 .map(cluster.seats()::indexOf)
                 .filter(index -> index >= 0)
+                .filter(index -> !boardBelongsToAnother(level, tableOrigin, index, player))
                 .map(SeatId::new);
+    }
+
+    /**
+     * Whether the seat at this place in the cluster's seat order holds, in the game running here, cards
+     * belonging to somebody other than this player - so that sitting there would be sitting at their
+     * board. A seat nobody has put a card on belongs to nobody yet.
+     */
+    public static boolean boardBelongsToAnother(BlockGetter level, BlockPos tableOrigin, int seatIndex, java.util.UUID player) {
+        GameSession session = sessionAt(level, tableOrigin).orElse(null);
+        if (session == null || seatIndex < 0) {
+            return false;
+        }
+        dev.gathering.core.game.GameState state = session.state();
+        SeatId seat = new SeatId(seatIndex);
+        if (state.ended() || !state.hasSeat(seat)) {
+            return false;
+        }
+        PlayerRef owner = state.seatState(seat).whoseBoard().orElse(null);
+        if (owner == null || owner.id().equals(player)) {
+            return false;
+        }
+        for (dev.gathering.core.game.Zone zone : dev.gathering.core.game.Zone.values()) {
+            if (!state.contents(seat, zone).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** What came of asking. Each refusal is its own answer so it can be explained. */
