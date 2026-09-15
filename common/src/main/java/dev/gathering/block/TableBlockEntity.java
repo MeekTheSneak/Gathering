@@ -1029,6 +1029,8 @@ public class TableBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
+        loadedFromSave = tag.contains(SAVE_KEY) ? tag.getLong(SAVE_KEY) : -1;
+        loadedFromTick = tag.contains(SAVE_TICK_KEY) ? tag.getLong(SAVE_TICK_KEY) : -1;
         if (tag.hasUUID(CUSTODY_KEY)) {
             custody = tag.getUUID(CUSTODY_KEY);
             if (level != null && !level.isClientSide()) {
@@ -1170,6 +1172,26 @@ public class TableBlockEntity extends BlockEntity {
      */
     private UUID custody;
     private static final String CUSTODY_KEY = "custody";
+    /** Which of this table's saves was the latest, and in which tick - see {@link #wasCarriedTo}. */
+    private long lastSave = -1;
+    private long lastSaveTick = -1;
+    /** Which save a table was loaded from, and in which tick that save was made. */
+    private long loadedFromSave = -1;
+    private long loadedFromTick = -1;
+    private static final String SAVE_KEY = "custody_save";
+    private static final String SAVE_TICK_KEY = "custody_tick";
+    private static final java.util.concurrent.atomic.AtomicLong SAVES = new java.util.concurrent.atomic.AtomicLong();
+
+    /**
+     * Whether {@code copy} is this table, carried: loaded from this table's own latest save, made this
+     * very tick. A mover writes a table down, loads the copy and clears the old blocks in one go. A copy
+     * made any other way - a creative pick with its data, /clone, a pasted structure - shares the
+     * identity but not that, and must not stop the table it copied from handing back what it holds.
+     */
+    public boolean wasCarriedTo(TableBlockEntity copy) {
+        return level != null && lastSave >= 0 && copy.loadedFromSave == lastSave
+                && copy.loadedFromTick == lastSaveTick && lastSaveTick == level.getGameTime();
+    }
 
     public UUID custody() {
         if (custody == null) {
@@ -1206,6 +1228,10 @@ public class TableBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         tag.putUUID(CUSTODY_KEY, custody());
+        lastSave = SAVES.incrementAndGet();
+        lastSaveTick = level == null ? -1 : level.getGameTime();
+        tag.putLong(SAVE_KEY, lastSave);
+        tag.putLong(SAVE_TICK_KEY, lastSaveTick);
         if (felt != null) {
             // By name, like the seat sides and for the same reason: this is a save file.
             tag.putString(FELT_KEY, felt.getSerializedName());

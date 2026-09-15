@@ -378,9 +378,19 @@ nothing back; anyone looking at its board is told it has gone. Sable loads the c
 before its data, so a table is counted only once its identity is read or written. Pack test
 `aDeckOnATableCarriedOffIsNeitherLostNorDoubled` (failed 1+1 before, 1+0 after); gate test
 `aCarriedTableTakesItsDeckWithItOnce` copies a table's data the way any mover does, proved failing with
-the check off, and breaks the copy afterwards to see the deck come back once. **Not covered:** a live
-session's seated players and per-position server state at the old spot, and Sable disassembling a ship
-back onto the ground (the same mechanism should apply; not run).
+the check off, and breaks the copy afterwards to see the deck come back once. Set down again with
+Sable's `moveBlocks` (the call Create Aeronautics' disassembly makes): 1 deck on the table, 0 on the
+ground.
+
+**Independent review of the custody fix** found it had introduced a loss: any copy sharing the
+identity - a creative pick with data, `/clone`, a pasted structure - made breaking the original hand
+back nothing. Fixed: a table counts as carried only to a copy loaded from its own latest save made in
+the same tick (guard `aCopiedTableDoesNotStopTheOriginalHandingBack`, proved failing with the check
+loosened; 521 gate tests and both Sable pack checks pass after). Also found, not fixed: a ship set
+down **with a rotation** moves a table's origin role to another corner, Sable loads the data into a
+block with no block entity, and the table's game ends and hands back once on the ship (nothing lost
+or doubled, but the match is over, and a dropped deck lands in the ship's region); an ante question
+(`Antes.ASKING`) and the event's table list keep the old position, as when a table is broken.
 
 **Fabric tour (2026-09-15).** `:fabric:runClient -Pdevscene` after tonight's client changes: reached step
 344 of 344, `[devscene] failures: 0`. Its world is now cleared before each run as NeoForge's is.

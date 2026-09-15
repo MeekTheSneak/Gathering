@@ -67,6 +67,24 @@ public final class SableTablesGameTest {
                     + " on the table and " + spilled + " on the ground");
             return;
         }
+        // And set down again, the way Create Aeronautics takes a ship apart: its blocks moved back
+        // into the world, a few blocks along from where the table first stood.
+        BlockPos down = placed.offset(5, 0, 0);
+        List<BlockPos> onTheShip = new ArrayList<>();
+        for (TablePart part : TablePart.values()) {
+            onTheShip.add(part.offsetFrom(assembled.table()).immutable());
+        }
+        SubLevelAssemblyHelper.moveBlocks(helper.getLevel(), new SubLevelAssemblyHelper.AssemblyTransform(assembled.table(), down, 0,
+                net.minecraft.world.level.block.Rotation.NONE, helper.getLevel()), onTheShip);
+        int setDown = TableBlock.entityAt(helper.getLevel(), down).map(entity -> entity.heldDecks().size()).orElse(-1);
+        long spilledNow = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                        new net.minecraft.world.phys.AABB(placed).inflate(12.0d)).stream()
+                .filter(item -> dev.gathering.item.DeckItem.deckOf(item.getItem()).isPresent()).count();
+        System.out.println("[sable] set down again, the table holds " + setDown + " deck(s); " + spilledNow + " on the ground");
+        if (setDown != 1 || spilledNow != 0) {
+            helper.fail("a table carried off and set down again holds " + setDown + " decks, with " + spilledNow + " on the ground");
+            return;
+        }
         helper.succeed();
     }
 

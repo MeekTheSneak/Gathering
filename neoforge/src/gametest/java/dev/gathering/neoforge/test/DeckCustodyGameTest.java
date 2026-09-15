@@ -146,6 +146,29 @@ public final class DeckCustodyGameTest {
         helper.succeed();
     }
 
+    /**
+     * A copy of a table made some other way - pasted, cloned, picked in creative with its data - has
+     * the table's identity but was not carried: breaking the table it was copied from, later, hands
+     * its deck back as breaking any table does.
+     */
+    @GameTest(template = "tables", timeoutTicks = 40)
+    public static void aCopiedTableDoesNotStopTheOriginalHandingBack(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        clearItems(helper, origin);
+        tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null, null);
+        net.minecraft.nbt.CompoundTag copied = tableAt(helper, origin).saveWithFullMetadata(helper.getLevel().registryAccess());
+        BlockPos there = place(helper, 5, 2, 5);
+        tableAt(helper, there).loadWithComponents(copied, helper.getLevel().registryAccess());
+        helper.runAfterDelay(5, () -> {
+            helper.getLevel().destroyBlock(TablePart.SOUTH_EAST.offsetFrom(origin), false);
+            if (deckOnTheFloor(helper, origin).isEmpty()) {
+                helper.fail("Breaking a table that had been copied elsewhere ate the deck it held");
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = "tables")
     public static void aHeldDeckSurvivesBeingWrittenDownAndReadBack(GameTestHelper helper) {
         // A server restart mid-match must not eat four decks.

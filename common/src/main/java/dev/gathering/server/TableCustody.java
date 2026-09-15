@@ -16,7 +16,8 @@ import java.util.UUID;
  * held them: every one of them twice. A table removed while a loaded copy of it stands somewhere
  * else was carried, not broken, and its keeping went with the copy.
  * <p>Keyed by an identity the table writes into its own saved data, so any mover that carries a
- * block entity's data is recognized, not only Sable. Server thread only.
+ * block entity's data is recognized, not only Sable - and only a copy loaded from the table's own
+ * latest save, in the tick it was made, counts as the table carried. Server thread only.
  */
 public final class TableCustody {
 
@@ -43,7 +44,10 @@ public final class TableCustody {
         WeakReference<TableBlockEntity> held = LOADED.get(table.custody());
         TableBlockEntity other = held == null ? null : held.get();
         return other != null && other != table && !other.isRemoved()
-                && (other.getLevel() != table.getLevel() || !other.getBlockPos().equals(table.getBlockPos()));
+                && (other.getLevel() != table.getLevel() || !other.getBlockPos().equals(table.getBlockPos()))
+                // And made from this table's own latest save this tick, which is what a move is. A copy
+                // that shares the identity any other way - pasted, cloned, picked in creative - is not.
+                && table.wasCarriedTo(other);
     }
 
     /** For a server that is stopping. */
