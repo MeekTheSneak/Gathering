@@ -4,14 +4,12 @@ import dev.gathering.Gathering;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableBlockEntity;
 import dev.gathering.block.TableClusters;
-import dev.gathering.block.TablePart;
 import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.format.FormatPresets;
 import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
-import dev.gathering.item.GatheringContent;
 import dev.gathering.server.PodSignups;
 import dev.gathering.server.TablesApart;
 import java.util.UUID;
@@ -169,11 +167,6 @@ public final class TablesApartGameTest {
     }
 
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
-        BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        var table = GatheringContent.TABLE.get().defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return TestTables.place(helper, x, y, z);
     }
 }

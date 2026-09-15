@@ -3,7 +3,6 @@ package dev.gathering.neoforge.test;
 import dev.gathering.Gathering;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableBlockEntity;
-import dev.gathering.block.TablePart;
 import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.card.CardIdentity;
@@ -16,7 +15,6 @@ import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
-import dev.gathering.item.GatheringContent;
 import dev.gathering.server.TableMatch;
 import java.util.List;
 import java.util.Optional;
@@ -26,7 +24,6 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -516,12 +513,6 @@ public final class MatchGameTest {
     }
 
     private static BlockPos place(GameTestHelper helper) {
-        BlockPos origin = helper.absolutePos(new BlockPos(1, 2, 1));
-        BlockState table = GatheringContent.TABLE.get().defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(
-                    part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return TestTables.place(helper, 1, 2, 1);
     }
 }

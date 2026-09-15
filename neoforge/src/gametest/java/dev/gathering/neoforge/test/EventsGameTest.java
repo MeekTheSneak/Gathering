@@ -2,7 +2,6 @@ package dev.gathering.neoforge.test;
 
 import dev.gathering.Gathering;
 import dev.gathering.block.TableBlock;
-import dev.gathering.block.TablePart;
 import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.card.CardIdentity;
@@ -18,7 +17,6 @@ import dev.gathering.core.tournament.Round;
 import dev.gathering.core.tournament.Tournament;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
-import dev.gathering.item.GatheringContent;
 import dev.gathering.server.TablesApart;
 import dev.gathering.server.events.EventRecords;
 import dev.gathering.server.events.EventState;
@@ -678,11 +676,6 @@ public final class EventsGameTest {
     }
 
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
-        BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        var table = GatheringContent.TABLE.get().defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return TestTables.place(helper, x, y, z);
     }
 }

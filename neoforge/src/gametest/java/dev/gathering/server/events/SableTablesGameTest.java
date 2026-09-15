@@ -312,11 +312,6 @@ public final class SableTablesGameTest {
     }
 
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
-        BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        var table = GatheringContent.TABLE.get().defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return dev.gathering.neoforge.test.TestTables.place(helper, x, y, z);
     }
 }

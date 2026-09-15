@@ -14,7 +14,6 @@ import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
 import dev.gathering.item.DraftedPool;
 import dev.gathering.item.DeckItem;
-import dev.gathering.item.GatheringContent;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -664,13 +663,7 @@ public final class DeckCustodyGameTest {
     }
 
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
-        BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        var table = GatheringContent.TABLE.get().defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(
-                    part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return TestTables.place(helper, x, y, z);
     }
 
     /**

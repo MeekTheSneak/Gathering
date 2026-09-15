@@ -5,7 +5,6 @@ import dev.gathering.block.DraftPods;
 import dev.gathering.block.PodSignup;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableBlockEntity;
-import dev.gathering.block.TablePart;
 import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.card.CardIdentity;
@@ -14,7 +13,6 @@ import dev.gathering.core.format.FormatPresets;
 import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
-import dev.gathering.item.GatheringContent;
 import dev.gathering.item.PackComponent;
 import dev.gathering.item.PackItem;
 import dev.gathering.server.Owed;
@@ -352,11 +350,6 @@ public final class PodSignupGameTest {
     }
 
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
-        BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        var table = GatheringContent.TABLE.get().defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return TestTables.place(helper, x, y, z);
     }
 }

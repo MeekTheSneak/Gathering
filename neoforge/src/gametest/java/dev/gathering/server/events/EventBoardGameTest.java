@@ -8,7 +8,6 @@ import dev.gathering.core.tournament.EventSettings;
 import dev.gathering.core.tournament.MatchResult;
 import dev.gathering.core.tournament.Pairing;
 import dev.gathering.core.tournament.Tournament;
-import dev.gathering.item.GatheringContent;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -178,11 +177,6 @@ public final class EventBoardGameTest {
     }
 
     static BlockPos place(GameTestHelper helper, int x, int y, int z) {
-        BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        var block = GatheringContent.TABLE.get().defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(part.offsetFrom(origin), block.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return dev.gathering.neoforge.test.TestTables.place(helper, x, y, z);
     }
 }

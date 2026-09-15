@@ -651,12 +651,6 @@ public final class TableGameTest {
     private static BlockPos placeOf(
             GameTestHelper helper, net.minecraft.world.level.block.Block block,
             int x, int y, int z) {
-        BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        BlockState table = block.defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(
-                    part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return TestTables.place(helper, block, x, y, z);
     }
 }

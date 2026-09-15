@@ -11,7 +11,6 @@ import dev.gathering.core.draft.DraftRules;
 import dev.gathering.core.draft.DrafterId;
 import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
-import dev.gathering.item.GatheringContent;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -21,10 +20,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-import dev.gathering.block.TablePart;
 
 /**
  * A draft on real tables in a real world.
@@ -287,12 +284,6 @@ public final class DraftPodGameTest {
     }
 
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
-        BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        BlockState table = GatheringContent.TABLE.get().defaultBlockState();
-        for (TablePart part : TablePart.values()) {
-            helper.getLevel().setBlock(
-                    part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);
-        }
-        return origin;
+        return TestTables.place(helper, x, y, z);
     }
 }
