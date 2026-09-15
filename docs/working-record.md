@@ -348,6 +348,11 @@ it mid-scene: the board shows standings and the desk's label "Friday Night / Rou
 run, not a gate test. Its first run found the
 label invisible (faced to the player's camera, not Ponder's) and that was fixed. The line check was shown failing with one lang line changed.
 
+**Create Clipboard on the desk** (`DeskClipboard`, NeoForge with Create): writes the round's pairings,
+ticked once confirmed, and the standings, in pages; a desk running nothing leaves the clipboard alone;
+crouching is left to Create's placing. Pack test `aClipboardOnADeskTakesDownTheRound` (fake player,
+real use), proved failing with the ticks removed; photographed in the pack scene as a Clipboard screen.
+
 **Scripted tour after tonight's client changes (2026-09-15).** A first run straight from Gradle
 failed 7 steps - it had inherited `run/saves/GatheringDevScene` from an earlier run (made 21:34 the day
 before), whose tournaments and decks the steps did not expect; `runClient -Pdevscene` now clears it, as

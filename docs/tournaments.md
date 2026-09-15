@@ -118,7 +118,8 @@ Link against the desk reads the tournament onto a board, set in the link to show
 this round's pairings, the round and clock, the final places, the prizes, or who has signed up.
 A linked desk floats the tournament's name over itself with where it has got to - "Sign up here" (or
 "Signing up" once sign-up has moved elsewhere), the round, "Time: extra turns", the winner. A
-comparator beside it gives full strength while the round being played has had time called, so a
+Create Clipboard used on it takes down this round's pairings - ticked as results come in - and the
+standings, to carry round the hall. A comparator beside it gives full strength while the round being played has had time called, so a
 bell or a lamp can tell the hall. Its look borrows vanilla's lectern until it has one of its own.
 
 **Pick clock.** Off, 45 or 90 seconds a pick (any value up to 300 is accepted by the server), or

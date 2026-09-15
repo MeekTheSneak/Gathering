@@ -48,6 +48,8 @@ public final class CreateCompat {
         // it faces sideways.
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(DeployerPacks::onRightClickBlock);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(DeployerPacks::onInteractEntity);
+        // A Clipboard used on a Scorekeeper's Desk takes down the pairings and the standings.
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(DeskClipboard::onRightClickBlock);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> DeployerPacks.clear());
     }

@@ -138,6 +138,60 @@ public final class CreateDisplayGameTest {
         helper.succeed();
     }
 
+    /**
+     * A Clipboard used on a desk takes down the pairings, ticking each whose result is in, and the
+     * standings - through the use a player's click makes. On a desk running nothing it is left alone.
+     */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    public static void aClipboardOnADeskTakesDownTheRound(GameTestHelper helper) {
+        BlockPos table = EventBoardGameTest.placeForCompat(helper, 1, 2, 1);
+        EventState state = EventBoardGameTest.fourPlayerEventForCompat(helper, table);
+        BlockPos desk = helper.absolutePos(new BlockPos(5, 2, 1));
+        helper.getLevel().setBlock(desk, GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState(), 3);
+        // A fake player: the pack's other mods send a real stand-in payloads the test connection cannot take.
+        var clerk = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
+        net.minecraft.world.item.ItemStack clipboard = AllBlocks.CLIPBOARD.asStack();
+        clerk.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, clipboard);
+        try {
+            // Asked directly: left alone, the clipboard goes on to open in the hand, which a fake player's
+            // connection cannot take.
+            var idle = new net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock(clerk,
+                    net.minecraft.world.InteractionHand.MAIN_HAND, desk,
+                    new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(desk), Direction.UP, desk, false));
+            DeskClipboard.onRightClickBlock(idle);
+            if (idle.isCanceled() || clerk.getMainHandItem().has(com.simibubi.create.AllDataComponents.CLIPBOARD_CONTENT)) {
+                helper.fail("a desk running nothing took the clipboard's click");
+                return;
+            }
+            if (helper.getLevel().getBlockEntity(desk) instanceof ScorekeepersDeskBlockEntity entity) {
+                entity.runs(state.tournament().id());
+            }
+            Events.setForTesting(state, state.tournament().settle(1, new dev.gathering.core.tournament.MatchResult(2, 1, 0)));
+            use(helper, clerk, desk);
+            var content = clerk.getMainHandItem().get(com.simibubi.create.AllDataComponents.CLIPBOARD_CONTENT);
+            if (content == null || content.pages().size() < 2) {
+                helper.fail("the clipboard took down " + content);
+                return;
+            }
+            var pairings = content.pages().get(0);
+            String written = content.pages().stream().flatMap(List::stream).map(entry -> entry.text.getString())
+                    .collect(Collectors.joining(" | "));
+            if (pairings.size() != 3 || !pairings.get(1).checked || pairings.get(2).checked
+                    || !written.contains("P0") || !written.contains("P3") || !written.contains("2-1")) {
+                helper.fail("the clipboard reads [" + written + "] with ticks " + pairings.stream().map(entry -> entry.checked).toList());
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
+    private static void use(GameTestHelper helper, net.minecraft.server.level.ServerPlayer player, BlockPos at) {
+        player.gameMode.useItemOn(player, helper.getLevel(), player.getMainHandItem(), net.minecraft.world.InteractionHand.MAIN_HAND,
+                new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(at), Direction.UP, at, false));
+    }
+
     private static DisplayLinkContext linkOn(GameTestHelper helper, BlockPos source) {
         BlockPos linkAt = source.above();
         helper.getLevel().setBlock(linkAt,

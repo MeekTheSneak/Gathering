@@ -250,6 +250,32 @@ public final class PackScene {
                 }
                 shoot(client, "p09-the-table-taught-in-ponder");
                 ClientTableState.forget(new BlockPos(0, 1, 0));
+                client.setScreen(null);
+                // A Clipboard used on the desk, the way the player's click uses it.
+                onTheServer(client, (server, player) -> {
+                    player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, AllBlocks.CLIPBOARD.asStack());
+                    player.gameMode.useItemOn(player, server.overworld(), player.getMainHandItem(),
+                            net.minecraft.world.InteractionHand.MAIN_HAND,
+                            new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(desk), Direction.SOUTH, desk, false));
+                    var content = player.getMainHandItem().get(com.simibubi.create.AllDataComponents.CLIPBOARD_CONTENT);
+                    System.out.println("[packscene] the clipboard took down " + (content == null ? "nothing" : content.pages().size() + " pages"));
+                    if (content == null || content.pages().isEmpty()) {
+                        fail("a clipboard used on the desk took nothing down");
+                    }
+                });
+                advance(SETTLE);
+            }
+            case 15 -> {
+                // And read, the way a player reads one: used in the air.
+                client.gameMode.useItem(client.player, net.minecraft.world.InteractionHand.MAIN_HAND);
+                advance(SETTLE);
+            }
+            case 16 -> {
+                if (client.screen == null || !client.screen.getClass().getSimpleName().equals("ClipboardScreen")) {
+                    fail("reading the clipboard opened " + client.screen);
+                }
+                shoot(client, "p10-the-round-on-a-clipboard");
+                client.setScreen(null);
                 advance(SETTLE);
             }
             default -> finish(client);

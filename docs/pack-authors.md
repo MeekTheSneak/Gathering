@@ -95,7 +95,8 @@ Stated plainly, because a compatibility claim nobody has run is worse than none:
 - **Create (6.0.10) display boards:** a Display Link against a Scorekeeper's Desk offers
   *Tournament*, set in the link's own settings to show the standings, pairings, round and clock,
   final places, prizes or sign-ups of the tournament the desk runs. Against a table it offers
-  This Table's Match and Life Totals. In-world tested with Create installed; standings and pairings
+  This Table's Match and Life Totals. A Clipboard used on the desk takes down this round's pairings,
+  ticking each whose result is in, and the standings. In-world tested with Create installed; standings and pairings
   on a powered display board and a table's match on a sign have been seen in a real client.
 - **Create contraptions** (bearings, pistons, gantries, trains) leave tables and collections where
   they are, as a piston does: a game and a collection's cards belong to a block position a
