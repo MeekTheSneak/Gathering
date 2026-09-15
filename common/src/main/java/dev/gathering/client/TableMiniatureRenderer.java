@@ -222,8 +222,16 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             TableBlockEntity table, float partialTick, PoseStack poseStack,
             MultiBufferSource buffers, int packedLight, int packedOverlay) {
         BlockPos pos = table.getBlockPos();
+        boolean inTheWorld = table.getLevel() == net.minecraft.client.Minecraft.getInstance().level;
         if (table.eventTable() > 0) {
-            drawEventLabel(table, poseStack, buffers, packedLight);
+            drawEventLabel(table, poseStack, buffers, packedLight, inTheWorld);
+        }
+        if (!inTheWorld) {
+            // A table drawn somewhere other than the world being played - a Ponder scene, a Create
+            // schematic's preview. What is known about tables is known by position in that world, so
+            // here it would be some real table's game drawn on a stranger, and the capture below would
+            // leave the picker with a projection the world was never drawn with.
+            return;
         }
         GameView board = ClientTableState.viewOf(pos).orElse(null);
         if (board == null || board.seats().isEmpty()) {
@@ -1006,7 +1014,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private static final double NEAR_ENOUGH_TO_BE_SEATED = 3.0;
 
     /** A tournament table's number floating over it, with who is playing and the time left. */
-    private void drawEventLabel(TableBlockEntity table, PoseStack poseStack, MultiBufferSource buffers, int packedLight) {
+    private void drawEventLabel(TableBlockEntity table, PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            boolean inTheWorld) {
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         List<net.minecraft.network.chat.Component> lines = new java.util.ArrayList<>();
         lines.add(net.minecraft.network.chat.Component.translatable("label.gathering.event.table", table.eventTable()));
@@ -1021,6 +1030,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // Not for the people sitting at it. The label is how a table is found across a hall; a
         // player already at the table has found it, and from a chair the label is a banner
         // across the top of their view.
+        if (!inTheWorld) {
+            // Not the player's camera there, so not turned to it: facing north, as the scene is set.
+            FloatingLabel.draw(poseStack, buffers, lines, 1.0, 2.4, 1.0, com.mojang.math.Axis.YP.rotationDegrees(180));
+            return;
+        }
         net.minecraft.world.phys.Vec3 eye = client.gameRenderer.getMainCamera().getPosition();
         BlockPos at = table.getBlockPos();
         double dx = eye.x - (at.getX() + 1.0);

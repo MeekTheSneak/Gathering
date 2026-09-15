@@ -328,6 +328,14 @@ by its own once-a-second tick and sent as the label only (guard `aLinkedDeskLabe
 proved failing both with the tick removed and with the event id in the client tag); linking turns a
 lectern's page. Seen in the pack scene: "Friday Night / Round 1 of 2" over the desk.
 
+**Ponder scene for the tables, and a renderer defect it found.** `TablePonderScene` (all four tables,
+and the wooden one in Create's Display Link sources tag). `TableMiniatureRenderer` now draws a game only
+for a table in the client's own level: elsewhere (Ponder, a Create schematic preview) it looked the game
+up by position alone and drew a real board on a stranger, and ran `TablePointer.capture` with the wrong
+projection. The pack scene files a real board under the scene table's position and photographs the
+scene: with the guard off the board drew (seen), with it nothing does. Event labels there face north.
+Not a gate test - it needs a client with Create.
+
 **Create contraptions** leave tables and collections in place (their `PushReaction.BLOCK`, which Create's
 movement check honors) and carry a desk. Pack test `CreateContraptionGameTest`, proved failing with the
 table's push reaction made normal. Documented for pack authors. A table on a moving Create contraption

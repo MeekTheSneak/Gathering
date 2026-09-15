@@ -11,6 +11,7 @@ import dev.gathering.block.TableClusters;
 import dev.gathering.block.TablePart;
 import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
+import dev.gathering.client.ClientTableState;
 import dev.gathering.client.TableCameraView;
 import dev.gathering.client.TableScreen;
 import dev.gathering.core.format.FormatPresets;
@@ -233,6 +234,22 @@ public final class PackScene {
                     fail("holding W over the desk opened " + client.screen + " rather than its scene");
                 }
                 shoot(client, "p08-the-desk-taught-in-ponder");
+                // A real game's board filed under the position the scene's first table stands at: the
+                // scene must not draw it, since a scene is not the world that board belongs to.
+                ClientTableState.viewOf(structureTable).ifPresentOrElse(
+                        view -> ClientTableState.accept(new BlockPos(0, 1, 0), view, false),
+                        () -> fail("the client has no board for the table on the structure to file elsewhere"));
+                client.setScreen(net.createmod.ponder.foundation.ui.PonderUI.of(
+                        new net.minecraft.world.item.ItemStack(GatheringContent.TABLE_ITEM.get())));
+                // To the end, where the board is filled.
+                advance(20 * 30);
+            }
+            case 14 -> {
+                if (!(client.screen instanceof net.createmod.ponder.foundation.ui.PonderUI)) {
+                    fail("holding W over a table opened " + client.screen + " rather than its scene");
+                }
+                shoot(client, "p09-the-table-taught-in-ponder");
+                ClientTableState.forget(new BlockPos(0, 1, 0));
                 advance(SETTLE);
             }
             default -> finish(client);
@@ -262,9 +279,14 @@ public final class PackScene {
                 fail("the Ponder line " + key + " says \"" + said + "\" in the scene and \"" + written + "\" in the lang file");
             }
         });
-        System.out.println("[packscene] the desk's Ponder scene has " + lines[0] + " lines, all in the lang file");
-        if (lines[0] < 7) {
-            fail("the desk's Ponder scene gave " + lines[0] + " lines to check");
+        System.out.println("[packscene] the Ponder scenes have " + lines[0] + " lines, all in the lang file");
+        if (lines[0] < 14) {
+            fail("the Ponder scenes gave " + lines[0] + " lines to check");
+        }
+        net.minecraft.resources.ResourceLocation table = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                dev.gathering.Gathering.MOD_ID, GatheringContent.TABLE_ID);
+        if (!net.createmod.ponder.foundation.PonderIndex.getSceneAccess().doScenesExistForId(table)) {
+            fail("the table has no Ponder scene");
         }
     }
 

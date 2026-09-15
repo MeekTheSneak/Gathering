@@ -10,11 +10,11 @@ import net.createmod.ponder.foundation.PonderIndex;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * With Create, the Scorekeeper's Desk is taught the way Create teaches its own blocks: hold W over
- * it for a scene. And it is listed among the sources for Display Links, where somebody looking for
- * what a board can show will look.
- * <p>The scene is built on Create's own Display Link schematic with the depot swapped for the desk,
- * so it needs no schematic of this mod's and matches the scene it sits beside.
+ * With Create, the Scorekeeper's Desk and the tables are taught the way Create teaches its own
+ * blocks: hold W over one for a scene. And they are listed among the sources for Display Links, where
+ * somebody looking for what a board can show will look.
+ * <p>The scenes are built on Create's own Display Link schematic with this mod's blocks set into it,
+ * so they need no schematic of this mod's and match the scene they sit beside.
  */
 public final class GatheringPonderPlugin implements PonderPlugin {
 
@@ -35,11 +35,20 @@ public final class GatheringPonderPlugin implements PonderPlugin {
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
         helper.forComponents(desk())
                 .addStoryBoard(DISPLAY_LINK_SCHEMATIC, DeskPonderScene::deskAndBoard);
+        helper.forComponents(tables())
+                .addStoryBoard(DISPLAY_LINK_SCHEMATIC, TablePonderScene::table);
     }
 
     @Override
     public void registerTags(PonderTagRegistrationHelper<ResourceLocation> helper) {
-        helper.addToTag(AllCreatePonderTags.DISPLAY_SOURCES).add(desk());
+        helper.addToTag(AllCreatePonderTags.DISPLAY_SOURCES).add(desk()).add(tables().get(0));
+    }
+
+    /** Every table: each is taught by the same scene. */
+    static java.util.List<ResourceLocation> tables() {
+        return GatheringContent.tables().stream()
+                .map(table -> net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(table.get()))
+                .toList();
     }
 
     private static ResourceLocation desk() {

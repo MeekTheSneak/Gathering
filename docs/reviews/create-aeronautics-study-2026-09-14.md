@@ -65,7 +65,12 @@ desk, read from Create's jar at runtime, so this mod ships no schematic and the 
 beside it. Its words are in the lang file, where Ponder reads them; the pack scene checks every line
 agrees with what the scene records, that the scene and the tag entry exist, and photographs it. The
 desk's floating label faces the way the desk does inside Ponder, whose camera is not the player's.
-**Not yet:** a scene for the table.
+**And for the tables:** size and seats, joining, sitting down with a deck, choosing a format, the
+tournament number, a Display Link. Building it found a real defect: the table renderer finds a
+table's game by block position alone, so in any level other than the one being played - a Ponder
+scene, a Create schematic's preview - a table at the same coordinates drew some real game's board,
+and overwrote the projection the pointer picks cards with. Shown in a photograph with the guard off
+(a real board filed under the scene table's position drew on it); with the guard, nothing is drawn.
 
 **7. Mechanical conventions.** Create has an `.editorconfig` (spaces, LF, final newline; JSON at 2);
 Gathering has none. Create imports what it names; Gathering's main sources name about 620 classes
