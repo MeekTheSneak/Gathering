@@ -414,9 +414,12 @@ public final class Events {
     }
 
     private static void runFromDesk(ServerPlayer player, dev.gathering.block.ScorekeepersDeskBlockEntity desk, EventState state) {
-        desk.runs(state.tournament.id());
         state.registrationPoint = desk.getBlockPos().immutable();
+        desk.runs(state.tournament.id());
         changed(player.getServer(), state);
+        // The lectern's page turning: a desk taken on is heard, not only read about in the chat.
+        player.serverLevel().playSound(null, desk.getBlockPos(), net.minecraft.sounds.SoundEvents.BOOK_PAGE_TURN,
+                net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.0f);
         player.sendSystemMessage(Component.translatable("message.gathering.desk.runs", state.tournament.name()));
         EventViews.show(player, state, true);
     }

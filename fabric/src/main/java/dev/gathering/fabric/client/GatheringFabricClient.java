@@ -84,6 +84,10 @@ public final class GatheringFabricClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
                 GatheringContent.TABLE_ENTITY.get(),
                 dev.gathering.client.TableMiniatureRenderer::new);
+        // And the tournament floating over a Scorekeeper's Desk.
+        net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
+                GatheringContent.SCOREKEEPERS_DESK_ENTITY.get(),
+                dev.gathering.client.ScorekeepersDeskRenderer::new);
 
         // The felt is one texture tinted per table, so the tint needs a handler on each loader.
         // Every table, not only the wooden one: the felt is the same dyeable surface on all

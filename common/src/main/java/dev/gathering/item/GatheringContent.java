@@ -135,8 +135,8 @@ public final class GatheringContent {
     }
 
     public static Item createShopCounterItem() {
-        return new net.minecraft.world.item.BlockItem(
-                SHOP_COUNTER.get(), new Item.Properties());
+        return new DescribedBlockItem(SHOP_COUNTER.get(), new Item.Properties(),
+                java.util.List.of("tooltip.gathering.shop_counter_job"));
     }
 
     public static Block createTable() {
@@ -234,8 +234,9 @@ public final class GatheringContent {
     }
 
     public static Item createCollectionItem() {
-        return new net.minecraft.world.item.BlockItem(
-                COLLECTION.get(), new Item.Properties().stacksTo(1));
+        return new DescribedBlockItem(COLLECTION.get(), new Item.Properties().stacksTo(1), java.util.List.of(
+                "tooltip.gathering.collection_open", "tooltip.gathering.collection_put_in",
+                "tooltip.gathering.collection_sweep"));
     }
 
     public static dev.gathering.block.CollectionBlockEntity createCollectionEntity(
@@ -252,7 +253,8 @@ public final class GatheringContent {
     }
 
     public static Item createScorekeepersDeskItem() {
-        return new net.minecraft.world.item.BlockItem(SCOREKEEPERS_DESK.get(), new Item.Properties());
+        return new DescribedBlockItem(SCOREKEEPERS_DESK.get(), new Item.Properties(),
+                java.util.List.of("tooltip.gathering.desk_host", "tooltip.gathering.desk_anybody"), "tooltip.gathering.desk_board");
     }
 
     public static dev.gathering.block.ScorekeepersDeskBlockEntity createScorekeepersDeskEntity(

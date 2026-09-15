@@ -321,6 +321,13 @@ linking, look-only for a passer-by, a second use taking over (and one too late n
 taking signing up back, two tournaments, a free finished desk, breaking, its shape, save and load; plus
 `CraftingGameTest.aScorekeepersDeskCanBeCrafted`. Each proved failing with its code broken.
 
+**Desk polish from the Create study** (`docs/reviews/create-aeronautics-study-2026-09-14.md`): the desk,
+the Collection and the Shop Counter say what they are for in their tooltips (guard
+`BlockTooltipGameTest`, proved failing); a linked desk floats its tournament's name and phase, kept up
+by its own once-a-second tick and sent as the label only (guard `aLinkedDeskLabelsItsTournament`,
+proved failing both with the tick removed and with the event id in the client tag); linking turns a
+lectern's page. Seen in the pack scene: "Friday Night / Round 1 of 2" over the desk.
+
 **Independent review of the desk** (a reviewer agent, given the requirements and the diff) found, all
 fixed: (1) a host's own desk could never take signing up back once it moved elsewhere - after *Register
 here*, a second desk, or a Create contraption carrying the desk, whose removal clears the point - now

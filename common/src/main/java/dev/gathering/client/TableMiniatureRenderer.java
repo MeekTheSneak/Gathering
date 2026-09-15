@@ -1005,14 +1005,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** Closer than this to a table's middle, in blocks, and its event label is not drawn. */
     private static final double NEAR_ENOUGH_TO_BE_SEATED = 3.0;
 
-    /**
-     * A tournament table's number floating over it, with who is playing and the time left.
-     * <p>Text rather than a sprite, so it needs no artwork; turned to face whoever is looking,
-     * so a hall of numbered tables reads from anywhere in it.
-     */
+    /** A tournament table's number floating over it, with who is playing and the time left. */
     private void drawEventLabel(TableBlockEntity table, PoseStack poseStack, MultiBufferSource buffers, int packedLight) {
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
-        net.minecraft.client.gui.Font font = client.font;
         List<net.minecraft.network.chat.Component> lines = new java.util.ArrayList<>();
         lines.add(net.minecraft.network.chat.Component.translatable("label.gathering.event.table", table.eventTable()));
         if (!table.eventLine().isEmpty()) {
@@ -1033,24 +1028,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         if (dx * dx + dz * dz < NEAR_ENOUGH_TO_BE_SEATED * NEAR_ENOUGH_TO_BE_SEATED) {
             return;
         }
-        poseStack.pushPose();
-        poseStack.translate(1.0, 2.4, 1.0);
-        poseStack.mulPose(client.getEntityRenderDispatcher().cameraOrientation());
-        poseStack.scale(0.025f, -0.025f, 0.025f);
-        for (int index = 0; index < lines.size(); index++) {
-            net.minecraft.network.chat.Component line = lines.get(index);
-            float x = -font.width(line) / 2f;
-            // The backing first and the words over it with a polygon offset, the way a sign's
-            // text is drawn. In one pass the letters and their backing share a depth, and
-            // turned to face the camera half of each line lost to the backing.
-            font.drawInBatch(line, x, index * 10f, 0x00FFFFFF, false,
-                    poseStack.last().pose(), buffers, net.minecraft.client.gui.Font.DisplayMode.NORMAL, 0x40000000,
-                    net.minecraft.client.renderer.LightTexture.FULL_BRIGHT);
-            font.drawInBatch(line, x, index * 10f, index == 0 ? 0xFFE0B15A : 0xFFFFFFFF, false,
-                    poseStack.last().pose(), buffers, net.minecraft.client.gui.Font.DisplayMode.POLYGON_OFFSET, 0,
-                    net.minecraft.client.renderer.LightTexture.FULL_BRIGHT);
-        }
-        poseStack.popPose();
+        FloatingLabel.draw(poseStack, buffers, lines, 1.0, 2.4, 1.0);
     }
 
     /** A point on the shared surface, in blocks across the table's own footprint. */

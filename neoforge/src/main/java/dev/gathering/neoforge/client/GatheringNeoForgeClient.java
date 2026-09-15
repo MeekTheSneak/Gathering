@@ -70,6 +70,9 @@ public final class GatheringNeoForgeClient {
         event.registerBlockEntityRenderer(
                 GatheringContent.TABLE_ENTITY.get(),
                 dev.gathering.client.TableMiniatureRenderer::new);
+        event.registerBlockEntityRenderer(
+                GatheringContent.SCOREKEEPERS_DESK_ENTITY.get(),
+                dev.gathering.client.ScorekeepersDeskRenderer::new);
     }
 
     @SubscribeEvent

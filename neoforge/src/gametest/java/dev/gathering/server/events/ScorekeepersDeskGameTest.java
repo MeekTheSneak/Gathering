@@ -92,6 +92,50 @@ public final class ScorekeepersDeskGameTest {
         helper.succeed();
     }
 
+    /**
+     * A linked desk carries a label - the tournament's name and where it has got to - which follows
+     * the tournament without anybody using the desk again, and leaves when it is called off. What is
+     * sent to clients is the label, not which tournament the desk runs.
+     */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void aLinkedDeskLabelsItsTournament(GameTestHelper helper) {
+        BlockPos desk = placeDesk(helper);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        EventState state = hostedBy(helper, host, "Friday Night");
+        use(helper, host);
+        ScorekeepersDeskBlockEntity entity = deskOf(helper, desk);
+        ScorekeepersDeskBlockEntity.Label label = entity.label();
+        if (!label.isShown() || !label.name().equals("Friday Night") || !label.phase().equals("signup")) {
+            Events.removeForTesting(state);
+            helper.fail("a desk just linked is labeled " + label);
+            return;
+        }
+        for (Tournament.Phase phase : Tournament.Phase.values()) {
+            String key = "label.gathering.desk." + phase.name().toLowerCase(java.util.Locale.ROOT);
+            if (phase != Tournament.Phase.CANCELLED && !net.minecraft.locale.Language.getInstance().has(key)) {
+                Events.removeForTesting(state);
+                helper.fail("a desk's label has nothing to say for " + phase);
+                return;
+            }
+        }
+        CompoundTag sent = entity.getUpdateTag(helper.getLevel().registryAccess());
+        if (sent.contains("event") || !sent.contains("label")) {
+            Events.removeForTesting(state);
+            helper.fail("a desk sends clients " + sent);
+            return;
+        }
+        Events.setForTesting(state, state.tournament.cancel());
+        // Nobody uses the desk again: its own tick notices within a second.
+        helper.runAfterDelay(25, () -> {
+            Events.removeForTesting(state);
+            if (entity.label().isShown()) {
+                helper.fail("a cancelled tournament's desk is still labeled " + entity.label());
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
     /** A host running two tournaments links the one whose tables are beside the desk. */
     @GameTest(template = "empty")
     public static void aHostOfTwoLinksTheOneBesideTheDesk(GameTestHelper helper) {
