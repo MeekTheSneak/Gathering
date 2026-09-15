@@ -58,15 +58,19 @@ public final class Chairs {
             FacingSeat at = atATable.get();
             if (!holdsThisSeat(level, at, player)) {
                 TableSeats.Claim would = TableSeats.wouldTake(level, at.origin(), at.cell(), at.side(), player.getUUID());
+                int index = TableClusters.at(level, at.origin()).seats().indexOf(new SeatAnchor(at.cell(), at.side()));
                 if (would != TableSeats.Claim.TAKEN) {
-                    // Somebody else's seat, somebody's cards on it, or a player already seated elsewhere at this
-                    // table: said, and not sat in - a chair at a seat is that seat, not a place to wait for it.
-                    player.sendSystemMessage(Component.translatable(would.messageKey()));
+                    // Somebody else's seat - kept for them while they are away from the board, or simply theirs -
+                    // somebody's cards on it, or a player already seated elsewhere at this table: said, and not sat
+                    // in - a chair at a seat is that seat, not a place to wait for it.
+                    player.sendSystemMessage(would == TableSeats.Claim.OCCUPIED
+                            ? dev.gathering.server.AwayFromBoard.keptSeat(level, at.origin(), index)
+                                    .orElse(Component.translatable(would.messageKey()))
+                            : Component.translatable(would.messageKey()));
                     return;
                 }
                 // A game already on, at a seat whose board is not theirs: asked whether they are joining it or
                 // watching it, from the chair, before the seat is theirs.
-                int index = TableClusters.at(level, at.origin()).seats().indexOf(new SeatAnchor(at.cell(), at.side()));
                 if (TableSessions.hasSession(level, at.origin())
                         && !TableSessions.boardIsTheirs(level, at.origin(), index, player.getUUID())) {
                     watching = at.origin();
@@ -106,6 +110,8 @@ public final class Chairs {
             return;
         }
         seat.holdsTheSeatAt(at.origin());
+        // Back at a seat kept for them while they were away from the board.
+        dev.gathering.server.AwayFromBoard.back(level, at.origin(), player);
         TableBlock.satDown(player, at.origin());
     }
 
@@ -181,7 +187,8 @@ public final class Chairs {
     /**
      * A player got out of a chair: stood up, was knocked out of it, or the chair went. Gives up the seat
      * the chair took, if they still hold it - unless they left the server, which keeps a seat as it
-     * always has.
+     * always has, or they are in the middle of a game they have not conceded, which keeps it for them for
+     * a while: see {@link dev.gathering.server.AwayFromBoard}.
      */
     static void gotUp(ServerPlayer player, ChairSeat seat) {
         seat.discard();
@@ -189,8 +196,14 @@ public final class Chairs {
             return;
         }
         BlockPos origin = seat.tableOrigin();
-        if (TableSeats.seatOf(player.serverLevel(), origin, player.getUUID()).isPresent()) {
-            TableBlock.standUp(player.serverLevel(), origin, player);
+        ServerLevel level = player.serverLevel();
+        if (TableSeats.seatOf(level, origin, player.getUUID()).isEmpty()) {
+            return;
+        }
+        if (dev.gathering.server.AwayFromBoard.keepsTheSeat(level, origin, player)) {
+            dev.gathering.server.AwayFromBoard.start(level, origin, player);
+        } else {
+            TableBlock.standUp(level, origin, player);
         }
     }
 

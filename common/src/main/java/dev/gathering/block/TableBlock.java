@@ -694,19 +694,28 @@ public class TableBlock extends BaseEntityBlock {
      * however that happens.
      */
     public static void standUp(Level level, BlockPos tableOrigin, Player player) {
+        giveUpSeat(level, tableOrigin, player.getUUID());
+        player.sendSystemMessage(Component.translatable("message.gathering.seat_left"));
+    }
+
+    /**
+     * Gives up this player's seat here, online or not, with the deck the table holds for them handed back and
+     * everybody who needs to know told. For standing up, and for a seat kept for a player away from the board
+     * running out - see {@link dev.gathering.server.AwayFromBoard}.
+     */
+    public static void giveUpSeat(Level level, BlockPos tableOrigin, java.util.UUID player) {
         // Their seat, read before the claim goes, because that is what names the deck the
         // table is holding for them. Between games of a set the table keeps everybody's
         // deck to put it back down for the next one - so a player leaving then had no way
         // at all to get theirs back short of the whole set ending.
         java.util.Optional<dev.gathering.core.game.SeatId> leaving =
-                TableSessions.seatIdOf(level, tableOrigin, player.getUUID());
-        TableSeats.leave(level, tableOrigin, player.getUUID());
+                TableSessions.seatIdOf(level, tableOrigin, player);
+        TableSeats.leave(level, tableOrigin, player);
         leaving.ifPresent(seat -> TableSessions.returnDeckTo(level, tableOrigin, seat));
-        player.sendSystemMessage(Component.translatable("message.gathering.seat_left"));
         tellTheTableWhoIsSittingAtIt(level, tableOrigin);
         if (level instanceof net.minecraft.server.level.ServerLevel stood) {
             dev.gathering.server.Antes.seatsChanged(stood, tableOrigin);
-            dev.gathering.server.PodSignups.seatReleased(stood, tableOrigin, player.getUUID());
+            dev.gathering.server.PodSignups.seatReleased(stood, tableOrigin, player);
         }
     }
 

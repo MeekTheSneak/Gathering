@@ -129,6 +129,8 @@ public final class TableSeats {
             Optional<Side> held = table.get().sideHeldBy(player);
             if (held.isPresent()) {
                 boolean released = table.get().release(held.get(), player);
+                // Nothing is kept for somebody who no longer holds the seat.
+                dev.gathering.server.AwayFromBoard.forget(level, clusterOrigin, player);
                 // Somebody leaving a seat they were sitting in a chair at gets up out of the chair.
                 Chairs.leftTheSeat(level, player);
                 return released;

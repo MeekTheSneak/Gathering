@@ -66,11 +66,13 @@ public final class GatheringProtocol {
      * says which desk it was opened at, and creating one names the desk.
      * <p>Eighteen, for joining a game that is on: asked to join or watch, choosing a deck from a list, and
      * asked whether to play one that is not legal anyway.
+     * <p>Nineteen, for seats kept for players away from the board: who is away and for how long beside the
+     * board, and a vote to free a seat.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 18;
+    public static final int VERSION = 19;
 
     private GatheringProtocol() {
     }
@@ -156,6 +158,8 @@ public final class GatheringProtocol {
                     dev.gathering.server.TableJoining::answer),
             toServer(ChooseDeckPayload.TYPE, ChooseDeckPayload.STREAM_CODEC,
                     dev.gathering.server.TableJoining::choose),
+            toServer(AwayVotePayload.TYPE, AwayVotePayload.STREAM_CODEC,
+                    dev.gathering.server.AwayFromBoard::vote),
             toServer(StartTablePayload.TYPE, StartTablePayload.STREAM_CODEC,
                     dev.gathering.server.TableSetup::handle),
             toServer(SideboardEditPayload.TYPE, SideboardEditPayload.STREAM_CODEC,
@@ -247,6 +251,7 @@ public final class GatheringProtocol {
             toClient(JoinTablePromptPayload.TYPE, JoinTablePromptPayload.STREAM_CODEC),
             toClient(OpenDeckPickerPayload.TYPE, OpenDeckPickerPayload.STREAM_CODEC),
             toClient(DeckNotLegalPayload.TYPE, DeckNotLegalPayload.STREAM_CODEC),
+            toClient(TableAwayPayload.TYPE, TableAwayPayload.STREAM_CODEC),
             toClient(PodLobbyPayload.TYPE, PodLobbyPayload.STREAM_CODEC),
             toClient(EventListPayload.TYPE, EventListPayload.STREAM_CODEC),
             toClient(EventViewPayload.TYPE, EventViewPayload.STREAM_CODEC),

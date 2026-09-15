@@ -91,6 +91,8 @@ public final class ServerTicks {
         }
         // Tournaments' clocks, on the same one real tick both loaders already call here.
         dev.gathering.server.events.Events.tick(server);
+        // Seats kept for players away from the board, which run out.
+        AwayFromBoard.tick(server);
         if (WAITING.isEmpty()) {
             return;
         }

@@ -1697,6 +1697,42 @@ Verified: gate green (555/16). **Not verified:** two real players - the single-p
 second player down, so the question arriving from a real chair, and the gold line reaching a second
 client, are covered by in-world tests only.
 
+### Eighth batch: away from the board (2026-09-15)
+
+The owner's rule: getting up without conceding keeps the seat for eight minutes, nobody else may sit
+there, the player may give it up early, and the others may vote it free - unanimously, and only in a
+game of four or more.
+
+- **Kept.** Getting out of a chair (standing up, knocked out, the chair gone) in the middle of a game
+  the player has not conceded, with cards on their board or a deck down - or between games of a match
+  with their deck held - keeps the seat instead of giving it up (`AwayFromBoard.keepsTheSeat`, from
+  `Chairs.gotUp`). The player and the table are told. Anybody sitting in that chair is refused with who
+  is away and how long is left. Sitting back down carries on and the table is told.
+- **Freed.** When the eight minutes run out (checked once a second on the server tick); when the player
+  chooses Leave table or concedes; or when every other player seated at the table, online and not away
+  themselves, votes to free it from the table's menu - a game of four or more only
+  (`AwayVotePayload`). The deck the table holds goes back to its owner wherever they are
+  (`TableBlock.giveUpSeat`, which works for a player who has left the server).
+- **A seat given up may be taken with its board.** The UA-01 rule stays for a seat left behind (a chair
+  knocked away, a player gone from the server): its board waits for its owner. A seat given up - time,
+  vote, Leave table or conceding while away - is marked, and the next player to sit there takes it
+  board and all, hand included. This is a judgment call; the alternative is a board nobody can ever
+  play again. Asked of the owner below.
+- **Shown.** Beside every board a player is sent: which seats are kept, seconds left, votes and whether
+  this player may vote (`TableAwayPayload`). The top row reads "(away 7:42)" and its tooltip the time
+  and the votes; the table's menu has "Vote to free X's seat (1 of 3)". Photo `05a` looked at.
+- Not saved: after a restart a player who was away keeps the seat as a player who left the server does.
+  Leaving the server while away does not stop the clock.
+- The tour's harness holds its seat without a chair; it now clears the kept seat so the eight minutes do
+  not run out partway through the tour. Protocol 19. Guide, design brief updated.
+- Tests: `AwayFromBoardGameTest` (4) - kept and refused to another, back in the chair; freed at eight
+  minutes and not before, and taken by the next player with the board; freed by the third of three
+  votes at a game of four and not before; one vote at a game of two frees nothing. Shown failing with
+  getting up giving the seat up, with the given-up mark ignored, with the four-player limit removed, and
+  with one vote enough.
+
+Verified: gate green (559/16); tour steps 0-30, no failures. **Not verified with two real clients.**
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,
@@ -1704,6 +1740,11 @@ client, are covered by in-world tests only.
    because the game number stayed on the last game; it now ends the match, drawn.
 2. **Appendix E runs 9-16 players as five Swiss rounds and a top 4** unless the playoff is a
    booster draft; the mod plays four, with the host choosing the cut.
+4. **A seat freed while its player was away: take it with the board, or clear it?** Today the next
+   player to sit there plays the board as it is, hand included. The other choice is to put that board's
+   cards away when the seat is freed.
+5. **Left-clicking a card out of a collection with a deck in hand puts it in the deck** (the owner's
+   item 8). It is intentional and the footer says so; say if it should go to the inventory instead.
 3. **Are starter boosters a welcome grant or a completion reward?** `StarterBoosters` enforces
    one grant per player per world but never checks that the tutorial was finished, and a valid
    `StarterPayload` can ask for them directly. Either answer is fine; the code should say which.

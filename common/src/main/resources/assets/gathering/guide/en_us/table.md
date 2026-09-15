@@ -9,6 +9,7 @@ A table is three blocks by three and seats two, facing each other. Push tables t
 - A chair against any other part of a table watches: you see the game and play no part in it.
 - Sitting down at a free seat of a game already on asks first: **Join** it, or **Watch**. Right-click the table from that chair to be asked again.
 - Crouch to get up, which gives up the seat. While a game is on you can also open the table's menu and choose **Leave table**.
+- Getting up in the middle of a game you have not conceded keeps your seat for 8 minutes, and nobody else can sit there. Sit back down to carry on, or choose **Leave table** or concede to give it up. In a game of four or more, the other players can free the seat sooner if every one of them votes to, from the table's menu.
 
 ## Starting a game
 

@@ -120,6 +120,39 @@ public final class ClientTableState {
         }
     }
 
+    /** Seats kept for players away from the board, by table, with when this client was told. */
+    private static final Map<BlockPos, AwaySeats> AWAY = new ConcurrentHashMap<>();
+
+    /** The seats kept at a table, as the server last said, and the moment it said so. */
+    public record AwaySeats(java.util.List<dev.gathering.network.TableAwayPayload.Away> seats, long toldAtMillis) {
+
+        /** The kept seat at this index, if it is one. */
+        public Optional<dev.gathering.network.TableAwayPayload.Away> seat(int index) {
+            return seats.stream().filter(away -> away.seat() == index).findFirst();
+        }
+
+        /** How many seconds are left on a kept seat now, counting down from when the server said. */
+        public int secondsLeft(dev.gathering.network.TableAwayPayload.Away away, long nowMillis) {
+            return (int) Math.max(0, away.secondsLeft() - (nowMillis - toldAtMillis) / 1000);
+        }
+    }
+
+    public static Optional<AwaySeats> awayAt(BlockPos table) {
+        return table == null ? Optional.empty() : Optional.ofNullable(AWAY.get(table));
+    }
+
+    /** Which seats the server says are kept for players away from the board here. */
+    public static void acceptAway(BlockPos table, java.util.List<dev.gathering.network.TableAwayPayload.Away> seats) {
+        if (table == null) {
+            return;
+        }
+        if (seats.isEmpty()) {
+            AWAY.remove(table);
+        } else {
+            AWAY.put(table.immutable(), new AwaySeats(java.util.List.copyOf(seats), System.currentTimeMillis()));
+        }
+    }
+
     /** What the server says is in the pot here. */
     public static void acceptPot(BlockPos table, java.util.List<dev.gathering.item.CardComponent> cards) {
         if (table == null) {
@@ -195,6 +228,7 @@ public final class ClientTableState {
     public static void forget(BlockPos table) {
         POTS.remove(table);
         TERMS.remove(table);
+        AWAY.remove(table);
         BOARDS.remove(table);
         ClientCardFlights.forget(table);
         ClientTableNews.forget(table);
@@ -212,6 +246,7 @@ public final class ClientTableState {
     public static void clear() {
         POTS.clear();
         TERMS.clear();
+        AWAY.clear();
         BOARDS.clear();
         ClientCardFlights.clear();
         ClientTableNews.clear();

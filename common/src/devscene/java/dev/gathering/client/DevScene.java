@@ -166,6 +166,8 @@ public final class DevScene {
     private static List<CardInstanceId> cardsTheVerbSearchWillMove = List.of();
     private static boolean asked;
     private static boolean committed;
+    /** Whether the seated board has been shown with a seat kept for a player away from it. */
+    private static boolean awayShown;
 
     /** How far through choosing a game from the chair step 8 is. */
     private static int opening;
@@ -433,7 +435,23 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 11 -> {
-                shoot(client, "05-with-a-hand");
+                if (!awayShown) {
+                    // A seat kept for a player away from the board, as the top row shows it: this player's own, with
+                    // the time left and the votes to free it. Put the way the server sends it, since a one-player
+                    // tour has nobody to get up while others play.
+                    awayShown = true;
+                    shoot(client, "05-with-a-hand");
+                    if (table != null) {
+                        ClientTableState.acceptAway(table, java.util.List.of(
+                                new dev.gathering.network.TableAwayPayload.Away(0, 7 * 60 + 42, 1, 3, false)));
+                    }
+                    waited = A_MOMENT;
+                    return;
+                }
+                shoot(client, "05a-a-seat-kept-while-away");
+                if (table != null) {
+                    ClientTableState.acceptAway(table, java.util.List.of());
+                }
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
@@ -8439,6 +8457,9 @@ public final class DevScene {
             if (held != null) {
                 TableBlock.sitAt(server.overworld(), where, held.cell(), held.side(), player);
             }
+            // Getting up mid-game keeps the seat for a player away from the board, for eight minutes; the tour
+            // is longer than that, and holds the seat as an event does, so nothing is kept to run out.
+            dev.gathering.server.AwayFromBoard.forget(server.overworld(), where, player.getUUID());
             System.out.println("[devscene] out of the chair, still seated at " + TableSeats.seatOf(server.overworld(), where, player.getUUID()));
         });
     }

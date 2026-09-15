@@ -67,6 +67,9 @@ public final class PlayerGone {
         TableActions.forget(player.getUUID());
         ActionBudget.forgetShared(player.getUUID());
 
+        // AwayFromBoard is deliberately NOT forgotten here either: a seat kept for somebody away from the
+        // board goes on being kept while they are off the server, and its clock goes on running.
+
         // StarterBoosters is deliberately NOT forgotten here, and this comment is what says
         // so - the check next door looks for the name rather than the call. Everything else
         // on this list is a cache about a player who has gone; that one is a record that they

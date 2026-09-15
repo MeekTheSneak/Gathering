@@ -3063,7 +3063,14 @@ public final class TableScreen extends Screen {
         }
         lines.add(Component.translatable("screen.gathering.table.seat_marked", mark, SeatNames.of(seat))
                 .withColor(SeatColor.at(seat.seat().index(), 0xFF)));
-        if (seat.occupant().isEmpty()) {
+        var kept = ClientTableState.awayAt(table).flatMap(away -> away.seat(seat.seat().index()));
+        if (kept.isPresent()) {
+            lines.add(Component.translatable("screen.gathering.table.seat_tip.afb", clock(keptFor(seat).orElse(0))));
+            if (kept.get().needed() > 0) {
+                lines.add(Component.translatable("screen.gathering.table.seat_tip.afb_votes",
+                        kept.get().votes(), kept.get().needed()));
+            }
+        } else if (seat.occupant().isEmpty()) {
             lines.add(Component.translatable("screen.gathering.table.seat_tip.away"));
         }
         lines.add(Component.translatable("screen.gathering.table.seat_tip.life", seat.life()));
@@ -3073,6 +3080,17 @@ public final class TableScreen extends Screen {
             lines.add(Component.literal(describeCounters(seat)));
         }
         return lines;
+    }
+
+    /** How many seconds are left on this seat, if it is kept for a player away from the board. */
+    private Optional<Integer> keptFor(SeatView seat) {
+        return ClientTableState.awayAt(table).flatMap(away -> away.seat(seat.seat().index())
+                .map(kept -> away.secondsLeft(kept, System.currentTimeMillis())));
+    }
+
+    /** Seconds as minutes and seconds: 7:05. */
+    private static String clock(int seconds) {
+        return (seconds / 60) + ":" + String.format(java.util.Locale.ROOT, "%02d", seconds % 60);
     }
 
     /** What the top row said about the turn and the table on the last frame, for the scripted run. */
@@ -3104,10 +3122,13 @@ public final class TableScreen extends Screen {
                             Component.translatable("screen.gathering.table.free_seat_short")));
         }
         // Said plainly when nobody is in the chair, because a name in this row otherwise means
-        // somebody is sitting behind those cards and answering.
-        Component away = seat.occupant().isEmpty()
-                ? Component.translatable("screen.gathering.table.seat_away")
-                : Component.empty();
+        // somebody is sitting behind those cards and answering - and with how long is left, for a
+        // seat kept for a player away from the board.
+        Component away = keptFor(seat)
+                .<Component>map(seconds -> Component.translatable("screen.gathering.table.seat_afb", clock(seconds)))
+                .orElse(seat.occupant().isEmpty()
+                        ? Component.translatable("screen.gathering.table.seat_away")
+                        : Component.empty());
         String name = SeatNames.of(seat).getString();
 
         MutableComponent full = Component.translatable(
@@ -5210,6 +5231,18 @@ public final class TableScreen extends Screen {
                     Component.translatable("menu.gathering.table.replay_tutorial"),
                     () -> this.minecraft.setScreen(TableScreen.learning(table))));
         }
+        // A vote to free each seat kept for a player away from the board, where this player may vote on it:
+        // every other player at a game of four or more has to, for the seat to be freed.
+        ClientTableState.awayAt(table).ifPresent(away -> view().ifPresent(board -> {
+            for (dev.gathering.network.TableAwayPayload.Away kept : away.seats()) {
+                if (kept.mayVote()) {
+                    entries.add(ContextMenu.Entry.of(
+                            Component.translatable("menu.gathering.table.free_seat",
+                                    SeatNames.of(board, SeatId.of(kept.seat())), kept.votes(), kept.needed()),
+                            () -> ClientNetworking.send(new dev.gathering.network.AwayVotePayload(table, kept.seat()))));
+                }
+            }
+        }));
         entries.add(ContextMenu.Entry.rule());
         // The one verb that ends a game. Everything else the table does is a move somebody can
         // make again; this one settles the match, records the score and takes the board away,

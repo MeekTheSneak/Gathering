@@ -141,7 +141,14 @@ public final class TableActions {
         if (event instanceof GameEvent.TurnPassed) {
             dev.gathering.server.events.Events.turnPassed(level, origin);
         }
+        if (event instanceof GameEvent.Conceded) {
+            // Away from the board and conceding: the seat kept for them is given up.
+            AwayFromBoard.conceded(level, origin, player.getUUID());
+        }
         if (event instanceof GameEvent.SeatReleased released) {
+            // Leave table gives the seat up, board and all: the next player may sit down at it. A seat that was
+            // only left behind - a chair knocked away, a player gone from the server - still waits for its owner.
+            AwayFromBoard.leftTheSeat(level, origin, player.getUUID(), released.actor().index());
             TableSeats.leave(level, origin, player.getUUID());
             // And their deck comes with them. Leaving the table is the moment a player means
             // "I am done, give me my cards", and it used to give them nothing: a deck came

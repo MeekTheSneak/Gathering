@@ -195,6 +195,8 @@ public final class TableBroadcast {
             // everybody who can see the board.
             Sending.to(player, new dev.gathering.network.TableTermsPayload(tableOrigin,
                     termsAt(player.serverLevel(), tableOrigin)));
+            // And whose seats are kept for them while they are away from the board, and the votes to free them.
+            Sending.to(player, AwayFromBoard.viewFor(player.serverLevel(), tableOrigin, player.getUUID()));
             // And the pictures for what is in it. A client only ever asked about cards in its
             // own inventory, so a rival's graveyard opened onto empty recesses under a count
             // that said there was something there. Sent from the view rather than asked for,

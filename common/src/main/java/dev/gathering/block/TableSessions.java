@@ -540,7 +540,8 @@ public final class TableSessions {
                 session.submit(new GameEvent.SeatReleased(seat));
             }
             PlayerRef whoseBoard = session.state().seatState(seat).whoseBoard().orElse(null);
-            if (sittingThere != null && whoseBoard != null && !whoseBoard.id().equals(sittingThere.id())) {
+            if (sittingThere != null && whoseBoard != null && !whoseBoard.id().equals(sittingThere.id())
+                    && !dev.gathering.server.AwayFromBoard.wasGivenUp(level, tableOrigin, index, whoseBoard.id())) {
                 // Somebody else's board, mid-game: its hand, its library and its face-down
                 // cards. Taking the seat would show all of them to whoever sat in the chair,
                 // so they sit and watch instead; the seat is played by the person whose cards
@@ -603,7 +604,8 @@ public final class TableSessions {
             return false;
         }
         PlayerRef owner = state.seatState(seat).whoseBoard().orElse(null);
-        if (owner == null || owner.id().equals(player)) {
+        if (owner == null || owner.id().equals(player)
+                || dev.gathering.server.AwayFromBoard.wasGivenUp(level, tableOrigin, seatIndex, owner.id())) {
             return false;
         }
         for (dev.gathering.core.game.Zone zone : dev.gathering.core.game.Zone.values()) {
