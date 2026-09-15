@@ -240,8 +240,15 @@ public class TableBlock extends BaseEntityBlock {
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock()) && !level.isClientSide()) {
-            TableBlockEntity carried = tearingDown(level, pos, state)
-                    .flatMap(table -> dev.gathering.server.TableCustody.carriedTo(table)).orElse(null);
+            // Carried if this table's own block entity was, or the one keeping its cluster's game was.
+            // Each table of a long table is written down and moved; the game is kept on the first.
+            BlockPos from = originOf(state, pos);
+            TableBlockEntity own = level.getBlockEntity(from) instanceof TableBlockEntity table ? table : null;
+            TableBlockEntity ownCopy = own == null ? null : dev.gathering.server.TableCustody.carriedTo(own).orElse(null);
+            TableBlockEntity keeping = tearingDown(level, pos, state).orElse(null);
+            TableBlockEntity keepingCopy = keeping == null || keeping == own ? null
+                    : dev.gathering.server.TableCustody.carriedTo(keeping).orElse(null);
+            TableBlockEntity carried = ownCopy != null ? ownCopy : keepingCopy;
             if (carried != null) {
                 // Carried off whole - a Sable ship assembled around it - with its game, decks and pot
                 // already loaded on the copy where it went. Handing them back here as well would make
@@ -250,7 +257,10 @@ public class TableBlock extends BaseEntityBlock {
                 if (level instanceof net.minecraft.server.level.ServerLevel server) {
                     dev.gathering.server.TableBroadcast.closeAtTable(server, originOf(state, pos));
                     if (carried.getLevel() == server) {
-                        dev.gathering.server.TableCustody.moved(server, originOf(state, pos), carried.getBlockPos());
+                        // Where this table's own copy went; failing that, as far as its cluster's first did.
+                        BlockPos to = ownCopy != null ? ownCopy.getBlockPos()
+                                : keepingCopy.getBlockPos().offset(from.subtract(keeping.getBlockPos()));
+                        dev.gathering.server.TableCustody.moved(server, from, to);
                     }
                 }
                 super.onRemove(state, level, pos, newState, moved);

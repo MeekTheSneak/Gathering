@@ -430,7 +430,9 @@ public final class Events {
         String dimension = level.dimension().location().toString();
         for (EventState state : events().values()) {
             int index = dimension.equals(state.dimension) ? state.tables.indexOf(from) : -1;
-            if (index >= 0) {
+            // Never onto a table the event already lists: two numbers for one table is worse than one
+            // stale entry, which the event already copes with as a table gone.
+            if (index >= 0 && !state.tables.contains(to)) {
                 state.tables.set(index, to.immutable());
                 changed(level.getServer(), state);
             }

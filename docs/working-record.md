@@ -400,7 +400,14 @@ block with no block entity, and the table's game ends and hands back once on the
 or doubled, but the match is over, and a dropped deck lands in the ship's region); an ante question
 (`Antes.ASKING`) and the event's table list kept the old position - **since fixed**: a carried table
 moves both (`TableCustody.moved`), so a tournament table carried onto a ship keeps its number (gate test
-`aCarriedTableStaysInItsTournament`, proved failing; pack test `aTournamentTableCarriedOffKeepsItsNumber`).
+`aCarriedTableStaysInItsTournament`, proved failing; pack test `aTournamentTableCarriedOffKeepsItsNumber`). A review of that
+found a long table (two joined, one game kept on the first) could be listed twice after a carry, its
+second table moved onto the first's new spot when a block of the second was cleared while the first still
+stood. Each table now moves to where its own copy went (the first's, offset, only when it has none), and
+never onto a position the event already lists. Guard `aCarriedLongTableKeepsBothNumbers` clears the
+second table's corners first; proved failing with the move taken from the first table's copy. Open, ops
+only: a command block cloning a table every tick and a player breaking the original that tick would
+count as a carry (nothing handed back; the clone holds the keeping).
 
 **Fabric tour (2026-09-15).** `:fabric:runClient -Pdevscene` after tonight's client changes: reached step
 344 of 344, `[devscene] failures: 0`. Its world is now cleared before each run as NeoForge's is.

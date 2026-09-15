@@ -112,6 +112,45 @@ public final class EventBoardGameTest {
         helper.succeed();
     }
 
+    /**
+     * The same for a long table - two joined, both numbered - carried with the second table's blocks
+     * cleared first: each keeps its own number where it went, rather than both becoming the first.
+     */
+    @GameTest(template = "empty")
+    public static void aCarriedLongTableKeepsBothNumbers(GameTestHelper helper) {
+        BlockPos first = place(helper, 1, 2, 1);
+        BlockPos second = place(helper, 3, 2, 1);
+        var tournament = Tournament.create(UUID.randomUUID(), "Long", new UUID(7L, 8L),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(first, second));
+        Events.putForTesting(state);
+        try {
+            // Both tables written down and loaded where they went, as a mover does with every block entity.
+            var firstSaved = helper.getLevel().getBlockEntity(first).saveWithFullMetadata(helper.getLevel().registryAccess());
+            var secondSaved = helper.getLevel().getBlockEntity(second).saveWithFullMetadata(helper.getLevel().registryAccess());
+            BlockPos firstThere = place(helper, 1, 2, 7);
+            BlockPos secondThere = place(helper, 3, 2, 7);
+            helper.getLevel().getBlockEntity(firstThere).loadWithComponents(firstSaved, helper.getLevel().registryAccess());
+            helper.getLevel().getBlockEntity(secondThere).loadWithComponents(secondSaved, helper.getLevel().registryAccess());
+            // The second table's corners before its origin, while the first still stands - so the second's
+            // blocks find the long table's game kept on the first, not on themselves.
+            for (BlockPos origin : List.of(second, first)) {
+                List<TablePart> parts = new java.util.ArrayList<>(List.of(TablePart.values()));
+                java.util.Collections.reverse(parts);
+                for (TablePart part : parts) {
+                    helper.getLevel().setBlock(part.offsetFrom(origin), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+            if (!state.tables.equals(List.of(firstThere, secondThere))) {
+                helper.fail("a long table carried off is listed at " + state.tables + ", not " + List.of(firstThere, secondThere));
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
     /** For the tests of other mods' boards: the same event, from outside this package. */
     public static EventState fourPlayerEventForCompat(GameTestHelper helper, BlockPos table) {
         return fourPlayerEvent(helper, table);

@@ -93,6 +93,11 @@ Stated plainly, because a compatibility claim nobody has run is worse than none:
   airship. On a client the seated camera, the pointer on the felt and the seat marker follow where
   Sable draws the structure each frame (its render pose), not where it is this tick, so they move
   with the ship rather than a tick ahead of it; nobody has sat at a table on a flying one yet.
+  A table carried onto a ship takes everything with it once: the game being played, the decks held
+  for it and any staked pot go aboard, nothing is handed back where it stood, and a tournament's
+  table keeps its number. Set back down, the same. A Scorekeeper's Desk takes signing up with it.
+  One known gap: a ship set down **rotated** ends a table's game (handing everything back once on the
+  ship), because the table's corners change roles as they turn.
 - **Create (6.0.10) display boards:** a Display Link against a Scorekeeper's Desk offers
   *Tournament*, set in the link's own settings to show the standings, pairings, round and clock,
   final places, prizes or sign-ups of the tournament the desk runs. Against a table it offers
