@@ -86,6 +86,32 @@ public final class EventBoardGameTest {
         helper.succeed();
     }
 
+    /**
+     * A tournament's table carried somewhere - its data loaded where it went and the old table cleared
+     * in the same tick, as any mover does it - is still that tournament's table, with its number.
+     */
+    @GameTest(template = "empty")
+    public static void aCarriedTableStaysInItsTournament(GameTestHelper helper) {
+        BlockPos table = place(helper, 1, 2, 1);
+        EventState state = fourPlayerEvent(helper, table);
+        try {
+            var saved = TableBlock.entityAt(helper.getLevel(), table).orElseThrow()
+                    .saveWithFullMetadata(helper.getLevel().registryAccess());
+            BlockPos there = place(helper, 5, 2, 5);
+            TableBlock.entityAt(helper.getLevel(), there).orElseThrow().loadWithComponents(saved, helper.getLevel().registryAccess());
+            for (TablePart part : TablePart.values()) {
+                helper.getLevel().setBlock(part.offsetFrom(table), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (!state.tables.equals(List.of(there))) {
+                helper.fail("the tournament lists its table at " + state.tables + " after it was carried to " + there);
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
     /** For the tests of other mods' boards: the same event, from outside this package. */
     public static EventState fourPlayerEventForCompat(GameTestHelper helper, BlockPos table) {
         return fourPlayerEvent(helper, table);

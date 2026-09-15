@@ -41,13 +41,33 @@ public final class TableCustody {
 
     /** Whether another loaded table, somewhere else, carries this one's identity: this one was moved. */
     public static boolean carriedElsewhere(TableBlockEntity table) {
+        return carriedTo(table).isPresent();
+    }
+
+    /** The table this one was carried to, if it was. */
+    public static java.util.Optional<TableBlockEntity> carriedTo(TableBlockEntity table) {
         WeakReference<TableBlockEntity> held = LOADED.get(table.custody());
         TableBlockEntity other = held == null ? null : held.get();
-        return other != null && other != table && !other.isRemoved()
+        return java.util.Optional.ofNullable(other).filter(copy -> isCarriedCopy(table, copy));
+    }
+
+    private static boolean isCarriedCopy(TableBlockEntity table, TableBlockEntity other) {
+        return other != table && !other.isRemoved()
                 && (other.getLevel() != table.getLevel() || !other.getBlockPos().equals(table.getBlockPos()))
                 // And made from this table's own latest save this tick, which is what a move is. A copy
                 // that shares the identity any other way - pasted, cloned, picked in creative - is not.
                 && table.wasCarriedTo(other);
+    }
+
+    /**
+     * A table has been carried from {@code from} to {@code to} in the same level: what the server keeps
+     * by a table's position follows it - the tournaments it is numbered in, and an ante question put
+     * to the people at it.
+     */
+    public static void moved(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos from,
+            net.minecraft.core.BlockPos to) {
+        dev.gathering.server.events.Events.tableCarried(level, from, to);
+        Antes.tableCarried(level, from, to);
     }
 
     /** For a server that is stopping. */

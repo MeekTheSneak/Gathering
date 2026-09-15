@@ -68,6 +68,14 @@ public final class Antes {
     private record Asking(AnteConsent consent, MatchRules rules, boolean formatChosen) {
     }
 
+    /** A table carried elsewhere in the same world: the question open at it goes with it. */
+    public static void tableCarried(ServerLevel level, BlockPos from, BlockPos to) {
+        Asking open = ASKING.remove(Where.of(level, from));
+        if (open != null) {
+            ASKING.put(Where.of(level, to), open);
+        }
+    }
+
     private Antes() {
     }
 

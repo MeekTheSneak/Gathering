@@ -127,6 +127,32 @@ public final class SableTablesGameTest {
         helper.succeed();
     }
 
+    /** A tournament's table carried into a structure is still that tournament's table, with its number. */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    public static void aTournamentTableCarriedOffKeepsItsNumber(GameTestHelper helper) {
+        BlockPos placed = place(helper, 2, 2, 2);
+        EventState state = EventBoardGameTest.fourPlayerEvent(helper, placed);
+        try {
+            Assembled assembled = assemble(helper, placed);
+            if (assembled == null) {
+                return;
+            }
+            System.out.println("[sable] a carried tournament table is numbered at " + state.tables);
+            if (!state.tables.equals(List.of(assembled.table()))) {
+                helper.fail("the tournament lists its table at " + state.tables + ", not where it was carried to at "
+                        + assembled.table());
+                return;
+            }
+            if (EventBoard.at(helper.getLevel(), assembled.table()).map(EventBoard.Board::thisTable).orElse(0) != 1) {
+                helper.fail("the carried table is no longer table 1 of its tournament");
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
     /** A Scorekeeper's Desk carried into a structure takes signing up with it, to where it went. */
     @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
     public static void aDeskCarriedOffTakesSigningUpWithIt(GameTestHelper helper) {

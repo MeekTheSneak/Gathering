@@ -425,6 +425,18 @@ public final class Events {
         EventViews.show(player, state, true);
     }
 
+    /** A table carried from one place to another: the events it is numbered in follow it. */
+    public static void tableCarried(ServerLevel level, BlockPos from, BlockPos to) {
+        String dimension = level.dimension().location().toString();
+        for (EventState state : events().values()) {
+            int index = dimension.equals(state.dimension) ? state.tables.indexOf(from) : -1;
+            if (index >= 0) {
+                state.tables.set(index, to.immutable());
+                changed(level.getServer(), state);
+            }
+        }
+    }
+
     /** A desk that has just arrived somewhere, copied from one standing elsewhere this tick. */
     private record DeskArrival(String dimension, BlockPos from, BlockPos to, long tick) {
     }
