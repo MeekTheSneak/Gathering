@@ -3300,6 +3300,10 @@ public final class DevScene {
                 advance(SETTLE * 2);
             }
             case 296 -> {
+                if (client.player != null) {
+                    // Off the finished-lesson list, so the lesson below is what puts them back on it.
+                    dev.gathering.server.LessonRecords.unfinishForTesting(client.player.getUUID());
+                }
                 shoot(client, "92-the-zombie-shopkeeper");
                 advance(SETTLE / 2);
             }
@@ -3450,6 +3454,14 @@ public final class DevScene {
                 // on it, so what the colors hand back to is the screen that starts one.
                 expectScreen(client, "taking the two colors", TableSetupScreen.class);
                 nothingWasKeptFromPractice(client);
+                // What the starter boosters are for: the server has this player down as having finished the lesson,
+                // told by the client as it ended. Taken off the list before the lesson began, so a list left over
+                // from an earlier run cannot answer for this one.
+                if (client.player != null && !dev.gathering.server.LessonRecords.finished(client.player.getUUID())) {
+                    fail("the server does not have the player down as having finished the lesson they just finished");
+                } else {
+                    System.out.println("[devscene] the server has the lesson down as finished");
+                }
                 advance(SETTLE / 2);
             }
             case 315 -> {

@@ -4,10 +4,6 @@ import dev.gathering.core.card.MagicColor;
 import dev.gathering.item.PackComponent;
 import dev.gathering.item.PackItem;
 import dev.gathering.service.ServerSettings;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -38,21 +34,12 @@ public final class StarterBoosters {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
 
-    /** Where the list of who has had theirs lives, inside the save like everything owed. */
-    private static final String FOLDER = "starter";
-
-    private static final String FILE = "given.txt";
-
-    private static final String HEADING =
-            "# Players who have been given their two starter boosters. One id to a line.";
-
     /**
-     * A ceiling, so a server that has gone wrong cannot write a file without end.
-     * <p>Far past any real player count. Past it nothing more is given, which is the safe
-     * direction: the failure is somebody not getting two boosters rather than everybody
-     * getting them again.
+     * Who has had theirs, inside the save like everything owed. Past its ceiling nothing more is given, which is
+     * the safe direction: the failure is somebody not getting two boosters rather than everybody getting them again.
      */
-    private static final int MOST_REMEMBERED = 100_000;
+    private static final SavedPlayerList GIVEN = new SavedPlayerList("starter", "given.txt",
+            "# Players who have been given their two starter boosters. One id to a line.");
 
     private StarterBoosters() {
     }
@@ -69,6 +56,9 @@ public final class StarterBoosters {
         /** This server hands out no starter at all. */
         TURNED_OFF,
 
+        /** They have not finished the guided first game on this world. */
+        LESSON_NOT_FINISHED,
+
         /** The set they would come from is not one this server can open. */
         NO_SUCH_SET,
 
@@ -83,6 +73,7 @@ public final class StarterBoosters {
                 case GIVEN -> "message.gathering.starter_given";
                 case ALREADY -> "message.gathering.starter_already";
                 case TURNED_OFF -> "message.gathering.starter_off";
+                case LESSON_NOT_FINISHED -> "message.gathering.starter_needs_lesson";
                 case NOT_TWO_COLORS -> "message.gathering.starter_off";
                 case NO_SUCH_SET, COULD_NOT_RECORD -> "message.gathering.starter_unavailable";
             };
@@ -117,7 +108,12 @@ public final class StarterBoosters {
         if (alreadyHad(player.getUUID())) {
             return Outcome.ALREADY;
         }
-        if (!writeDown(player.getUUID())) {
+        // For finishing the lesson, which the server holds the client's word about to the shape of a lesson
+        // really played: see LessonRecords.
+        if (!LessonRecords.finished(player.getUUID())) {
+            return Outcome.LESSON_NOT_FINISHED;
+        }
+        if (!GIVEN.add(player.getUUID())) {
             LOGGER.error("Could not write down that {} had their starter boosters, so they"
                     + " were not handed over", player.getUUID());
             return Outcome.COULD_NOT_RECORD;
@@ -139,66 +135,12 @@ public final class StarterBoosters {
         return Outcome.GIVEN;
     }
 
-    /** Whether this player has already been given theirs. */
+    /** Whether this player has already been given theirs. A list that cannot be read says yes: see below. */
     public static boolean alreadyHad(UUID player) {
-        if (player == null) {
-            return true;
-        }
-        Path list = file().orElse(null);
-        if (list == null || !Files.isRegularFile(list)) {
-            return false;
-        }
-        try {
-            String wanted = player.toString();
-            for (String line : Files.readAllLines(list, StandardCharsets.UTF_8)) {
-                if (wanted.equals(line.strip())) {
-                    return true;
-                }
-            }
-            return false;
-        } catch (IOException couldNotRead) {
-            // A list that cannot be read is treated as "they have had theirs", which is the
-            // safe direction: the cost is one player asking an operator, and the cost of the
-            // other answer is everybody on the server being given two boosters a minute.
-            LOGGER.error("Could not read who has had their starter boosters: {}",
-                    couldNotRead.getMessage());
-            return true;
-        }
-    }
-
-    /** Adds a player to the list, and says whether it is safely on disk. */
-    private static boolean writeDown(UUID player) {
-        Path list = file().orElse(null);
-        if (list == null) {
-            return false;
-        }
-        try {
-            List<String> lines = Files.isRegularFile(list)
-                    ? new java.util.ArrayList<>(Files.readAllLines(list, StandardCharsets.UTF_8))
-                    : new java.util.ArrayList<>(List.of(HEADING));
-            if (lines.size() > MOST_REMEMBERED) {
-                LOGGER.error("The starter list has passed {} lines; nothing more is being"
-                        + " handed out until somebody looks at it", MOST_REMEMBERED);
-                return false;
-            }
-            lines.add(player.toString());
-            Files.createDirectories(list.getParent());
-            // Through a temporary file and a move, so a crash mid-write leaves the old list
-            // rather than half of a new one. The same rule the owed ledger follows.
-            Path writing = list.resolveSibling(list.getFileName() + ".writing");
-            Files.write(writing, lines, StandardCharsets.UTF_8);
-            Files.move(writing, list,
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-            return true;
-        } catch (IOException | UnsupportedOperationException couldNotWrite) {
-            LOGGER.error("Could not write the starter list: {}", couldNotWrite.getMessage());
-            return false;
-        }
-    }
-
-    private static java.util.Optional<Path> file() {
-        return ServerRun.inSave(FOLDER).map(folder -> folder.resolve(FILE));
+        // A list that cannot be read is treated as "they have had theirs", which is the safe direction: the cost
+        // is one player asking an operator, and the cost of the other answer is everybody on the server being
+        // given two boosters a minute.
+        return player == null || GIVEN.contains(player, true);
     }
 
     /**
@@ -207,29 +149,7 @@ public final class StarterBoosters {
      * reachable from anything a player can do.
      */
     public static boolean forget(UUID player) {
-        Path list = file().orElse(null);
-        if (list == null || player == null || !Files.isRegularFile(list)) {
-            return false;
-        }
-        try {
-            String wanted = player.toString();
-            List<String> kept = new java.util.ArrayList<>();
-            boolean found = false;
-            for (String line : Files.readAllLines(list, StandardCharsets.UTF_8)) {
-                if (wanted.equals(line.strip())) {
-                    found = true;
-                } else {
-                    kept.add(line);
-                }
-            }
-            if (found) {
-                Files.write(list, kept, StandardCharsets.UTF_8);
-            }
-            return found;
-        } catch (IOException couldNotWrite) {
-            LOGGER.error("Could not forget a starter: {}", couldNotWrite.getMessage());
-            return false;
-        }
+        return GIVEN.remove(player);
     }
 
     /**

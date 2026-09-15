@@ -38,12 +38,89 @@ public final class StarterBoostersGameTest {
         return found;
     }
 
-    /** Runs a check and then takes this player back off the starter list. */
+    /**
+     * Runs a check for a player who has finished the lesson, which is what the packs are for, and then takes them
+     * back off both lists.
+     */
     private static void forgetting(UUID who, Runnable check) {
+        dev.gathering.server.LessonRecords.finishedForTesting(who);
         try {
             check.run();
         } finally {
             StarterBoosters.forget(who);
+            dev.gathering.server.LessonRecords.unfinishForTesting(who);
+        }
+    }
+
+    /**
+     * No lesson finished on this world, no packs: the owner's rule. Asked straight for them, the way a request
+     * sent without playing the lesson asks, the answer is to go and play it.
+     */
+    @GameTest(template = "empty")
+    public static void nopacksbeforethelessonisfinished(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.getInventory().clearContent();
+        StarterBoosters.forget(player.getUUID());
+        dev.gathering.server.LessonRecords.unfinishForTesting(player.getUUID());
+        try {
+            StarterBoosters.Outcome how = StarterBoosters.give(player, List.of(MagicColor.RED, MagicColor.GREEN));
+            if (how != StarterBoosters.Outcome.LESSON_NOT_FINISHED || packsCarriedBy(player) != 0) {
+                helper.fail("asking for the starter packs without finishing the lesson answered " + how
+                        + " and handed over " + packsCarriedBy(player));
+                return;
+            }
+            helper.succeed();
+        } finally {
+            StarterBoosters.forget(player.getUUID());
+        }
+    }
+
+    /**
+     * A lesson is written down as finished only when it began, took at least the time the steps take, and had
+     * every step done - not on a finish nobody began, one sent straight after beginning, or one with a step
+     * missing.
+     */
+    @GameTest(template = "empty")
+    public static void onlyALessonReallyPlayedIsWrittenDown(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        UUID id = player.getUUID();
+        dev.gathering.server.LessonRecords.unfinishForTesting(id);
+        List<String> every = java.util.Arrays.stream(dev.gathering.core.tutorial.TutorialStep.values()).map(Enum::name).toList();
+        long[] now = {1_000L};
+        var was = dev.gathering.server.LessonRecords.clock;
+        dev.gathering.server.LessonRecords.clock = () -> now[0];
+        try {
+            dev.gathering.server.LessonRecords.handle(player, new dev.gathering.network.LessonPayload(true, every));
+            if (dev.gathering.server.LessonRecords.finished(id)) {
+                helper.fail("a finish to a lesson that never began was written down");
+                return;
+            }
+            dev.gathering.server.LessonRecords.handle(player, new dev.gathering.network.LessonPayload(false, List.of()));
+            now[0] += 5 * 20;
+            dev.gathering.server.LessonRecords.handle(player, new dev.gathering.network.LessonPayload(true, every));
+            if (dev.gathering.server.LessonRecords.finished(id)) {
+                helper.fail("a lesson finished five seconds after it began was written down");
+                return;
+            }
+            dev.gathering.server.LessonRecords.handle(player, new dev.gathering.network.LessonPayload(false, List.of()));
+            now[0] += 60 * 20;
+            dev.gathering.server.LessonRecords.handle(player,
+                    new dev.gathering.network.LessonPayload(true, every.subList(0, every.size() - 1)));
+            if (dev.gathering.server.LessonRecords.finished(id)) {
+                helper.fail("a lesson finished with a step missing was written down");
+                return;
+            }
+            dev.gathering.server.LessonRecords.handle(player, new dev.gathering.network.LessonPayload(false, List.of()));
+            now[0] += 60 * 20;
+            dev.gathering.server.LessonRecords.handle(player, new dev.gathering.network.LessonPayload(true, every));
+            if (!dev.gathering.server.LessonRecords.finished(id)) {
+                helper.fail("a lesson begun, played for a minute and finished with every step was not written down");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            dev.gathering.server.LessonRecords.clock = was;
+            dev.gathering.server.LessonRecords.unfinishForTesting(id);
         }
     }
 
@@ -190,6 +267,8 @@ public final class StarterBoostersGameTest {
         Path blocked = folder.resolve("given.txt.writing");
         try {
             StarterBoosters.forget(player.getUUID());
+            // Finished the lesson, so what is refused is the record and not the player.
+            dev.gathering.server.LessonRecords.finishedForTesting(player.getUUID());
             Files.createDirectories(folder);
             // A directory where the temporary file wants to be, so the write cannot land.
             Files.createDirectory(blocked);
@@ -210,6 +289,7 @@ public final class StarterBoostersGameTest {
             Files.deleteIfExists(blocked.resolve("in-the-way"));
             Files.deleteIfExists(blocked);
             StarterBoosters.forget(player.getUUID());
+            dev.gathering.server.LessonRecords.unfinishForTesting(player.getUUID());
         }
     }
 }

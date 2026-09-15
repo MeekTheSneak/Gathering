@@ -39,7 +39,7 @@ public final class EventCreateScreen extends Screen {
     private int roundMinutes = EventSettings.USUAL_ROUND_MINUTES;
     private int buildMinutes = EventSettings.USUAL_BUILD_MINUTES;
     private int rounds;
-    private int topCut;
+    private int topCut = EventSettings.AUTO_CUT;
     private EventSettings.DeckRegistration decks = EventSettings.DeckRegistration.LOCKED;
     private boolean large;
     private PodSettings pod = PodSettings.usual(PodSettings.Kind.DRAFT);
@@ -137,8 +137,10 @@ public final class EventCreateScreen extends Screen {
         y = top;
         y = stepper(right, y, rightColumn, "screen.gathering.event.rounds", () -> rounds,
                 () -> rounds = Math.max(0, rounds - 1), () -> rounds = Math.min(EventSettings.MOST_ROUNDS, rounds + 1));
-        y = choices(right, y, rightColumn, "screen.gathering.event.top_cut", new Integer[] {0, 4, 8}, value -> topCut == value,
-                value -> topCut = value, value -> "screen.gathering.event.top_cut." + value);
+        // By player count unless the host says otherwise, the way rounds are.
+        y = choices(right, y, rightColumn, "screen.gathering.event.top_cut", new Integer[] {EventSettings.AUTO_CUT, 0, 4, 8},
+                value -> topCut == value, value -> topCut = value,
+                value -> value == EventSettings.AUTO_CUT ? "screen.gathering.event.auto" : "screen.gathering.event.top_cut." + value);
         y = choices(right, y, rightColumn, "screen.gathering.event.decks", EventSettings.DeckRegistration.values(),
                 value -> decks == value, value -> decks = value, value -> "screen.gathering.event.decks." + value.key());
         y = choices(right, y, rightColumn, "screen.gathering.event.check_in", new Boolean[] {false, true}, value -> large == value,

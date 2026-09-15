@@ -92,6 +92,8 @@ public final class Tutorial {
         progress = TutorialProgress.start();
         remember(board);
         ClientSettings.tutorialOffered(true);
+        // The server hears that it began, so it can hold a finish to having taken the time a lesson takes.
+        ClientNetworking.send(new dev.gathering.network.LessonPayload(false, java.util.List.of()));
     }
 
     /**
@@ -103,6 +105,9 @@ public final class Tutorial {
         if (progress != null) {
             if (progress.isFinished()) {
                 ClientSettings.tutorialFinished(true);
+                // What earns the starter boosters, on this world: see LessonRecords.
+                ClientNetworking.send(new dev.gathering.network.LessonPayload(true,
+                        progress.done().stream().map(Enum::name).toList()));
             } else {
                 ClientSettings.tutorialSkipped(true);
             }

@@ -1770,17 +1770,42 @@ Verified: gate green (560/16).
   time, the given-up mark kept), shown failing with the file not read.
 - Verified: gate green (562/16).
 
+### Eleventh batch: the top cut by player count, and starter boosters for finishing the lesson (2026-09-15)
+
+- **Top cut.** The owner: the mod should pick the cut itself. A new tournament's top cut is **Auto** by
+  default (`EventSettings.AUTO_CUT`), which follows the Magic Tournament Rules' Appendix E (checked against
+  the judges' copy of the table): none below 9 players, the top 4 for 9-16, the top 8 from 17. Appendix E's
+  top 8 for 9-16 applies only when the playoff is a booster draft, which the mod does not run. The host can
+  still choose None, Top 4 or Top 8, and nothing is cut below 9 whatever is chosen. The event screen says
+  "top cut by player count". Auto rounds for 9-16 players are now 5 (Appendix E), not 4. **One deliberate
+  difference:** Appendix E runs 5-8 players as single elimination; the mod keeps 3 Swiss rounds with no cut
+  so nobody is out after one match. Core test `theTopCutIsDecidedByThePlayerCountUnlessTheHostChose`, shown
+  failing with no automatic cut; the three cut tests that played "4 rounds" for 9 players now play however
+  many rounds the count gives.
+- **Starter boosters need the finished lesson.** The lesson runs on a board the client builds, so the server
+  cannot watch it. The client now says when the lesson began and when it was finished, with the steps done
+  (`LessonPayload`). `LessonRecords` writes a player down as finished (`<save>/starter/lesson_finished.txt`)
+  only if it began, finished at least 10 seconds later, and every step was done; `StarterBoosters.give`
+  refuses otherwise ("The starter boosters are for finishing the lesson on this world"). A client rewritten
+  to lie about playing the lesson cannot be told apart from here, and still gets the packs once; a direct
+  request without a lesson, or a replayed finish, is refused. The two lists share `SavedPlayerList`.
+  Tests: `StarterBoostersGameTest.nopacksbeforethelessonisfinished` and `onlyALessonReallyPlayedIsWrittenDown`,
+  shown failing with the check and the time limit removed; the existing starter tests have the player finish
+  the lesson first. `TutorialDemoGameTest.thewholelessonsendsnothing` now allows exactly the lesson's own
+  began/finished notice and still fails on anything about the game; the tutorial tests bind a sender, as a
+  client always has. The tour takes the player off the list before the lesson and checks the server has them
+  down as finished after it (tour 296-372, no failures; the starter packs were given).
+- Protocol 20. Verified: gate green (564/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,
    the last game included.** A drawn decider, or a drawn best of one, used to be played again
    because the game number stayed on the last game; it now ends the match, drawn.
-2. **Appendix E runs 9-16 players as five Swiss rounds and a top 4** unless the playoff is a
-   booster draft; the mod plays four, with the host choosing the cut.
-3. **Are starter boosters a welcome grant or a completion reward?** `StarterBoosters` enforces
-   one grant per player per world but never checks that the tutorial was finished, and a valid
-   `StarterPayload` can ask for them directly. Either answer is fine; the code should say which.
-   Local tutorial progress must not be the proof either way.
+2. ~~Appendix E for 9-16 players~~ **Decided by the owner (2026-09-15):** the mod picks the cut by player
+   count. Done in the eleventh batch.
+3. ~~Are starter boosters a welcome grant or a completion reward?~~ **Decided by the owner (2026-09-15):**
+   a reward for finishing the lesson, checked on the server. Done in the eleventh batch.
 4. ~~A seat freed while its player was away: take it with the board, or clear it?~~ **Decided by the owner
    (2026-09-15):** the next player takes it and plays that deck; the deck goes back to its owner after
    the game.

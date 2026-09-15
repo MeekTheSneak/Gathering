@@ -41,6 +41,7 @@ public final class ServerState {
         Lending.clear();
         TableJoining.clear();
         AwayFromBoard.clear();
+        LessonRecords.clear();
         StarterBoosters.clear();
         ActionBudget.clearShared();
         CreativeDecks.clear();

@@ -791,9 +791,10 @@ public final class TableScreen extends Screen {
         Tutorial.stop();
         TutorialDemo.clear();
         // Picking the colors is not what earns the packs. StarterBoosters decides that on the
-        // server from its own once-per-player list and the server's own settings, and it has
-        // never asked whether anybody finished a tutorial - so this screen grants nothing, and
-        // a second time through is told "already" by the same list that answered the first.
+        // server from its own once-per-player list, the server's own settings, and whether the
+        // server has this player down as having finished the lesson (LessonRecords, told as the
+        // lesson stopped, just above) - so this screen grants nothing, and a second time through
+        // is told "already" by the same list that answered the first.
         this.minecraft.setScreen(new StarterColorsScreen(afterwards));
         return true;
     }

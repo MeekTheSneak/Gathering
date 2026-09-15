@@ -62,6 +62,8 @@ public final class PlayerGone {
         // And whatever refusal was still folding, which is counted in this server's ticks and
         // means nothing in the next one.
         Refusals.forget(player.getUUID());
+        // And a lesson they had begun: finishing it after coming back is a new lesson.
+        LessonRecords.forget(player.getUUID());
         CreativeDecks.forget(player);
         // And the budgets that limit how fast they may ask for things.
         TableActions.forget(player.getUUID());

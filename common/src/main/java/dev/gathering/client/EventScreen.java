@@ -698,7 +698,9 @@ public final class EventScreen extends Screen {
             return;
         }
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.event.settings_line", view.host(),
-                view.bestOf(), view.roundMinutes(), view.topCut() == 0 ? Component.translatable("screen.gathering.event.no_top_cut")
+                view.bestOf(), view.roundMinutes(), view.topCut() == dev.gathering.core.tournament.EventSettings.AUTO_CUT
+                        ? Component.translatable("screen.gathering.event.top_cut_by_players")
+                        : view.topCut() == 0 ? Component.translatable("screen.gathering.event.no_top_cut")
                         : Component.translatable("screen.gathering.event.top_cut." + view.topCut()),
                 Component.translatable("screen.gathering.event.decks." + view.decks())), x, y, width, DIM);
         y += line;

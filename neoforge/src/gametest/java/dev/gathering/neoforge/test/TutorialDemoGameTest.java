@@ -68,6 +68,10 @@ public final class TutorialDemoGameTest {
         boolean offered = ClientSettings.tutorialOffered();
         boolean finished = ClientSettings.tutorialFinished();
         boolean skipped = ClientSettings.tutorialSkipped();
+        // A client always has somewhere to send: the lesson tells the server it began and was finished, which is
+        // what the starter boosters are for. A test that is not watching the wire lets those go nowhere.
+        ClientNetworking.bindSender(payload -> {
+        });
         try {
             what.run();
         } finally {
@@ -339,7 +343,7 @@ public final class TutorialDemoGameTest {
     }
 
     /**
-     * The whole lesson, start to finish, puts nothing at all on the wire.
+     * The whole lesson, start to finish, puts nothing about the game on the wire: only that it began.
      * <p>The one that answers the acceptance question directly. The steps above check each
      * move; this checks that a player who sits down, learns the controls and walks away has
      * caused their client to say nothing to the server about any of it.
@@ -368,12 +372,18 @@ public final class TutorialDemoGameTest {
                 TutorialDemo.restart();
             });
 
-            if (!sent.isEmpty()) {
+            // Nothing about the game: no move, no card, no deck. The one thing the lesson says is that it began -
+            // and, finished, which steps were done - because the owner made the starter boosters depend on the
+            // server knowing the lesson was finished (LessonRecords). That notice names no table and carries no
+            // part of the board.
+            List<CustomPacketPayload> aboutTheGame = sent.stream()
+                    .filter(payload -> !(payload instanceof dev.gathering.network.LessonPayload)).toList();
+            if (!aboutTheGame.isEmpty()) {
                 StringBuilder what = new StringBuilder();
-                for (CustomPacketPayload payload : sent) {
+                for (CustomPacketPayload payload : aboutTheGame) {
                     what.append(' ').append(payload.type().id());
                 }
-                helper.fail("the guided first game sent " + sent.size() + " payload(s):" + what);
+                helper.fail("the guided first game sent " + aboutTheGame.size() + " payload(s) about the game:" + what);
                 return;
             }
             helper.succeed();

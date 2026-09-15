@@ -68,11 +68,13 @@ public final class GatheringProtocol {
      * asked whether to play one that is not legal anyway.
      * <p>Nineteen, for seats kept for players away from the board: who is away and for how long beside the
      * board, and a vote to free a seat.
+     * <p>Twenty, for telling the server the guided first game began and was finished, which the starter boosters
+     * now require; and a top cut left to the player count.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 19;
+    public static final int VERSION = 20;
 
     private GatheringProtocol() {
     }
@@ -181,6 +183,8 @@ public final class GatheringProtocol {
                     (player, payload) -> dev.gathering.server.PackWrappers.torn(player, payload.wrapper())),
             toServer(StarterPayload.TYPE, StarterPayload.STREAM_CODEC,
                     dev.gathering.server.StarterBoosters::handle),
+            toServer(LessonPayload.TYPE, LessonPayload.STREAM_CODEC,
+                    dev.gathering.server.LessonRecords::handle),
             toServer(PracticePayload.TYPE, PracticePayload.STREAM_CODEC,
                     dev.gathering.server.PracticeTable::handle),
             toServer(BringInDungeonPayload.TYPE, BringInDungeonPayload.STREAM_CODEC,

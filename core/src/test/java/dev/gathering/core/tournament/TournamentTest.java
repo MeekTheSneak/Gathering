@@ -200,7 +200,8 @@ class TournamentTest {
                 EventSettings.DeckRegistration.OFF, false);
         Tournament tournament = readyWith(9, withCut).startSwiss();
         Random random = new Random(7);
-        for (int round = 0; round < 4; round++) {
+        // Every Swiss round the player count plays, however many that is (Appendix E: five for nine players).
+        for (int round = 0; round < withCut.roundsFor(9); round++) {
             tournament = playRound(tournament, random).nextRound();
         }
         assertThat(tournament.phase()).isEqualTo(Tournament.Phase.CUT);
@@ -237,7 +238,8 @@ class TournamentTest {
                 EventSettings.DeckRegistration.OFF, false);
         Tournament tournament = readyWith(9, withCut).startSwiss();
         Random random = new Random(7);
-        for (int round = 0; round < 4; round++) {
+        // Every Swiss round the player count plays, however many that is (Appendix E: five for nine players).
+        for (int round = 0; round < withCut.roundsFor(9); round++) {
             tournament = playRound(tournament, random).nextRound();
         }
         List<UUID> seeded = tournament.standings().stream().map(row -> row.player().id()).toList();
@@ -264,7 +266,8 @@ class TournamentTest {
                 EventSettings.DeckRegistration.OFF, false);
         Tournament tournament = readyWith(9, withCut).startSwiss();
         Random random = new Random(7);
-        for (int round = 0; round < 4; round++) {
+        // Every Swiss round the player count plays, however many that is (Appendix E: five for nine players).
+        for (int round = 0; round < withCut.roundsFor(9); round++) {
             tournament = playRound(tournament, random).nextRound();
         }
         Tournament cut = tournament.callTime();
@@ -501,7 +504,10 @@ class TournamentTest {
         assertThat(SwissRounds.forPlayers(4)).isEqualTo(2);
         assertThat(SwissRounds.forPlayers(5)).isEqualTo(3);
         assertThat(SwissRounds.forPlayers(8)).isEqualTo(3);
-        assertThat(SwissRounds.forPlayers(9)).isEqualTo(4);
+        // Appendix E: five for nine to sixteen when the playoff is not a booster draft, which it never is here.
+        assertThat(SwissRounds.forPlayers(9)).isEqualTo(5);
+        assertThat(SwissRounds.forPlayers(16)).isEqualTo(5);
+        assertThat(SwissRounds.forPlayers(17)).isEqualTo(5);
         assertThat(SwissRounds.forPlayers(32)).isEqualTo(5);
         assertThat(SwissRounds.forPlayers(33)).isEqualTo(6);
         // Appendix E's large-event rows, which do not fall on powers of two.
@@ -512,5 +518,28 @@ class TournamentTest {
         assertThat(SwissRounds.forPlayers(409)).isEqualTo(9);
         assertThat(SwissRounds.forPlayers(410)).isEqualTo(10);
         assertThat(SwissRounds.forPlayers(2_000)).isEqualTo(10);
+    }
+
+    /**
+     * Left alone, the top cut is the player count's, as Appendix E has it: none below nine, the top 4 for nine to
+     * sixteen, the top 8 from seventeen. A host's own choice still stands, and nothing is cut below nine.
+     */
+    @Test
+    void theTopCutIsDecidedByThePlayerCountUnlessTheHostChose() {
+        EventSettings auto = EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern");
+        assertThat(auto.topCut()).isEqualTo(EventSettings.AUTO_CUT);
+        assertThat(auto.problem()).isEmpty();
+        assertThat(auto.cutFor(8)).isZero();
+        assertThat(auto.cutFor(9)).isEqualTo(4);
+        assertThat(auto.cutFor(16)).isEqualTo(4);
+        assertThat(auto.cutFor(17)).isEqualTo(8);
+        assertThat(auto.cutFor(300)).isEqualTo(8);
+        EventSettings topEight = new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 0, 8,
+                EventSettings.DeckRegistration.OFF, false);
+        assertThat(topEight.cutFor(9)).isEqualTo(8);
+        assertThat(topEight.cutFor(8)).isZero();
+        EventSettings none = new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 0, 0,
+                EventSettings.DeckRegistration.OFF, false);
+        assertThat(none.cutFor(40)).isZero();
     }
 }

@@ -24,15 +24,16 @@ check is the pre-game deck check the brief already allows.
 | Constructed deck registration | Host setting. When on, signing up submits a deck, which is checked against the event's format (the pre-game deck check the brief allows); the passing list is registered to that player, and during the event the table refuses any deck that is not the registered list. The host chooses: registration off, checked only, or checked and locked to the list |
 | Hosting | Any player may host an event and create a venue |
 | Scale | Large events: advance sign-up from anywhere, a registration point in the venue, check-in, numbered tables with floating text labels |
-| Top cut | Off by default; top 4 or 8 for events of 9 or more |
+| Top cut | By player count by default (MTR Appendix E): none below 9, top 4 for 9-16, top 8 from 17; the host may choose none, 4 or 8 instead |
 | Prizes | Any items, held from creation, handed out by final standing |
 
 ## Structure
 
 Swiss: 3 match points for a win, 1 for a draw. Round 1 pairs the top half of the seeds against
 the bottom half; later rounds pair within records, never a rematch. A bye is a 2-0 win for the
-lowest-ranked player without one. Rounds: 3 for 5-8 players, 4 for 9-16, 5 for 17-32 (host may
-change). Tiebreakers: opponents' match-win %, game-win %, opponents' game-win %, with the 33%
+lowest-ranked player without one. Rounds (MTR Appendix E): 2 for up to 4 players, 3 for 5-8, 5 for 9-16, 5 for 17-32, 6 to 64, 7 to 128
+(host may change). Appendix E runs 5-8 players as single elimination; here they play Swiss so nobody is out
+after one match. Tiebreakers: opponents' match-win %, game-win %, opponents' game-win %, with the 33%
 floor. Round clock 50 minutes, build clock 25 after a draft and 30 for sealed (MTR Appendix B), best of 3 - all host settings. Clocks run on real
 time and pause while the server is stopped.
 

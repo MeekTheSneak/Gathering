@@ -19,7 +19,8 @@ import java.util.Optional;
  * @param buildMinutes    how long players have to build after a draft or sealed opening
  * @param extraTurns      turns after time is called, counting the one in progress as turn 0
  * @param rounds          Swiss rounds, or 0 for the player count to decide
- * @param topCut          0 for none, or 4 or 8 for a single elimination cut after Swiss
+ * @param topCut          {@link #AUTO_CUT} for the player count to decide, 0 for none, or 4 or 8 for a single
+ *                        elimination cut after Swiss
  * @param decks           how constructed decks are registered
  * @param largeEvent      whether players sign up in advance and check in at a venue
  */
@@ -59,6 +60,12 @@ public record EventSettings(
     public static final int MOST_MINUTES = 240;
     public static final int MOST_ROUNDS = 15;
 
+    /**
+     * The top cut the player count decides, as the Magic Tournament Rules' Appendix E has it: none below nine
+     * players, the top 4 for nine to sixteen, the top 8 from seventeen. The default - a host need choose nothing.
+     */
+    public static final int AUTO_CUT = -1;
+
     public EventSettings {
         kind = kind == null ? Kind.CONSTRUCTED : kind;
         formatId = formatId == null ? "" : formatId.trim().toLowerCase(Locale.ROOT);
@@ -83,7 +90,7 @@ public record EventSettings(
     /** An event as it runs when the host changes nothing. */
     public static EventSettings usual(Kind kind, String formatId) {
         return new EventSettings(kind, formatId, null, 3, USUAL_ROUND_MINUTES, usualBuildMinutes(kind),
-                USUAL_EXTRA_TURNS, 0, 0, DeckRegistration.LOCKED, false);
+                USUAL_EXTRA_TURNS, 0, AUTO_CUT, DeckRegistration.LOCKED, false);
     }
 
     /** Why these settings cannot make an event, or empty when they can. A translation key. */
@@ -100,7 +107,7 @@ public record EventSettings(
         if (rounds < 0 || rounds > MOST_ROUNDS) {
             return Optional.of("message.gathering.event.rounds");
         }
-        if (topCut != 0 && topCut != 4 && topCut != 8) {
+        if (topCut != AUTO_CUT && topCut != 0 && topCut != 4 && topCut != 8) {
             return Optional.of("message.gathering.event.top_cut");
         }
         if (kind == Kind.CONSTRUCTED && formatId.isEmpty()) {
@@ -127,8 +134,19 @@ public record EventSettings(
         return rounds > 0 ? rounds : SwissRounds.forPlayers(players);
     }
 
-    /** Whether a top cut is played for this many players. Off below nine, as decided. */
+    /**
+     * How many players the top cut takes, for this many players; 0 for none. Off below nine whatever was chosen.
+     * Left to the player count, Appendix E's: the top 4 for nine to sixteen, the top 8 from seventeen. Its top 8
+     * for nine to sixteen is only for a limited event whose playoff is a booster draft, which this mod does not
+     * run.
+     */
     public int cutFor(int players) {
-        return players >= 9 ? Math.min(topCut, players) : 0;
+        if (players < 9) {
+            return 0;
+        }
+        if (topCut == AUTO_CUT) {
+            return players >= 17 ? 8 : 4;
+        }
+        return Math.min(topCut, players);
     }
 }
