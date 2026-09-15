@@ -72,8 +72,8 @@ public record ListScreenLayout(
     }
 
     /** How wide a scrollbar down the right of the rows is, and the gap left of it. */
-    private static final int SCROLLBAR = 6;
-    private static final int SCROLLBAR_GAP = 4;
+    public static final int SCROLLBAR = 6;
+    public static final int SCROLLBAR_GAP = 4;
 
     /** The scrollbar's track, down the right of the rows, as tall as the rows that fit. */
     public Rect scrollbar() {

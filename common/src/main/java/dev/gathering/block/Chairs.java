@@ -17,10 +17,11 @@ import net.minecraft.world.phys.AABB;
 /**
  * Sitting in a chair, and getting up out of one.
  * <p>A chair set against the middle of a table's edge is that edge's seat, and the only way to take
- * one: sitting in it takes the seat - the same messages, the same game told, the same deck offered -
- * and opens the board if a game is on, or the choice of game if there is none yet. Getting up, however it happens, gives the seat up exactly as
- * clicking your own edge does, and the cards stay on the table as they always do. A chair anywhere
- * else is only a chair.
+ * one: sitting in it takes the seat and opens the choice of game if there is none yet. At a game already on,
+ * a player whose board it is not is asked first whether they are joining or watching. A chair against a
+ * table anywhere else - off the middle of an edge, or at an edge nobody plays at - watches the game. Getting
+ * up, however it happens, gives the seat up, and the cards stay on the table as they always do. A chair
+ * away from a table is only a chair.
  * <p>What is kept is the table's own record of who is sitting where; the thing a player rides is
  * only how Minecraft seats somebody. See {@link ChairSeat}.
  */
@@ -42,15 +43,36 @@ public final class Chairs {
         Direction facing = state.getValue(ChairBlock.FACING);
         Optional<FacingSeat> atATable = facingSeat(level, chair, facing);
         Optional<FacingSeat> against = atATable.isPresent() ? atATable : againstATable(level, chair, facing);
+        // Decided before anything moves: whether this chair takes a seat, watches the table, or is refused.
+        BlockPos watching = null;
+        boolean askToJoin = false;
         if (atATable.isEmpty() && against.isPresent()) {
-            // Against a table but not at a seat: off the middle of an edge, or at an edge nobody may sit at -
-            // the end of a line, or the side of a table already being played across the other way. Said
-            // rather than sat in as a chair that is only a chair: somebody in a chair at a table looks, to
-            // everybody including themselves, like somebody playing at it.
+            // Against a table but not at a seat: off the middle of an edge, or at an edge nobody plays at -
+            // the end of a line, or the side of a table already being played across the other way. A chair
+            // there watches: somebody in it sees the game, and plays no part in it.
             boolean seatHere = TableSeats.couldSeat(level, against.get().origin(), against.get().cell(), against.get().side());
+            watching = against.get().origin();
             player.displayClientMessage(Component.translatable(seatHere
-                    ? "message.gathering.chair_off_center" : "message.gathering.seat_not_a_seat"), true);
-            return;
+                    ? "message.gathering.chair_watching_off_center" : "message.gathering.chair_watching_edge"), true);
+        } else if (atATable.isPresent()) {
+            FacingSeat at = atATable.get();
+            if (!holdsThisSeat(level, at, player)) {
+                TableSeats.Claim would = TableSeats.wouldTake(level, at.origin(), at.cell(), at.side(), player.getUUID());
+                if (would != TableSeats.Claim.TAKEN) {
+                    // Somebody else's seat, somebody's cards on it, or a player already seated elsewhere at this
+                    // table: said, and not sat in - a chair at a seat is that seat, not a place to wait for it.
+                    player.sendSystemMessage(Component.translatable(would.messageKey()));
+                    return;
+                }
+                // A game already on, at a seat whose board is not theirs: asked whether they are joining it or
+                // watching it, from the chair, before the seat is theirs.
+                int index = TableClusters.at(level, at.origin()).seats().indexOf(new SeatAnchor(at.cell(), at.side()));
+                if (TableSessions.hasSession(level, at.origin())
+                        && !TableSessions.boardIsTheirs(level, at.origin(), index, player.getUUID())) {
+                    watching = at.origin();
+                    askToJoin = true;
+                }
+            }
         }
         // Into the chair first, and only then the table's seat, undone if the table says no. The seat was
         // claimed first once, and the mount's own answer ignored: a mount something refused - another mod,
@@ -66,24 +88,66 @@ public final class Chairs {
         // Facing the table, so the board and the world agree about which way is forward.
         player.setYRot(facing.toYRot());
         player.setYHeadRot(facing.toYRot());
+        if (watching != null) {
+            seat.watches(watching);
+            dev.gathering.server.TableJoining.watching(player, watching, askToJoin);
+            return;
+        }
         if (atATable.isEmpty()) {
             return;
         }
         FacingSeat at = atATable.get();
-        Optional<SeatAnchor> held = TableSeats.seatOf(level, at.origin(), player.getUUID());
-        boolean alreadyHere = held.filter(anchor -> anchor.cell().equals(at.cell()) && anchor.side() == at.side())
-                .isPresent();
-        if (!alreadyHere
+        if (!holdsThisSeat(level, at, player)
                 && TableBlock.sitAt(level, at.origin(), at.cell(), at.side(), player) != TableSeats.Claim.TAKEN) {
-            // Somebody else's seat, somebody's cards on it, or a player already seated elsewhere at this
-            // table: said by sitAt, and back out of the chair - a chair at a seat is that seat, not a place
-            // to wait for it. Out before the seat is marked as this chair's, so getting up gives nothing up.
+            // Refused between the question and the claim: said by sitAt, and back out of the chair. Out before
+            // the seat is marked as this chair's, so getting up gives nothing up.
             player.stopRiding();
             seat.discard();
             return;
         }
         seat.holdsTheSeatAt(at.origin());
         TableBlock.satDown(player, at.origin());
+    }
+
+    /**
+     * A player watching a game from the chair at a seat joins it: the seat becomes theirs, the board opens
+     * and they choose a deck. Refused as sitting down is refused, and they go on watching.
+     */
+    public static void join(ServerPlayer player, ChairSeat seat) {
+        ServerLevel level = player.serverLevel();
+        BlockState state = level.getBlockState(seat.chair());
+        if (seat.watchingAt() == null || !(state.getBlock() instanceof ChairBlock)) {
+            return;
+        }
+        Optional<FacingSeat> at = facingSeat(level, seat.chair(), state.getValue(ChairBlock.FACING))
+                .filter(facing -> facing.origin().equals(seat.watchingAt()));
+        if (at.isEmpty()) {
+            player.sendSystemMessage(Component.translatable("message.gathering.seat_not_a_seat"));
+            return;
+        }
+        if (TableBlock.sitAt(level, at.get().origin(), at.get().cell(), at.get().side(), player) != TableSeats.Claim.TAKEN) {
+            return;
+        }
+        seat.holdsTheSeatAt(at.get().origin());
+        TableBlock.satDown(player, at.get().origin());
+    }
+
+    /** Whether this player's chair is at a seat of the table they are watching, which they could join. */
+    public static boolean watchesFromASeat(ServerPlayer player, BlockPos tableOrigin) {
+        if (!(player.getVehicle() instanceof ChairSeat seat) || !tableOrigin.equals(seat.watchingAt())) {
+            return false;
+        }
+        BlockState state = player.level().getBlockState(seat.chair());
+        return state.getBlock() instanceof ChairBlock
+                && facingSeat(player.level(), seat.chair(), state.getValue(ChairBlock.FACING))
+                        .filter(facing -> facing.origin().equals(tableOrigin)).isPresent();
+    }
+
+    /** Whether this player already holds the seat this chair is at. */
+    private static boolean holdsThisSeat(Level level, FacingSeat at, ServerPlayer player) {
+        return TableSeats.seatOf(level, at.origin(), player.getUUID())
+                .filter(anchor -> anchor.cell().equals(at.cell()) && anchor.side() == at.side())
+                .isPresent();
     }
 
     /** A seat at a table, found from the chair against its edge. */

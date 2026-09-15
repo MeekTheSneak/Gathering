@@ -66,10 +66,12 @@ public final class ChairGameTest {
         ServerPlayer second = player(helper);
         BlockPos north = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
         Chairs.sit(second, north, helper.getLevel().getBlockState(north));
-        if (TableSeats.seatOf(helper.getLevel(), table, second.getUUID()).isPresent() || second.isPassenger()) {
-            helper.fail("a second player sat at the north edge of a table played east to west");
+        // The north edge seats nobody now: its chair watches.
+        if (TableSeats.seatOf(helper.getLevel(), table, second.getUUID()).isPresent()) {
+            helper.fail("a second player took a seat at the north edge of a table played east to west");
             return;
         }
+        second.stopRiding();
         BlockPos west = chairAt(helper, table.offset(-1, 0, 1), Direction.EAST);
         Chairs.sit(second, west, helper.getLevel().getBlockState(west));
         Optional<SeatAnchor> secondSeat = TableSeats.seatOf(helper.getLevel(), table, second.getUUID());
@@ -80,17 +82,26 @@ public final class ChairGameTest {
         helper.succeed();
     }
 
-    /** A chair at a table's edge but not at its middle seats nobody, and the table stays the way it was. */
+    /**
+     * A chair at a table's edge but not at its middle takes no seat, and the table stays the way it was: the
+     * player sits in it and watches. It refused them once; the owner asked for chairs away from the seats to
+     * watch the game.
+     */
     @GameTest(template = "tables")
-    public static void aChairOffTheMiddleOfAnEdgeIsNotASeat(GameTestHelper helper) {
+    public static void aChairOffTheMiddleOfAnEdgeWatches(GameTestHelper helper) {
         BlockPos table = TestTables.place(helper, 1, 2, 2);
         ServerPlayer player = player(helper);
         BlockPos chair = chairAt(helper, table.offset(0, 0, -1), Direction.SOUTH);
         Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
-        if (TableSeats.seatOf(helper.getLevel(), table, player.getUUID()).isPresent() || player.isPassenger()) {
+        if (TableSeats.seatOf(helper.getLevel(), table, player.getUUID()).isPresent()) {
             helper.fail("a chair at the corner of a table's north edge seated the player");
             return;
         }
+        if (!(player.getVehicle() instanceof ChairSeat seat) || !table.equals(seat.watchingAt())) {
+            helper.fail("a chair at the corner of a table's north edge did not seat a watcher");
+            return;
+        }
+        player.stopRiding();
         helper.succeed();
     }
 

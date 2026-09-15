@@ -121,6 +121,11 @@ public final class AmbientBoardGameTest {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         BlockPos origin = table(helper);
         SeatId me = aGame(helper, player, origin);
+        // Somebody in the room to send it to. The room's board goes to those near the table who are not
+        // sitting at it, and this test had nobody: it passed only while another test's stand-in player
+        // happened to stand within range, and failed whenever the tests were laid out differently.
+        ServerPlayer watcher = helper.makeMockServerPlayerInLevel();
+        watcher.setPos(origin.getX() + 3.5, origin.getY(), origin.getZ() + 0.5);
 
         tickTheTable(helper, origin, TICKS);
         TableBroadcast.forgetTheCount();

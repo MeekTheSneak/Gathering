@@ -39,6 +39,7 @@ public final class ServerState {
         TradeSessions.clear();
         TableActions.clear();
         Lending.clear();
+        TableJoining.clear();
         StarterBoosters.clear();
         ActionBudget.clearShared();
         CreativeDecks.clear();

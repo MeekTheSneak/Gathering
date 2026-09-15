@@ -64,11 +64,13 @@ public final class GatheringProtocol {
      * <p>Sixteen, for the cards a creative click put into a deck.
      * <p>Seventeen, for hosting a tournament at a Scorekeeper's Desk rather than a table: the list
      * says which desk it was opened at, and creating one names the desk.
+     * <p>Eighteen, for joining a game that is on: asked to join or watch, choosing a deck from a list, and
+     * asked whether to play one that is not legal anyway.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 17;
+    public static final int VERSION = 18;
 
     private GatheringProtocol() {
     }
@@ -150,6 +152,10 @@ public final class GatheringProtocol {
                     dev.gathering.server.PodLobbies::create),
             toServer(PodActionPayload.TYPE, PodActionPayload.STREAM_CODEC,
                     dev.gathering.server.PodLobbies::act),
+            toServer(JoinTableAnswerPayload.TYPE, JoinTableAnswerPayload.STREAM_CODEC,
+                    dev.gathering.server.TableJoining::answer),
+            toServer(ChooseDeckPayload.TYPE, ChooseDeckPayload.STREAM_CODEC,
+                    dev.gathering.server.TableJoining::choose),
             toServer(StartTablePayload.TYPE, StartTablePayload.STREAM_CODEC,
                     dev.gathering.server.TableSetup::handle),
             toServer(SideboardEditPayload.TYPE, SideboardEditPayload.STREAM_CODEC,
@@ -238,6 +244,9 @@ public final class GatheringProtocol {
             toClient(MyDeckPayload.TYPE, MyDeckPayload.STREAM_CODEC),
             toClient(CloseTablePayload.TYPE, CloseTablePayload.STREAM_CODEC),
             toClient(OpenTableSetupPayload.TYPE, OpenTableSetupPayload.STREAM_CODEC),
+            toClient(JoinTablePromptPayload.TYPE, JoinTablePromptPayload.STREAM_CODEC),
+            toClient(OpenDeckPickerPayload.TYPE, OpenDeckPickerPayload.STREAM_CODEC),
+            toClient(DeckNotLegalPayload.TYPE, DeckNotLegalPayload.STREAM_CODEC),
             toClient(PodLobbyPayload.TYPE, PodLobbyPayload.STREAM_CODEC),
             toClient(EventListPayload.TYPE, EventListPayload.STREAM_CODEC),
             toClient(EventViewPayload.TYPE, EventViewPayload.STREAM_CODEC),

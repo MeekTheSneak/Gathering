@@ -75,6 +75,9 @@ public class TableBlockEntity extends BlockEntity {
     private static final String DECK_KEY = "deck";
     private static final String POOL_KEY = "pool";
     private static final String DECK_OWNER_KEY = "owner";
+    private static final String NOT_LEGAL_IN_KEY = "not_legal_in";
+    private static final String NOT_LEGAL_PROBLEMS_KEY = "not_legal_problems";
+    private static final String NOT_LEGAL_MORE_KEY = "not_legal_more";
     private static final String ANTE_KEY = "ante";
     private static final String FOR_KEEPS_KEY = "for_keeps";
     private static final String PRACTICE_KEY = "practice";
@@ -165,6 +168,12 @@ public class TableBlockEntity extends BlockEntity {
      * down and handed back in - see {@link #heldDecks()}.
      */
     private final Map<SeatId, HeldDeck> held = new LinkedHashMap<>();
+
+    /**
+     * What is not legal about a held deck its player chose to play anyway, by seat: kept with the deck, so
+     * everybody who comes to the table while it is down is told, and gone when the deck is handed back.
+     */
+    private final Map<SeatId, NotLegal> notLegal = new LinkedHashMap<>();
 
     /**
      * Who put each seat's stake in the pot.
@@ -611,7 +620,32 @@ public class TableBlockEntity extends BlockEntity {
      */
     public void holdDeck(SeatId seat, DeckComponent deck, DraftedPool pool, UUID owner) {
         held.put(seat, new HeldDeck(deck, pool, owner));
+        notLegal.remove(seat);
         setChanged();
+    }
+
+    /** Marks the deck held for this seat as not legal in the table's format, and played anyway. */
+    public void playedAnyway(SeatId seat, NotLegal why) {
+        if (held.containsKey(seat)) {
+            notLegal.put(seat, why);
+            setChanged();
+        }
+    }
+
+    /** The held decks played though not legal, by seat, in seat order. */
+    public Map<SeatId, NotLegal> notLegal() {
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(notLegal));
+    }
+
+    /**
+     * What is not legal about a deck: the format it is not legal in, the first few problems the deck check
+     * found, and how many more there were.
+     */
+    public record NotLegal(String format, java.util.List<String> problems, int more) {
+
+        public NotLegal {
+            problems = java.util.List.copyOf(problems);
+        }
     }
 
     /**
@@ -757,6 +791,7 @@ public class TableBlockEntity extends BlockEntity {
     public Map<SeatId, HeldDeck> releaseDecks() {
         Map<SeatId, HeldDeck> released = new LinkedHashMap<>(held);
         held.clear();
+        notLegal.clear();
         setChanged();
         // Seat order, for the same reason: this decides what order decks are handed back in.
         return java.util.Collections.unmodifiableMap(released);
@@ -791,6 +826,7 @@ public class TableBlockEntity extends BlockEntity {
      */
     public Optional<HeldDeck> releaseDeck(SeatId seat) {
         HeldDeck released = held.remove(seat);
+        notLegal.remove(seat);
         if (released == null) {
             return Optional.empty();
         }
@@ -1123,6 +1159,7 @@ public class TableBlockEntity extends BlockEntity {
         }
 
         held.clear();
+        notLegal.clear();
         ListTag heldDecks = tag.getList(DECKS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < heldDecks.size(); index++) {
             CompoundTag entry = heldDecks.getCompound(index);
@@ -1150,6 +1187,14 @@ public class TableBlockEntity extends BlockEntity {
                             "A pool held at {} will not load: {}", worldPosition, problem))
                     .orElse(null);
             held.put(seat, new HeldDeck(deck, pool, owner));
+            if (entry.contains(NOT_LEGAL_IN_KEY)) {
+                java.util.List<String> problems = new java.util.ArrayList<>();
+                ListTag lines = entry.getList(NOT_LEGAL_PROBLEMS_KEY, Tag.TAG_STRING);
+                for (int line = 0; line < lines.size(); line++) {
+                    problems.add(lines.getString(line));
+                }
+                notLegal.put(seat, new NotLegal(entry.getString(NOT_LEGAL_IN_KEY), problems, entry.getInt(NOT_LEGAL_MORE_KEY)));
+            }
         }
 
         forKeeps = tag.getBoolean(FOR_KEEPS_KEY);
@@ -1350,6 +1395,14 @@ public class TableBlockEntity extends BlockEntity {
                         entry.putUUID(DECK_OWNER_KEY, owner);
                     }
                     entry.put(DECK_KEY, encoded);
+                    NotLegal why = notLegal.get(seat);
+                    if (why != null) {
+                        entry.putString(NOT_LEGAL_IN_KEY, why.format());
+                        ListTag lines = new ListTag();
+                        why.problems().forEach(line -> lines.add(net.minecraft.nbt.StringTag.valueOf(line)));
+                        entry.put(NOT_LEGAL_PROBLEMS_KEY, lines);
+                        entry.putInt(NOT_LEGAL_MORE_KEY, why.more());
+                    }
                     DraftedPool pool = holding.pool();
                     if (pool != null) {
                         DraftedPool.CODEC

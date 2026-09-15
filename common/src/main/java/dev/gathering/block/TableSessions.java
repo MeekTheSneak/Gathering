@@ -577,6 +577,16 @@ public final class TableSessions {
                 .map(SeatId::new);
     }
 
+    /** Whether the board at this seat of the running game is this player's own: they sat there last. */
+    public static boolean boardIsTheirs(BlockGetter level, BlockPos tableOrigin, int seatIndex, java.util.UUID player) {
+        GameSession session = sessionAt(level, tableOrigin).orElse(null);
+        if (session == null || seatIndex < 0 || !session.state().hasSeat(new SeatId(seatIndex))) {
+            return false;
+        }
+        return session.state().seatState(new SeatId(seatIndex)).whoseBoard()
+                .map(owner -> owner.id().equals(player)).orElse(false);
+    }
+
     /**
      * Whether the seat at this place in the cluster's seat order holds, in the game running here, cards
      * belonging to somebody other than this player - so that sitting there would be sitting at their

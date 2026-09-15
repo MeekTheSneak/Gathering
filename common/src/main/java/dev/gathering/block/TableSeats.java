@@ -38,6 +38,28 @@ public final class TableSeats {
         if (!isSeat(cluster, cell, side) && turnsToSeat(level, clusterOrigin, cluster, side)) {
             cluster = TableClusters.at(level, clusterOrigin);
         }
+        Claim would = wouldTake(level, clusterOrigin, cluster, cell, side, player);
+        if (would != Claim.TAKEN) {
+            return would;
+        }
+        return tableAt(level, clusterOrigin, cell).orElseThrow().claim(side, player) ? Claim.TAKEN : Claim.OCCUPIED;
+    }
+
+    /**
+     * What taking this seat would answer, without taking it or turning the table: {@link Claim#TAKEN} for a
+     * seat this player could have. For asking somebody whether they want a seat before they have it.
+     */
+    public static Claim wouldTake(BlockGetter level, BlockPos clusterOrigin, TableCell cell, Side side, UUID player) {
+        TableCluster cluster = TableClusters.at(level, clusterOrigin);
+        if (!isSeat(cluster, cell, side) && cluster.contains(cell) && wouldTurnFor(level, clusterOrigin, cluster, side)) {
+            return tableAt(level, clusterOrigin, cell).isEmpty() ? Claim.NOT_A_SEAT
+                    : seatOf(level, clusterOrigin, player).isPresent() ? Claim.ALREADY_SEATED : Claim.TAKEN;
+        }
+        return wouldTake(level, clusterOrigin, cluster, cell, side, player);
+    }
+
+    private static Claim wouldTake(BlockGetter level, BlockPos clusterOrigin, TableCluster cluster, TableCell cell,
+            Side side, UUID player) {
         if (!isSeat(cluster, cell, side)) {
             return Claim.NOT_A_SEAT;
         }
@@ -53,7 +75,7 @@ public final class TableSeats {
         if (TableSessions.boardBelongsToAnother(level, clusterOrigin, cluster.seats().indexOf(new SeatAnchor(cell, side)), player)) {
             return Claim.SOMEONE_ELSES_BOARD;
         }
-        return table.get().claim(side, player) ? Claim.TAKEN : Claim.OCCUPIED;
+        return table.get().occupantOf(side).isPresent() ? Claim.OCCUPIED : Claim.TAKEN;
     }
 
     /**

@@ -1649,6 +1649,54 @@ The owner's item 4 from the fifth batch's playtest: hosting belongs to the desk,
 
 Verified: gate green (550/16).
 
+### Seventh batch: joining a game, choosing a deck, decks not legal, chairs that watch (2026-09-15)
+
+The owner's items 2 and 3 from the fifth batch's playtest, and their note that chairs at edges nobody
+plays at should watch.
+
+- **Joining or watching.** Sitting in the chair at a free seat of a game already on no longer takes the
+  seat: the player is asked **Join** or **Watch** (`JoinTableScreen`, `JoinTablePromptPayload` and
+  `JoinTableAnswerPayload`). The chair holds the seat while they answer, since nobody can sit in an
+  occupied chair. Watching opens the board as a spectator; closing the panel watches. Right-clicking the
+  table from that chair asks again, or, with no game on, gives them the seat. A player whose board it is
+  (they sat there last) is seated straight back, as before. Refusals (somebody's seat, somebody's cards)
+  are said before sitting, not after.
+- **Chairs that watch.** A chair against a table but off the middle of an edge, or at an edge nobody
+  plays at, now seats a watcher (`ChairSeat.watchingAt`) instead of refusing, with a line over the
+  hotbar saying so. A game starting opens the board for watchers too.
+- **Choosing a deck.** Right-clicking the table with a deck at a game on no longer puts it down. The
+  decks in the inventory are listed (`DeckPickerScreen`, `OpenDeckPickerPayload`), with **Borrow one**
+  where the server lends decks. It opens after joining, for everybody seated when a game starts (in place
+  of the loaner offer), and on right-clicking the table from a seat with no deck down. A row sends only
+  its slot (`ChooseDeckPayload`); the server reads the deck out of the slot and checks it is still the
+  same stack if the check has to wait for card data (`DeckCameFrom.THEIR_INVENTORY`).
+- **Decks not legal.** At a table somebody chose a format for, a deck chosen from the list that fails the
+  check is asked about (`DeckNotLegalScreen`, `DeckNotLegalPayload`): the problems, and "Use this deck
+  anyway?". Use anyway plays it only if the slot still holds the exact stack asked about; the table
+  (seated and watchers) is told who is playing a deck not legal in which format and why, in gold. The
+  table keeps that note with the held deck (`TableBlockEntity.NotLegal`, saved with it) and tells
+  everybody who sits down or watches while it is down; it goes when the deck is handed back. A tournament
+  that locked a player's deck still refuses any other.
+- Guide page, table and deck tooltips and the ponder text say the new flow. Protocol 18.
+- Tests: `JoiningGameTest` (5), each shown failing with its feature removed (no question, no watching
+  seat, the click still committing, anyway ignored, a swapped deck played on the old answer, a watcher
+  unable to take a free seat). `ChairGameTest.aChairOffTheMiddleOfAnEdgeWatches` replaces the test that
+  such a chair refuses, and the turning test stands the watcher up before moving chairs: the owner changed
+  those rules. `ReviewRoundTwoGameTest`'s reflective call fills the two new arguments (no slot, not
+  anyway); the case it checks is unchanged.
+- `AmbientBoardGameTest.achangedboardisstillsent`, the known flake: it had nobody in the room to send a
+  board to, since the room's board skips seated players, and passed only when another test's stand-in
+  happened to stand within range. The new tests changed the layout and it failed every run; it now has a
+  watcher of its own.
+- Tour: step 8 chooses the deck from the list after Start (photo `03a-your-decks`); steps 369-371 put the
+  join question and the not-legal question up the way the server does and photograph them
+  (`108-join-or-watch`, `109-not-legal-use-anyway`, `110-choosing-another-deck`), all laid out at GUI
+  scales 1 to 4. Runs of steps 0-16 and 369-371: no failures. Photos looked at.
+
+Verified: gate green (555/16). **Not verified:** two real players - the single-player tour cannot sit a
+second player down, so the question arriving from a real chair, and the gold line reaching a second
+client, are covered by in-world tests only.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

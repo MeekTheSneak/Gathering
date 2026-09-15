@@ -86,18 +86,20 @@ public final class TableSetup {
     }
 
     /**
-     * A game has just started here: everybody sitting at the table is shown its board, and anybody
-     * sitting there with no deck to put down is offered one to borrow.
+     * A game has just started here: everybody sitting at the table is shown its board and the list of
+     * their decks to choose one from, and everybody watching from its chairs is shown the board.
      * <p>The board for everybody, not only whoever pressed Start - they are all in their chairs
-     * waiting for it, most of them looking at the same choice of game. And the loan here rather than
-     * when somebody sat down: a table with nothing on it opens the choice of game, and the shelf opened
-     * at the same moment covered it.
+     * waiting for it, most of them looking at the same choice of game. The list of decks offers a loaner
+     * too, for somebody who came with none.
      */
     public static void begun(ServerLevel level, BlockPos origin) {
         TableBroadcast.sendToTable(level, origin);
         for (TableBroadcast.Seated seated : TableBroadcast.seatedAt(level, origin)) {
             TableActions.openFor(seated.player(), origin);
-            Lending.offerIfEmptyHanded(seated.player(), origin);
+            TableJoining.offerDecks(seated.player(), origin);
+        }
+        for (ServerPlayer watching : TableJoining.watchers(level, origin)) {
+            TableActions.openFor(watching, origin);
         }
     }
 

@@ -62,6 +62,23 @@ public final class ChairSeat extends Entity {
     /** Marks this chair as holding its sitter's seat at the table here, once the table has given it. */
     void holdsTheSeatAt(BlockPos tableOrigin) {
         this.tableOrigin = tableOrigin == null ? null : tableOrigin.immutable();
+        this.watchingAt = null;
+    }
+
+    /**
+     * The table this chair's sitter is watching without a seat at it, or null: a chair at an edge nobody plays
+     * at, or at a seat of a game they have not joined.
+     */
+    private BlockPos watchingAt;
+
+    /** Marks this chair's sitter as watching the table here, or as no longer watching with null. */
+    void watches(BlockPos tableOrigin) {
+        this.watchingAt = tableOrigin == null ? null : tableOrigin.immutable();
+    }
+
+    /** The table this chair's sitter watches without a seat, or null. */
+    public BlockPos watchingAt() {
+        return watchingAt;
     }
 
     /** The table this chair's sitter holds a seat at, or null. */

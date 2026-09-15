@@ -19,6 +19,7 @@ public final class ClientState {
     /** Drops everything the server we are leaving told us. */
     public static void forgetTheServer() {
         CardZoomOverlay.clear();
+        DeckPickerScreen.clear();
         EventHud.clear();
         ClientCardCache.get().clear();
         ClientCardFlights.clear();

@@ -59,6 +59,10 @@ public final class ReviewRoundTwoGameTest {
             else if(want==ItemStack.class) args[i]=stack;
             else if(want==InteractionHand.class) args[i]=InteractionHand.MAIN_HAND;
             else if(want==CompletableFuture.class) args[i]=fetched;
+            // Added when a deck could be chosen from an inventory slot and played though not legal: no
+            // slot, since this deck is in a hand, and not chosen anyway. The case under test is unchanged.
+            else if(want==int.class) args[i]=-1;
+            else if(want==boolean.class) args[i]=false;
             else if(want.isEnum()) {
                 // The deck in this test came out of the player's own hand, which is the case
                 // with something to check: a loaner was never in an inventory to leave.

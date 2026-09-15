@@ -395,6 +395,18 @@ public class TableBlock extends BaseEntityBlock {
         TableCluster cluster = TableClusters.at(level, tableOrigin);
         boolean seatedHere = TableSeats.seatOf(level, tableOrigin, player.getUUID()).isPresent();
 
+        // Watching from the chair at a seat: asked again whether to join the game on, or, with no game on,
+        // given the seat - whatever is in hand, since a deck goes down chosen from a list once seated.
+        if (!seatedHere && player instanceof net.minecraft.server.level.ServerPlayer watching
+                && Chairs.watchesFromASeat(watching, tableOrigin)) {
+            if (TableSessions.hasSession(level, tableOrigin)) {
+                dev.gathering.server.TableJoining.watching(watching, tableOrigin, true);
+            } else if (watching.getVehicle() instanceof ChairSeat chair) {
+                Chairs.join(watching, chair);
+            }
+            return ItemInteractionResult.SUCCESS;
+        }
+
         // What is in your hand decides what a click means, before where you clicked does.
         if (DeckItem.deckOf(stack).isPresent()) {
             // Crouching with a deck in hand is the one other thing a deck at a table can
@@ -451,10 +463,19 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
-        // A game running here means you came to play it, not to read a summary of it.
+        // A game running here means you came to play it, not to read a summary of it: the board, and a
+        // deck to choose if the seat has none down. Watching from the chair at a seat, the question of
+        // joining again.
         if (player instanceof net.minecraft.server.level.ServerPlayer seated
                 && TableSessions.hasSession(level, tableOrigin)) {
+            if (!seatedHere && Chairs.watchesFromASeat(seated, tableOrigin)) {
+                dev.gathering.server.TableJoining.watching(seated, tableOrigin, true);
+                return ItemInteractionResult.SUCCESS;
+            }
             dev.gathering.server.TableActions.openFor(seated, tableOrigin);
+            if (seatedHere) {
+                dev.gathering.server.TableJoining.offerDecks(seated, tableOrigin);
+            }
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -579,12 +600,12 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
-     * A deck put down on a table by somebody sitting at it.
-     * <p>Into the game when there is one. Between games of a set, the next game starts, and the
-     * decks the table is holding go back down by themselves. With nothing running yet the deck
-     * stays in hand and the choice of game opens: a table used to start a Commander game on its
-     * own when a deck was put on it, and the owner asked for that to go - free play is one of
-     * the choices, and a table that picks for you picks the wrong one.
+     * A deck in hand on a table by somebody sitting at it.
+     * <p>With a game on, the choice of deck opens, which is how a deck goes down: the owner asked for a
+     * list of the decks a player carries in place of clicking the table with the right one. Between games
+     * of a set, the next game starts, and the decks the table is holding go back down by themselves. With
+     * nothing running yet the deck stays in hand and the choice of game opens: a table used to start a
+     * Commander game on its own when a deck was put on it, and the owner asked for that to go.
      */
     private static void putADeckDown(Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
         if (TableSeats.seatOf(level, tableOrigin, player.getUUID()).isEmpty()) {
@@ -592,7 +613,11 @@ public class TableBlock extends BaseEntityBlock {
             return;
         }
         if (TableSessions.hasSession(level, tableOrigin)) {
-            commitDeck(level, tableOrigin, player, stack);
+            if (player instanceof net.minecraft.server.level.ServerPlayer choosing
+                    && !dev.gathering.server.TableJoining.offerDecks(choosing, tableOrigin)) {
+                player.sendSystemMessage(Component.translatable(TableSessions.isPractice(level, tableOrigin)
+                        ? "message.gathering.no_real_deck_while_practicing" : "message.gathering.deck_already_down"));
+            }
             return;
         }
         if (level instanceof net.minecraft.server.level.ServerLevel server
@@ -607,13 +632,16 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * What a player who has just sat down in a chair at this table is shown: the board when a game is
-     * on, their pack when a draft is, and what to play when nothing is. An event being signed up for
+     * on, with the choice of deck if their seat has none down, their pack when a draft is, and what to
+     * play when nothing is. An event being signed up for
      * has already been shown by sitting down - see {@link #sitAt}.
      */
     public static void satDown(net.minecraft.server.level.ServerPlayer player, BlockPos tableOrigin) {
         Level level = player.level();
         if (TableSessions.hasSession(level, tableOrigin)) {
             dev.gathering.server.TableActions.openFor(player, tableOrigin);
+            dev.gathering.server.TableJoining.tellWhatIsNotLegal(player, tableOrigin);
+            dev.gathering.server.TableJoining.offerDecks(player, tableOrigin);
             return;
         }
         if (DraftPods.hasPod(level, tableOrigin)) {
@@ -630,8 +658,8 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Takes this seat for this player, with everything that goes with sitting down: said to them, told
-     * to a game already running, asked of a table that is mid-question, shown an event being signed up
-     * for, and offered a deck to borrow if they came empty-handed.
+     * to a game already running, asked of a table that is mid-question, and shown an event being signed up
+     * for.
      * <p>One method for every way to sit: a chair set against the edge, and an event seating its players.
      */
     public static TableSeats.Claim sitAt(Level level, BlockPos tableOrigin, TableCell cell, Side side, Player player) {
@@ -653,14 +681,8 @@ public class TableBlock extends BaseEntityBlock {
                     dev.gathering.server.PodLobbies.changed(joined, tableOrigin, sat.getUUID());
                 }
             }
-            // Only at a game waiting for decks. Not over an event's signup, which has just been
-            // shown to them and is what they sat down for, and not at a table with nothing on it,
-            // where sitting down opens the choice of game: a loaner offer on top of either hides it.
-            // A game starting offers the shelf then - see TableSetup.begun.
-            if (TableSessions.hasSession(level, tableOrigin)
-                    && !entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
-                dev.gathering.server.Lending.offerIfEmptyHanded(sat, tableOrigin);
-            }
+            // No loaner offered here: the choice of deck, which offers one, opens with the board - see
+            // satDown, and TableSetup.begun for a game starting.
         }
         return claim;
     }
@@ -725,21 +747,60 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
+     * Whether this seat of the running game has a deck down: a library, or a deck in the table's keeping.
+     * <p>A seat whose library has run out still has its deck in the table's keeping, and a second deck put
+     * down there replaced the first one in that keeping - which is the first deck gone. One deck to a seat
+     * until the table hands it back.
+     */
+    public static boolean hasADeckDown(Level level, BlockPos tableOrigin, SeatId seat) {
+        GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
+        if (session == null) {
+            return false;
+        }
+        GameView view = VisibilityRules.viewFor(session.state(), new Viewer.Seated(seat));
+        boolean tableHoldsOne = TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> entityAt(level, anchor))
+                .map(table -> table.heldDecks().containsKey(seat)).orElse(false);
+        return (session.state().hasSeat(seat) && view.seat(seat).zone(Zone.LIBRARY).count() > 0) || tableHoldsOne;
+    }
+
+    /**
      * Puts a deck into the game, then shuffles it.
      * <p>Two events rather than one, because they are two different things and the log should
      * say so: an unshuffled deck is an unshuffled deck, and "shuffled" is a line somebody at
      * the table is entitled to see happen.
      */
     private static void commitDeck(Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
-        commitDeck(level, tableOrigin, player, stack, true);
+        commitDeck(level, tableOrigin, player, stack, true, NO_SLOT, false);
     }
 
-    /** The same, saying whether the deck check may wait for cards the server is fetching. */
+    /** No inventory slot: a deck in a hand, or one the table made. */
+    private static final int NO_SLOT = -1;
+
+    /**
+     * Puts down the deck in this slot of the player's inventory, chosen from the list of their decks - the
+     * way a deck goes into a game that is on. Refused as any deck is, with the deck left where it was - except
+     * that a deck not legal in the table's chosen format is asked about rather than refused: the player is
+     * shown what is not legal, and choosing it again {@code anyway} plays it, and says so to the table.
+     */
+    public static void chooseDeck(Level level, BlockPos tableOrigin, Player player, int slot, boolean anyway) {
+        if (slot < 0 || slot >= player.getInventory().getContainerSize()) {
+            return;
+        }
+        ItemStack stack = player.getInventory().getItem(slot);
+        if (DeckItem.deckOf(stack).isEmpty()) {
+            player.sendSystemMessage(Component.translatable("message.gathering.deck_not_there"));
+            return;
+        }
+        commitDeck(level, tableOrigin, player, stack, true, slot, anyway);
+    }
+
+    /** The same, saying whether the deck check may wait for cards the server is fetching, and which slot it is in. */
     private static void commitDeck(Level level, BlockPos tableOrigin, Player player,
-            ItemStack stack, boolean mayWait) {
-        // Which hand holds this exact stack, if either does. A deck that is in neither came
-        // from the table itself - the loaner path hands one straight down without it ever
-        // being in an inventory - and that is the only thing "in no hand" is allowed to mean.
+            ItemStack stack, boolean mayWait, int slot, boolean anyway) {
+        // Which hand holds this exact stack, if either does. A deck that is in neither, and in no slot it
+        // was chosen from, came from the table itself - the loaner path hands one straight down without it
+        // ever being in an inventory - and that is the only thing "nowhere" is allowed to mean.
         net.minecraft.world.InteractionHand inHand = null;
         for (net.minecraft.world.InteractionHand which
                 : net.minecraft.world.InteractionHand.values()) {
@@ -748,7 +809,8 @@ public class TableBlock extends BaseEntityBlock {
                 break;
             }
         }
-        DeckCameFrom cameFrom = inHand == null ? DeckCameFrom.THE_TABLE : DeckCameFrom.THEIR_HAND;
+        DeckCameFrom cameFrom = slot != NO_SLOT ? DeckCameFrom.THEIR_INVENTORY
+                : inHand == null ? DeckCameFrom.THE_TABLE : DeckCameFrom.THEIR_HAND;
         // Nothing real goes onto a table that is teaching somebody. The practice library is
         // made up so that a newcomer can learn which key draws a card, and what the table
         // holds while practice is running is discarded when it ends rather than handed back -
@@ -777,11 +839,7 @@ public class TableBlock extends BaseEntityBlock {
             return;
         }
 
-        GameView view = VisibilityRules.viewFor(session.state(), new Viewer.Seated(seat));
-        boolean tableHoldsOne = TableSessions.anchorOf(level, tableOrigin)
-                .flatMap(anchor -> entityAt(level, anchor))
-                .map(table -> table.heldDecks().containsKey(seat)).orElse(false);
-        if (view.seat(seat).zone(Zone.LIBRARY).count() > 0 || tableHoldsOne) {
+        if (hasADeckDown(level, tableOrigin, seat)) {
             // A seat whose library has run out still has its deck in the table's keeping, and a
             // second deck put down there replaced the first one in that keeping - which is the
             // first deck gone. One deck to a seat until the table hands it back.
@@ -793,9 +851,10 @@ public class TableBlock extends BaseEntityBlock {
         // The pool this deck was drafted from, if it was. Read off the stack rather than
         // looked up, because it is a fact about this deck rather than about the table - a
         // pool goes wherever the deck goes, including into somebody else's hands.
-        if (!deckMayGoDown(level, tableOrigin, deck, player,
+        Verdict verdict = deckMayGoDown(level, tableOrigin, deck, player,
                 stack.get(dev.gathering.registry.GatheringComponents.POOL.get()), mayWait, stack,
-                cameFrom, inHand)) {
+                cameFrom, inHand, slot, anyway);
+        if (!verdict.goesDown()) {
             return;
         }
         List<CardIdentity> library = deck.entries().stream().map(CardComponent::toIdentity).toList();
@@ -856,6 +915,16 @@ public class TableBlock extends BaseEntityBlock {
         stack.shrink(1);
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.deck_committed", deck.deckSize()));
+        if (verdict.notLegal() != null && level instanceof net.minecraft.server.level.ServerLevel told) {
+            // Played anyway: the table is told what is not legal about it, and so is everybody who comes to
+            // the table while it is down - see TableJoining.
+            TableSessions.anchorOf(level, tableOrigin)
+                    .flatMap(anchor -> entityAt(level, anchor))
+                    .ifPresent(table -> table.playedAnyway(seat, verdict.notLegal()));
+            dev.gathering.server.TableJoining.tellTheTable(told, tableOrigin,
+                    dev.gathering.server.TableJoining.notLegalLine(
+                            dev.gathering.SeatNames.of(session.state().seatState(seat)), verdict.notLegal()));
+        }
 
         // Everyone at the table, then the board for whoever just joined. Only opening it for
         // the player who clicked left every other seat - and the miniature on the table top,
@@ -877,7 +946,9 @@ public class TableBlock extends BaseEntityBlock {
      * <p>Only errors stop a game, and only on a table somebody chose a format for: a deck
      * check is a tournament deck check. Walking up to a bare table holding a deck says "let me
      * play", not "hold me to Commander", so a deck that fails there is told what is wrong and
-     * dealt out anyway. Pick a format off the setup screen and the same failure is a refusal.
+     * dealt out anyway. Pick a format off the setup screen and the same failure is a refusal - or, for a deck
+     * chosen from the list of the player's decks, a question: what is not legal, and whether to play it
+     * anyway, which the table is then told.
      * <p>A warning is neither - the check noticing something odd, like commanders listed for a
      * format with no command zone - and nothing stops for odd.
      * <p>Named and public so a test can ask the question a right-click asks rather than
@@ -896,7 +967,7 @@ public class TableBlock extends BaseEntityBlock {
             Level level, BlockPos tableOrigin, DeckComponent deck, Player player,
             dev.gathering.item.DraftedPool pool) {
         return deckMayGoDown(level, tableOrigin, deck, player, pool, true, ItemStack.EMPTY,
-                DeckCameFrom.THE_TABLE, null);
+                DeckCameFrom.THE_TABLE, null, NO_SLOT, false).goesDown();
     }
 
     /**
@@ -907,10 +978,10 @@ public class TableBlock extends BaseEntityBlock {
      * more fetch per attempt for ever. The check's own answer for a card it cannot name is
      * "no opinion", which lets the game start, so the second pass simply takes that.
      */
-    private static boolean deckMayGoDown(
+    private static Verdict deckMayGoDown(
             Level level, BlockPos tableOrigin, DeckComponent deck, Player player,
             dev.gathering.item.DraftedPool pool, boolean mayWait, ItemStack waitingOn,
-            DeckCameFrom from, net.minecraft.world.InteractionHand hand) {
+            DeckCameFrom from, net.minecraft.world.InteractionHand hand, int slot, boolean anyway) {
         TableBlockEntity table = TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
                 .orElse(null);
@@ -920,7 +991,7 @@ public class TableBlock extends BaseEntityBlock {
                     eventLevel, table.getBlockPos(), player.getUUID(), deck, pool);
             if (refused.isPresent()) {
                 player.sendSystemMessage(refused.get());
-                return false;
+                return Verdict.NO;
             }
         }
         FormatPreset format = table == null ? null : table.match()
@@ -933,20 +1004,35 @@ public class TableBlock extends BaseEntityBlock {
             // card executor and the deck goes down when the answer arrives. Told, because a
             // click that does nothing for half a second is a click somebody presses again.
             player.sendSystemMessage(Component.translatable("message.gathering.deck_checking"));
-            waitAndTryAgain(level, tableOrigin, player, waitingOn, from, hand, notYet.fetched());
-            return false;
+            waitAndTryAgain(level, tableOrigin, player, waitingOn, from, hand, slot, anyway, notYet.fetched());
+            return Verdict.NO;
         }
         ValidationResult result = answer instanceof dev.gathering.server.DeckCheck.Answer.Known known
                 ? known.result().orElse(null)
                 : null;
         if (result == null || result.isLegal()) {
-            return true;
+            return Verdict.YES;
         }
-        boolean refusing = table != null && table.formatWasChosen();
-        player.sendSystemMessage(Component.translatable(
-                refusing ? "message.gathering.deck_illegal" : "message.gathering.deck_odd",
-                format.displayName()));
+        boolean held = table != null && table.formatWasChosen();
         List<ValidationIssue> errors = result.errors();
+        if (held && from == DeckCameFrom.THEIR_INVENTORY) {
+            // Chosen from the list of their decks at a table somebody chose a format for: not refused, asked.
+            // The owner's rule - a player may play a deck that is not legal, is told first what is not, and
+            // the table is told they are playing it.
+            TableBlockEntity.NotLegal why = new TableBlockEntity.NotLegal(format.displayName(),
+                    errors.stream().limit(MOST_PROBLEMS_WORTH_LISTING).map(ValidationIssue::message).toList(),
+                    Math.max(0, errors.size() - MOST_PROBLEMS_WORTH_LISTING));
+            if (anyway) {
+                return new Verdict(true, why);
+            }
+            if (player instanceof net.minecraft.server.level.ServerPlayer asked) {
+                dev.gathering.server.TableJoining.askAnyway(asked, tableOrigin, slot, waitingOn, deck.name(), why);
+            }
+            return Verdict.NO;
+        }
+        player.sendSystemMessage(Component.translatable(
+                held ? "message.gathering.deck_illegal" : "message.gathering.deck_odd",
+                format.displayName()));
         for (int index = 0; index < Math.min(errors.size(), MOST_PROBLEMS_WORTH_LISTING); index++) {
             player.sendSystemMessage(Component.literal("  " + errors.get(index).message()));
         }
@@ -954,10 +1040,21 @@ public class TableBlock extends BaseEntityBlock {
             player.sendSystemMessage(Component.translatable("message.gathering.deck_illegal_more",
                     errors.size() - MOST_PROBLEMS_WORTH_LISTING));
         }
-        if (refusing) {
+        if (held) {
             player.sendSystemMessage(Component.translatable("message.gathering.deck_illegal_hint"));
         }
-        return !refusing;
+        return held ? Verdict.NO : Verdict.YES;
+    }
+
+    /**
+     * Whether a deck may go down, and what is not legal about it if it goes down anyway.
+     *
+     * @param notLegal null for a deck played with nothing to tell the table
+     */
+    private record Verdict(boolean goesDown, TableBlockEntity.NotLegal notLegal) {
+
+        static final Verdict YES = new Verdict(true, null);
+        static final Verdict NO = new Verdict(false, null);
     }
 
     /**
@@ -973,6 +1070,9 @@ public class TableBlock extends BaseEntityBlock {
 
         /** Out of a player's own hand. It has to still be in that hand, and be that stack. */
         THEIR_HAND,
+
+        /** Chosen from the list of a player's decks. It has to still be in that slot, and be that stack. */
+        THEIR_INVENTORY,
 
         /**
          * Made by the table and handed straight down - the loaner path. It was never in an
@@ -992,8 +1092,8 @@ public class TableBlock extends BaseEntityBlock {
      * because something slow is happening.
      */
     private static void waitAndTryAgain(Level level, BlockPos tableOrigin, Player player,
-            ItemStack waitingOn, DeckCameFrom from, net.minecraft.world.InteractionHand hand,
-            java.util.concurrent.CompletableFuture<?> fetched) {
+            ItemStack waitingOn, DeckCameFrom from, net.minecraft.world.InteractionHand hand, int slot,
+            boolean anyway, java.util.concurrent.CompletableFuture<?> fetched) {
         if (!(player instanceof net.minecraft.server.level.ServerPlayer waiting)
                 || waitingOn == null || waitingOn.isEmpty()) {
             return;
@@ -1004,7 +1104,7 @@ public class TableBlock extends BaseEntityBlock {
                         return;
                     }
                     if (DeckItem.deckOf(waitingOn).isEmpty()
-                            || !stillTheirs(waiting, waitingOn, from, hand)) {
+                            || !stillTheirs(waiting, waitingOn, from, hand, slot)) {
                         return;
                     }
                     // And the table is still a table with their game on it. It can be broken,
@@ -1013,7 +1113,7 @@ public class TableBlock extends BaseEntityBlock {
                             || TableSessions.seatIdOf(level, tableOrigin, waiting.getUUID()).isEmpty()) {
                         return;
                     }
-                    commitDeck(level, tableOrigin, waiting, waitingOn, false);
+                    commitDeck(level, tableOrigin, waiting, waitingOn, false, slot, anyway);
                 }));
     }
 
@@ -1025,9 +1125,11 @@ public class TableBlock extends BaseEntityBlock {
      * handed down in one act, so it has nowhere to have gone.
      */
     private static boolean stillTheirs(net.minecraft.server.level.ServerPlayer player,
-            ItemStack stack, DeckCameFrom from, net.minecraft.world.InteractionHand hand) {
+            ItemStack stack, DeckCameFrom from, net.minecraft.world.InteractionHand hand, int slot) {
         return switch (from) {
             case THEIR_HAND -> hand != null && player.getItemInHand(hand) == stack;
+            case THEIR_INVENTORY -> slot >= 0 && slot < player.getInventory().getContainerSize()
+                    && player.getInventory().getItem(slot) == stack;
             case THE_TABLE -> true;
         };
     }

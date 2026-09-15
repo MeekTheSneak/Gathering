@@ -177,7 +177,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 368;
+    private static final int LAST_STEP = 371;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -395,8 +395,18 @@ public final class DevScene {
                     return;
                 }
                 if (!committed) {
+                    // A game starting lists the decks the player carries, which is how a deck goes down now:
+                    // the owner asked for the list in place of clicking the table with the right one.
                     committed = true;
-                    putTheDeckDown(client);
+                    expectScreen(client, "a game started with no deck down", DeckPickerScreen.class);
+                    if (client.screen instanceof DeckPickerScreen picker) {
+                        if (picker.rows().isEmpty()) {
+                            fail("the list of decks offered none, with a deck in the inventory");
+                        } else {
+                            shoot(client, "03a-your-decks");
+                            press(client, picker.rows().get(0).label().getString());
+                        }
+                    }
                     waited = SETTLE * 4;
                     return;
                 }
@@ -4077,6 +4087,34 @@ public final class DevScene {
                     waited = SETTLE / 2;
                     return;
                 }
+                advance(SETTLE / 2);
+            }
+            case 369 -> {
+                // Sitting down at a seat of a game on asks first. A single-player tour has no game of somebody
+                // else's to sit down at, so the question is put the way the server puts it, and answered; the
+                // server ignores an answer from somebody not in that chair, which is also worth knowing works.
+                JoinTableScreen.accept(new dev.gathering.network.JoinTablePromptPayload(table == null ? BlockPos.ZERO : table));
+                advance(A_MOMENT);
+            }
+            case 370 -> {
+                expectScreen(client, "asked to join or watch", JoinTableScreen.class);
+                shoot(client, "108-join-or-watch");
+                press(client, Component.translatable("screen.gathering.join.watch").getString());
+                // And a deck that is not legal in the table's format, asked about.
+                DeckNotLegalScreen.accept(new dev.gathering.network.DeckNotLegalPayload(
+                        table == null ? BlockPos.ZERO : table, 0, "Mono-Green Stompy", "Modern",
+                        java.util.List.of("The deck has 30 cards and needs at least 60.",
+                                "Up to 4 copies of Llanowar Elves are allowed and it has 7."), 2));
+                advance(A_MOMENT);
+            }
+            case 371 -> {
+                expectScreen(client, "asked about a deck that is not legal", DeckNotLegalScreen.class);
+                shoot(client, "109-not-legal-use-anyway");
+                press(client, Component.translatable("screen.gathering.not_legal.another").getString());
+                expectScreen(client, "choosing another deck", DeckPickerScreen.class);
+                shoot(client, "110-choosing-another-deck");
+                press(client, Component.translatable("screen.gathering.deck_picker.not_now").getString());
+                client.setScreen(null);
                 advance(SETTLE / 2);
             }
             default -> {
