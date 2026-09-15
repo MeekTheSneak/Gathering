@@ -112,6 +112,13 @@ class TournamentTest {
         }
         assertThat(MatchResult.offered(3, false))
                 .contains(new MatchResult(1, 0, 0), new MatchResult(1, 1, 0), new MatchResult(1, 0, 1));
+        // A result reads back from how it is written, and nothing else does.
+        for (MatchResult result : List.of(new MatchResult(2, 1, 0), new MatchResult(1, 0, 2), new MatchResult(0, 0, 0))) {
+            assertThat(MatchResult.parse(result.label())).contains(result);
+        }
+        assertThat(MatchResult.parse("")).isEmpty();
+        assertThat(MatchResult.parse("9-9-9")).isEmpty();
+        assertThat(MatchResult.parse("2-x")).isEmpty();
     }
 
     @Test

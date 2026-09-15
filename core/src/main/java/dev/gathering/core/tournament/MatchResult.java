@@ -69,6 +69,20 @@ public record MatchResult(int winsA, int winsB, int draws) {
         return java.util.List.copyOf(offered);
     }
 
+    /** A result read back from how {@link #label} writes it, or empty for anything else. */
+    public static java.util.Optional<MatchResult> parse(String label) {
+        if (label == null || !label.matches("\\d-\\d(-\\d)?")) {
+            return java.util.Optional.empty();
+        }
+        String[] parts = label.split("-");
+        int winsA = Integer.parseInt(parts[0]);
+        int winsB = Integer.parseInt(parts[1]);
+        int draws = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
+        return isAMatch(winsA, winsB, draws)
+                ? java.util.Optional.of(new MatchResult(winsA, winsB, draws))
+                : java.util.Optional.empty();
+    }
+
     /** How a result is written: games won each way, then drawn games when there were any. */
     public String label() {
         return winsA + "-" + winsB + (draws > 0 ? "-" + draws : "");

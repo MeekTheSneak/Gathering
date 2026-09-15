@@ -124,7 +124,7 @@ public final class EventScreen extends Screen {
         EventViewPayload.Mine mine = view.mine();
         if (mine.table() > 0 && mine.confirmed().isEmpty()) {
             // The results a match of this length can end in, from this player's chair.
-            List<dev.gathering.core.tournament.MatchResult> results = offeredResults();
+            List<dev.gathering.core.tournament.MatchResult> results = resultsForMe();
             int perRow = perResultRow(results.size());
             int width = (panel.width() - MARGIN * 2 - 4 * (perRow - 1)) / perRow;
             int top = panel.y() + 26 + 16 + 6 + LINE * 4;
@@ -137,6 +137,19 @@ public final class EventScreen extends Screen {
                                 result.winsA(), result.winsB(), result.draws(), EventActionPayload.NONE)));
             }
         }
+    }
+
+    /**
+     * The results this player is offered: every usual one, and what the table saw when that is not
+     * among them - one to none with two drawn, say - so what the table suggests is one press.
+     */
+    private List<dev.gathering.core.tournament.MatchResult> resultsForMe() {
+        List<dev.gathering.core.tournament.MatchResult> results = new java.util.ArrayList<>(offeredResults());
+        dev.gathering.core.tournament.MatchResult.parse(view.mine().suggested())
+                .filter(seen -> seen.fits(view.bestOf()) && !(view.elimination() && seen.isDraw()))
+                .filter(seen -> !results.contains(seen))
+                .ifPresent(seen -> results.add(0, seen));
+        return results;
     }
 
     /** The results this event's matches can be reported as, from the first chair. */
@@ -155,7 +168,7 @@ public final class EventScreen extends Screen {
         if (mine.table() <= 0 || !mine.confirmed().isEmpty()) {
             return 1;
         }
-        int results = offeredResults().size();
+        int results = resultsForMe().size();
         return (results + perResultRow(results) - 1) / perResultRow(results);
     }
 
