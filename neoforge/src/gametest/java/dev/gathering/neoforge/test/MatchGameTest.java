@@ -204,6 +204,12 @@ public final class MatchGameTest {
                     + " name the winner (" + winner + ")");
             return;
         }
+        // The game that ended, not the one coming: this said "takes game 2 of 3" for game one.
+        if (!(line.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents told)
+                || told.getArgs().length < 2 || !Integer.valueOf(1).equals(told.getArgs()[1])) {
+            helper.fail("Winning game one was announced as \"" + said + "\", not as game one");
+            return;
+        }
         // And the set is genuinely still going, so this is the branch that used to be wrong.
         if (!TableMatch.isBetweenGames(helper.getLevel(), origin)) {
             helper.fail("Winning game one of three did not leave the table between games");

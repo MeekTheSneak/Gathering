@@ -80,7 +80,12 @@ public record MatchState(
         return next.isDecided() ? next : new MatchState(rules, updated, gameNumber + 1, winner, null);
     }
 
-    /** A game nobody won - conceded by everyone, or abandoned - still uses one up. */
+    /**
+     * A game nobody won - conceded by everyone, or abandoned - still uses one up, the last one
+     * included: a best of three drawn in its third game at one game each is over, and so is a
+     * drawn best of one. The owner's decision; the tournament rules would play on until
+     * somebody had won the games needed.
+     */
     public MatchState afterDrawnGame() {
         return afterDrawnGame(null);
     }
@@ -92,10 +97,9 @@ public record MatchState(
      * @param whoChose the player the drawn game's first turn went to, or null if nobody was named
      */
     public MatchState afterDrawnGame(SeatId whoChose) {
-        // The last game drawn is played again rather than used up, so the number stays - but who
-        // chose for it still changes hands, or a drawn game three went first to game two's loser
-        // for the wrong reason and a drawn best of one went back to chance.
-        return new MatchState(rules, wins, gameNumber >= rules.bestOf() ? gameNumber : gameNumber + 1, null, whoChose);
+        // Past the length when it was the last game, which is what "no game to play" reads. It
+        // used to stay on the last game instead, so a drawn decider was simply played again.
+        return new MatchState(rules, wins, gameNumber + 1, null, whoChose);
     }
 
     public boolean isDecided() {

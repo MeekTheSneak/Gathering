@@ -80,7 +80,7 @@ public final class TableMatch {
         // endGameKeepingMatch() - which is what the first branch used to do - looked up a
         // game that had just been set to null and credited every won game to nobody at all.
         // Built once, up here, so there is no longer an order to get wrong.
-        Component line = lineFor(level, tableOrigin, next, winner);
+        Component line = lineFor(level, tableOrigin, next, match.gameNumber(), winner);
 
         // Kept before the table forgets it. Conceding is the way a game normally ends, and
         // the only way that came through here - and this path never wrote the game down,
@@ -166,7 +166,7 @@ public final class TableMatch {
 
     /** What the table is told when a game ends. Reads the seat's name off the live session. */
     public static Component lineFor(
-            ServerLevel level, BlockPos tableOrigin, MatchState match, Optional<SeatId> winner) {
+            ServerLevel level, BlockPos tableOrigin, MatchState match, int endedGame, Optional<SeatId> winner) {
         String key = match.hasGameToPlay()
                 ? (match.sideboardingBeforeNextGame()
                         ? "message.gathering.game_over_sideboard"
@@ -178,10 +178,13 @@ public final class TableMatch {
         // which is a sweep that never happened.
         return winner
                 .map(seat -> Component.translatable(key, nameOf(level, tableOrigin, seat),
-                        match.hasGameToPlay() ? match.gameNumber() : match.winsFor(seat),
+                        match.hasGameToPlay() ? endedGame : match.winsFor(seat),
                         match.rules().bestOf()))
-                .orElseGet(() -> Component.translatable("message.gathering.game_drawn",
-                        match.gameNumber(), match.rules().bestOf()));
+                // The game that just ended, not the match's next one: handed the match after
+                // the game, this said "takes game 2 of 3" for winning the first.
+                .orElseGet(() -> Component.translatable(match.hasGameToPlay()
+                        ? "message.gathering.game_drawn" : "message.gathering.match_drawn",
+                        endedGame, match.rules().bestOf()));
     }
 
     private static Component nameOf(ServerLevel level, BlockPos tableOrigin, SeatId seat) {

@@ -370,8 +370,8 @@ seeding; deck validation.
 - Round one is paired by rating seed, not at random (the anti-sandbagging decision).
 - Appendix E runs 9-16 players as 5 rounds and a top 4 outside draft-playoff events; the mod
   plays 4 rounds, and its cut is the host's choice.
-- A drawn game uses up one of the match's games; the MTR (2.1) plays on until somebody has won the
-  games needed, with the round clock as the limit. Changing it changes when a table's match ends.
+- A drawn game uses up one of the match's games, the last one included (the owner's decision); the
+  MTR (2.1) plays on until somebody has won the games needed.
 
 ## Owner-approved requirements, and what they superseded
 
@@ -973,9 +973,9 @@ is still the owner's to make.
 
 ## Decisions needed from the owner
 
-1. **Should a drawn game use up one of a match's games?** MTR 2.1 plays on until a player has won
-   the games needed; `MatchState.afterDrawnGame` counts the draw as one of three. It is documented
-   as deliberate, and changing it changes when every table's match ends, so it was left.
+1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,
+   the last game included.** A drawn decider, or a drawn best of one, used to be played again
+   because the game number stayed on the last game; it now ends the match, drawn.
 2. **Appendix E runs 9-16 players as five Swiss rounds and a top 4** unless the playoff is a
    booster draft; the mod plays four, with the host choosing the cut.
 3. **Are starter boosters a welcome grant or a completion reward?** `StarterBoosters` enforces

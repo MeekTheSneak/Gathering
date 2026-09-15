@@ -66,15 +66,25 @@ class MatchStateTest {
         assertThat(drawn.afterGameWonBy(bob).startsNextGame(List.of(alice, bob))).contains(alice);
         assertThat(drawn.startsNextGame(List.of(alice, bob, SeatId.of(2)))).isEmpty();
 
-        // A drawn best of one, and a drawn last game, keep who chose too: the game is played
-        // again, and the chooser used to be thrown away with it.
-        MatchState bestOfOne = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 1)).afterDrawnGame(bob);
-        assertThat(bestOfOne.startsNextGame(List.of(alice, bob))).contains(bob);
-        assertThat(bestOfOne.lastGameWinner()).isNull();
-        MatchState lastGame = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
-                .afterGameWonBy(alice).afterGameWonBy(bob).afterDrawnGame(alice);
-        assertThat(lastGame.lastGameWinner()).isNull();
-        assertThat(lastGame.startsNextGame(List.of(alice, bob))).contains(alice);
+    }
+
+    /** A drawn game is one of the match's games, the last one too: the match ends, drawn. */
+    @Test
+    void aDrawnLastGameEndsTheMatch() {
+        MatchState bestOfOne = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 1)).afterDrawnGame(BOB);
+        assertThat(bestOfOne.hasGameToPlay()).isFalse();
+        assertThat(bestOfOne.winner()).isEmpty();
+
+        MatchState decider = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
+                .afterGameWonBy(ALICE).afterGameWonBy(BOB).afterDrawnGame(ALICE);
+        assertThat(decider.hasGameToPlay()).isFalse();
+        assertThat(decider.isDecided()).isFalse();
+
+        // Two draws and a win in a best of three: three games, nobody reached two.
+        MatchState drawsFirst = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
+                .afterDrawnGame(ALICE).afterDrawnGame(ALICE);
+        assertThat(drawsFirst.hasGameToPlay()).isTrue();
+        assertThat(drawsFirst.afterGameWonBy(BOB).hasGameToPlay()).isFalse();
     }
 
     @Test
