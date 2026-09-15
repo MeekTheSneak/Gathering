@@ -19,14 +19,19 @@ import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A Create Deployer with an empty hand, pressing on a booster that sits on a Depot or a belt, tears it
- * open: the booster turns into its cards there, the way a deployer's own recipes turn one item into
- * others.
+ * A Create Deployer with an empty hand, pressing on a booster, tears it open: the booster turns into its
+ * cards where it is, the way a deployer's own recipes turn one item into others.
+ * <p>Two ways a press reaches a booster, because Create routes them differently. A booster lying loose
+ * on the ground is an entity, and a deployer pointed at it in any direction interacts with it. A
+ * booster on a Depot or a belt is reached by a deployer facing it <em>sideways</em>: one facing down
+ * onto a Depot or belt hands the job to Create's own belt processing, which ignores an empty hand and
+ * never presses at all.
  * <p>What comes out of a pack is drawn on the card workers and arrives a moment later, so the booster
  * stays where it is while that happens and is swapped for its cards in one step when they are ready.
  * Taken away in between - by a funnel, a hand, the belt moving on - it is not opened at all, and the
@@ -42,7 +47,75 @@ public final class DeployerPacks {
     /** The depots and belts a pack is being drawn for right now, so a deployer pressing again waits. */
     private static final Set<GlobalPos> DRAWING = new HashSet<>();
 
+    /** The loose boosters being drawn right now, by entity. */
+    private static final Set<java.util.UUID> DRAWING_LOOSE = new HashSet<>();
+
     private DeployerPacks() {
+    }
+
+    static void onInteractEntity(PlayerInteractEvent.EntityInteract event) {
+        if (!(event.getEntity() instanceof DeployerFakePlayer deployer) || !(event.getLevel() instanceof ServerLevel level)
+                || !deployer.getMainHandItem().isEmpty()
+                || !(event.getTarget() instanceof net.minecraft.world.entity.item.ItemEntity loose)) {
+            return;
+        }
+        if (tearOpen(level, loose)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * Starts opening a booster lying loose.
+     *
+     * @return whether it is a booster, now being opened
+     */
+    public static boolean tearOpen(ServerLevel level, net.minecraft.world.entity.item.ItemEntity loose) {
+        PackComponent pack = PackItem.packOf(loose.getItem()).filter(PackComponent::isReal).orElse(null);
+        if (pack == null || !loose.isAlive()) {
+            return false;
+        }
+        java.util.UUID id = loose.getUUID();
+        if (!DRAWING_LOOSE.add(id)) {
+            return true;
+        }
+        long run = ServerRun.generation();
+        PackOpening.draw(pack.setCode(), pack.kind(), pack.color()).whenComplete((cards, failure) ->
+                ServerRun.onTheServerThread(level.getServer(), run, () -> {
+                    DRAWING_LOOSE.remove(id);
+                    if (failure != null || cards == null || cards.isEmpty()) {
+                        LOGGER.warn("A deployer could not open a loose {} pack: {}", pack.setCode(),
+                                failure == null ? "it drew nothing" : failure.toString());
+                        return;
+                    }
+                    swapForCards(level, id, pack, cards);
+                }));
+        return true;
+    }
+
+    /** One of this loose booster, if it is still lying there, becomes these cards beside it. */
+    static void swapForCards(ServerLevel level, java.util.UUID looseId, PackComponent pack, List<CardIdentity> cards) {
+        if (!(level.getEntity(looseId) instanceof net.minecraft.world.entity.item.ItemEntity loose) || !loose.isAlive()
+                || !PackItem.packOf(loose.getItem()).map(pack::equals).orElse(false)) {
+            return;
+        }
+        ItemStack left = loose.getItem().copy();
+        left.shrink(1);
+        if (left.isEmpty()) {
+            loose.discard();
+        } else {
+            loose.setItem(left);
+        }
+        for (CardIdentity card : cards) {
+            net.minecraft.world.entity.item.ItemEntity out = new net.minecraft.world.entity.item.ItemEntity(
+                    level, loose.getX(), loose.getY(), loose.getZ(), CardItem.of(CardComponent.of(card)));
+            out.setDeltaMovement(0, 0.1, 0);
+            level.addFreshEntity(out);
+        }
+    }
+
+    /** For the in-world tests: whether this loose booster is being drawn. */
+    public static boolean isDrawing(net.minecraft.world.entity.item.ItemEntity loose) {
+        return DRAWING_LOOSE.contains(loose.getUUID());
     }
 
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -130,6 +203,7 @@ public final class DeployerPacks {
     /** Forgets what was being drawn, for a server that is stopping. */
     static void clear() {
         DRAWING.clear();
+        DRAWING_LOOSE.clear();
     }
 
     /** For the in-world tests: whether a pack is being drawn here. */

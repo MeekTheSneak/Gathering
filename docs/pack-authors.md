@@ -95,8 +95,10 @@ Stated plainly, because a compatibility claim nobody has run is worse than none:
 - **Create (6.0.10) display boards:** a Display Link against any table offers Tournament Standings,
   Tournament Pairings, Tournament Round, This Table's Match and Life Totals. In-world tested with
   Create installed; how they look on each kind of board has not been seen in a real client yet.
-- **Create Deployers open boosters:** an empty-handed Deployer pressing on a booster on a Depot or a
-  belt turns it into its cards there; a Deployer holding a booster opens it into its own inventory.
+- **Create Deployers open boosters:** an empty-handed Deployer opens a booster lying loose on the
+  ground (facing any way) or on a Depot or belt it faces sideways, turning it into its cards there.
+  Facing *down* onto a Depot or belt does not work: Create gives that press to its belt processing,
+  which ignores an empty hand. A Deployer holding a booster opens it into its own inventory.
 - The contract has not been exercised in a real modpack. What is tested is the loading,
   bounding, reload and absent-mod behavior described above.
 

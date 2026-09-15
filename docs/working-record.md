@@ -304,16 +304,20 @@ data; `CreateDisplayGameTest` (pack tests, Create installed) places a real Displ
 reads every source, and fails when the sources are not attached to tables. **Not verified:** how the
 lines look on a display board, a Flap Display or a lectern in a real client.
 
-**Deployers open boosters.** An empty-handed Deployer pressing on a booster on a Depot or a belt tears
-it open (`DeployerPacks`, through NeoForge's right-click-block event, which Create fires for its
-Deployer). The owner asked for exactly this; Create's own belt processing ignores an empty hand, but
-the press still reaches the block. The booster stays while its cards are drawn and is swapped for them
-in one step, the way Create's own deployer recipes turn one item into several - the first card held,
-eight in the Depot's output, the rest dropped beside it. Taken away in between, nothing is consumed and
-nothing comes out. A Deployer *holding* a booster opens it too, by the pack's own right-click, into the
-Deployer's inventory. Pack tests: a press starts one draw; a booster becomes all fifteen cards; a
-booster taken away yields none - the last two given cards rather than waiting on Scryfall, because a
-first version passed when a rate-limited draw failed, which tested nothing.
+**Deployers open boosters.** An empty-handed Deployer tears a booster open (`DeployerPacks`) when it
+presses a booster lying loose on the ground, facing any way, or a booster on a Depot or belt it faces
+**sideways**. Not one facing *down* onto a Depot or belt: Create hands that press to its own belt
+processing, which ignores an empty hand, so nothing reaches this mod. The first version claimed down
+onto a Depot worked; a pack test with a real powered Deployer showed it never pressed, and the design
+changed to the two routes Create does deliver - the right-click-block event (sideways) and the
+entity-interact event (loose). The booster stays while its cards are drawn and is swapped for them in
+one step: on a Depot the way Create's own deployer recipes turn one item into several, loose as card
+items beside it. Taken away in between, nothing is consumed and nothing comes out. A Deployer *holding*
+a booster opens it too, by the pack's own right-click, into its inventory. Pack tests: a powered
+Deployer facing a Depot, and one pointing down at a loose booster, each start a draw; a press starts
+one draw; a booster becomes all fifteen cards on a Depot or on the ground; one taken away yields none.
+The last ones are given cards rather than waiting on Scryfall, because a version that waited passed
+when a rate-limited draw failed, which tested nothing. Each guard fails when its code is removed.
 
 **Found on the way: a removed opener lost their cards.** A player who opened a booster and died before
 the cards arrived was handed them as the old, removed entity - nowhere. So was a Deployer's stand-in

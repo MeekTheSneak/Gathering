@@ -48,6 +48,77 @@ public final class DeployerPacksGameTest {
     }
 
     /**
+     * A real Deployer, turned by a Creative Motor and facing a Depot sideways with an empty hand,
+     * starts opening the booster on it - through the press Create makes, rather than by calling the
+     * opener directly as the tests below do.
+     */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty", timeoutTicks = 2400)
+    public static void aPoweredDeployerFacingADepotPressesTheBoosterOpen(GameTestHelper helper) {
+        BlockPos depot = depotWithABooster(helper);
+        BlockPos deployer = depot.west(2);
+        power(helper, deployer, net.minecraft.core.Direction.EAST);
+        helper.succeedWhen(() -> helper.assertTrue(DeployerPacks.isDrawingAt(helper.getLevel(), depot),
+                "the powered Deployer facing the Depot has not pressed the booster open"));
+    }
+
+    /** A real Deployer pointing down at a booster lying on the ground starts opening it. */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty", timeoutTicks = 2400)
+    public static void aPoweredDeployerPressesALooseBoosterOpen(GameTestHelper helper) {
+        BlockPos floor = helper.absolutePos(new BlockPos(1, 1, 1));
+        net.minecraft.world.entity.item.ItemEntity loose = new net.minecraft.world.entity.item.ItemEntity(helper.getLevel(),
+                floor.getX() + 0.5, floor.getY() + 1.05, floor.getZ() + 0.5, PackItem.of(BOOSTER));
+        loose.setDeltaMovement(0, 0, 0);
+        loose.setNeverPickUp();
+        helper.getLevel().addFreshEntity(loose);
+        power(helper, floor.above(3), net.minecraft.core.Direction.DOWN);
+        helper.succeedWhen(() -> helper.assertTrue(DeployerPacks.isDrawing(loose),
+                "the powered Deployer pointing at a loose booster has not pressed it open"));
+    }
+
+    /** A loose booster becomes its cards beside it; one taken away first becomes nothing. */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    public static void aLooseBoosterBecomesItsCardsUnlessItIsGone(GameTestHelper helper) {
+        BlockPos floor = helper.absolutePos(new BlockPos(1, 1, 1));
+        net.minecraft.world.entity.item.ItemEntity loose = new net.minecraft.world.entity.item.ItemEntity(helper.getLevel(),
+                floor.getX() + 0.5, floor.getY() + 1.05, floor.getZ() + 0.5, PackItem.of(BOOSTER));
+        helper.getLevel().addFreshEntity(loose);
+        DeployerPacks.swapForCards(helper.getLevel(), loose.getUUID(), BOOSTER, fifteenCards());
+        long cards = helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(floor).inflate(3)).stream()
+                .filter(entity -> entity.getItem().getItem() instanceof CardItem).count();
+        if (loose.isAlive() || cards != 15) {
+            helper.fail("a loose booster opened to " + cards + " cards, and is " + (loose.isAlive() ? "still there" : "gone"));
+            return;
+        }
+        BlockPos elsewhere = helper.absolutePos(new BlockPos(5, 1, 5));
+        net.minecraft.world.entity.item.ItemEntity taken = new net.minecraft.world.entity.item.ItemEntity(helper.getLevel(),
+                elsewhere.getX() + 0.5, elsewhere.getY() + 1.05, elsewhere.getZ() + 0.5, PackItem.of(BOOSTER));
+        helper.getLevel().addFreshEntity(taken);
+        java.util.UUID id = taken.getUUID();
+        taken.discard();
+        DeployerPacks.swapForCards(helper.getLevel(), id, BOOSTER, fifteenCards());
+        if (!helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(elsewhere).inflate(3)).isEmpty()) {
+            helper.fail("cards appeared for a loose booster that was picked up first");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A Deployer facing this way, turned by a Creative Motor beside it. */
+    private static void power(GameTestHelper helper, BlockPos deployer, net.minecraft.core.Direction facing) {
+        // Along the first coordinate: the shaft runs along y for a deployer facing east or west, and
+        // along x for one facing any other way (Create's DirectionalAxisKineticBlock).
+        boolean alongFirst = true;
+        helper.getLevel().setBlock(deployer, AllBlocks.DEPLOYER.getDefaultState()
+                .setValue(com.simibubi.create.content.kinetics.base.DirectionalKineticBlock.FACING, facing)
+                .setValue(com.simibubi.create.content.kinetics.base.DirectionalAxisKineticBlock.AXIS_ALONG_FIRST_COORDINATE, alongFirst), 3);
+        // Where that shaft comes out: along x for a deployer facing down, up or north-south, along y for one facing east-west.
+        net.minecraft.core.Direction side = facing.getAxis() == net.minecraft.core.Direction.Axis.X
+                ? net.minecraft.core.Direction.UP : net.minecraft.core.Direction.EAST;
+        helper.getLevel().setBlock(deployer.relative(side), AllBlocks.CREATIVE_MOTOR.getDefaultState()
+                .setValue(com.simibubi.create.content.kinetics.base.DirectionalKineticBlock.FACING, side.getOpposite()), 3);
+    }
+
+    /**
      * When the cards are ready, the booster becomes them on the Depot.
      * <p>Given the cards rather than waiting for them: drawing a real pack reaches Scryfall, which
      * a test run can be rate limited by, and a test that passes when the draw fails tests nothing.

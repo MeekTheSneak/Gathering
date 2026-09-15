@@ -35,8 +35,10 @@ public final class CreateCompat {
     public static void init(IEventBus modBus) {
         SOURCES.register(modBus);
         modBus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(CreateCompat::attachToTables));
-        // An empty-handed Deployer pressing on a booster on a Depot or a belt opens it.
+        // An empty-handed Deployer pressing on a booster opens it: lying loose, or on a Depot or belt
+        // it faces sideways.
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(DeployerPacks::onRightClickBlock);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(DeployerPacks::onInteractEntity);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
                 (net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> DeployerPacks.clear());
     }
