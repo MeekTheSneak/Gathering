@@ -67,6 +67,10 @@ neoForge {
                 if (project.hasProperty('devsceneFrom')) {
                     systemProperty 'gathering.devscene.from', project.property('devsceneFrom').toString()
                 }
+                // And -PdevsceneTo=N stops after step N.
+                if (project.hasProperty('devsceneTo')) {
+                    systemProperty 'gathering.devscene.to', project.property('devsceneTo').toString()
+                }
             }
         }
         server {

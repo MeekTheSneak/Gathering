@@ -2696,7 +2696,7 @@ public final class TableScreen extends Screen {
      */
     private void drawHandBands(GuiGraphics graphics, GameView board, SeatId me, Rect area) {
         SeatView mine = board.seat(me);
-        int high = this.font.lineHeight + 2;
+        int high = bandRow();
         if (area.height() < high + 2) {
             return;
         }
@@ -2705,8 +2705,10 @@ public final class TableScreen extends Screen {
         // going first skips - said in words over the hand. Each was a lit pip in the corner of
         // the button it is about, and a player who had just mulliganed saw a mark appear and
         // could not tell what it wanted of them. Reminders, never rules.
+        // Not during the lesson, which says what to do next itself: a second voice over the hand
+        // talking about mulligans and first draws was one too many.
         for (TableVerb verb : TableVerb.values()) {
-            Component reminder = reminderFor(verb);
+            Component reminder = mode.isLearning() ? null : reminderFor(verb);
             if (reminder != null && area.height() >= high * (row + 1) + 2) {
                 drawHandBand(graphics, area, row++, reminder);
             }
@@ -2735,12 +2737,30 @@ public final class TableScreen extends Screen {
 
     /** One band of words across the top of the hand, the {@code row}th down. */
     private void drawHandBand(GuiGraphics graphics, Rect area, int row, Component said) {
-        int high = this.font.lineHeight + 2;
-        int top = area.y() + row * high;
-        GatheringSprites.draw(graphics, Element.EXPOSED_BAND, area.x(), top, area.width(), high);
+        // A label the size of what it says, centered over the hand: one piece of art round one line.
+        // It was a strip the width of the hand, drawn shorter than its art is painted - so the art was
+        // squashed whole rather than framed, and read as three bars stacked behind a line of writing.
+        int tall = bandHeight();
+        int wide = Math.min(area.width(), this.font.width(said) + BAND_PADDING * 2);
+        int left = area.x() + (area.width() - wide) / 2;
+        int top = area.y() + row * bandRow();
+        GatheringSprites.draw(graphics, Element.EXPOSED_BAND, left, top, wide, tall);
         GuiText.drawCentered(graphics, this.font, said,
-                area.x() + area.width() / 2, top + 1, area.width() - 4, EXPOSED_TEXT);
+                left + wide / 2, top + (tall - this.font.lineHeight) / 2 + 1, wide - BAND_PADDING, EXPOSED_TEXT);
         handBands.add(said.getString());
+    }
+
+    /** Room either side of a band's writing, inside its frame. */
+    private static final int BAND_PADDING = 6;
+
+    /** How tall a band is: a line and its frame, and never shorter than its art is painted. */
+    private int bandHeight() {
+        return Math.max(16, this.font.lineHeight + 7);
+    }
+
+    /** One band and the gap under it. */
+    private int bandRow() {
+        return bandHeight() + 2;
     }
 
     /**

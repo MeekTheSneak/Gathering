@@ -216,16 +216,13 @@ public final class PackOpeningScreen extends Screen {
         }
         for (net.minecraft.client.gui.components.events.GuiEventListener child : children()) {
             if (child instanceof net.minecraft.client.gui.components.Renderable renderable) {
-                if (child == doneButton) {
-                    // Lit from behind, because the backdrop is nearly black and a button in the
-                    // look's own dark face on it was a button nobody could find.
-                    GuiGlow.around(graphics, doneButton.getX(), doneButton.getY(), doneButton.getWidth(),
-                            doneButton.getHeight(), 5, 0x70E8E4DC);
-                }
                 renderable.render(graphics, mouseX, mouseY, partialTick);
             }
         }
     }
+
+    /** How far in front of the glow behind it a revealed card is drawn: more than a turned card leans back. */
+    private static final float IN_FRONT_OF_ITS_GLOW = 60f;
 
     /** The sealed pack, torn as far as it has been. */
     private void drawThePack(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -329,6 +326,10 @@ public final class PackOpeningScreen extends Screen {
                         Math.max(4, laid.cardWidth() / 5),
                         (Math.round(0xD0 * strength) << 24) | (lit & 0x00FFFFFF));
             }
+            // In front of its glow in depth, not only drawn after it: a card turned toward the cursor
+            // leans its far edges back, and the glow, flat at the card's own depth, was drawn over them.
+            graphics.pose().pushPose();
+            graphics.pose().translate(0f, 0f, IN_FRONT_OF_ITS_GLOW);
             ClientCardCache.get().summary(card).ifPresentOrElse(
                     summary -> CardInspectPanel.renderArtTurned(
                             graphics, summary, card.flipped(),
@@ -336,6 +337,7 @@ public final class PackOpeningScreen extends Screen {
                             cardYaw, cardPitch, card.foil()),
                     () -> GatheringSprites.inset(
                             graphics, x, y, laid.cardWidth(), laid.cardHeight()));
+            graphics.pose().popPose();
             // Held over a card, the read-a-card key shows it here exactly as it does over a
             // hand, a pile or a draft pack. A grid of cards you have just been given and
             // cannot look at properly is the one place in the mod that would not answer it.

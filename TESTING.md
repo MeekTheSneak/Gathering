@@ -656,7 +656,7 @@ Two of these are cheap and two are not, and the cheap two catch most of it.
 
 To work on one late section of the scripted client without the steps before it, add
 `-PdevsceneFrom=N` to `:neoforge:runClient -Pdevscene`: once there is a world it goes straight to
-step `N`. It is a working tool and not a check - the steps it skips set up things later ones may
+step `N`, and `-PdevsceneTo=M` stops after step `M`. They are working tools and not a check - the steps they skip set up things later ones may
 read, so a failure in a shortened run is a lead, and the whole scene is still what verifies.
 
 The two slow ones boot real game instances under software rendering, which is

@@ -6320,6 +6320,10 @@ public final class DevScene {
 
     private static void advance(int settle) {
         step++;
+        // And straight to the end after a later step, when asked - see -PdevsceneTo in the build.
+        if (step > Integer.getInteger("gathering.devscene.to", Integer.MAX_VALUE) && step <= LAST_STEP) {
+            step = LAST_STEP + 1;
+        }
         waited = settle;
         // The clock is per step, so it starts again here. See STUCK_TICKS.
         ticks = 0;

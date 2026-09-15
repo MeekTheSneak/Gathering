@@ -1562,6 +1562,22 @@ Known and open from this batch:
 - `TableScreen` board labels, the pile box rebuilding before it draws new cards (a frame drawn between
   cut the footer short), and the tour's mat-button helper aiming at the board on screen.
 
+### Fourth batch: the owner's notes after the third (2026-09-15)
+
+- **The reminder over the hand** (mulligan owed, going first) and the "hand face up" band were a strip
+  the width of the hand drawn eleven pixels tall with art painted sixteen, so the art was squashed
+  whole and read as three bars. Each is now one framed label sized to its line, centered over the
+  hand, never shorter than its art. No reminders during the lesson, which gives its own directions.
+  Photographed at the table of eight.
+- **The pack reveal.** No glow behind Done. A revealed card is drawn in front of its glow in depth as
+  well as order, because a card turned toward the cursor leans its edges back past the flat glow.
+  **Not seen with real card art**: the tour's test printings have none, so the photo shows the glow
+  round the art-less fallback only.
+- `-PdevsceneTo=M` stops a scripted run after step `M` (TESTING.md).
+- The last full tour broke at step 307: the lesson moved past "read a card" before the script asked,
+  because the card the script had just played was under a cursor that, with the window focused, really
+  hovered it. A harness race, not a lesson change; recorded here with the cursor flake above.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,
