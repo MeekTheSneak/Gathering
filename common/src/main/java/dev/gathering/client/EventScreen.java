@@ -23,6 +23,7 @@ public final class EventScreen extends Screen {
     private static final int DIM = 0xFF9A9690;
     private static final int GOOD = 0xFF8FD18F;
     private static final int WARN = 0xFFE0B15A;
+    private static final int MY_ROW = 0x30FFFFFF;
     private static final int PANEL_WIDTH = 420;
     private static final int MARGIN = 8;
     private static final int ROW = 18;
@@ -395,10 +396,16 @@ public final class EventScreen extends Screen {
             cell(graphics, Component.translatable("screen.gathering.event.standings." + heads[column]), column, rightEdges, x, y, DIM);
         }
         y += LINE;
+        var me = Minecraft.getInstance().player;
+        String myName = me == null ? "" : me.getGameProfile().getName();
         int from = page * perPage();
         for (int index = from; index < Math.min(view.standings().size(), from + perPage()); index++) {
             EventViewPayload.Row row = view.standings().get(index);
             int color = row.dropped() ? DIM : LABEL;
+            if (row.name().equals(myName)) {
+                // Your own line, found at a glance in a list of thirty-two.
+                graphics.fill(x - 2, y - 1, x + width + 2, y + LINE - 2, MY_ROW);
+            }
             String[] cells = {
                     Integer.toString(row.rank()), row.name(), Integer.toString(row.points()),
                     row.wins() + "-" + row.losses() + "-" + row.draws(),
