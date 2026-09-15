@@ -201,7 +201,7 @@ public final class EventScreen extends Screen {
                 EventViewPayload.Match match = view.pairings().get(index);
                 if (match.table() > 0) {
                     Component settle = Component.translatable("screen.gathering.event.select");
-                    int width = this.font.width(settle) + 12;
+                    int width = this.font.width(settle) + 20;
                     addRenderableWidget(GatheringButtons.toggle(panel.right() - MARGIN - width, y - 1, width, LINE,
                             settle, () -> selectedTable == match.table(),
                             () -> {
@@ -457,7 +457,9 @@ public final class EventScreen extends Screen {
                 case "disputed" -> WARN;
                 default -> LABEL;
             };
-            GuiText.draw(graphics, this.font, line, x, y, width - (view.youHost() ? 44 : 0), color);
+            // Clear of the host's Settle toggle, which is as wide as its word and a margin.
+            GuiText.draw(graphics, this.font, line, x, y, width - (view.youHost()
+                    ? this.font.width(Component.translatable("screen.gathering.event.select")) + 24 : 0), color);
             y += LINE;
         }
     }
