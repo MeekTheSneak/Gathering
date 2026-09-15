@@ -110,7 +110,9 @@ up only works within 8 blocks of that spot, and anybody further away is pointed 
 two legs of planks). The host uses it while hosting and it becomes that tournament's desk and its
 registration point, in one click. Anybody else using it is shown the tournament it runs - to sign
 up, check in, see pairings and standings. A desk already running an unfinished tournament is taken
-over only by sneaking, so no stray click moves somebody else's event; a finished or cancelled
+over only by using it a second time within ten seconds of the first, which says whose desk it is,
+so no stray click moves somebody else's event; a host's own desk takes signing up back if it was
+moved elsewhere; a finished or cancelled
 tournament's desk is free. Breaking the desk takes signing up off that spot. With Create, a Display
 Link against the desk reads the tournament onto a board, set in the link to show the standings,
 this round's pairings, the round and clock, the final places, the prizes, or who has signed up.

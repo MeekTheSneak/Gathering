@@ -108,6 +108,7 @@ public final class Events {
     public static void clear() {
         events = null;
         goneSince.clear();
+        lastDeskUse.clear();
         lastTickNanos = 0;
         EventViews.forgetBudgets();
     }
@@ -346,12 +347,23 @@ public final class Events {
         });
     }
 
+    /** How long a second use of a desk counts as meaning it: long enough to read what the first said. */
+    static final long DESK_SECOND_USE_MILLIS = 10_000;
+
+    /** Who last used a desk that runs a tournament, where, and when: a second use soon after takes it over. */
+    private record DeskUse(String dimension, BlockPos desk, long at) {
+    }
+
+    private static final Map<UUID, DeskUse> lastDeskUse = new HashMap<>();
+
     /**
      * Somebody uses a Scorekeeper's Desk.
-     * <p>The host of a tournament that has no desk yet makes this its desk, and the place signing up
-     * happens - and a desk already running a tournament is taken over only by sneaking, so a desk is
-     * not lost to another host by a stray click. Anybody else is shown the tournament the desk runs,
-     * and a desk running nothing says how it comes to, and shows what tournaments there are.
+     * <p>The host of a tournament makes a free desk its desk, and the place signing up happens. A desk
+     * running a tournament already is taken over by another of the host's tournaments, or another
+     * host's, only with a second use soon after the first - which said whose desk it is - so no stray
+     * click moves an event. A host's own desk that signing up has moved away from takes it back.
+     * Anybody else is shown the tournament the desk runs, and a desk running nothing says how it comes
+     * to, and shows what tournaments there are.
      */
     public static void useDesk(ServerPlayer player, BlockPos deskPos) {
         ServerLevel level = player.serverLevel();
@@ -370,27 +382,43 @@ public final class Events {
                         .min().orElse(Double.MAX_VALUE)))
                 .orElse(null);
         boolean free = running == null || running.tournament.isOver();
-        if (hosting != null && (free || player.isShiftKeyDown())) {
+        DeskUse before = lastDeskUse.remove(player.getUUID());
+        long now = wallClock.getAsLong();
+        boolean again = before != null && before.dimension().equals(dimension) && before.desk().equals(deskPos)
+                && now - before.at() <= DESK_SECOND_USE_MILLIS;
+        if (hosting != null && (free || again)) {
             if (running != null && deskPos.equals(running.registrationPoint)) {
                 running.registrationPoint = null;
                 changed(player.getServer(), running);
             }
-            desk.runs(hosting.tournament.id());
-            hosting.registrationPoint = deskPos.immutable();
-            changed(player.getServer(), hosting);
-            player.sendSystemMessage(Component.translatable("message.gathering.desk.runs", hosting.tournament.name()));
-            EventViews.show(player, hosting, true);
+            runFromDesk(player, desk, hosting);
+            return;
+        }
+        if (running != null && !running.tournament.isOver() && running.tournament.host().equals(player.getUUID())
+                && !deskPos.equals(running.registrationPoint)) {
+            // Their own desk, which signing up was moved away from - or which was carried somewhere new.
+            runFromDesk(player, desk, running);
             return;
         }
         if (running != null) {
-            if (hosting != null && !running.tournament.host().equals(player.getUUID())) {
-                player.sendSystemMessage(Component.translatable("message.gathering.desk.taken", running.tournament.name()));
+            if (hosting != null) {
+                lastDeskUse.put(player.getUUID(), new DeskUse(dimension, deskPos.immutable(), now));
+                player.sendSystemMessage(Component.translatable("message.gathering.desk.taken", running.tournament.name(),
+                        hosting.tournament.name()));
             }
             EventViews.show(player, running, true);
             return;
         }
         player.sendSystemMessage(Component.translatable("message.gathering.desk.idle"));
         EventViews.list(player, true);
+    }
+
+    private static void runFromDesk(ServerPlayer player, dev.gathering.block.ScorekeepersDeskBlockEntity desk, EventState state) {
+        desk.runs(state.tournament.id());
+        state.registrationPoint = desk.getBlockPos().immutable();
+        changed(player.getServer(), state);
+        player.sendSystemMessage(Component.translatable("message.gathering.desk.runs", state.tournament.name()));
+        EventViews.show(player, state, true);
     }
 
     /** A desk is gone: signing up is no longer tied to where it stood. */

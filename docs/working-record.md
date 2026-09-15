@@ -308,15 +308,29 @@ setting ignored and with the tournament attached to tables.
 
 **Scorekeeper's Desk** (`ScorekeepersDeskBlock`, both loaders). The host's click on a free desk links
 their unfinished tournament and makes the desk its registration point; anybody else's click shows the
-tournament; another host takes a desk over only by sneaking, and the tournament that loses it loses
+tournament; another host (or the same host, for another of their tournaments) takes a desk over only by using it
+twice within ten seconds - the first use says whose desk it is - and the tournament that loses it loses
 its registration point; a finished or cancelled tournament's desk is free; breaking the desk clears the
 registration point. A host running more than one tournament links the one whose tables are nearest the
 desk - found in the pack scene, where a tournament left over from an earlier run was linked in place of
 the one beside the desk (guard `aHostOfTwoLinksTheOneBesideTheDesk`, proved failing; the scene's save
-is now cleared before each run, as `shots.sh` does for DevScene). Crafted paper-book-paper over planks. Model borrows vanilla's lectern (no texture
-of its own - the owner's to draw). `ScorekeepersDeskGameTest` (6, gate) goes through the block's real
-use: linking, look-only for a passer-by, sneak takeover, a free finished desk, breaking, save and load;
-plus `CraftingGameTest.aScorekeepersDeskCanBeCrafted`. Each proved failing with its code broken.
+is now cleared before each run, as `shots.sh` does for DevScene). Crafted paper-book-paper over planks.
+Model and shapes are vanilla's lectern (no texture of its own - the owner's to draw).
+`ScorekeepersDeskGameTest` (8, gate) uses the desk the way a player's click does, hand and all:
+linking, look-only for a passer-by, a second use taking over (and one too late not), a host's own desk
+taking signing up back, two tournaments, a free finished desk, breaking, its shape, save and load; plus
+`CraftingGameTest.aScorekeepersDeskCanBeCrafted`. Each proved failing with its code broken.
+
+**Independent review of the desk** (a reviewer agent, given the requirements and the diff) found, all
+fixed: (1) a host's own desk could never take signing up back once it moved elsewhere - after *Register
+here*, a second desk, or a Create contraption carrying the desk, whose removal clears the point - now
+it does; (2) the desk was a full solid cube wearing a lectern's model, hiding neighbors' faces and
+blocking light - it has the lectern's shapes now; (3) takeover was by sneaking, which vanilla gives to
+the held item, so a host holding a deck could never do it and the tests, which went around the click
+path, could not see that - takeover is now a second use within ten seconds and the tests click the
+real way with an item in hand; (4) the sign-up count included dropped players the list under it left
+out. It also noted that Display Links set to the three removed per-view sources (never released) would
+need re-picking.
 **Not verified:** the *Show* selector scrolled by hand (the scene sets the choice and opens Create's
 screen over it, which reads it back and keeps it); Fabric has the block and recipe but no Create.
 

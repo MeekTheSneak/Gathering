@@ -117,13 +117,16 @@ public class TournamentDisplaySource extends DisplaySource {
     }
 
     private static List<MutableComponent> signedUp(EventBoard.Board board) {
-        List<MutableComponent> lines = new ArrayList<>();
-        lines.add(Component.translatable("display.gathering.signed_up", board.players()));
+        // Counted from the names listed, so the number over them is the number of them: nobody who dropped.
+        List<MutableComponent> names = new ArrayList<>();
         for (EventBoard.Standing row : board.standings()) {
             if (!row.dropped()) {
-                lines.add(Component.literal(row.name()));
+                names.add(Component.literal(row.name()));
             }
         }
+        List<MutableComponent> lines = new ArrayList<>();
+        lines.add(Component.translatable("display.gathering.signed_up", names.size()));
+        lines.addAll(names);
         return lines;
     }
 

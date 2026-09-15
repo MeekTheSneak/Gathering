@@ -57,6 +57,12 @@ public final class CreateDisplayGameTest {
                 helper.fail("the table's match said [" + match + "]");
                 return;
             }
+            // A sign is four lines of fifteen: the match goes a part a line, so the opponent is not cut off.
+            List<MutableComponent> onASign = CreateCompat.TABLE_MATCH.get().provideText(context, new DisplayTargetStats(4, 15, null));
+            if (onASign.size() < 3 || !said(onASign).contains("display.gathering.versus")) {
+                helper.fail("on a sign the table's match said [" + said(onASign) + "]");
+                return;
+            }
             String life = said(CreateCompat.TABLE_LIFE.get().provideText(context, board));
             if (!life.contains("display.gathering.no_game")) {
                 helper.fail("a table with no game on it showed life totals: " + life);
@@ -110,6 +116,15 @@ public final class CreateDisplayGameTest {
                     helper.fail("set to " + show + ", the desk's board said [" + text + "]");
                     return;
                 }
+            }
+            // Somebody who dropped is neither listed nor counted as signed up.
+            Events.setForTesting(state, state.tournament().drop(new java.util.UUID(9L, 3)));
+            context.sourceConfig().putInt(TournamentDisplaySource.SHOW, TournamentDisplaySource.Show.SIGNED_UP.ordinal());
+            List<MutableComponent> signedUp = source.provideText(context, board);
+            String count = signedUp.get(0).toString();
+            if (signedUp.size() != 4 || !count.contains("args=[3]")) {
+                helper.fail("with one of four dropped, sign-ups said [" + said(signedUp) + "]");
+                return;
             }
             // The rows a board has are the rows it gets: a two-row sign shows the top two standings.
             context.sourceConfig().putInt(TournamentDisplaySource.SHOW, TournamentDisplaySource.Show.STANDINGS.ordinal());

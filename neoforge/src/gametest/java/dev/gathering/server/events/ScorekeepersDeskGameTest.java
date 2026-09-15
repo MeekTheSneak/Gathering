@@ -13,13 +13,18 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The Scorekeeper's Desk: a host using it makes it their tournament's desk and the place signing up
- * happens; anybody else using it leaves it alone; sneaking takes it over; breaking it lets signing
- * up go anywhere again. Each through the block, the way a player's click reaches it.
+ * happens; anybody else using it leaves it alone; another host using it twice takes it over; breaking
+ * it lets signing up go anywhere again. Each through the player's own use of a block, hand and all.
  */
 @GameTestHolder(Gathering.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -39,7 +44,7 @@ public final class ScorekeepersDeskGameTest {
         ServerPlayer passerBy = helper.makeMockServerPlayerInLevel();
         EventState theirs = hostedBy(helper, passerBy, "Saturday");
         try {
-            helper.useBlock(DESK, host);
+            use(helper, host);
             if (!runs(helper, desk, state)) {
                 helper.fail("the host's click on a free desk left it running " + deskOf(helper, desk).event());
                 return;
@@ -53,16 +58,26 @@ public final class ScorekeepersDeskGameTest {
                 helper.fail("the desk's board read " + board);
                 return;
             }
-            // Another host's plain click is a look, not a takeover.
-            helper.useBlock(DESK, passerBy);
+            // Another host's click is a look, not a takeover - with something in hand, as a player
+            // signing up for constructed holds a deck.
+            passerBy.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+            use(helper, passerBy);
             if (!runs(helper, desk, state) || theirs.registrationPoint != null) {
-                helper.fail("another host's click without sneaking took the desk");
+                helper.fail("another host's first click took the desk");
                 return;
             }
-            passerBy.setShiftKeyDown(true);
-            helper.useBlock(DESK, passerBy);
+            // A second use long after is a look again.
+            long start = Events.wallClock.getAsLong();
+            Events.wallClock = () -> start + Events.DESK_SECOND_USE_MILLIS + 1_000;
+            use(helper, passerBy);
+            if (!runs(helper, desk, state)) {
+                helper.fail("a second click long after the first took the desk");
+                return;
+            }
+            // Used again soon after the look, the desk is theirs.
+            use(helper, passerBy);
             if (!runs(helper, desk, theirs) || !desk.equals(theirs.registrationPoint)) {
-                helper.fail("sneaking did not take the desk over");
+                helper.fail("using the desk again soon after did not take it over");
                 return;
             }
             if (state.registrationPoint != null) {
@@ -70,6 +85,7 @@ public final class ScorekeepersDeskGameTest {
                 return;
             }
         } finally {
+            Events.wallClock = System::currentTimeMillis;
             Events.removeForTesting(state);
             Events.removeForTesting(theirs);
         }
@@ -85,13 +101,13 @@ public final class ScorekeepersDeskGameTest {
         EventState far = hostedBy(helper, host, "Across the Hall", List.of(desk.offset(60, 0, 0)));
         EventState near = hostedBy(helper, host, "Here", List.of(desk.offset(0, 0, 3)));
         try {
-            helper.useBlock(DESK, host);
+            use(helper, host);
             if (!runs(helper, desk, near)) {
                 helper.fail("the desk linked " + deskOf(helper, desk).event() + " rather than the tournament beside it");
                 return;
             }
             // Using it again only looks, even though the host has another tournament without a desk.
-            helper.useBlock(DESK, host);
+            use(helper, host);
             if (!runs(helper, desk, near) || far.registrationPoint != null) {
                 helper.fail("the host's second click moved their own desk to their other tournament");
                 return;
@@ -99,6 +115,26 @@ public final class ScorekeepersDeskGameTest {
         } finally {
             Events.removeForTesting(far);
             Events.removeForTesting(near);
+        }
+        helper.succeed();
+    }
+
+    /** A host's own desk takes back signing up that was moved elsewhere - or a desk carried somewhere new. */
+    @GameTest(template = "empty")
+    public static void aHostsOwnDeskTakesSigningUpBack(GameTestHelper helper) {
+        BlockPos desk = placeDesk(helper);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        EventState state = hostedBy(helper, host, "Friday Night");
+        try {
+            use(helper, host);
+            state.registrationPoint = desk.offset(20, 0, 0);
+            use(helper, host);
+            if (!desk.equals(state.registrationPoint)) {
+                helper.fail("the host's own desk left signing up at " + state.registrationPoint);
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
         }
         helper.succeed();
     }
@@ -112,7 +148,7 @@ public final class ScorekeepersDeskGameTest {
         try {
             ServerPlayer player = helper.makeMockServerPlayerInLevel();
             player.setShiftKeyDown(true);
-            helper.useBlock(DESK, player);
+            use(helper, player);
             if (deskOf(helper, desk).event().isPresent() || state.registrationPoint != null) {
                 helper.fail("a player hosting nothing linked the desk");
                 return;
@@ -136,9 +172,9 @@ public final class ScorekeepersDeskGameTest {
         ServerPlayer second = helper.makeMockServerPlayerInLevel();
         EventState next = hostedBy(helper, second, "This Week");
         try {
-            helper.useBlock(DESK, first);
+            use(helper, first);
             Events.setForTesting(over, over.tournament.cancel());
-            helper.useBlock(DESK, second);
+            use(helper, second);
             if (!runs(helper, desk, next)) {
                 helper.fail("a cancelled tournament kept its desk from the next host");
                 return;
@@ -157,7 +193,7 @@ public final class ScorekeepersDeskGameTest {
         ServerPlayer host = helper.makeMockServerPlayerInLevel();
         EventState state = hostedBy(helper, host, "Friday Night");
         try {
-            helper.useBlock(DESK, host);
+            use(helper, host);
             if (!desk.equals(state.registrationPoint)) {
                 helper.fail("the desk never became the place to sign up");
                 return;
@@ -169,6 +205,20 @@ public final class ScorekeepersDeskGameTest {
             }
         } finally {
             Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
+    /** A lectern's look and a lectern's shape: not a full cube hiding its neighbors' faces or blocking light. */
+    @GameTest(template = "empty")
+    public static void aDeskIsShapedLikeWhatItLooksLike(GameTestHelper helper) {
+        BlockPos desk = placeDesk(helper);
+        var state = helper.getLevel().getBlockState(desk);
+        if (net.minecraft.world.level.block.Block.isShapeFullBlock(state.getOcclusionShape(helper.getLevel(), desk))
+                || net.minecraft.world.level.block.Block.isShapeFullBlock(state.getCollisionShape(helper.getLevel(), desk))
+                || !state.useShapeForLightOcclusion()) {
+            helper.fail("the desk is a full cube where it shows a lectern");
+            return;
         }
         helper.succeed();
     }
@@ -194,6 +244,13 @@ public final class ScorekeepersDeskGameTest {
             return;
         }
         helper.succeed();
+    }
+
+    /** A use of the desk the way a player's click reaches it, hand and all. */
+    private static void use(GameTestHelper helper, ServerPlayer player) {
+        BlockPos at = helper.absolutePos(DESK);
+        player.gameMode.useItemOn(player, helper.getLevel(), player.getMainHandItem(), InteractionHand.MAIN_HAND,
+                new BlockHitResult(Vec3.atCenterOf(at), Direction.UP, at, false));
     }
 
     private static BlockPos placeDesk(GameTestHelper helper) {
