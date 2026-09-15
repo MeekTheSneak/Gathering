@@ -356,7 +356,11 @@ label invisible (faced to the player's camera, not Ponder's) and that was fixed.
 tall now; the collection footer's first line was drawn over the grid's bottom wall; the event screen's
 own-row highlight was a painted rectangle, against the rule that every tint is a theme's sprite (now
 `ROW_HIGHLIGHT`); its page arrows looked live with one page (grayed, like the event list's); the pick
-clock buttons sharing the "Packs each" row say what they are on hover. Rerun tour: failures 0, and the
+clock buttons sharing the "Packs each" row say what they are on hover. Two more painted colors, found looking for
+others like the highlight: the action palette's picked row (now `ROW_HIGHLIGHT`) and the replay ruler's
+track, fill and head (now the theme's scroll track and thumb, sliced thin enough for a 6-pixel ruler);
+both photographed in a later tour, which passed. Left as they are: the card pointing ring and `GuiGlow`'s
+disc, which tint by meaning - the design brief's exception for color that is information. Rerun tour: failures 0, and the
 Settle row, footer and highlight photographed and looked at. The tooltip and grayed arrows were not
 photographed.
 

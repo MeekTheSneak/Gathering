@@ -62,7 +62,6 @@ public final class ActionPalette {
     private static final int ROW_PICKED = 0xFFFFFFFF;
     private static final int KEY = 0xFF8A8378;
     private static final int NOTHING = 0xFF9C9384;
-    private static final int HIGHLIGHT = 0x40FFFFFF;
 
     /**
      * One thing the palette can do, and the menu row it came from.
@@ -404,8 +403,8 @@ public final class ActionPalette {
             Choice choice = showing.get(index);
             int rowY = y + (index - firstShown) * ROW_HEIGHT;
             if (index == picked) {
-                graphics.fill(where.x() + 2, rowY - 1,
-                        where.x() + where.width() - 2, rowY + ROW_HEIGHT - 2, HIGHLIGHT);
+                // The theme's row highlight: a painted color here is one no theme could change.
+                GatheringSprites.highlight(graphics, where.x() + 2, rowY - 1, where.width() - 4, ROW_HEIGHT - 1);
             }
             int keyRoom = 0;
             if (choice.shortcut() != null) {

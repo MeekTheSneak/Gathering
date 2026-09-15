@@ -17,9 +17,6 @@ import net.minecraft.network.chat.Component;
  */
 final class TableReplayControls {
     private static final int LABEL = 0xFFE8E4DC;
-    private static final int SCRUB_TRACK = 0xFF3A3A3A;
-    private static final int SCRUB_FILL = 0xFF6FD3E8;
-    private static final int SCRUB_HEAD = 0xFFF2EEE6;
     /** Whether the bar was grabbed, so a drag along it keeps scrubbing until released. */
     private boolean scrubbing;
     private List<Component> tooltip = List.of();
@@ -103,15 +100,17 @@ final class TableReplayControls {
         drawScrubButton(graphics, font, cursorX, cursorY, transport.button(3), ">>", "on");
 
         Rect bar = transport.bar();
-        graphics.fill(bar.x(), bar.y(), bar.right(), bar.bottom(), SCRUB_TRACK);
+        // The theme's scrollbar channel and thumb, which are sliced thin enough for a ruler: painted
+        // colors here were three things on the table no theme could change.
+        GatheringSprites.scrollTrack(graphics, bar.x(), bar.y(), bar.width(), bar.height());
         int steps = ClientReplay.steps();
         int filled = transport.filled(ClientReplay.step(), steps);
-        if (filled > 0) {
-            graphics.fill(bar.x(), bar.y(), bar.x() + filled, bar.bottom(), SCRUB_FILL);
+        if (filled >= 4) {
+            GatheringSprites.scrollThumb(graphics, bar.x(), bar.y(), filled, bar.height());
         }
         // The head, so a paused replay says where it is even when the fill is a hairline.
-        int head = bar.x() + Math.clamp(filled, 0, Math.max(0, bar.width() - 2));
-        graphics.fill(head, bar.y() - 2, head + 2, bar.bottom() + 2, SCRUB_HEAD);
+        int head = bar.x() + Math.clamp(filled - 2, 0, Math.max(0, bar.width() - 4));
+        GatheringSprites.scrollThumb(graphics, head, bar.y() - 2, 4, bar.height() + 4);
 
         GuiText.draw(graphics, font,
                 Component.translatable("screen.gathering.replay.at",
