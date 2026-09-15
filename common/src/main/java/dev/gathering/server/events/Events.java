@@ -109,6 +109,7 @@ public final class Events {
         events = null;
         goneSince.clear();
         lastDeskUse.clear();
+        deskArrivals.clear();
         lastTickNanos = 0;
         EventViews.forgetBudgets();
     }
@@ -424,12 +425,32 @@ public final class Events {
         EventViews.show(player, state, true);
     }
 
-    /** A desk is gone: signing up is no longer tied to where it stood. */
+    /** A desk that has just arrived somewhere, copied from one standing elsewhere this tick. */
+    private record DeskArrival(String dimension, BlockPos from, BlockPos to, long tick) {
+    }
+
+    private static final Map<String, DeskArrival> deskArrivals = new HashMap<>();
+
+    /**
+     * A desk has been loaded at {@code to} from a save made this tick at {@code from}. If the desk at
+     * {@code from} goes this same tick, it was carried - a Sable ship assembled around it - and
+     * signing up goes with it rather than being set loose. Noted until then: a copy whose original
+     * stays is a copy, and moves nothing.
+     */
+    public static void deskArrived(ServerLevel level, BlockPos from, BlockPos to) {
+        String dimension = level.dimension().location().toString();
+        deskArrivals.put(dimension + "@" + from.asLong(), new DeskArrival(dimension, from.immutable(), to.immutable(), level.getGameTime()));
+    }
+
+    /** A desk is gone: signing up goes with it if it was carried, and is no longer tied to where it stood if not. */
     public static void deskRemoved(ServerLevel level, BlockPos deskPos) {
         String dimension = level.dimension().location().toString();
+        DeskArrival arrival = deskArrivals.remove(dimension + "@" + deskPos.asLong());
+        BlockPos carriedTo = arrival != null && arrival.tick() == level.getGameTime()
+                && level.getBlockEntity(arrival.to()) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity ? arrival.to() : null;
         for (EventState state : events().values()) {
             if (dimension.equals(state.dimension) && deskPos.equals(state.registrationPoint)) {
-                state.registrationPoint = null;
+                state.registrationPoint = carriedTo;
                 changed(level.getServer(), state);
             }
         }

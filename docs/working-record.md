@@ -382,6 +382,12 @@ the check off, and breaks the copy afterwards to see the deck come back once. Se
 Sable's `moveBlocks` (the call Create Aeronautics' disassembly makes): 1 deck on the table, 0 on the
 ground.
 
+**A desk carried onto a ship takes signing up with it.** It used to clear the registration point, as a
+broken desk does. A desk now notes, when a copy is loaded from its save made this tick, where the copy
+went; if the old desk goes that same tick it was carried, and signing up follows. A copy whose original
+stays moves nothing. Gate test `aCarriedDeskTakesSigningUpWithIt` (copy then carry), proved failing;
+pack test `aDeskCarriedOffTakesSigningUpWithIt` with a real Sable assembly.
+
 **Independent review of the custody fix** found it had introduced a loss: any copy sharing the
 identity - a creative pick with data, `/clone`, a pasted structure - made breaking the original hand
 back nothing. Fixed: a table counts as carried only to a copy loaded from its own latest save made in

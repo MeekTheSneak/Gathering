@@ -88,6 +88,40 @@ public final class SableTablesGameTest {
         helper.succeed();
     }
 
+    /** A Scorekeeper's Desk carried into a structure takes signing up with it, to where it went. */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    public static void aDeskCarriedOffTakesSigningUpWithIt(GameTestHelper helper) {
+        BlockPos desk = helper.absolutePos(new BlockPos(2, 2, 2));
+        helper.getLevel().setBlock(desk, GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState(), 3);
+        var tournament = dev.gathering.core.tournament.Tournament.create(java.util.UUID.randomUUID(), "Aloft",
+                new java.util.UUID(3L, 3L), dev.gathering.core.tournament.EventSettings.usual(
+                        dev.gathering.core.tournament.EventSettings.Kind.CONSTRUCTED, "modern"));
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of());
+        Events.putForTesting(state);
+        try {
+            if (helper.getLevel().getBlockEntity(desk) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity entity) {
+                entity.runs(tournament.id());
+            }
+            state.registrationPoint = desk;
+            ServerSubLevel structure = SubLevelAssemblyHelper.assembleBlocks(helper.getLevel(), desk, List.of(desk),
+                    new BoundingBox3i(desk, desk));
+            if (structure == null) {
+                helper.fail("Sable did not assemble the desk into a structure");
+                return;
+            }
+            BlockPos at = state.registrationPoint;
+            System.out.println("[sable] a carried desk's tournament signs up at " + at);
+            if (at == null || at.equals(desk)
+                    || !(helper.getLevel().getBlockEntity(at) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity)) {
+                helper.fail("a desk carried into a structure left signing up at " + at);
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
     /** A table carried into a structure is still where it was, in the world. */
     @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
     public static void aTableOnAStructureIsWhereItWasInTheWorld(GameTestHelper helper) {

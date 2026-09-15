@@ -369,6 +369,43 @@ public final class ScorekeepersDeskGameTest {
         helper.succeed();
     }
 
+    /**
+     * A desk carried somewhere - written down, loaded where it went, and the old one cleared in the
+     * same tick, as Sable carries one onto a ship - takes signing up with it. A copy whose original
+     * stays moves nothing.
+     */
+    @GameTest(template = "empty")
+    public static void aCarriedDeskTakesSigningUpWithIt(GameTestHelper helper) {
+        BlockPos desk = placeDesk(helper);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        EventState state = hostedBy(helper, host, "Friday Night");
+        try {
+            use(helper, host);
+            // A copy that stays beside its original: signing up stays where it was.
+            CompoundTag saved = deskOf(helper, desk).saveWithFullMetadata(helper.getLevel().registryAccess());
+            BlockPos copy = desk.offset(4, 0, 0);
+            helper.getLevel().setBlock(copy, GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState(), 3);
+            deskOf(helper, copy).loadWithComponents(saved, helper.getLevel().registryAccess());
+            if (!desk.equals(state.registrationPoint)) {
+                helper.fail("copying a desk moved signing up to " + state.registrationPoint);
+                return;
+            }
+            // Carried: loaded where it went and the old one cleared, in one tick.
+            saved = deskOf(helper, desk).saveWithFullMetadata(helper.getLevel().registryAccess());
+            BlockPos there = desk.offset(0, 0, 4);
+            helper.getLevel().setBlock(there, GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState(), 3);
+            deskOf(helper, there).loadWithComponents(saved, helper.getLevel().registryAccess());
+            helper.getLevel().removeBlock(desk, false);
+            if (!there.equals(state.registrationPoint)) {
+                helper.fail("a desk carried elsewhere left signing up at " + state.registrationPoint);
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
     /** Which tournament a desk runs is saved with it. */
     @GameTest(template = "empty")
     public static void aDeskRemembersItsTournament(GameTestHelper helper) {

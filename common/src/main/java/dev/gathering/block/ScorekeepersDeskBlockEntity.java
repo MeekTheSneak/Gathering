@@ -156,13 +156,30 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
         super.saveAdditional(tag, registries);
         if (event != null) {
             tag.putUUID(EVENT_KEY, event);
+            // Where and when this was written down, so a copy loaded from it in the same tick - a desk
+            // carried onto a ship - can say where it came from. See Events.deskArrived.
+            if (level != null && !level.isClientSide()) {
+                tag.putLong(SAVED_AT_KEY, worldPosition.asLong());
+                tag.putLong(SAVED_TICK_KEY, level.getGameTime());
+            }
         }
     }
+
+    private static final String SAVED_AT_KEY = "saved_at";
+    private static final String SAVED_TICK_KEY = "saved_tick";
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         event = tag.hasUUID(EVENT_KEY) ? tag.getUUID(EVENT_KEY) : null;
+        // Loaded into a level already, from a save made this tick somewhere else: a mover put this
+        // desk here (Sable puts a block entity in place before reading its data into it). Whether it
+        // was carried or copied is known only when the old desk goes, so that is only noted here.
+        if (event != null && level instanceof ServerLevel server && tag.contains(SAVED_AT_KEY)
+                && tag.getLong(SAVED_TICK_KEY) == server.getGameTime()
+                && tag.getLong(SAVED_AT_KEY) != worldPosition.asLong()) {
+            dev.gathering.server.events.Events.deskArrived(server, BlockPos.of(tag.getLong(SAVED_AT_KEY)), worldPosition);
+        }
         // Only in what is sent to clients; on the server it is worked out again from the event.
         label = tag.contains(LABEL_KEY) ? Label.load(tag.getCompound(LABEL_KEY)) : Label.NONE;
     }
