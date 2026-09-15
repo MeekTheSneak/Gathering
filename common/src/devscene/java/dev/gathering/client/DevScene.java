@@ -3318,6 +3318,24 @@ public final class DevScene {
                         fail("the pick clock can still be pressed for a sealed event");
                     }
                 }
+                // Sharing the "Packs each" row, each clock says on hover what it is.
+                int clocksSaid = 0;
+                for (var child : client.screen.children()) {
+                    if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget
+                            && widget.getTooltip() != null && !widget.getTooltip().toCharSequence(client).isEmpty()) {
+                        StringBuilder first = new StringBuilder();
+                        widget.getTooltip().toCharSequence(client).get(0).accept((index, style, point) -> {
+                            first.appendCodePoint(point);
+                            return true;
+                        });
+                        if (first.toString().startsWith("Pick clock")) {
+                            clocksSaid++;
+                        }
+                    }
+                }
+                if (clocksSaid != 4) {
+                    fail("only " + clocksSaid + " of the four pick clock buttons say what they are on hover");
+                }
                 shoot(client, "98-a-new-event");
                 press(client, net.minecraft.network.chat.Component.translatable(
                         "screen.gathering.pod.create_button").getString());

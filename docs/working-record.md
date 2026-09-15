@@ -1254,8 +1254,8 @@ is still the owner's to make.
 1. **A person plays the lesson, a real game, and a tournament run from a Scorekeeper's Desk.** The
    scripted tour passes on this machine (`[devscene] failures: 0`, 2026-09-15, after the renderer,
    label, Settle, footer and sprite changes) and its screenshots were looked at; how it feels to
-   somebody who has not read the code is still unknown. Not yet seen by anyone: the pick clock
-   tooltips, the verb reminder's lit pip, Create's Show
+   somebody who has not read the code is still unknown. The pick clock tooltips are now asserted by
+   the tour (proved failing with them removed). Not yet seen by anyone: the verb reminder's lit pip, Create's Show
    selector scrolled by hand, and a table on a moving Aeronautics ship.
 2. The rest of CL-10 (mode context, pointer controller, shared action binding), each extraction
    paired with a tour run. CL-08 is done (release jars inspected).
