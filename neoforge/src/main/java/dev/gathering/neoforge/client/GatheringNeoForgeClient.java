@@ -119,6 +119,12 @@ public final class GatheringNeoForgeClient {
     }
 
 
+    /** The mods list's Config button, opening the mod's own settings over the list it came from. */
+    public static void registerConfigScreen(net.neoforged.fml.ModContainer container) {
+        container.registerExtensionPoint(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
+                (mod, parent) -> new dev.gathering.client.SettingsScreen(parent));
+    }
+
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         // Not parallel-safe work: these bind shared state, so they go on the main thread.

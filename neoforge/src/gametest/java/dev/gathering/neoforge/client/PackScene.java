@@ -102,6 +102,14 @@ public final class PackScene {
             }
             case 1 -> {
                 shoot(client, "p00-title-with-the-pack");
+                // The mods list's Config button for this mod opens its settings.
+                var settings = net.neoforged.fml.ModList.get().getModContainerById(dev.gathering.Gathering.MOD_ID)
+                        .flatMap(mod -> net.neoforged.neoforge.client.gui.IConfigScreenFactory.getForMod(mod.getModInfo()))
+                        .map(factory -> factory.createScreen(null, client.screen)).orElse(null);
+                System.out.println("[packscene] the mods list's Config button opens " + settings);
+                if (!(settings instanceof dev.gathering.client.SettingsScreen)) {
+                    fail("the mods list's Config button for Gathering opens " + settings + " rather than its settings");
+                }
                 makeAWorld(client);
                 advance(SETTLE * 4);
             }

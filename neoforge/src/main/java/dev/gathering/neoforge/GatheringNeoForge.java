@@ -28,8 +28,14 @@ public final class GatheringNeoForge {
     private CardDataService cardData;
     private CollationService collation;
 
-    public GatheringNeoForge(IEventBus modBus) {
+    public GatheringNeoForge(IEventBus modBus, net.neoforged.fml.ModContainer container) {
         GatheringRegistration.bootstrap(modBus);
+        // The Config button beside this mod in the mods list opens its settings, as Create's does: the
+        // text size, reduced motion and the rest are wanted before a table has ever been sat at, and
+        // the table's menu was the only way in.
+        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
+            dev.gathering.neoforge.client.GatheringNeoForgeClient.registerConfigScreen(container);
+        }
         // Create's display sources, only where Create is installed. Named through a class loaded
         // after asking, so a server without Create never touches a class of Create's.
         if (net.neoforged.fml.ModList.get().isLoaded("create")) {
