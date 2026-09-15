@@ -30,6 +30,11 @@ public final class GatheringNeoForge {
 
     public GatheringNeoForge(IEventBus modBus) {
         GatheringRegistration.bootstrap(modBus);
+        // Create's display sources, only where Create is installed. Named through a class loaded
+        // after asking, so a server without Create never touches a class of Create's.
+        if (net.neoforged.fml.ModList.get().isLoaded("create")) {
+            dev.gathering.neoforge.compat.create.CreateCompat.init(modBus);
+        }
 
         // Game bus: these are things happening in the game, not mod setup.
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);

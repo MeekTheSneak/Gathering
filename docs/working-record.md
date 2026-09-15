@@ -295,6 +295,15 @@ a table into a structure and check where it is, which side a player at a turned 
 a chair is - each shown to fail with the conversion removed (and one fixed after it passed anyway,
 because it compared against the same conversion). **Not verified:** a real client on a moving vehicle.
 
+**Create display boards.** A Display Link against any table offers five sources: Tournament
+Standings (final places once finished), Tournament Pairings, Tournament Round (round and clock),
+This Table's Match, and Life Totals of the game on the table. They read `EventBoard` and `TableBoard`
+in common - public results only, as the event screen shows them - and are registered only when Create
+is installed (`CreateCompat`, loaded by name after asking). `EventBoardGameTest` (in the gate) checks the
+data; `CreateDisplayGameTest` (pack tests, Create installed) places a real Display Link on a table and
+reads every source, and fails when the sources are not attached to tables. **Not verified:** how the
+lines look on a display board, a Flap Display or a lectern in a real client.
+
 ## Rules and tournament pass (2026-09-14, while the owner was away)
 
 Checked against the Comprehensive Rules and the Magic Tournament Rules. The MTR sections were

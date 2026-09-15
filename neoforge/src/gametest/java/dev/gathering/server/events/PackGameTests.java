@@ -24,5 +24,8 @@ public final class PackGameTests {
         if (ModList.get().isLoaded("sable")) {
             event.register(SableTablesGameTest.class);
         }
+        if (ModList.get().isLoaded("create")) {
+            event.register(dev.gathering.neoforge.compat.create.CreateDisplayGameTest.class);
+        }
     }
 }

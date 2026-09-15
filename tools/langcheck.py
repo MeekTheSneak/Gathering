@@ -45,6 +45,13 @@ EXPECTED_UNREFERENCED = {
     # middle because the profession is not minecraft's.
     "entity.minecraft.villager.gathering.shopkeeper",
     "key.categories.gathering",
+    # Create builds a display source's name as "<namespace>.display_source.<path>" from its
+    # registry id, so nothing here asks for these by name. See compat/create/CreateCompat.
+    "gathering.display_source.tournament_standings",
+    "gathering.display_source.tournament_pairings",
+    "gathering.display_source.tournament_round",
+    "gathering.display_source.table_match",
+    "gathering.display_source.table_life",
 }
 # Turns pass whole rather than a step at a time, so nothing shows a phase now - but PhaseSet is
 # still a real event, still folded and still in saved sessions, so the names stay readable.
