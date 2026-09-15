@@ -277,6 +277,25 @@ public final class PackScene {
                 }
                 shoot(client, "p10-the-round-on-a-clipboard");
                 client.setScreen(null);
+                // The round's clock run out the way the event runs it.
+                onTheServer(client, (server, player) -> {
+                    Events.runClockForTesting(server, event, event.tournament().settings().roundMinutes() * 60_000L / 50 + 20);
+                    // Facing the desk, its comparator and the lamp, from a few blocks south of them.
+                    player.stopRiding();
+                    player.teleportTo(server.overworld(), desk.getX() - 0.5, desk.getY(), desk.getZ() + 4.5, 180f, 25f);
+                });
+                advance(SETTLE * 2);
+            }
+            case 17 -> {
+                onTheServer(client, (server, player) -> {
+                    var lamp = server.overworld().getBlockState(desk.west(2));
+                    boolean lit = lamp.getValue(net.minecraft.world.level.block.RedstoneLampBlock.LIT);
+                    System.out.println("[packscene] with time called the lamp beside the desk is " + (lit ? "lit" : "dark"));
+                    if (!lit) {
+                        fail("time was called and the lamp the desk's comparator feeds stayed dark");
+                    }
+                });
+                shoot(client, "p11-time-called-at-the-desk");
                 advance(SETTLE);
             }
             default -> finish(client);
@@ -389,6 +408,10 @@ public final class PackScene {
                 .setValue(dev.gathering.block.ScorekeepersDeskBlock.FACING, Direction.SOUTH), 3);
         boardLink = link(level, desk.above(), Direction.UP, topLeft, "the board",
                 dev.gathering.neoforge.compat.create.CreateCompat.tournamentForScenes());
+        // A comparator reading the desk, and a lamp it lights when time is called.
+        level.setBlock(desk.west(), Blocks.COMPARATOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.ComparatorBlock.FACING, Direction.EAST), 3);
+        level.setBlock(desk.west(2), Blocks.REDSTONE_LAMP.defaultBlockState(), 3);
 
         // And a sign, which needs no power, reading the match at the table. The link sits on the table's
         // east side facing east, so the table is the block it reads.

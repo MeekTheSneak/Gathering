@@ -393,7 +393,9 @@ the block and a numbered table's floating label, both drawn as before the render
 **Desk comparator and "Time" label.** A comparator beside a linked desk reads 15 while the round being
 played has had time called, 0 otherwise; the label says "Time: extra turns". Guard
 `aDeskSignalsWhenTimeIsCalled` runs the round's real clock through and reads a real comparator; proved
-failing with the signal removed.
+failing with the signal removed. In the pack scene's real client, running the round's clock out lit a redstone lamp fed by a
+comparator at the desk (checked on the server, and photographed with the label reading "Time: extra
+turns").
 
 **Second independent review** (Create, Ponder, labels; a reviewer agent given the requirements and the
 diff) found, all fixed: the desk's label was culled with the desk's own cube on NeoForge (a render box
@@ -1217,7 +1219,7 @@ is still the owner's to make.
    scripted tour passes on this machine (`[devscene] failures: 0`, 2026-09-15, after the renderer,
    label, Settle, footer and sprite changes) and its screenshots were looked at; how it feels to
    somebody who has not read the code is still unknown. Not yet seen by anyone: the pick clock
-   tooltips, the verb reminder's lit pip, the desk's comparator driving a real lamp, Create's Show
+   tooltips, the verb reminder's lit pip, Create's Show
    selector scrolled by hand, and a table on a moving Aeronautics ship.
 2. The rest of CL-10 (mode context, pointer controller, shared action binding), each extraction
    paired with a tour run. CL-08 is done (release jars inspected).
