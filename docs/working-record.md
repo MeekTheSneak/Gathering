@@ -367,6 +367,9 @@ theme's lit pip - **not photographed**: the tour reaches no verb reminder. Rerun
 Settle row, footer and highlight photographed and looked at. The tooltip and grayed arrows were not
 photographed.
 
+**Fabric tour (2026-09-15).** `:fabric:runClient -Pdevscene` after tonight's client changes: reached step
+344 of 344, `[devscene] failures: 0`. Its world is now cleared before each run as NeoForge's is.
+
 **Third independent review** (protocol check, comparator, clipboard) found, all fixed: building a
 desk's update tag stored the fresh label, so the next refresh saw no change and players already watching
 were never told (guard in `aLinkedDeskLabelsItsTournament`, proved failing); a comparator kept a stale 15

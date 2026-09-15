@@ -123,6 +123,17 @@ loom.runs.client {
     source sourceSets.testmod
 }
 
+// The scripted tour makes its world under a name it reuses, and a world made that way inherits the
+// last run's folders - tournaments and decks the steps do not expect - so it starts from nothing,
+// as tools/shots.sh and :neoforge:runClient -Pdevscene already do.
+tasks.matching { it.name == 'runClient' }.configureEach {
+    doFirst {
+        if (project.hasProperty('devscene')) {
+            delete file('run/saves/GatheringDevScene')
+        }
+    }
+}
+
 // Two clients and the protocol check between them: a host opening a world to LAN, and a joiner
 // that may answer with another protocol number (-PpretendProtocol=11). Each in its own run
 // directory, so neither writes over the other's options or worlds. See ProtocolScene.
