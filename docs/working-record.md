@@ -1733,6 +1733,27 @@ game of four or more.
 
 Verified: gate green (559/16); tour steps 0-30, no failures. **Not verified with two real clients.**
 
+### Ninth batch: the owner's answers on taken-over seats and collection clicks (2026-09-15)
+
+- **A taken-over seat's deck.** The owner: whoever takes over the seat may see and play the deck that
+  was in it, and after the game it goes back to its owner, never to them. A seat freed while its player
+  was away (time, vote, conceding while away) now leaves the deck in the table's keeping
+  (`TableBlock.giveUpSeat(..., keepTheDeck)`), so the next player plays it. When that game ends with
+  another to come, every held deck whose owner is not the player holding its seat goes back to the owner
+  (`TableSessions.returnDecksNotBeingPlayedByTheirOwners`); when the match ends every deck goes back as
+  before - to the owner wherever they are, kept for them if they are off the server, never to the chair.
+  Leave table still hands the leaving player's deck back at once. Guard:
+  `AwayFromBoardGameTest.aTakenOverSeatsDeckGoesBackToItsOwnerAfterTheGame`, shown failing with the deck
+  handed back when the seat was freed and with the end-of-game return removed.
+  `DeckCustodyGameTest.sideboardingKeepsWhoseDeckItIs` held a deck for an absent owner during a game and
+  then edited it between games; under the new rule that deck goes home when the game ends, so the fixture
+  holds it once the game is over. What it checks - an edit keeps the owner and the pool - is unchanged.
+- **Collection clicks.** The owner chose the inventory: a card clicked out of a collection comes out loose
+  whatever is in hand, and no longer goes into a deck in hand. The footer always says "Click to take one".
+  `CollectionBlockGameTest.cardsComeOutLooseWithADeckInHand` replaces the test that it went into the deck.
+
+Verified: gate green (560/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,
@@ -1744,11 +1765,11 @@ Verified: gate green (559/16); tour steps 0-30, no failures. **Not verified with
    one grant per player per world but never checks that the tutorial was finished, and a valid
    `StarterPayload` can ask for them directly. Either answer is fine; the code should say which.
    Local tutorial progress must not be the proof either way.
-4. **A seat freed while its player was away: take it with the board, or clear it?** Today the next
-   player to sit there plays the board as it is, hand included. The other choice is to put that board's
-   cards away when the seat is freed.
-5. **Left-clicking a card out of a collection with a deck in hand puts it in the deck** (the owner's
-   item 8). It is intentional and the footer says so; say if it should go to the inventory instead.
+4. ~~A seat freed while its player was away: take it with the board, or clear it?~~ **Decided by the owner
+   (2026-09-15):** the next player takes it and plays that deck; the deck goes back to its owner after
+   the game.
+5. ~~Left-clicking a card out of a collection with a deck in hand~~ **Decided by the owner (2026-09-15):**
+   it goes to the inventory.
 
 ## Next concrete action
 

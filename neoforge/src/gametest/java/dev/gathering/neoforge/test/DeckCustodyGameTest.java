@@ -438,7 +438,6 @@ public final class DeckCustodyGameTest {
 
         TableBlockEntity table = tableAt(helper, origin);
         DraftedPool pool = new DraftedPool(List.of(card(SOL_RING), card(BOLT)), "a pod");
-        table.holdDeck(new SeatId(0), deck(), pool, owner);
         var session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
         session.submit(new dev.gathering.core.game.event.GameEvent.Conceded(new SeatId(1)));
         dev.gathering.server.TableMatch.settleIfFinished(helper.getLevel(), origin, session.state());
@@ -446,6 +445,10 @@ public final class DeckCustodyGameTest {
             helper.fail("the fixture never reached sideboarding between games");
             return;
         }
+        // Held once the game is over rather than during it: the end of a game now hands a deck back to its
+        // owner when somebody else holds its seat (a seat taken over after its player was away), so a deck
+        // held for an absent owner during the game would be gone before the edit this is about.
+        table.holdDeck(new SeatId(0), deck(), pool, owner);
 
         int mainBefore = table.deckOf(new SeatId(0)).orElseThrow().entries().size();
         dev.gathering.server.Sideboarding.handle(squatter, new dev.gathering.network.SideboardEditPayload(

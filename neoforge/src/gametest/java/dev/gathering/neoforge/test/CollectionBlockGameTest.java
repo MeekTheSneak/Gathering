@@ -232,13 +232,12 @@ public final class CollectionBlockGameTest {
     }
 
     /**
-     * A deck in hand fills up from the collection rather than the inventory.
-     * <p>Which is what sleeving is: you do not carry forty loose cards from the binder to the
-     * table. Holding a deck is the whole of the gesture, so this is the one that must not
-     * quietly stop working.
+     * A deck in hand stays as it was, and the cards come out loose into the inventory.
+     * <p>It used to fill up from the collection instead - sleeving - and the owner chose the inventory
+     * (2026-09-15): a card going into the deck in hand was a click doing something nobody expected.
      */
     @GameTest(template = "tables")
-    public static void cardsGoIntoTheDeckInHand(GameTestHelper helper) {
+    public static void cardsComeOutLooseWithADeckInHand(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
         var player = helper.makeMockServerPlayerInLevel();
@@ -256,23 +255,21 @@ public final class CollectionBlockGameTest {
 
         var after = dev.gathering.item.DeckItem.deckOf(
                 player.getMainHandItem()).orElse(null);
-        if (after == null || after.deckSize() != 4) {
-            helper.fail("Four cards sleeved into a held deck came out as "
+        if (after == null || after.deckSize() != 0) {
+            helper.fail("Taking four cards with a deck in hand left it holding "
                     + (after == null ? "no deck" : after.deckSize() + " cards"));
             return;
         }
-        if (collection.cards().of(CardIdentity.ofPrinting(FOREST, false)) != 16) {
-            helper.fail("The collection still holds "
-                    + collection.cards().of(CardIdentity.ofPrinting(FOREST, false)));
-            return;
-        }
-        // The deck itself is in the inventory - it is what is in hand - so what is counted
-        // is loose cards, which is what a card that failed to sleeve would look like.
+        int loose = 0;
         for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
             if (player.getInventory().getItem(slot).is(GatheringContent.CARD.get())) {
-                helper.fail("A card sleeved into a deck turned up loose in the inventory as well");
-                return;
+                loose += player.getInventory().getItem(slot).getCount();
             }
+        }
+        if (loose != 4 || collection.cards().of(CardIdentity.ofPrinting(FOREST, false)) != 16) {
+            helper.fail("Four cards taken with a deck in hand came out as " + loose + " loose, leaving "
+                    + collection.cards().of(CardIdentity.ofPrinting(FOREST, false)));
+            return;
         }
         helper.succeed();
     }

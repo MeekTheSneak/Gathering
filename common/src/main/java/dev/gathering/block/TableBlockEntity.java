@@ -757,6 +757,11 @@ public class TableBlockEntity extends BlockEntity {
         return Optional.ofNullable(held.get(seat)).map(HeldDeck::pool);
     }
 
+    /** Every deck the table is holding with its pool and owner, by seat, in seat order. */
+    public Map<SeatId, HeldDeck> heldDecksWithOwners() {
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(held));
+    }
+
     /**
      * Every deck the table is holding, in seat order.
      * <p>In seat order, which Map.copyOf would have thrown away for a hash order salted once

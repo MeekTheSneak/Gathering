@@ -677,17 +677,9 @@ public final class CollectionScreen extends Screen {
         }
     }
 
-    /**
-     * What clicking a row will do, said in the words of what is in hand.
-     * <p>Read off this client's own hand rather than sent: it is holding the deck, and the
-     * server checks the same thing before it moves a card. Which means the line changes the
-     * moment somebody swaps hands, with no round trip and nothing to keep in step.
-     */
+    /** What clicking a row will do: take the card into the inventory, whatever is in hand. */
     private Component whatAClickDoes() {
-        String deck = heldDeckName();
-        return deck == null
-                ? Component.translatable("screen.gathering.collection.hint_take")
-                : Component.translatable("screen.gathering.collection.hint_sleeve", deck);
+        return Component.translatable("screen.gathering.collection.hint_take");
     }
 
     /**

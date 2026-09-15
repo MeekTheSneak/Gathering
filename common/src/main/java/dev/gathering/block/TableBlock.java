@@ -704,6 +704,15 @@ public class TableBlock extends BaseEntityBlock {
      * running out - see {@link dev.gathering.server.AwayFromBoard}.
      */
     public static void giveUpSeat(Level level, BlockPos tableOrigin, java.util.UUID player) {
+        giveUpSeat(level, tableOrigin, player, false);
+    }
+
+    /**
+     * The same, optionally leaving the deck in the table's keeping: a seat given up while its player was away
+     * from the board may be taken over, and whoever takes it plays that deck until the game is over, when it
+     * goes back to its owner - see {@link TableSessions#returnDecksNotBeingPlayedByTheirOwners}.
+     */
+    public static void giveUpSeat(Level level, BlockPos tableOrigin, java.util.UUID player, boolean keepTheDeck) {
         // Their seat, read before the claim goes, because that is what names the deck the
         // table is holding for them. Between games of a set the table keeps everybody's
         // deck to put it back down for the next one - so a player leaving then had no way
@@ -711,7 +720,9 @@ public class TableBlock extends BaseEntityBlock {
         java.util.Optional<dev.gathering.core.game.SeatId> leaving =
                 TableSessions.seatIdOf(level, tableOrigin, player);
         TableSeats.leave(level, tableOrigin, player);
-        leaving.ifPresent(seat -> TableSessions.returnDeckTo(level, tableOrigin, seat));
+        if (!keepTheDeck) {
+            leaving.ifPresent(seat -> TableSessions.returnDeckTo(level, tableOrigin, seat));
+        }
         tellTheTableWhoIsSittingAtIt(level, tableOrigin);
         if (level instanceof net.minecraft.server.level.ServerLevel stood) {
             dev.gathering.server.Antes.seatsChanged(stood, tableOrigin);

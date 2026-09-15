@@ -309,6 +309,29 @@ public final class TableSessions {
     }
 
     /**
+     * Hands back every held deck whose owner is not the player now holding its seat - a seat taken over after its
+     * player was away from the board too long - so the next game of a match is not played with somebody else's
+     * deck, and nobody but its owner is ever handed it. For the end of a game with another to come; the end of
+     * the match hands every deck back to its owner anyway.
+     */
+    public static void returnDecksNotBeingPlayedByTheirOwners(Level level, BlockPos tableOrigin, TableBlockEntity table) {
+        List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
+        List<SeatId> toReturn = new java.util.ArrayList<>();
+        table.heldDecksWithOwners().forEach((seat, held) -> {
+            if (held.owner() == null || seat.index() >= anchors.size()) {
+                return;
+            }
+            SeatAnchor anchor = anchors.get(seat.index());
+            java.util.UUID sitting = TableBlock.entityAt(level, TableClusters.blockPos(tableOrigin, anchor.cell()))
+                    .flatMap(entity -> entity.occupantOf(anchor.side())).orElse(null);
+            if (!held.owner().equals(sitting)) {
+                toReturn.add(seat);
+            }
+        });
+        toReturn.forEach(seat -> returnDeckTo(level, tableOrigin, seat));
+    }
+
+    /**
      * Hands one seat's deck back, if the table is holding one.
      * <p>Called when a player leaves the table, which is the moment they mean "give me my
      * cards" and which used to hand them nothing at all: a deck came back only when the whole

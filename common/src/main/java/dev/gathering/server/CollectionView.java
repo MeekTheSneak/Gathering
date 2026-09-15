@@ -357,11 +357,10 @@ public final class CollectionView {
     }
 
     /**
-     * Takes cards out.
-     * <p>Into the deck in hand where there is one, and into the inventory otherwise. That is
-     * what sleeving is: you do not carry forty loose cards from the binder to the table, you
-     * put them in the deck as you pick them. Holding a deck is the whole of the gesture -
-     * there is no mode to switch into and nothing to press first.
+     * Takes cards out, into the inventory.
+     * <p>Whatever is in hand. A deck in hand used to fill up from the collection instead - sleeving -
+     * and the owner found it in play as a card going somewhere they did not expect, and chose the
+     * inventory (2026-09-15). A card goes into a deck by being put on it, or from the deck builder.
      * <p>Takes and says nothing back. The screen asks for a fresh page itself, because the
      * screen is where the search somebody is looking at actually lives: a page pushed from
      * here would have to guess at it, and guessing wrong means every card taken throws the
@@ -377,8 +376,6 @@ public final class CollectionView {
                     Component.translatable("message.gathering.collection_may_not_take"));
             return 0;
         }
-        ItemStack held = player.getMainHandItem();
-        DeckComponent deck = DeckItem.deckOf(held).orElse(null);
         CardIdentity identity = card.faceUp().toIdentity();
         // Copies and histories together, because they cannot be asked for separately: the
         // take prunes the histories the box no longer has copies for, so asking afterwards
@@ -390,17 +387,11 @@ public final class CollectionView {
         }
         java.util.List<dev.gathering.core.story.CardStory> histories =
                 new java.util.ArrayList<>(taken.stories());
-        int sleeved = deck == null ? 0 : sleeve(held, deck, card, took);
-        // Whatever the deck had no room for goes in the hand rather than back in the
-        // collection: it came out because somebody asked for it, and a card that silently
-        // un-took itself is a click that did nothing for a reason nobody can see.
         // Ordinary copies first, and only then the ones with a history. The card somebody
         // won in an ante game stays at the bottom of the box until it is the only one left,
-        // which is what a person does with a card like that - and it means a trophy cannot be
-        // sleeved into a deck by a click that meant any copy.
-        // The plain copies of this take come out first, then the ones with a history.
+        // which is what a person does with a card like that.
         int plain = took - histories.size();
-        for (int one = sleeved; one < took; one++) {
+        for (int one = 0; one < took; one++) {
             ItemStack stack = CardItem.of(card.faceUp());
             if (one >= plain && !histories.isEmpty()) {
                 dev.gathering.core.story.CardStory story = histories.remove(0);
@@ -580,30 +571,6 @@ public final class CollectionView {
             }
         }
         return false;
-    }
-
-    /**
-     * Puts cards into a held deck, and says how many fitted.
-     * <p>Into the mainboard. Which section a card belongs in is the deck screen's question
-     * and it is a better place to ask it: sleeving is gathering the cards, and sorting them
-     * is what you do once they are all in front of you.
-     */
-    private static int sleeve(ItemStack held, DeckComponent deck, CardComponent card, int howMany) {
-        DeckComponent building = deck;
-        int sleeved = 0;
-        for (int one = 0; one < howMany; one++) {
-            DeckComponent grown =
-                    building.withAdded(DeckComponent.Section.MAINBOARD, card.faceUp()).orElse(null);
-            if (grown == null) {
-                break;
-            }
-            building = grown;
-            sleeved++;
-        }
-        if (sleeved > 0) {
-            held.set(GatheringComponents.DECK.get(), building);
-        }
-        return sleeved;
     }
 
     /**

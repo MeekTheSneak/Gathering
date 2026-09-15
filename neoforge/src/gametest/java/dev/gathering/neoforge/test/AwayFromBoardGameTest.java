@@ -113,6 +113,75 @@ public final class AwayFromBoardGameTest {
     }
 
     /**
+     * Whoever takes over a seat freed while its player was away plays that player's deck, and when the game is
+     * over the deck goes back to its owner - not to the player who took the seat, and not into the next game.
+     */
+    @GameTest(template = "tables")
+    public static void aTakenOverSeatsDeckGoesBackToItsOwnerAfterTheGame(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        BlockPos north = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
+        ServerPlayer owner = sit(helper, north);
+        owner.getInventory().clearContent();
+        if (TableSessions.start(helper.getLevel(), table, new dev.gathering.core.match.MatchRules(
+                dev.gathering.core.format.FormatPresets.defaultPreset(), 3)) != TableSessions.Outcome.STARTED) {
+            helper.fail("fixture: the game did not start");
+            return;
+        }
+        SeatId seat = cardsFor(helper, table, owner);
+        dev.gathering.block.TableBlockEntity entity = dev.gathering.block.TableBlock.entityAt(helper.getLevel(), table).orElseThrow();
+        entity.holdDeck(seat, new dev.gathering.item.DeckComponent("Owner's deck", "", java.util.Optional.empty(),
+                List.of(dev.gathering.item.CardComponent.of(CardIdentity.ofPrinting(new UUID(7L, 0L), false))),
+                List.of(), List.of()), null, owner.getUUID());
+        long started = 3_000_000L;
+        AwayFromBoard.clock = server -> started;
+        try {
+            owner.stopRiding();
+            AwayFromBoard.clock = server -> started + AwayFromBoard.MINUTES * 60 * 20L;
+            AwayFromBoard.tick(helper.getLevel().getServer());
+            if (TableSeats.seatOf(helper.getLevel(), table, owner.getUUID()).isPresent()) {
+                helper.fail("fixture: the kept seat was not freed");
+                return;
+            }
+            if (!entity.heldDecks().containsKey(seat) || decksIn(owner) != 0) {
+                helper.fail("a seat freed while its player was away handed the deck back before the game was over");
+                return;
+            }
+            ServerPlayer next = sit(helper, north);
+            next.getInventory().clearContent();
+            TableJoining.answer(next, new JoinTableAnswerPayload(table, true));
+            if (!TableSessions.seatIdOf(helper.getLevel(), table, next.getUUID()).equals(java.util.Optional.of(seat))) {
+                helper.fail("fixture: the next player did not take the freed seat");
+                return;
+            }
+            var session = TableSessions.sessionAt(helper.getLevel(), table).orElseThrow();
+            session.submit(new GameEvent.Conceded(seat));
+            dev.gathering.server.TableMatch.settleIfFinished(helper.getLevel(), table, session.state());
+            if (TableSessions.hasSession(helper.getLevel(), table)) {
+                helper.fail("fixture: conceding the only board in play did not end the game");
+                return;
+            }
+            if (decksIn(owner) != 1 || decksIn(next) != 0 || entity.heldDecks().containsKey(seat)) {
+                helper.fail("after the game the owner has " + decksIn(owner) + " deck(s), the player who took the seat "
+                        + decksIn(next) + ", and the table still holds it: " + entity.heldDecks().containsKey(seat));
+                return;
+            }
+            helper.succeed();
+        } finally {
+            AwayFromBoard.clock = net.minecraft.server.MinecraftServer::getTickCount;
+        }
+    }
+
+    private static int decksIn(ServerPlayer player) {
+        int decks = 0;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            if (dev.gathering.item.DeckItem.deckOf(player.getInventory().getItem(slot)).isPresent()) {
+                decks++;
+            }
+        }
+        return decks;
+    }
+
+    /**
      * At a game of four, every other player voting frees a kept seat - and not before the last of them votes. At a
      * game of two, a vote frees nothing.
      */

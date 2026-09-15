@@ -105,6 +105,8 @@ public final class TableMatch {
             // The board goes away but the decks and the score do not: a set is still running,
             // and the next game starts when somebody crouches on the table.
             table.endGameKeepingMatch();
+            // A deck whose seat somebody else took over goes back to its owner now, not into the next game.
+            TableSessions.returnDecksNotBeingPlayedByTheirOwners(level, tableOrigin, table);
         } else {
             // The set is over. Everybody gets their deck back, which is the whole reason the
             // table was holding them - and the pot goes to whoever took the match, or back to

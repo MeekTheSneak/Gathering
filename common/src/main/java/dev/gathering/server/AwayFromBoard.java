@@ -274,12 +274,17 @@ public final class AwayFromBoard {
         GIVEN_UP.clear();
     }
 
-    /** Gives up a kept seat: out of the seat, the deck handed back, and the seat free to be taken with its board. */
+    /**
+     * Gives up a kept seat: out of the seat, and the seat free to be taken with its board and its deck, which the
+     * table goes on holding for its owner until the game is over.
+     */
     private static void release(ServerLevel level, Key key, Away away, Component said) {
         AWAY.remove(key);
         BlockPos table = key.table();
         remember(new GivenUp(key.dimension(), table, away.seat, key.player()));
-        TableBlock.giveUpSeat(level, table, key.player());
+        // The deck stays on the table: whoever takes the seat plays it, and it goes back to its owner when the
+        // game is over.
+        TableBlock.giveUpSeat(level, table, key.player(), true);
         if (said != null) {
             TableJoining.tellTheTable(level, table, said);
             ServerPlayer gone = level.getServer().getPlayerList().getPlayer(key.player());
