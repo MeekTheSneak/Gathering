@@ -644,7 +644,9 @@ public final class CollectionScreen extends Screen {
     private static final int SYNTAX_LINES = 10;
 
     private void drawFooter(GuiGraphics graphics) {
-        int y = this.height - BOTTOM_BAR + 6;
+        // Below the grid's wall, which reaches WALL past the grid: at +6 the first line was drawn
+        // over the frame's bottom edge. Two lines of text still end inside the bar.
+        int y = this.height - BOTTOM_BAR + WALL + 2;
 
         // Three things want this line: what was found, what a click does, and two buttons in
         // the corner. They are laid out right to left so none of them can land on another -

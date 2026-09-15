@@ -351,6 +351,15 @@ it mid-scene: the board shows standings and the desk's label "Friday Night / Rou
 run, not a gate test. Its first run found the
 label invisible (faced to the player's camera, not Ponder's) and that was fixed. The line check was shown failing with one lang line changed.
 
+**Tour polish (2026-09-15)**, from the fresh tour's photographs: the host's Settle toggle was an
+11-pixel button in a line of text, its art broken and its word off its face - host pairing rows are 16
+tall now; the collection footer's first line was drawn over the grid's bottom wall; the event screen's
+own-row highlight was a painted rectangle, against the rule that every tint is a theme's sprite (now
+`ROW_HIGHLIGHT`); its page arrows looked live with one page (grayed, like the event list's); the pick
+clock buttons sharing the "Packs each" row say what they are on hover. Rerun tour: failures 0, and the
+Settle row, footer and highlight photographed and looked at. The tooltip and grayed arrows were not
+photographed.
+
 **Third independent review** (protocol check, comparator, clipboard) found, all fixed: building a
 desk's update tag stored the fresh label, so the next refresh saw no change and players already watching
 were never told (guard in `aLinkedDeskLabelsItsTournament`, proved failing); a comparator kept a stale 15

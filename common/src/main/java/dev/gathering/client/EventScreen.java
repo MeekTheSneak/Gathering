@@ -23,7 +23,6 @@ public final class EventScreen extends Screen {
     private static final int DIM = 0xFF9A9690;
     private static final int GOOD = 0xFF8FD18F;
     private static final int WARN = 0xFFE0B15A;
-    private static final int MY_ROW = 0x30FFFFFF;
     private static final int PANEL_WIDTH = 420;
     private static final int MARGIN = 8;
     private static final int ROW = 18;
@@ -198,16 +197,20 @@ public final class EventScreen extends Screen {
     private void paging(int bottom) {
         int x = panel.x() + MARGIN;
         int count = tab == Tab.STANDINGS ? view.standings().size() : view.pairings().size();
-        addRenderableWidget(GatheringButtons.of(x, bottom, 24, ROW, Component.literal("<"), () -> {
+        var back = addRenderableWidget(GatheringButtons.of(x, bottom, 24, ROW, Component.literal("<"), () -> {
             page = Math.max(0, page - 1);
             rebuildWidgets();
         }));
-        addRenderableWidget(GatheringButtons.of(x + 28, bottom, 24, ROW, Component.literal(">"), () -> {
+        var forward = addRenderableWidget(GatheringButtons.of(x + 28, bottom, 24, ROW, Component.literal(">"), () -> {
             if ((page + 1) * perPage() < count) {
                 page++;
                 rebuildWidgets();
             }
         }));
+        // Grayed where there is no page to go to, as the event list's are: a button that does
+        // nothing when pressed reads as a button that is broken.
+        back.active = page > 0;
+        forward.active = (page + 1) * perPage() < count;
         if (tab == Tab.PAIRINGS && view.youHost()) {
             int from = page * perPage();
             int y = listTop();
@@ -216,14 +219,14 @@ public final class EventScreen extends Screen {
                 if (match.table() > 0) {
                     Component settle = Component.translatable("screen.gathering.event.select");
                     int width = this.font.width(settle) + 20;
-                    addRenderableWidget(GatheringButtons.toggle(panel.right() - MARGIN - width, y - 1, width, LINE,
+                    addRenderableWidget(GatheringButtons.toggle(panel.right() - MARGIN - width, y, width, SETTLE_ROW - 1,
                             settle, () -> selectedTable == match.table(),
                             () -> {
                                 selectedTable = selectedTable == match.table() ? -1 : match.table();
                                 rebuildWidgets();
                             }));
                 }
-                y += LINE;
+                y += SETTLE_ROW;
             }
             EventViewPayload.Match chosen = view.pairings().stream().filter(match -> match.table() == selectedTable)
                     .findFirst().orElse(null);
@@ -301,8 +304,20 @@ public final class EventScreen extends Screen {
             int perRow = perResultRow(results);
             floor = bottom - (results + perRow - 1) / perRow * (ROW + 3);
         }
-        return Math.max(1, Math.min(PER_PAGE, (floor - listTop()) / LINE));
+        return Math.max(1, Math.min(PER_PAGE, (floor - listTop()) / listLine()));
     }
+
+    /**
+     * How tall a row of the list is. A line of text, except the host's pairings, whose rows each carry
+     * a Settle button: a button squeezed into a line of text drew its art broken and its word spilling
+     * off its face.
+     */
+    private int listLine() {
+        return tab == Tab.PAIRINGS && view.youHost() ? SETTLE_ROW : LINE;
+    }
+
+    /** A host's pairing row: tall enough for a button whose art holds together. */
+    private static final int SETTLE_ROW = 16;
 
     private int listTop() {
         return panel.y() + 26 + 16 + 6 + LINE;
@@ -416,8 +431,9 @@ public final class EventScreen extends Screen {
             EventViewPayload.Row row = view.standings().get(index);
             int color = row.dropped() ? DIM : LABEL;
             if (row.name().equals(myName)) {
-                // Your own line, found at a glance in a list of thirty-two.
-                graphics.fill(x - 2, y - 1, x + width + 2, y + LINE - 2, MY_ROW);
+                // Your own line, found at a glance in a list of thirty-two. The theme's row highlight,
+                // not a painted rectangle: nothing on screen is a color a theme cannot change.
+                GatheringSprites.highlight(graphics, x - 2, y - 1, width + 4, LINE - 1);
             }
             String[] cells = {
                     Integer.toString(row.rank()), row.name(), Integer.toString(row.points()),
@@ -477,10 +493,12 @@ public final class EventScreen extends Screen {
                 case "disputed" -> WARN;
                 default -> LABEL;
             };
-            // Clear of the host's Settle toggle, which is as wide as its word and a margin.
-            GuiText.draw(graphics, this.font, line, x, y, width - (view.youHost()
+            // Clear of the host's Settle toggle, which is as wide as its word and a margin, and in the
+            // middle of its taller row.
+            int rise = (listLine() - LINE) / 2;
+            GuiText.draw(graphics, this.font, line, x, y + rise + 1, width - (view.youHost()
                     ? this.font.width(Component.translatable("screen.gathering.event.select")) + 24 : 0), color);
-            y += LINE;
+            y += listLine();
         }
     }
 
