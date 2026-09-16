@@ -146,6 +146,41 @@ class PackClothTest {
         assertThat(after).isLessThan(before);
     }
 
+    /**
+     * The tear takes the crimp and stops, leaving every row of the printed pack where it was.
+     * <p>A square of the sheet carries the row of the picture above its lower edge, so tearing along
+     * the links below the crimp's last row destroyed the pack's <em>first</em> row instead of the
+     * crimp's last one. The strip still came away whole and the pack underneath was a pixel short at
+     * the top - which is the tear reading as one pixel too low, which is what the owner saw.
+     * <p>Asked of the whole width, because a tear that is right in the middle and a row low at one
+     * end is the same fault wearing a disguise.
+     */
+    @Test
+    @DisplayName("the tear takes the crimp and none of the pack")
+    void thetearStopsAtTheCrimp() {
+        // Where the printing stops being crimp and starts being pack, in rows of this sheet.
+        int firstBodyRow = PackWrapper.CRIMP_ROWS * (PackCloth.DOWN - 1) / PackWrapper.PIXELS;
+
+        PackCloth pulled = torn(11L);
+        assertThat(pulled.isOpen()).isTrue();
+        for (int down = firstBodyRow; down + 1 < PackCloth.DOWN; down++) {
+            for (int across = 0; across + 1 < PackCloth.ACROSS; across++) {
+                assertThat(pulled.stillThere(across, down))
+                        .withFailMessage("the tear took row %d of the pack's own artwork, at %d across",
+                                down, across)
+                        .isTrue();
+            }
+        }
+        // And it did tear: the crimp's own last row is the one that goes.
+        boolean someCrimpGone = false;
+        for (int across = 0; across + 1 < PackCloth.ACROSS; across++) {
+            someCrimpGone |= !pulled.stillThere(across, firstBodyRow - 1);
+        }
+        assertThat(someCrimpGone)
+                .withFailMessage("the pack opened and no row of the crimp came away")
+                .isTrue();
+    }
+
     /** A wrapper taken hold of in the middle of the crimp and dragged off. */
     private static PackCloth torn(long seed) {
         PackCloth cloth = new PackCloth(seed);

@@ -2534,6 +2534,18 @@ mod for the label now, which is what it should always have done.
 
 Verified: gate green (615/16), up from 607 by the eight guards this added.
 
+- **The tear is a pixel higher, and the pack keeps its own top row.** A square of the wrapper carries
+  the row of the picture above its lower edge, so tearing along the links under the crimp's last row
+  destroyed the pack's *first* row rather than the crimp's *last* one. The strip still came away
+  whole and the artwork underneath was a pixel short at the top, which is what "the tear is one pixel
+  too low" looks like from the outside. One row up, the square that goes is the bottom row of the
+  crimp, which is the row a tear is supposed to consume.
+  Read off the picture rather than guessed: the wrapper is sixteen rows, rows nought to three are the
+  striped crimp and row four is the first orange row of the pack.
+
+Verified: gate green (615/16). The guard fails without the fix, saying "the tear took row 4 of the
+pack's own artwork", and `40-tearing-it-open.png` shows the body square and whole under the strip.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

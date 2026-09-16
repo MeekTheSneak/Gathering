@@ -197,11 +197,17 @@ public final class PackCloth {
     }
 
     /**
-     * The row the crimped strip hangs from, which is where a pack is torn.
-     * <p>Exactly on the crimp's own edge, because the rows were chosen to land there.
+     * The row of links the crimped strip hangs from, which is where a pack is torn.
+     * <p>The last row of the crimp, not the first row of the pack. A square of this sheet takes the
+     * row of the picture above its lower edge, so the links between point row four and point row
+     * five carry the <em>first orange row</em> of the wrapper - and tearing there took that row out
+     * of the world along with the crimp. The pack came away a pixel short at the top, which is the
+     * tear sitting one pixel too low.
+     * <p>One row up, the square that goes is the bottom row of the crimp, which is the row a tear is
+     * supposed to consume. The strip still comes off whole and the artwork underneath is untouched.
      */
     private static int seamRow() {
-        return Math.max(0, Math.round(CRIMP * (DOWN - 1)));
+        return Math.max(0, Math.round(CRIMP * (DOWN - 1)) - 1);
     }
 
     private int link(int count, int a, int b) {
