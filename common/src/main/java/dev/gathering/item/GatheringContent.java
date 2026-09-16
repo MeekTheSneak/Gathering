@@ -272,7 +272,11 @@ public final class GatheringContent {
         return new dev.gathering.block.ShopCounterBlock(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.WOOD)
                 .strength(2.5f)
-                .sound(SoundType.WOOD));
+                .sound(SoundType.WOOD)
+                // Its cabinet stands a pixel back from the front of the block and stops short of the top, so
+                // it is not the cube it claimed to be: the block under one lost its top face and you could
+                // see through the floor along the front of the counter.
+                .noOcclusion());
     }
 
     public static Item createShopCounterItem() {
@@ -394,7 +398,9 @@ public final class GatheringContent {
         return new dev.gathering.block.ScorekeepersDeskBlock(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.WOOD)
                 .strength(2.5f)
-                .sound(SoundType.WOOD));
+                .sound(SoundType.WOOD)
+                // A foot, a pedestal and a shelf, which is nothing like a cube.
+                .noOcclusion());
     }
 
     /** Wood, and as light to move as any chair. */

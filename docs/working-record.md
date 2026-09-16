@@ -2016,6 +2016,33 @@ obstruction check removed only the other two do.
 
 Verified: gate green (576/16).
 
+### Twenty-first batch: every block can be made, and none of them hides its neighbors (2026-09-16)
+
+Two more of the owner's findings, both of them true of a whole class of block rather than the one noticed.
+
+- **#8, a recipe for every block.** The shop counter was the one block a player could not make - it was
+  the village's, taken rather than crafted - so it and its ten woods now cost five planks, two wool, a
+  gold ingot and a sheet of paper, which is the counter's own model read as a recipe. And **no Gathering
+  recipe reached the recipe book**: a recipe with no advancement granting it never appears there, so all
+  sixty-one needed a player to already know the pattern. `tools/recipecheck.py` is a new gate stage: every
+  block has a recipe, every recipe has an unlock, and `--write` writes the unlocks. It wrote fifty-eight.
+- **#4, blocks hiding their neighbors.** The shop counter and the Scorekeeper's Desk never said they were
+  not cubes. The counter's cabinet stands a pixel back from the front of the block and stops three pixels
+  short of the top, so the block under one lost its top face and you could see through the floor along the
+  front of it. Both have `noOcclusion()` now, and their two overrides that only mean anything to a block
+  that occludes are gone.
+
+Guards: `CraftingGameTest.aShopCounterCanBeCrafted`, `recipecheck` itself, and
+`BlockOcclusionGameTest.nothingThatIsNotACubeHidesItsNeighbors`, which asks it of every block the mod
+registers rather than of the one that was reported. Proven: without the two `noOcclusion()` calls it names
+all twenty-two - the counter and the desk in each of the eleven woods.
+
+`ScorekeepersDeskGameTest.aDeskIsShapedLikeWhatItLooksLike` asked for `useShapeForLightOcclusion`, which
+only means anything to a block that occludes at all; it asks `canOcclude` now, which is the same claim
+made the stronger way.
+
+Verified: gate green (578/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

@@ -48,16 +48,6 @@ public class ShopCounterBlock extends HorizontalDirectionalBlock {
     }
 
     @Override
-    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
-        return BODY;
-    }
-
-    @Override
-    protected boolean useShapeForLightOcclusion(BlockState state) {
-        return true;
-    }
-
-    @Override
     protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
         return CODEC;
     }

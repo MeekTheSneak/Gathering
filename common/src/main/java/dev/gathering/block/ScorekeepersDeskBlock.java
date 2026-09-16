@@ -95,16 +95,6 @@ public class ScorekeepersDeskBlock extends HorizontalDirectionalBlock implements
     }
 
     @Override
-    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
-        return BODY;
-    }
-
-    @Override
-    protected boolean useShapeForLightOcclusion(BlockState state) {
-        return true;
-    }
-
-    @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new ScorekeepersDeskBlockEntity(pos, state);
     }

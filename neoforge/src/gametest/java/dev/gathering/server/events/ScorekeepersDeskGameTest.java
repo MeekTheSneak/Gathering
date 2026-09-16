@@ -416,7 +416,10 @@ public final class ScorekeepersDeskGameTest {
         var state = helper.getLevel().getBlockState(desk);
         if (net.minecraft.world.level.block.Block.isShapeFullBlock(state.getOcclusionShape(helper.getLevel(), desk))
                 || net.minecraft.world.level.block.Block.isShapeFullBlock(state.getCollisionShape(helper.getLevel(), desk))
-                || !state.useShapeForLightOcclusion()) {
+                // It used to ask for useShapeForLightOcclusion, which only means anything to a block that
+                // occludes at all. The desk no longer does - that is what stops its neighbors' faces being
+                // culled against it - so the same claim, made the stronger way.
+                || state.canOcclude()) {
             helper.fail("the desk is a full cube where it shows a lectern");
             return;
         }

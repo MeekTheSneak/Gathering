@@ -57,6 +57,21 @@ public final class CraftingGameTest {
                 new ItemStack(Items.COBBLESTONE), ItemStack.EMPTY, new ItemStack(Items.COBBLESTONE)));
     }
 
+    /**
+     * The shop counter used to be the one block a player could not make: it was the village's, taken rather
+     * than crafted. The owner asked for a recipe for every block (2026-09-16), and `tools/recipecheck.py`
+     * now says so for all of them; this is the one that goes through a crafting grid.
+     */
+    @GameTest(template = "empty")
+    public static void aShopCounterCanBeCrafted(GameTestHelper helper) {
+        crafts(helper, GatheringContent.SHOP_COUNTER_ITEM.get(), List.of(
+                new ItemStack(Items.WHITE_WOOL), new ItemStack(Items.GOLD_INGOT), new ItemStack(Items.WHITE_WOOL),
+                new ItemStack(Items.DARK_OAK_PLANKS), new ItemStack(Items.PAPER),
+                new ItemStack(Items.DARK_OAK_PLANKS),
+                new ItemStack(Items.DARK_OAK_PLANKS), new ItemStack(Items.DARK_OAK_PLANKS),
+                new ItemStack(Items.DARK_OAK_PLANKS)));
+    }
+
     @GameTest(template = "empty")
     public static void aScorekeepersDeskCanBeCrafted(GameTestHelper helper) {
         crafts(helper, GatheringContent.SCOREKEEPERS_DESK_ITEM.get(), List.of(

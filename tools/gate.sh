@@ -62,7 +62,8 @@ else
 fi
 
 for check in langcheck doccheck scenecheck plotcheck gesturecheck spritecheck statecheck \
-             savecheck runcheck texturecheck artcheck tablecheck keycheck prefcheck; do
+             savecheck runcheck texturecheck artcheck tablecheck keycheck prefcheck \
+             recipecheck; do
     stage "$check" python3 "tools/$check.py"
 done
 
