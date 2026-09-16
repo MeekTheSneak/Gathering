@@ -643,6 +643,8 @@
   "message.gathering.owed_could_not_be_paid": "This server owes you something and could not write down that it had handed it over, so it has held on to it rather than risk giving it to you twice. Tell whoever runs the server that Gathering cannot write to the world folder.",
   "message.gathering.owed_delivered": "%s card(s) this server owed you have been handed over.",
   "message.gathering.pack_collection_off": "Boosters are turned off on this server.",
+  "message.gathering.pack_handed_back": "The pack is back in your inventory.",
+  "message.gathering.pack_opening": "Opening a %s booster...",
   "message.gathering.pack_failed": "That pack could not be opened: %s",
   "message.gathering.pack_made_up": "Nobody has published how %s was collated, so that pack was cut from the whole set evenly.",
   "message.gathering.pack_no_collation": "%s was never sold in packs.",

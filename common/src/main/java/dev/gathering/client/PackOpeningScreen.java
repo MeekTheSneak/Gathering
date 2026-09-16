@@ -317,9 +317,12 @@ public final class PackOpeningScreen extends Screen {
         // wrapper rather than painted over it.
         if (!cloth.isUntouched() && glow != PackGlow.NO_LIGHT) {
             int alpha = Math.round(GLOW_ALPHA * Math.min(1f, 0.4f + cloth.torn()));
-            GuiGlow.around(graphics, packX, packY + Math.round(packHeight * (float) CRIMP),
-                    packWidth, Math.max(1, packHeight / 6),
-                    Math.max(6, packWidth / 4), (alpha << 24) | (glow & 0x00FFFFFF));
+            // Hugging the seam rather than haloing a wide band: a glow spread a quarter of the pack's
+            // width around a short rectangle puts most of itself off the left and right ends, which
+            // reads as two smudges beside the pack rather than light coming out of it.
+            GuiGlow.around(graphics, packX + packWidth / 8, packY + Math.round(packHeight * (float) CRIMP),
+                    packWidth - packWidth / 4, Math.max(1, packHeight / 12),
+                    Math.max(4, packHeight / 12), (alpha << 24) | (glow & 0x00FFFFFF));
         }
 
         PackClothRenderer.draw(matrix, cloth, PackFaceRenderer.WRAPPER, where);

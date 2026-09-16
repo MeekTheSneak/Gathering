@@ -113,11 +113,14 @@ public final class GuiGlow {
     }
 
     /**
-     * The same, following a card's cut corners rather than squaring them off.
-     * <p>A card is a rectangle with its corners cut, and a glow drawn as square rings puts a hard corner
-     * exactly where the card has none - so the card appears to have sharp corners, which is what the owner
-     * saw (2026-09-16). Each ring is drawn as four sides that stop short of the corner by as much as the
-     * card's own cut, plus a short diagonal across it.
+     * A glow that follows a card's cut corners rather than squaring them off.
+     * <p>A card is a rectangle with its corners cut, and a square glow puts a hard corner exactly where
+     * the card has none - so the card appears to have sharp corners, which is what the owner saw.
+     * <p>Ten rounded rectangles, each one step smaller and drawn over the last, outermost first. Ten for
+     * the same reason the round glow uses ten: the steps are not countable and the whole thing is a few
+     * hundred fills. The first attempt drew one single-pixel outline per pixel of spread with a staircase
+     * at each corner, every ring cut to the same size however far out it was - so successive rings did
+     * not nest and the corners came out as hatching. That is what "clearly broken" looked like.
      *
      * @param spread how many pixels out the glow reaches
      * @param color  the glow at its brightest, alpha included
@@ -129,40 +132,35 @@ public final class GuiGlow {
             return;
         }
         int rgb = color & 0x00FFFFFF;
-        int across = Math.max(1, Math.round(width * dev.gathering.core.ui.CardMesh.cornerAcross()));
-        int down = Math.max(1, Math.round(height
-                * dev.gathering.core.ui.CardMesh.cornerDown(width / (float) height)));
-        for (int out = 1; out <= spread; out++) {
-            float left = 1f - (out - 1) / (float) spread;
-            int alpha = Math.round(brightest * left * left * 255f);
-            if (alpha <= 0) {
-                continue;
-            }
-            int ring = (alpha << 24) | rgb;
-            int left0 = x - out;
-            int top = y - out;
-            int right = x + width + out;
-            int bottom = y + height + out;
-            // The four sides, each stopping short of where the card's corner is cut away.
-            graphics.fill(left0 + across, top, right - across, top + 1, ring);
-            graphics.fill(left0 + across, bottom - 1, right - across, bottom, ring);
-            graphics.fill(left0, top + down, left0 + 1, bottom - down, ring);
-            graphics.fill(right - 1, top + down, right, bottom - down, ring);
-            // And the corners themselves, as a staircase across the cut.
-            corner(graphics, left0, top + down, 1, -1, across, down, ring);
-            corner(graphics, right - 1, top + down, -1, -1, across, down, ring);
-            corner(graphics, left0, bottom - down - 1, 1, 1, across, down, ring);
-            corner(graphics, right - 1, bottom - down - 1, -1, 1, across, down, ring);
+        int corner = Math.max(1, Math.round(width * dev.gathering.core.ui.CardMesh.cornerAcross()));
+        // Each layer adds the same little, so ten of them build the curve by piling up rather than by
+        // anybody working out what each one should be worth.
+        int each = Math.max(1, Math.round(brightest * 255f / STEPS));
+        for (int step = STEPS; step >= 1; step--) {
+            int out = Math.round(spread * step / (float) STEPS);
+            roundedRect(graphics, x - out, y - out, x + width + out, y + height + out,
+                    corner + out, (each << 24) | rgb);
         }
     }
 
-    /** One cut corner, a pixel of the ring at a time, walking from the side round to the end. */
-    private static void corner(GuiGraphics graphics, int fromX, int fromY,
-            int stepX, int stepY, int across, int down, int ring) {
-        for (int step = 1; step <= down; step++) {
-            int alongX = fromX + stepX * Math.round(across * step / (float) down);
-            int alongY = fromY + stepY * step;
-            graphics.fill(alongX, alongY, alongX + 1, alongY + 1, ring);
+    /**
+     * One filled rectangle with its corners rounded off, as a handful of spans.
+     * <p>A row at a time down each corner and one tall band through the middle, which is the whole shape
+     * in about forty fills however big it is.
+     */
+    private static void roundedRect(GuiGraphics graphics, int left, int top, int right, int bottom,
+            int radius, int color) {
+        if (right <= left || bottom <= top) {
+            return;
+        }
+        int across = Math.max(0, Math.min(radius, (right - left) / 2));
+        int down = Math.max(0, Math.min(radius, (bottom - top) / 2));
+        graphics.fill(left, top + down, right, bottom - down, color);
+        for (int row = 0; row < down; row++) {
+            float up = (down - row) / (float) Math.max(1, down);
+            int inset = across - (int) Math.round(across * Math.sqrt(Math.max(0f, 1f - up * up)));
+            graphics.fill(left + inset, top + row, right - inset, top + row + 1, color);
+            graphics.fill(left + inset, bottom - row - 1, right - inset, bottom - row, color);
         }
     }
 

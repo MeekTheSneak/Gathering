@@ -211,26 +211,123 @@ public final class DeckVaultGameTest {
     }
 
     /**
-     * And when there is genuinely nothing to put it back together with, the stand-ins still do not stay.
-     * <p>A deck holding them is worse than a deck missing a card: it lists cards that never load and hands
-     * out blank ones, which is a card that looks like it exists and does not.
+     * When there is something real left in a hidden copy, the stand-ins beside it do not stay.
+     * <p>They list cards that never load and, but for the guard in {@code DeckEdits}, would hand out blank
+     * ones. What is really in it is what is left.
+     * <p>What this deliberately does <em>not</em> do is strip a deck down to nothing. An empty deck is
+     * removed - that is what emptying one means - so purging every card of a deck the server has merely
+     * forgotten would delete the item, which is exactly what happened to the owner's decks. Keeping the
+     * box beats tidying it: see {@link #aHiddenDeckNothingRemembersIsNotThrownAway}.
      */
     @GameTest(template = "empty")
-    public static void aHiddenDeckNothingRemembersKeepsNoStandIns(GameTestHelper helper) {
+    public static void aHiddenDeckKeepsWhatIsRealAndDropsTheRest(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(GameType.CREATIVE);
+        DeckComponent real = new DeckComponent("Half known", "", Optional.of(player.getUUID()),
+                List.of(BOLT, BEARS), List.of(), List.of());
+        ItemStack stack = DeckItem.of(real);
+        // A copy with one real card still in it and the rest hidden, under a handle nothing remembers:
+        // a creative click that added a card to a deck the server had forgotten.
+        DeckComponent hidden = asAClientHasIt(helper, real);
+        stack.set(GatheringComponents.DECK.get(),
+                hidden.withAdded(DeckComponent.Section.MAINBOARD, BEARS).orElseThrow());
+        stack.set(GatheringComponents.DECK_HANDLE.get(), UUID.randomUUID());
+
+        player.getInventory().setItem(8, stack);
+        stack.inventoryTick(helper.getLevel(), player, 8, false);
+
+        DeckComponent after = DeckItem.deckOf(stack).orElseThrow();
+        if (after.isRedacted()) {
+            helper.fail("a deck with a real card in it kept its stand-ins too: " + after.entries());
+            return;
+        }
+        if (!after.entries().equals(List.of(BEARS))) {
+            helper.fail("the card that was really there did not survive: " + after.entries());
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Two cards put together in the creative menu make a deck, and the deck is still there afterwards.
+     * <p>The owner reported the deck item simply vanishing (2026-09-16). Through the real gesture and the
+     * real hand-back: the client makes the deck out of two cards it holds, the creative menu sends the
+     * server whatever the client now has, and the server ticks it.
+     */
+    @GameTest(template = "empty")
+    public static void twoCardsPutTogetherStayADeck(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(GameType.CREATIVE);
+
+        net.minecraft.world.SimpleContainer bag = new net.minecraft.world.SimpleContainer(1);
+        bag.setItem(0, dev.gathering.item.CardItem.of(BOLT));
+        net.minecraft.world.inventory.Slot slot = new net.minecraft.world.inventory.Slot(bag, 0, 0, 0);
+        ItemStack carried = dev.gathering.item.CardItem.of(BEARS);
+        net.minecraft.world.inventory.ClickAction secondary =
+                net.minecraft.world.inventory.ClickAction.SECONDARY;
+
+        ItemStack[] cursor = {carried};
+        net.minecraft.world.entity.SlotAccess access = new net.minecraft.world.entity.SlotAccess() {
+            @Override
+            public ItemStack get() {
+                return cursor[0];
+            }
+
+            @Override
+            public boolean set(ItemStack put) {
+                cursor[0] = put;
+                return true;
+            }
+        };
+        boolean handled = bag.getItem(0).overrideOtherStackedOnMe(carried, slot, secondary, player, access);
+        if (!handled) {
+            helper.fail("putting one card onto another did not make a deck at all");
+            return;
+        }
+        ItemStack made = bag.getItem(0);
+        if (DeckItem.deckOf(made).isEmpty()) {
+            helper.fail("two cards put together left " + made + " rather than a deck");
+            return;
+        }
+
+        // And now the creative menu hands the server what the client holds, and the server ticks it.
+        player.getInventory().setItem(3, made);
+        made.inventoryTick(helper.getLevel(), player, 3, false);
+        made.inventoryTick(helper.getLevel(), player, 3, false);
+
+        if (made.isEmpty() || made.getCount() == 0) {
+            helper.fail("a deck made out of two cards was thrown away by the server");
+            return;
+        }
+        if (DeckItem.deckOf(made).map(DeckComponent::entries).map(List::size).orElse(0) != 2) {
+            helper.fail("a deck made out of two cards holds " + DeckItem.deckOf(made).map(DeckComponent::entries));
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A hidden copy of a deck nothing remembers is not thrown away.
+     * <p>Stripping the stand-ins off such a deck can leave nothing at all, and an empty deck is removed -
+     * so a lock meant to stop cards loading for ever could instead delete the item outright. Losing the
+     * cards is bad; losing the box as well is worse, and it is the box the player is looking at.
+     */
+    @GameTest(template = "empty")
+    public static void aHiddenDeckNothingRemembersIsNotThrownAway(GameTestHelper helper) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         player.setGameMode(GameType.CREATIVE);
         DeckComponent real = new DeckComponent("Lost", "", Optional.of(player.getUUID()),
                 List.of(BOLT, BEARS), List.of(), List.of());
         ItemStack stack = DeckItem.of(real);
-        // The hidden copy, and a handle nothing has ever been remembered under.
         stack.set(GatheringComponents.DECK.get(), asAClientHasIt(helper, real));
         stack.set(GatheringComponents.DECK_HANDLE.get(), UUID.randomUUID());
-        player.getInventory().setItem(8, stack);
-        stack.inventoryTick(helper.getLevel(), player, 8, false);
 
-        if (DeckItem.deckOf(stack).map(DeckComponent::isRedacted).orElse(false)) {
-            helper.fail("a deck nothing remembers kept its stand-ins: "
-                    + DeckItem.deckOf(stack).orElseThrow().entries());
+        player.getInventory().setItem(4, stack);
+        stack.inventoryTick(helper.getLevel(), player, 4, false);
+        stack.inventoryTick(helper.getLevel(), player, 4, false);
+
+        if (stack.isEmpty() || stack.getCount() == 0) {
+            helper.fail("a deck whose cards could not be put back was deleted rather than left alone");
             return;
         }
         helper.succeed();

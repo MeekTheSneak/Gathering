@@ -141,8 +141,10 @@ final class PackTurning {
         // Only while the top card is actually off it. A card is a rectangle with its corners cut, so two
         // of them exactly in line show each other through those cuts and the pair reads as one card with
         // sharp corners - which is what the owner saw the moment a swipe began.
-        boolean moved = Math.abs(swipe) > 0.5f || leaving != null;
-        if (moved && reveal.left() > 1) {
+        // Only while the top card is actually off to one side. During the fly-out the new front card is
+        // back in the middle, exactly over the one beneath it, and the pair showed each other through
+        // their corner cuts again - which is the flash of square corners the owner saw on every swipe.
+        if (Math.abs(swipe) > 0.5f && reveal.left() > 1) {
             CardComponent under = cards.get(reveal.shown() + 1);
             ClientCardCache.get().summary(under).ifPresentOrElse(
                     summary -> CardInspectPanel.renderArtTurned(graphics, summary, false,

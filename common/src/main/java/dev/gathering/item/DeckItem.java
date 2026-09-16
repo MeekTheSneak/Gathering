@@ -267,6 +267,7 @@ public class DeckItem extends Item {
         }
         // Its real cards, whatever copy of it arrived: see DeckVault. Before anything else reads it.
         DeckComponent carried = deckOf(stack).orElse(null);
+        boolean wasRedacted = carried != null && carried.isRedacted();
         if (carried != null) {
             java.util.UUID handle = handleOf(stack).orElse(null);
             if (handle == null && !carried.isRedacted()) {
@@ -283,14 +284,25 @@ public class DeckItem extends Item {
                 // A hidden copy of a deck this server has never seen whole. Keeping the stand-ins leaves
                 // an item that lists cards forever loading and hands out blank ones; what is really in it
                 // is what is left.
-                real = carried.withoutHiddenCards();
+                //
+                // Unless that is nothing. Stripping every card out of a deck leaves an empty one, and an
+                // empty deck is removed a few lines below - so this could delete the item outright, which
+                // is what happened to the owner's decks. Losing the cards is bad; losing the box the
+                // player is looking at as well is worse, and leaves nothing to say anything went wrong.
+                DeckComponent stripped = carried.withoutHiddenCards();
+                real = stripped.isEmpty() ? null : stripped;
             }
             if (real != null && real != carried) {
                 stack.set(GatheringComponents.DECK.get(), real);
             }
             dev.gathering.server.DeckVault.remember(handle, real == null ? carried : real);
         }
-        if (deckOf(stack).filter(DeckComponent::isEmpty).isPresent()) {
+        // An empty deck is a deck somebody emptied. A deck whose cards arrived hidden and could not be
+        // put back is not empty - it is unknown - and throwing the item away for it would be the server
+        // deleting a deck because it had temporarily forgotten what was in it.
+        if (deckOf(stack).filter(DeckComponent::isEmpty).isPresent()
+                && deckOf(stack).filter(DeckComponent::isRedacted).isEmpty()
+                && !wasRedacted) {
             stack.setCount(0);
             return;
         }

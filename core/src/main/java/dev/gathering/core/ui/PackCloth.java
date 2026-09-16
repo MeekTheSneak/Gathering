@@ -41,13 +41,15 @@ public final class PackCloth {
 
     /**
      * How far a link may stretch before it gives way, as a multiple of its resting length.
-     * <p>The seam gives first, because a booster has a notch cut in it and that is what a notch is: the
-     * wrapper is meant to come apart along the crimp. Everything else holds far longer, so a hand that
-     * pulls hard enough somewhere else still rips it there - which is what "tear it however you like"
-     * means. Without the weaker seam, dragging one point simply tore that point out of the sheet and left
-     * a hole, and the strip never came off at all.
+     * <p>The seam gives and nothing else does, because a booster has a notch cut in it and that is what a
+     * notch is. The foil itself is far stronger than the crimp: pull a booster anywhere and it opens along
+     * the top, it does not come apart in your hands. Letting the sheet tear anywhere made opening a pack
+     * feel like shredding paper - the strip came apart in pieces before it ever peeled off.
+     * <p>Which <em>part</em> of the seam gives first is still entirely the hand's: pull at one corner and
+     * it unzips from there, pull at the middle and it opens outward. The tear is yours; the line it
+     * follows is the pack's, as it is on a real one.
      */
-    private static final float TEARS_AT = 2.4f;
+    private static final float TEARS_AT = 6f;
     private static final float SEAM_TEARS_AT = 1.42f;
 
     /** How far the crimped strip reaches down the wrapper. Above this line, nothing is pinned. */
@@ -128,15 +130,16 @@ public final class PackCloth {
                 wasY[at] = y[at];
             }
         }
-        // Held where a wrapper is held: along the bottom, and up both sides below the crimp. The strip
-        // above the crimp is held by nothing but the links to the row under it, so tearing those frees
-        // it entirely and it falls - which is what coming off means.
+        // Only the crimp moves. Everything below the seam is held exactly where it is, because it is
+        // not loose foil - it is a wrapper stretched tight over a block of cards, and a block of cards
+        // does not billow. Letting the whole sheet flex made opening a pack feel like tearing up a piece
+        // of paper: the body stretched and arched about, the tear wandered into the middle of the
+        // artwork, and nothing about it read as a booster. Held, the only thing that can give is the
+        // seam - so the strip peels off along the crimp, which is what opening a pack is.
+        int seam = seamRow();
         for (int down = 0; down < DOWN; down++) {
-            boolean belowTheCrimp = down / (float) (DOWN - 1) > CRIMP;
             for (int across = 0; across < ACROSS; across++) {
-                boolean edge = across == 0 || across == ACROSS - 1;
-                boolean bottom = down == DOWN - 1;
-                pinned[down * ACROSS + across] = bottom || (edge && belowTheCrimp);
+                pinned[down * ACROSS + across] = down > seam;
             }
         }
 
@@ -152,7 +155,7 @@ public final class PackCloth {
         linkAlive = new boolean[most];
         int count = 0;
         int alongTheSeam = 0;
-        int seamRow = seamRow();
+        int seamRow = seam;
         for (int down = 0; down < DOWN; down++) {
             for (int across = 0; across < ACROSS; across++) {
                 int at = down * ACROSS + across;

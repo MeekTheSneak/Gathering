@@ -2309,6 +2309,36 @@ Three real defects came out of wiring it up, each of which a scripted tear could
 Verified: gate green (597/16), and `40-tearing-it-open` shows the crimp peeled up and creased over itself
 with the body torn in an arc beneath it - foil, rather than a line.
 
+### Thirtieth batch: five from the next playtest (2026-09-16)
+
+- **#5, combining two cards deleted the deck** - and it was mine. The lock that strips stand-ins off a
+  hidden copy nothing remembers can strip it to *nothing*, and an empty deck is removed a few lines
+  later - so a rule meant to stop cards loading for ever deleted the item instead. Losing the cards is
+  bad; losing the box the player is looking at is worse, and leaves nothing to say anything went wrong.
+  Stripping now only happens when something real is left, and the empty-deck removal never fires for a
+  deck whose cards merely arrived hidden. Guards: `twoCardsPutTogetherStayADeck`, through the item's own
+  gesture, and `aHiddenDeckNothingRemembersIsNotThrownAway`, which failed before the fix.
+- **#1, no word when a pack does not open.** Everything after the click is somebody else's server
+  answering at its own pace, and a throttled one can now be waited on for half a minute. The click is
+  acknowledged the moment it happens, and a failure says the pack is back in the inventory - because "it
+  did not open" and "it is gone" look identical from the hotbar.
+- **#3, the glow was clearly broken.** It drew one single-pixel outline per pixel of spread with a
+  staircase at each corner, every ring cut to the same size however far out it was - so successive rings
+  did not nest and the corners came out as hatching. Ten rounded rectangles now, piled up outermost
+  first, which is how the round glow next door has always worked.
+- **#4, corners still flashed square on a swipe.** The card underneath was drawn during the fly-out, when
+  the new front card is back in the middle and exactly over it - two cards in line show each other
+  through their corner cuts. It is drawn only while the top card is actually off to one side.
+- **#2, it tore like paper rather than like a pack.** The whole sheet was loose, so pulling stretched the
+  *body* about and the tear wandered into the artwork. A wrapper is stretched tight over a block of cards
+  and a block of cards does not billow: everything below the seam is held exactly where it is, and the
+  foil itself is far stronger than the crimp. The strip now peels off along the top as one piece. Which
+  part of the seam gives first is still entirely the hand's - the tear is yours, the line it follows is
+  the pack's, as on a real one.
+
+Verified: gate green (599/16), and `40-tearing-it-open` shows a square pack with the crimp peeled up off
+it as a single creased piece.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).
