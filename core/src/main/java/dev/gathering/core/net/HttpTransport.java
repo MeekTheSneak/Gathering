@@ -15,8 +15,18 @@ public interface HttpTransport {
 
     HttpReply post(String url, String body, Map<String, String> headers) throws IOException;
 
-    /** A response reduced to what the client actually reasons about. */
-    record HttpReply(int status, String body) {
+    /**
+     * A response reduced to what the client actually reasons about.
+     *
+     * @param retryAfterMillis how long the far end asked to be left alone for, or nought if it did not
+     *     say. A 429 usually carries one, and ignoring it is asking again too soon by definition -
+     *     which is what the mod was doing, so a throttled player could not open a pack at all.
+     */
+    record HttpReply(int status, String body, long retryAfterMillis) {
+
+        public HttpReply(int status, String body) {
+            this(status, body, 0L);
+        }
 
         public boolean isSuccess() {
             return status >= 200 && status < 300;

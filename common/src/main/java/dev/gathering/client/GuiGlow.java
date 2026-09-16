@@ -113,6 +113,60 @@ public final class GuiGlow {
     }
 
     /**
+     * The same, following a card's cut corners rather than squaring them off.
+     * <p>A card is a rectangle with its corners cut, and a glow drawn as square rings puts a hard corner
+     * exactly where the card has none - so the card appears to have sharp corners, which is what the owner
+     * saw (2026-09-16). Each ring is drawn as four sides that stop short of the corner by as much as the
+     * card's own cut, plus a short diagonal across it.
+     *
+     * @param spread how many pixels out the glow reaches
+     * @param color  the glow at its brightest, alpha included
+     */
+    public static void aroundCard(
+            GuiGraphics graphics, int x, int y, int width, int height, int spread, int color) {
+        float brightest = ((color >>> 24) & 0xFF) / 255f;
+        if (spread <= 0 || brightest <= 0f || width <= 0 || height <= 0) {
+            return;
+        }
+        int rgb = color & 0x00FFFFFF;
+        int across = Math.max(1, Math.round(width * dev.gathering.core.ui.CardMesh.cornerAcross()));
+        int down = Math.max(1, Math.round(height
+                * dev.gathering.core.ui.CardMesh.cornerDown(width / (float) height)));
+        for (int out = 1; out <= spread; out++) {
+            float left = 1f - (out - 1) / (float) spread;
+            int alpha = Math.round(brightest * left * left * 255f);
+            if (alpha <= 0) {
+                continue;
+            }
+            int ring = (alpha << 24) | rgb;
+            int left0 = x - out;
+            int top = y - out;
+            int right = x + width + out;
+            int bottom = y + height + out;
+            // The four sides, each stopping short of where the card's corner is cut away.
+            graphics.fill(left0 + across, top, right - across, top + 1, ring);
+            graphics.fill(left0 + across, bottom - 1, right - across, bottom, ring);
+            graphics.fill(left0, top + down, left0 + 1, bottom - down, ring);
+            graphics.fill(right - 1, top + down, right, bottom - down, ring);
+            // And the corners themselves, as a staircase across the cut.
+            corner(graphics, left0, top + down, 1, -1, across, down, ring);
+            corner(graphics, right - 1, top + down, -1, -1, across, down, ring);
+            corner(graphics, left0, bottom - down - 1, 1, 1, across, down, ring);
+            corner(graphics, right - 1, bottom - down - 1, -1, 1, across, down, ring);
+        }
+    }
+
+    /** One cut corner, a pixel of the ring at a time, walking from the side round to the end. */
+    private static void corner(GuiGraphics graphics, int fromX, int fromY,
+            int stepX, int stepY, int across, int down, int ring) {
+        for (int step = 1; step <= down; step++) {
+            int alongX = fromX + stepX * Math.round(across * step / (float) down);
+            int alongY = fromY + stepY * step;
+            graphics.fill(alongX, alongY, alongX + 1, alongY + 1, ring);
+        }
+    }
+
+    /**
      * One filled circle, a row at a time.
      * <p>A row rather than a pixel: a circle's half-width at each row is one square root, and
      * a row is one fill. Per pixel it would be a thousand calls for a thing the size of a

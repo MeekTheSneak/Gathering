@@ -97,7 +97,14 @@ public final class HttpFetcher {
             if (reply.status() == TOO_MANY) {
                 // Everything else waiting on this limiter waits too. Retrying this one page
                 // while the other nine carry on at full speed earns nine more of these.
-                rateLimiter.holdOff(pauseAfter(attempt));
+                //
+                // And for as long as the far end asked, when it says: a Retry-After is the server
+                // telling us exactly how long it wants, and our own doubling was regularly shorter
+                // than that - which is asking again too soon by definition.
+                long asked = Math.max(pauseAfter(attempt), reply.retryAfterMillis());
+                rateLimiter.holdOff(asked);
+                sleepFor(asked, description);
+                continue;
             }
             backoff(attempt, description);
         }
@@ -115,6 +122,19 @@ public final class HttpFetcher {
      */
     private long pauseAfter(int attempt) {
         return backoffMillis << Math.min(DOUBLINGS, Math.max(0, attempt - 1));
+    }
+
+    /** Waits this long, or gives up if the wait is interrupted. */
+    private void sleepFor(long millis, String description) throws FetchException {
+        if (millis <= 0) {
+            return;
+        }
+        try {
+            sleeper.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new FetchException("Interrupted while waiting to retry " + description, e);
+        }
     }
 
     private void backoff(int attempt, String description) throws FetchException {

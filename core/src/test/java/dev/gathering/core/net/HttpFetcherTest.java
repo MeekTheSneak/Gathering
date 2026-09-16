@@ -55,6 +55,45 @@ class HttpFetcherTest {
         assertThat(limiter.heldFor).containsExactly(500L, 1_000L, 2_000L);
     }
 
+    /**
+     * The owner could not open packs at all for a while: "that pack could not be opened. HTTP 429".
+     * <p>Scryfall says how long it wants to be left alone and the mod was not listening - it waited its
+     * own five hundred milliseconds and asked again, which is asking too soon by definition, and four
+     * attempts of that is a pack that cannot be opened.
+     */
+    @Test
+    @DisplayName("a far end that says how long to wait is waited on for that long")
+    void theFarEndSaysHowLongToWait() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport()
+                .reply(429, "", 3_000L)
+                .reply(200, "at last");
+        Held limiter = new Held();
+        List<Long> slept = new ArrayList<>();
+
+        HttpFetcher fetcher = new HttpFetcher(transport, limiter.limiter, 4, 500L, slept::add);
+        assertThat(fetcher.get("http://x/y", NO_HEADERS, "a card").body()).isEqualTo("at last");
+
+        // Three seconds, because that is what was asked for - not the five hundred we would have chosen.
+        assertThat(slept).containsExactly(3_000L);
+        assertThat(limiter.heldFor).containsExactly(3_000L);
+    }
+
+    /** And our own doubling still wins when it is the longer of the two. */
+    @Test
+    @DisplayName("a far end that asks for less than we would wait anyway gets our wait")
+    void ourOwnWaitIsTheFloor() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport()
+                .reply(429, "", 10L)
+                .reply(200, "at last");
+        Held limiter = new Held();
+        List<Long> slept = new ArrayList<>();
+
+        HttpFetcher fetcher = new HttpFetcher(transport, limiter.limiter, 4, 500L, slept::add);
+        assertThat(fetcher.get("http://x/y", NO_HEADERS, "a card").body()).isEqualTo("at last");
+
+        assertThat(slept).containsExactly(500L);
+    }
+
     @Test
     @DisplayName("a far end that never recovers is reported, not waited on for ever")
     void aFarEndThatNeverRecoversIsReported() {

@@ -13,6 +13,12 @@ public final class FakeHttpTransport implements HttpTransport {
     private final Deque<Object> scripted = new ArrayDeque<>();
     private final List<Recorded> requests = new ArrayList<>();
 
+    /** A reply that also says how long the far end wants to be left alone for. */
+    public FakeHttpTransport reply(int status, String body, long retryAfterMillis) {
+        scripted.add(new HttpReply(status, body, retryAfterMillis));
+        return this;
+    }
+
     public FakeHttpTransport reply(int status, String body) {
         scripted.add(new HttpReply(status, body));
         return this;

@@ -116,14 +116,14 @@
     {
       "name": "Foot",
       "from": [
-        3,
-        1,
-        4
+        3.5,
+        0,
+        3.5
       ],
       "to": [
-        13,
-        2,
-        12
+        12.5,
+        1,
+        12.5
       ],
       "faces": {
         "north": {
@@ -149,13 +149,13 @@
     {
       "name": "Body",
       "from": [
-        3,
-        2,
+        4,
+        1,
         4
       ],
       "to": [
-        13,
         12,
+        13,
         12
       ],
       "faces": {
@@ -188,13 +188,13 @@
     {
       "name": "Lid",
       "from": [
-        2.5,
-        12,
+        3.5,
+        13,
         3.5
       ],
       "to": [
-        13.5,
-        13.5,
+        12.5,
+        15,
         12.5
       ],
       "faces": {
@@ -225,15 +225,87 @@
       }
     },
     {
+      "name": "Lid cap",
+      "from": [
+        4,
+        15,
+        4
+      ],
+      "to": [
+        12,
+        15.5,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#shell",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#shell",
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#shell",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#shell",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#shell",
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#shell",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Hinge",
+      "from": [
+        4.5,
+        13,
+        12.5
+      ],
+      "to": [
+        11.5,
+        14.5,
+        13
+      ],
+      "faces": {
+        "north": {
+          "texture": "#metal"
+        },
+        "east": {
+          "texture": "#metal"
+        },
+        "south": {
+          "texture": "#metal"
+        },
+        "west": {
+          "texture": "#metal"
+        },
+        "up": {
+          "texture": "#metal"
+        },
+        "down": {
+          "texture": "#metal"
+        }
+      }
+    },
+    {
       "name": "Catch",
       "from": [
         7,
-        10.5,
+        11,
         3.5
       ],
       "to": [
         9,
-        12,
+        13,
         4
       ],
       "faces": {

@@ -56,6 +56,29 @@ public final class JdkHttpTransport implements HttpTransport {
      */
     static final int MOST_BYTES = 128 << 20;
 
+    /**
+     * How long the far end asked to be left alone for, from its Retry-After header.
+     * <p>Seconds, per the standard's common form; the date form is not read, because nothing this mod
+     * talks to sends one and guessing at a clock skew is worse than falling back on our own doubling.
+     * Bounded, so a far end that says "an hour" does not hang a card lookup for an hour.
+     */
+    private static long retryAfterMillis(HttpResponse<?> response) {
+        return response.headers().firstValue("Retry-After")
+                .map(String::trim)
+                .filter(said -> said.chars().allMatch(Character::isDigit) && !said.isEmpty())
+                .map(said -> {
+                    try {
+                        return Math.min(MOST_RETRY_AFTER_MILLIS, Long.parseLong(said) * 1000L);
+                    } catch (NumberFormatException tooBig) {
+                        return MOST_RETRY_AFTER_MILLIS;
+                    }
+                })
+                .orElse(0L);
+    }
+
+    /** The longest a far end may hold us up for, however long it asks for. */
+    private static final long MOST_RETRY_AFTER_MILLIS = 30_000L;
+
     private HttpReply send(HttpRequest request) throws IOException {
         try {
             // Read up to a bound rather than whole: a response with no end to it - a broken proxy,
@@ -69,7 +92,9 @@ public final class JdkHttpTransport implements HttpTransport {
                 throw new FetchException(request.method() + " " + request.uri() + " answered with more than "
                         + (MOST_BYTES >> 20) + " MB", -1);
             }
-            return new HttpReply(response.statusCode(), new String(body, java.nio.charset.StandardCharsets.UTF_8));
+            return new HttpReply(response.statusCode(),
+                    new String(body, java.nio.charset.StandardCharsets.UTF_8),
+                    retryAfterMillis(response));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new FetchException("Interrupted during " + request.method() + " " + request.uri(), e);

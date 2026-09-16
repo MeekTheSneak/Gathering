@@ -130,14 +130,19 @@ final class PackTurning {
         if (reveal.tells()) {
             int lit = lightOf(reveal.nextUp());
             float pulse = reducedMotion ? 1f : (float) (0.66 + 0.34 * Math.sin(now / 240.0));
-            GuiGlow.around(graphics, where.x(), where.y(), where.width(), where.height(),
+            GuiGlow.aroundCard(graphics, where.x(), where.y(), where.width(), where.height(),
                     Math.max(8, where.width() / 3), (Math.round(0xF0 * pulse) << 24) | (lit & 0x00FFFFFF));
         }
 
         // The card underneath, exactly behind and never offset: a stack of cards is a stack, and the one
         // you are about to reach is the one the top card is covering. It used to be drawn as a row of
         // boxes stepping away down the screen, which is a fan rather than a pack.
-        if (reveal.left() > 1) {
+        //
+        // Only while the top card is actually off it. A card is a rectangle with its corners cut, so two
+        // of them exactly in line show each other through those cuts and the pair reads as one card with
+        // sharp corners - which is what the owner saw the moment a swipe began.
+        boolean moved = Math.abs(swipe) > 0.5f || leaving != null;
+        if (moved && reveal.left() > 1) {
             CardComponent under = cards.get(reveal.shown() + 1);
             ClientCardCache.get().summary(under).ifPresentOrElse(
                     summary -> CardInspectPanel.renderArtTurned(graphics, summary, false,
@@ -152,7 +157,7 @@ final class PackTurning {
             int mine = lightOf(reveal.inFront());
             graphics.pose().pushPose();
             graphics.pose().translate(swipe, 0f, 0f);
-            GuiGlow.around(graphics, where.x(), where.y(), where.width(), where.height(),
+            GuiGlow.aroundCard(graphics, where.x(), where.y(), where.width(), where.height(),
                     Math.max(4, where.width() / 7), 0xC0000000 | (mine & 0x00FFFFFF));
             graphics.pose().popPose();
         }

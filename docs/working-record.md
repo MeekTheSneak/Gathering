@@ -2256,6 +2256,27 @@ a check for this one.
 
 Verified: gate green (597/16), and `41a-one-card-at-a-time` shows one card and no fan behind it.
 
+### Twenty-eighth batch: sharp corners, and the 429 (2026-09-16)
+
+- **Two ways the cards were getting sharp corners.** A card is a rectangle with its corners cut, and both
+  of these filled the cut back in. The glow was drawn as square rings, so its corner sat exactly where the
+  card has none; it follows the card's own cut now. And the card underneath was drawn whenever there was
+  one, so two cards exactly in line showed each other through their corner cuts and the pair read as one
+  card with square corners - it is drawn only once the top card has actually moved off it, which is the
+  only time any of it is visible anyway.
+- **The 429.** Scryfall answers a throttled request with `Retry-After`, saying exactly how long it wants
+  to be left alone, and the mod was not reading it: it waited its own five hundred milliseconds and asked
+  again, which is asking too soon by definition, and four attempts of that is a pack that cannot be
+  opened - which is what the owner kept getting. `HttpReply` carries the header now, the limiter is held
+  for as long as the far end asked (or our own doubling, whichever is longer), and the wait is bounded so
+  a far end that says "an hour" cannot hang a card lookup for one. Two tests, the first proven.
+
+Verified: gate green (597/16).
+
+Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
+standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
+the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).
+
 Still to do from that list: the collection screen's overlapping elements (#3), a multi-card display case
 that fits beside a counter, in every wood and dyeable (#5, #9), and the deck box looking more like a deck
 box (#9b). The owner also asked whether the pack tear could be a real cloth simulation (#11) - answered in
