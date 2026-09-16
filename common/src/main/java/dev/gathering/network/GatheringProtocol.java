@@ -77,11 +77,13 @@ public final class GatheringProtocol {
      * <p>Twenty-three, for what anybody at all may do with a collection: three switches rather than one
      * lock, so "anyone may look and only I may take" is a thing its owner says rather than the default
      * they hope for.
+     * <p>Twenty-four, for handing a collection to somebody else - which nothing could do, so a cabinet
+     * whose owner had stopped playing was locked to everybody for ever.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 23;
+    public static final int VERSION = 24;
 
     private GatheringProtocol() {
     }
@@ -238,6 +240,8 @@ public final class GatheringProtocol {
                     dev.gathering.server.CollectionKeys::lock),
             toServer(CollectionKeyPayload.TYPE, CollectionKeyPayload.STREAM_CODEC,
                     dev.gathering.server.CollectionKeys::set),
+            toServer(CollectionOwnerPayload.TYPE, CollectionOwnerPayload.STREAM_CODEC,
+                    dev.gathering.server.CollectionKeys::handOver),
             toServer(WatchReplayPayload.TYPE, WatchReplayPayload.STREAM_CODEC,
                     dev.gathering.server.ReplayWatch::handle));
 

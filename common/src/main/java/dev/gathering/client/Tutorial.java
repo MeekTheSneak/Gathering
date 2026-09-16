@@ -39,8 +39,15 @@ public final class Tutorial {
     /** What the board looked like when the current step went up, to notice what changed. */
     private static int handWhenTheStepBegan;
     private static int battlefieldWhenTheStepBegan;
-    private static int tappedWhenTheStepBegan;
-    private static int countersWhenTheStepBegan;
+    /**
+     * What each of their cards was worth when the step went up - tapped or not, and how many counters.
+     * <p>Kept per card rather than as a total, so a learner who taps one card and untaps another still
+     * gets credit for the tap. See {@link dev.gathering.core.tutorial.TutorialEvidence}.
+     */
+    private static java.util.Map<dev.gathering.core.game.CardInstanceId, Integer> tappedWhenTheStepBegan =
+            java.util.Map.of();
+    private static java.util.Map<dev.gathering.core.game.CardInstanceId, Integer> countersWhenTheStepBegan =
+            java.util.Map.of();
     private static dev.gathering.core.game.TurnMarker turnWhenTheStepBegan;
 
     /**
@@ -196,8 +203,10 @@ public final class Tutorial {
         boolean done = switch (step) {
             case DRAW -> handSize(board, me) > handWhenTheStepBegan;
             case PLAY -> battlefieldSize(board, me) > battlefieldWhenTheStepBegan;
-            case TAP -> tappedCount(board, me) > tappedWhenTheStepBegan;
-            case COUNT -> counterTotal(board, me) > countersWhenTheStepBegan;
+            case TAP -> dev.gathering.core.tutorial.TutorialEvidence.anyRose(
+                    tappedWhenTheStepBegan, tappedNow(board, me));
+            case COUNT -> dev.gathering.core.tutorial.TutorialEvidence.anyRose(
+                    countersWhenTheStepBegan, countersNow(board, me));
             // Not a thing that happens to the board. See readACard.
             case READ -> false;
             case PASS -> !board.turn().equals(turnWhenTheStepBegan);
@@ -236,6 +245,28 @@ public final class Tutorial {
         }
     }
 
+    /**
+     * What the lesson is watching and what it last saw, for the scripted run.
+     * <p>A step that will not advance is the hardest kind of thing to read from outside: the tutorial
+     * either moves on or sits there, and "sits there" is the same picture whether the action never
+     * happened, happened to the wrong card, or happened and was not noticed. This says which.
+     */
+    public static String watching() {
+        if (progress == null) {
+            return "no lesson running";
+        }
+        GameView board = lastConfirmed;
+        SeatId me = board == null ? null : seatIn(board).orElse(null);
+        if (board == null || me == null) {
+            return progress.showing() + ", with no confirmed board to measure against";
+        }
+        return progress.showing()
+                + ": hand " + handSize(board, me) + " (was " + handWhenTheStepBegan + ")"
+                + ", battlefield " + battlefieldSize(board, me) + " (was " + battlefieldWhenTheStepBegan + ")"
+                + ", tapped " + tappedNow(board, me) + " (was " + tappedWhenTheStepBegan + ")"
+                + ", counters " + countersNow(board, me) + " (was " + countersWhenTheStepBegan + ")";
+    }
+
     /** The instruction on screen, with the key it names filled in from the real binding. */
     public static Component instruction() {
         TutorialStep step = showing().orElse(null);
@@ -266,8 +297,8 @@ public final class Tutorial {
         }
         handWhenTheStepBegan = handSize(board, me);
         battlefieldWhenTheStepBegan = battlefieldSize(board, me);
-        tappedWhenTheStepBegan = tappedCount(board, me);
-        countersWhenTheStepBegan = counterTotal(board, me);
+        tappedWhenTheStepBegan = tappedNow(board, me);
+        countersWhenTheStepBegan = countersNow(board, me);
         turnWhenTheStepBegan = board.turn();
     }
 
@@ -285,32 +316,37 @@ public final class Tutorial {
         return board.seat(me).zone(Zone.BATTLEFIELD).count();
     }
 
-    private static int tappedCount(GameView board, SeatId me) {
-        int tapped = 0;
+    /** Which of their cards are turned sideways, one entry each. */
+    private static java.util.Map<dev.gathering.core.game.CardInstanceId, Integer> tappedNow(
+            GameView board, SeatId me) {
+        java.util.Map<dev.gathering.core.game.CardInstanceId, Integer> now = new java.util.HashMap<>();
         for (var card : board.seat(me).zone(Zone.BATTLEFIELD).cards()) {
-            if (card instanceof dev.gathering.core.game.visibility.CardView.Visible visible
-                    && visible.tapped()) {
-                tapped++;
+            if (card instanceof dev.gathering.core.game.visibility.CardView.Visible visible) {
+                now.put(visible.id(), visible.tapped() ? 1 : 0);
             }
         }
-        return tapped;
+        return now;
     }
 
     /**
-     * Every counter on every card this player has out, added up.
-     * <p>A total rather than a set of names, so that adding a second +1/+1 to the same card
-     * counts. Somebody following the instruction twice has still followed it.
+     * How many counters each of their cards is carrying.
+     * <p>A total per card rather than a grand total, so a learner who puts a counter on one card and
+     * takes one off another still gets credit for the one they put on - and so that a second counter on
+     * the same card counts, because somebody following the instruction twice has still followed it.
      */
-    private static int counterTotal(GameView board, SeatId me) {
-        int total = 0;
+    private static java.util.Map<dev.gathering.core.game.CardInstanceId, Integer> countersNow(
+            GameView board, SeatId me) {
+        java.util.Map<dev.gathering.core.game.CardInstanceId, Integer> now = new java.util.HashMap<>();
         for (var card : board.seat(me).zone(Zone.BATTLEFIELD).cards()) {
             if (card instanceof dev.gathering.core.game.visibility.CardView.Visible visible) {
+                int total = 0;
                 for (int many : visible.counters().values()) {
                     total += many;
                 }
+                now.put(visible.id(), total);
             }
         }
-        return total;
+        return now;
     }
 
     /** Between worlds. A tutorial belongs to the table it is running at. */

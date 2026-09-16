@@ -263,4 +263,60 @@ public final class CollectionKeysGameTest {
         }
         throw new IllegalStateException("A collection block was placed without its block entity");
     }
+
+    /**
+     * A collection can be handed to somebody else, which it never could be.
+     * <p>Whoever put it down owned it for ever, and because the owner travels in the item, a cabinet
+     * whose owner had stopped playing was locked to everybody with no way back - and the lock on looking
+     * made that worse rather than better.
+     */
+    @GameTest(template = "tables")
+    public static void acollectionCanBeHandedOver(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ServerPlayer friend = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(owner.getUUID())
+                .openedToLook(false)
+                .allowingTake(friend.getUUID()));
+        standAt(helper, owner, at);
+        standAt(helper, friend, at);
+
+        dev.gathering.server.CollectionKeys.handOverTo(owner, helper.absolutePos(at), friend.getUUID());
+
+        if (!collection.rights().isOwner(friend.getUUID())) {
+            helper.fail("a collection handed over still belongs to whoever put it down");
+            return;
+        }
+        // The new owner's rights are no longer a list entry, and the old owner keeps nothing.
+        if (!collection.rights().everybodyLetIn().isEmpty()) {
+            helper.fail("the new owner is still on a list: " + collection.rights());
+            return;
+        }
+        if (collection.rights().mayLook(owner.getUUID())) {
+            helper.fail("the old owner can still look into a locked collection they gave away");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** And only its owner may hand it anywhere. */
+    @GameTest(template = "tables")
+    public static void astrangerCannotHandItToThemselves(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(owner.getUUID()));
+        standAt(helper, stranger, at);
+
+        dev.gathering.server.CollectionKeys.handOverTo(
+                stranger, helper.absolutePos(at), stranger.getUUID());
+
+        if (!collection.rights().isOwner(owner.getUUID())) {
+            helper.fail("a stranger gave themselves somebody else's collection");
+            return;
+        }
+        helper.succeed();
+    }
 }

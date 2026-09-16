@@ -5,6 +5,7 @@ import dev.gathering.core.collection.CollectionRights;
 import dev.gathering.network.CollectionKeyPayload;
 import dev.gathering.network.CollectionKeysPayload;
 import dev.gathering.network.CollectionLockPayload;
+import dev.gathering.network.CollectionOwnerPayload;
 import dev.gathering.network.Sending;
 import java.util.ArrayList;
 import java.util.List;
@@ -114,6 +115,47 @@ public final class CollectionKeys {
                 ? "message.gathering.collection_let_in"
                 : "message.gathering.collection_shut_out", nameOf(player, who)), false);
         show(player, where);
+    }
+
+    /**
+     * Hands a collection to somebody else, by name.
+     * <p>The one thing a collection could not do: whoever put it down owned it for ever, and since the
+     * owner travels in the item, a cabinet whose owner had stopped playing was locked to everybody with
+     * no way back. The lock on looking made that worse rather than better, so this is the way out.
+     * <p>The new owner comes off every list on the way in - their rights are no longer a list entry -
+     * and the old owner keeps nothing. Handing over is handing over.
+     */
+    public static void handOver(ServerPlayer player, CollectionOwnerPayload payload) {
+        CollectionBlockEntity collection = owned(player, payload.where());
+        if (collection == null) {
+            return;
+        }
+        UUID who = idOf(player, payload.name().trim()).orElse(null);
+        if (who == null) {
+            player.displayClientMessage(Component.translatable(
+                    "message.gathering.collection_no_such_player", payload.name().trim()), false);
+            return;
+        }
+        handOverTo(player, payload.where(), who);
+    }
+
+    /** The same, for somebody already known by id. */
+    public static void handOverTo(ServerPlayer player, BlockPos where, UUID who) {
+        CollectionBlockEntity collection = owned(player, where);
+        if (collection == null || who == null) {
+            return;
+        }
+        if (collection.rights().isOwner(who)) {
+            player.displayClientMessage(
+                    Component.translatable("message.gathering.collection_owner_already"), false);
+            return;
+        }
+        collection.setRights(collection.rights().ownedNowBy(who));
+        player.displayClientMessage(Component.translatable(
+                "message.gathering.collection_handed_over", nameOf(player, who)), false);
+        // And they are not its owner any more, so there is nothing left here to show them.
+        Sending.to(player, new CollectionKeysPayload(where,
+                new CollectionKeysPayload.Key("", false, false, false), java.util.List.of()));
     }
 
     /**

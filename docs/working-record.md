@@ -2397,6 +2397,39 @@ Verified: gate green (599/16), and photographed - `114-deck-boxes` shows the fli
 Verified: gate green (602/16), and `40-tearing-it-open` shows the crimp off as a single piece with the
 body square and whole beneath it.
 
+### Thirty-third batch: the gaps, worked through (2026-09-16)
+
+The owner asked what had been missed and then asked for all of it.
+
+- **The lesson is not broken for players.** Run on its own, from step 296, the guided first game completes
+  every step. What breaks it is the state the rest of the tour leaves behind. But looking found a real
+  robustness hole worth closing anyway: the TAP and COUNT steps compared **totals**, so a learner who taps
+  one card and untaps another - or moves a counter from one card to another - nets zero and the lesson
+  sits there having watched them do the thing it asked for. In a tutorial, fumbling is the normal case.
+  It now asks whether any one card *gained*, per card, so nothing done elsewhere can mask it.
+  `TutorialEvidence` is pure and tested; the client reads the boards and owns none of the rule.
+- **The tour reaches the end for the first time.** A step that would not move ended the whole run, so one
+  stuck step cost the remaining seventy-seven - which is how that many steps went unrun for months. A
+  stuck step is now stepped over, up to a dozen, and the run carries on. It reached step 382 of 382 and
+  took 185 photographs instead of about a hundred.
+  What it reports is **one fault, not a hundred and twenty-seven**: nearly every failure is "there was no
+  board", downstream of the table going away directly after the ante steps. That is the pre-existing
+  fault - a run on `8a567411` does it identically - and it is now precisely located and cheap to chase.
+  **It is not fixed.**
+- **Handing a collection over.** `ownedNowBy` existed and was called by nothing but its own test, so
+  whoever put a collection down owned it for ever - and since the owner travels in the item, a cabinet
+  whose owner had stopped playing was shut to everybody, which the lock on looking made worse. The
+  sharing screen has a Hand over beside Done; the new owner comes off every list and the old owner keeps
+  nothing. Protocol 24.
+- **The wire.** Every test here runs with stand-in players, who have no connection, so nothing that
+  crosses to a client is ever carried anywhere. The newest and least exercised formats now round-trip:
+  the sharing screen's four messages, handing over, and `OpenCollectionPayload` - which packs three
+  answers into the bits of one number because a stream codec takes at most six parts, and packing is
+  exactly where a silent wire fault lives. Every combination of the three is checked.
+  This narrows the gap rather than closing it: the round trip proves the codec, not the delivery.
+
+Verified: gate green (605/16).
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

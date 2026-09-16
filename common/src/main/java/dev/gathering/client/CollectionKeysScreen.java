@@ -151,8 +151,14 @@ public final class CollectionKeysScreen extends Screen {
                         dev.gathering.core.ui.ListScreenLayout.SCROLLBAR, showing * (ROW + GAP) - GAP)
                 : Rect.NONE;
 
-        addRenderableWidget(GatheringButtons.of(left, panel.bottom() - PADDING - ROW, inner, ROW,
-                Component.translatable("gui.done"), this::onClose));
+        // Handing it over, which is the only way a collection ever changes hands - and the only way one
+        // whose owner has stopped playing is ever opened again.
+        int decideTop = panel.bottom() - PADDING - ROW;
+        int handOverWide = Math.min(inner / 2 - GAP, 96);
+        addRenderableWidget(GatheringButtons.of(left, decideTop, handOverWide, ROW,
+                Component.translatable("screen.gathering.collection_keys.hand_over"), this::handOver));
+        addRenderableWidget(GatheringButtons.of(left + handOverWide + GAP, decideTop,
+                inner - handOverWide - GAP, ROW, Component.translatable("gui.done"), this::onClose));
     }
 
     /** One of a row's three rights, lit when it is allowed. */
@@ -173,6 +179,16 @@ public final class CollectionKeysScreen extends Screen {
         }
         // Looking, which is the smallest thing being let in can mean. Taking and adding are the row's.
         send(name, true, false, false);
+        nameBox.setValue("");
+    }
+
+    /** Hands it to whoever is named in the box. Nothing at all with the box empty. */
+    private void handOver() {
+        String name = nameBox == null ? "" : nameBox.getValue().trim();
+        if (name.isEmpty()) {
+            return;
+        }
+        ClientNetworking.send(new dev.gathering.network.CollectionOwnerPayload(where, name));
         nameBox.setValue("");
     }
 

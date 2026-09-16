@@ -157,6 +157,15 @@ public final class DevScene {
      */
     private static final int STUCK_TICKS = 20 * 40;
 
+    /**
+     * How many stuck steps a run will step over before it gives up on the whole thing.
+     * <p>One stuck step should cost one step, not the rest of the tour. Past a dozen the run is limping
+     * rather than reporting, and whatever is wrong is wrong enough to look at before reading any more.
+     */
+    private static final int MOST_SKIPPED_STEPS = 12;
+
+    private static int skippedSteps;
+
     private static BlockPos table;
 
     /** Which card was pointed at, so the ring around it can be looked for afterwards. */
@@ -261,8 +270,18 @@ public final class DevScene {
             return;
         }
         if (++ticks > STUCK_TICKS) {
+            // Step over it and keep going, rather than ending the run here. A tour that stops at the
+            // first step that will not move reports one fault and leaves everything after it unrun -
+            // which is how seventy-odd steps of this scene went months without being executed at all.
+            // Past a handful of these the run is not telling anybody anything new, so it does stop.
             fail("step " + step + " stopped moving");
-            finish(client, "step " + step + " stopped moving");
+            skippedSteps++;
+            if (skippedSteps > MOST_SKIPPED_STEPS) {
+                finish(client, skippedSteps + " steps stopped moving; the rest was not run");
+                return;
+            }
+            System.out.println("[devscene] step " + step + " stopped moving; stepping over it");
+            advance(A_MOMENT);
             return;
         }
         if (waited > 0) {
@@ -7685,7 +7704,8 @@ public final class DevScene {
             return true;
         }
         fail("the guided first game should be asking for " + wanted
-                + " and is asking for " + (showing == null ? "nothing" : showing.name()));
+                + " and is asking for " + (showing == null ? "nothing" : showing.name())
+                + " - " + Tutorial.watching());
         return false;
     }
 

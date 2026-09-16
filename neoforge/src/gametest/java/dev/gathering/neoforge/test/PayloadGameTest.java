@@ -681,6 +681,90 @@ public final class PayloadGameTest {
     }
 
     /** Writes, reads back, and insists the buffer is fully consumed. */
+
+    /**
+     * Everything the sharing screen puts on the wire, written and read back.
+     * <p>These are the newest wire formats in the mod and the least exercised: the mod's own tests run
+     * with stand-in players, who have no connection, so nothing that crosses to a client is ever actually
+     * carried anywhere. A codec that writes more than it reads corrupts every packet after it, which is
+     * the kind of fault that only shows up when two people try to play.
+     * <p>The one with real teeth is {@link dev.gathering.network.OpenCollectionPayload}: three answers
+     * packed into the bits of one number, because a stream codec is built of at most six parts and this
+     * would have been seven. Packing is exactly where a silent wire bug lives.
+     */
+    @GameTest(template = "empty")
+    public static void whoMayUseACollectionSurvivesTheWire(GameTestHelper helper) {
+        net.minecraft.core.BlockPos where = new net.minecraft.core.BlockPos(4, -60, -7);
+
+        // Every combination of the three packed answers, because the whole point of packing is that a
+        // wrong shift reads as a different answer rather than as a broken packet.
+        for (boolean take : new boolean[] {false, true}) {
+            for (boolean add : new boolean[] {false, true}) {
+                for (boolean yours : new boolean[] {false, true}) {
+                    dev.gathering.network.OpenCollectionPayload opened =
+                            new dev.gathering.network.OpenCollectionPayload(where, "The good one", 900, 40,
+                                    dev.gathering.network.OpenCollectionPayload.allowing(take, add, yours));
+                    dev.gathering.network.OpenCollectionPayload back = roundTrip(
+                            helper, opened, dev.gathering.network.OpenCollectionPayload.STREAM_CODEC);
+                    if (back.mayTake() != take || back.mayAdd() != add || back.yours() != yours) {
+                        helper.fail("a collection opened with take=" + take + " add=" + add
+                                + " yours=" + yours + " arrived as take=" + back.mayTake()
+                                + " add=" + back.mayAdd() + " yours=" + back.yours());
+                        return;
+                    }
+                    if (!back.where().equals(where) || !"The good one".equals(back.label())
+                            || back.total() != 900 || back.distinct() != 40) {
+                        helper.fail("a collection arrived as " + back);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // The list of who is let in, which is a record inside a list inside a payload.
+        dev.gathering.network.CollectionKeysPayload keys = new dev.gathering.network.CollectionKeysPayload(
+                where, new dev.gathering.network.CollectionKeysPayload.Key("", true, false, false),
+                java.util.List.of(
+                        new dev.gathering.network.CollectionKeysPayload.Key("Ada", true, true, false),
+                        new dev.gathering.network.CollectionKeysPayload.Key("Grace", false, false, true)));
+        dev.gathering.network.CollectionKeysPayload backKeys =
+                roundTrip(helper, keys, dev.gathering.network.CollectionKeysPayload.STREAM_CODEC);
+        if (backKeys.keys().size() != 2
+                || !backKeys.keys().get(0).name().equals("Ada") || !backKeys.keys().get(0).take()
+                || !backKeys.keys().get(1).add() || backKeys.keys().get(1).look()
+                || !backKeys.everyone().look() || backKeys.everyone().take()) {
+            helper.fail("the list of who is let in came back as " + backKeys);
+            return;
+        }
+
+        // And the three the screen sends back.
+        if (!roundTrip(helper, new dev.gathering.network.CollectionKeysAskPayload(where),
+                dev.gathering.network.CollectionKeysAskPayload.STREAM_CODEC).where().equals(where)) {
+            helper.fail("asking who is let in did not survive the wire");
+            return;
+        }
+        dev.gathering.network.CollectionKeyPayload key = roundTrip(helper,
+                new dev.gathering.network.CollectionKeyPayload(where, "Ada", false, true, true),
+                dev.gathering.network.CollectionKeyPayload.STREAM_CODEC);
+        if (!key.name().equals("Ada") || key.look() || !key.take() || !key.add()) {
+            helper.fail("letting somebody in came back as " + key);
+            return;
+        }
+        dev.gathering.network.CollectionLockPayload lock = roundTrip(helper,
+                new dev.gathering.network.CollectionLockPayload(where, true, false, true),
+                dev.gathering.network.CollectionLockPayload.STREAM_CODEC);
+        if (!lock.look() || lock.take() || !lock.add()) {
+            helper.fail("what everybody may do came back as " + lock);
+            return;
+        }
+        if (!roundTrip(helper, new dev.gathering.network.CollectionOwnerPayload(where, "Grace"),
+                dev.gathering.network.CollectionOwnerPayload.STREAM_CODEC).name().equals("Grace")) {
+            helper.fail("handing a collection over did not survive the wire");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static <T> T roundTrip(
             GameTestHelper helper, T payload, StreamCodec<RegistryFriendlyByteBuf, T> codec) {
         RegistryAccess registries = helper.getLevel().registryAccess();
