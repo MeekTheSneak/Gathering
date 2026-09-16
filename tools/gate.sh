@@ -63,7 +63,7 @@ fi
 
 for check in langcheck doccheck scenecheck plotcheck gesturecheck spritecheck statecheck \
              savecheck runcheck texturecheck artcheck tablecheck keycheck prefcheck \
-             recipecheck; do
+             recipecheck voicecheck; do
     stage "$check" python3 "tools/$check.py"
 done
 

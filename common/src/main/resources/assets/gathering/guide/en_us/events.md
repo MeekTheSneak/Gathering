@@ -8,7 +8,7 @@
 
 To add tables further off, stand at one and press **Add tables** on the host's tab.
 
-The host's tab on the tournament screen has what comes next, and grays out whatever does not apply yet with the reason.
+The host's tab on the tournament screen says what comes next. Controls that do not apply yet are grayed out with the reason.
 
 ## Playing in one
 

@@ -7,7 +7,7 @@
 - {key:show_everything} shows the whole table.
 - V swaps between the board on the screen and playing on the table itself. Both are the same game.
 
-## Help that stays out of the way
+## Help
 
 - F1 lists every key over the table, with your own bindings.
 - Press your chat key at the board to talk to the table. What is said shows over the felt as well as in chat.

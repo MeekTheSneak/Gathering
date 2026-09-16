@@ -292,6 +292,7 @@ public final class DevScene {
         // player sits - the chat line says so - and gone by the time the board is drawn, so
         // what matters is which step in between drops it.
         watchTheSeat(client);
+        watchTheTable(client);
         // Vanilla's "move with WASD" toast lands over the top-right corner of every picture
         // taken in the first two minutes of a fresh world, which is exactly where the zone
         // column is. Nothing to do with the mod, and it hides the thing being photographed.
@@ -6381,7 +6382,14 @@ public final class DevScene {
             fail("there is no player to stand a collection block in front of");
             return;
         }
-        BlockPos where = client.player.blockPosition().offset(0, 0, 3);
+        // The cabinet, a counter two east of it, a desk four east, and a row of eleven tables six
+        // south: forty-three blocks across and nine deep, all of it laid into a world that already
+        // has tables in it. This is the arrangement that went down on top of the run's own table.
+        BlockPos where = roomForFurnitureNear(client, client.player.blockPosition().offset(0, 0, 3),
+                4, 0);
+        if (where == null || !roomForTheWoodRow(client, where)) {
+            return;
+        }
         java.util.UUID who = client.player.getUUID();
         server.execute(() -> {
             ServerPlayer player = server.getPlayerList().getPlayer(who);
@@ -6597,7 +6605,10 @@ public final class DevScene {
             fail("there was no server to put a collection on");
             return;
         }
-        BlockPos where = client.player.blockPosition().offset(-2, -1, 2);
+        BlockPos where = roomForFurnitureNear(client, client.player.blockPosition().offset(-2, -1, 2), 0, 0);
+        if (where == null) {
+            return;
+        }
         collectionBlock = where;
         java.util.UUID player = client.player.getUUID();
         server.execute(() -> {
@@ -6628,6 +6639,72 @@ public final class DevScene {
             }
             System.out.println("[devscene] a collection is being stocked");
         });
+    }
+
+    /**
+     * A spot for furniture of the given size with no table anywhere in it, or null if there is none.
+     * <p>The scene puts furniture down beside wherever the player happens to be standing, and for a
+     * hundred and thirty steps it happened to be standing clear. Then the run gained steps, the
+     * player finished one step a little further along, and a collection block went down on the
+     * corner of the table this whole run is played at.
+     * <p>A table is nine blocks, three by three, and taking any one of them out takes the other
+     * eight with it - which is correct, and is what makes this worth a check rather than a wider
+     * offset. Two blocks clear of where a table looked like it ended was still inside it.
+     * <p>The cost of getting it wrong is out of all proportion to the mistake: every later step
+     * wanting a board failed, a hundred and twenty of them, and not one said which block did it.
+     * <p>Moves north, away from the row of tables these scenes lay out to the south.
+     *
+     * @param across how far east the furniture reaches from the anchor
+     * @param down   how far south it reaches
+     */
+    private static BlockPos roomForFurnitureNear(Minecraft client, BlockPos wanted, int across, int down) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null) {
+            fail("there was no server to find room on");
+            return null;
+        }
+        ServerLevel level = server.overworld();
+        for (int step = 0; step < 8; step++) {
+            BlockPos tryAt = wanted.north(step * 4);
+            if (noTableWithin(level, tryAt.offset(-1, 0, -1), tryAt.offset(across + 1, 0, down + 1))) {
+                return tryAt;
+            }
+        }
+        fail("there was no room near " + wanted + " to put furniture down clear of a table");
+        return null;
+    }
+
+    /**
+     * Whether the row of one table per wood can be laid south of here without landing on a table.
+     * <p>Said separately from the furniture in front of it because the row is forty-odd blocks wide
+     * and six south, and moving the cabinet to fit the row would put the cabinet somewhere the
+     * photograph does not want it. If the row will not fit, the scene says so rather than quietly
+     * taking a table out of the world.
+     */
+    private static boolean roomForTheWoodRow(Minecraft client, BlockPos where) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null) {
+            return false;
+        }
+        int woods = dev.gathering.item.GatheringContent.WOODS.size();
+        BlockPos from = where.offset(-9, 0, 5);
+        BlockPos to = where.offset((woods - 1) * 4 - 8 + 3, 0, 9);
+        if (noTableWithin(server.overworld(), from, to)) {
+            return true;
+        }
+        fail("the row of tables in every wood would be laid over a table already standing, between "
+                + from + " and " + to);
+        return false;
+    }
+
+    /** Whether the box between these two corners holds no part of any table. */
+    private static boolean noTableWithin(ServerLevel level, BlockPos from, BlockPos to) {
+        for (BlockPos each : BlockPos.betweenClosed(from, to)) {
+            if (level.getBlockState(each).getBlock() instanceof TableBlock) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Opens it the way a player would: standing at it, empty handed. */
@@ -7016,6 +7093,37 @@ public final class DevScene {
             fail("the player's own mat was off screen " + when + ": " + mat
                     + " in " + width + "x" + height);
         }
+    }
+
+    /** Whether the run's table has already been reported gone, so it is said once and not every tick. */
+    private static boolean tableReportedGone;
+
+    /**
+     * Says which step the run's table stopped existing at, the moment it does.
+     * <p>The table this run is played at is the one thing every later step needs, and when it went
+     * away the run said so a hundred and twenty times over without once saying when. Every one of
+     * those lines was "there was no board", and the step that actually did it was a hundred steps
+     * earlier and looked like it had passed.
+     * <p>So the table is asked after every step rather than only where a step happens to want it,
+     * and the answer is a single failure naming the step. Costs one lookup a step on a server that
+     * is already the slowest part of the run.
+     */
+    private static void watchTheTable(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null || tableReportedGone) {
+            return;
+        }
+        BlockPos where = table;
+        int at = step;
+        server.execute(() -> {
+            if (tableReportedGone || TableSessions.anchorOf(server.overworld(), where).isPresent()) {
+                return;
+            }
+            tableReportedGone = true;
+            fail("the table this run is played at went away during step " + at + ", at " + where
+                    + " (now " + server.overworld().getBlockState(where) + ") - every later step"
+                    + " that wanted a board fails because of this one");
+        });
     }
 
     private static void advance(int settle) {

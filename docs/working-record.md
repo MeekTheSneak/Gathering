@@ -2472,6 +2472,38 @@ Verified: gate green (607/16), and the guard fails without the fix - the ladder 
 Verified: gate green (607/16); steps 125-140 of the scripted run, 0 failures, and the footer
 photographed with both lines whole (`43-searching-a-collection.png`).
 
+### Thirty-fifth batch: the table that went away, and the text read through (2026-09-16)
+
+**The table-vanishing fault is found and named.** It was never a mod fault. A table is nine blocks,
+three by three, and taking any one of them out takes the other eight with it - which is correct, and
+is what made this so hard to see. The scripted run lays a cabinet, a counter, a desk and a row of one
+table per wood down beside wherever the player happens to be standing at step 132. For a long time it
+happened to be standing clear. The run then gained steps, the player finished the step before a
+little further along, and the cabinet went down at `(4,-61,0)` - two blocks past where the table
+`(3,-61,-2)` looks like it ends, and still inside it.
+
+Found by asking the table after every tick instead of only where a step wanted it, then by a stack
+trace on the block's own removal. That per-tick question is now a permanent part of the run, and it
+is the real repair: **one failure naming the step, instead of a hundred and twenty saying "there was
+no board"**. The placement is checked against the footprint it actually needs before anything is put
+down, and the run says so rather than quietly taking a table out of the world.
+
+**The interface text read through end to end**, at the owner's asking, for the tells of machine
+writing: em dashes, trailing ellipses, semicolons joining two thoughts, the second sentence that
+restates the first, "not this, but that", and the conversational button. 1,471 lines and seven guide
+pages; about fifty rewritten. Among them one that was simply **wrong**: the borrow-a-deck screen said
+"Yours to keep" over a shelf of decks that are the one kind of deck that cannot be kept, which every
+other line about a loaner says plainly.
+
+`tools/voicecheck.py` now holds the punctuation half of that line mechanically, and is in the gate as
+its sixteenth check. It checks only what is a character being present or absent; phrasing needs a
+reader, and a checker that guessed at phrasing would be wrong often enough to get turned off.
+
+Verified: gate green (607/16). `voicecheck` fails on the text as it stood before this batch, naming
+twelve lines. **The full scripted run has not been re-run since the placement fix** - the last full
+run still carried it, and the run that would have confirmed it was cut short. The fix is right by
+construction and by the arithmetic above, and it is unconfirmed.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).
