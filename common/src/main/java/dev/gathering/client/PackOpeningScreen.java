@@ -89,7 +89,17 @@ public final class PackOpeningScreen extends Screen {
     private final String kind;
     private final List<CardComponent> cards;
 
-    private PackTear tear = PackTear.unopened(1, 0L);
+    /**
+     * The wrapper itself, as a sheet of foil that tears where it is pulled.
+     * <p>It was a tear that ran along a line the mod drew, with the hand only saying how far along it had
+     * got. The owner asked for the real thing (2026-09-16): take hold of the wrapper and pull, and it
+     * comes apart where you pulled it. See {@link dev.gathering.core.ui.PackCloth}, which is all of the
+     * arithmetic and none of the pixels.
+     */
+    private dev.gathering.core.ui.PackCloth cloth = new dev.gathering.core.ui.PackCloth(0L);
+
+    /** When the last frame was, so the sheet is run forward by however long actually passed. */
+    private long lastFrame;
     private List<CardComponent> revealed = List.of();
 
     /**
@@ -183,7 +193,11 @@ public final class PackOpeningScreen extends Screen {
         this.packY = (this.height() - this.packHeight) / 2;
         // Kept across a resize: a pack half torn when somebody dragged the window is still
         // half torn, and starting it again would be the window eating their progress.
-        this.tear = new PackTear(this.packWidth, seed(), this.tear.gripped(), this.tear.torn());
+        // A resize keeps the wrapper as it stands: the sheet lives in its own space, nought to one
+        // across and down, so where it has been torn to does not depend on how big the window is.
+        if (cloth.isUntouched()) {
+            cloth = new dev.gathering.core.ui.PackCloth(seed());
+        }
 
         // A way out somebody can see. Leaving loses nothing at any stage - closing the screen
         // tells the server the pack is open, and the cards come - but the only exit was the
@@ -225,7 +239,8 @@ public final class PackOpeningScreen extends Screen {
         // The backing lives in renderBackground now; the buttons go down last, over the cards, so
         // Done is never behind the pack or anything that came out of it.
         renderBackground(graphics, mouseX, mouseY, partialTick);
-        if (tear.isOpen()) {
+        runTheWrapper();
+        if (cloth.isOpen()) {
             // Torn: the cards come out now, into the inventory, as the wrapper comes off.
             tellTheServerItIsOpen();
             if (turning != null && !turning.finished()) {
@@ -262,43 +277,56 @@ public final class PackOpeningScreen extends Screen {
                 wide, tall);
     }
 
-    /** The sealed pack, torn as far as it has been. */
+    /**
+     * Runs the sheet forward, and notices the moment it comes apart.
+     * <p>Here rather than in the drawing of the wrapper, because the drawing stops the instant the
+     * wrapper opens - so the one frame that matters would be the one frame nothing asked about. And here
+     * rather than in the drag, because a hand that lets go mid-tear still has the foil come apart under
+     * its own weight a moment later, which no input handler ever sees.
+     */
+    private void runTheWrapper() {
+        if (turning != null) {
+            return;
+        }
+        long now = net.minecraft.Util.getMillis();
+        float since = lastFrame == 0 ? 0f : (now - lastFrame) / 1000f;
+        lastFrame = now;
+        cloth.advance(since);
+        soundedAt = PackSounds.tearing(soundedAt, cloth.torn());
+        // Whether it is open, not whether it became open on this frame. The sheet can be run from
+        // anywhere - a scripted hand does it outside the drawing entirely - so an edge that happened
+        // between two frames is an edge nothing here ever saw, and the pack stayed shut for ever.
+        if (cloth.isOpen()) {
+            PackSounds.opened();
+            // Built once, at the moment it comes apart. Doing it every frame would re-sort a list whose
+            // order is the whole point, as summaries arrive one packet at a time.
+            turning = PackTurning.of(cards);
+            revealed = turning.inOrder();
+        }
+    }
+
+    /** The sealed pack, torn as far as it has been - which is wherever the hand has pulled it. */
     private void drawThePack(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!glowSettled) {
             settleGlow();
         }
-
-        int tornTo = packX + tear.tornTo();
-        int crimp = packY + (int) (packHeight * CRIMP);
-
-        // Turned toward the cursor while it is being looked at, and square while it is being
-        // torn. A pack is held still to tear it, and a pack that swung eighteen degrees under
-        // the hand doing the tearing would be moving the very edge that hand is aiming at.
-        turnToward(mouseX, mouseY);
-        CardLens lens = CardLens.of(
-                new Rect(packX, packY, packWidth, packHeight), yaw, pitch);
         Matrix4f matrix = graphics.pose().last().pose();
+        Rect where = new Rect(packX, packY, packWidth, packHeight);
 
-        int steps = tearSteps();
-        float[] top = tearTops(steps, tornTo, crimp);
+        // The light out of the tear, under the foil, so what is coming through the hole is behind the
+        // wrapper rather than painted over it.
+        if (!cloth.isUntouched() && glow != PackGlow.NO_LIGHT) {
+            int alpha = Math.round(GLOW_ALPHA * Math.min(1f, 0.4f + cloth.torn()));
+            GuiGlow.around(graphics, packX, packY + Math.round(packHeight * (float) CRIMP),
+                    packWidth, Math.max(1, packHeight / 6),
+                    Math.max(6, packWidth / 4), (alpha << 24) | (glow & 0x00FFFFFF));
+        }
 
-        // The body, its top edge wherever the tear left it, and the crimped strip above it
-        // where the tear has not reached. Two pieces because the wrapper's picture squashes
-        // its crimp into the top sixth of the pack and stretches its body over the rest, and
-        // a quad's texture coordinates can only run straight.
-        TiltedPack.draw(matrix, lens, PackFaceRenderer.WRAPPER, top,
-                new TiltedPack.Piece(BODY_ROW, BODY_ROWS, (float) CRIMP, 1f - (float) CRIMP),
-                BODY_DOWN, MARGIN, WRAPPER_PIXELS);
-        TiltedPack.draw(matrix, lens, PackFaceRenderer.WRAPPER, top,
-                new TiltedPack.Piece(CRIMP_ROW, CRIMP_ROWS, 0f, (float) CRIMP),
-                STRIP_DOWN, MARGIN, WRAPPER_PIXELS);
-        drawSymbol(graphics, lens, matrix);
-        drawTheTornStrip(matrix, steps, tornTo);
-        drawTornEdge(graphics, lens, matrix, tornTo, steps, top);
+        PackClothRenderer.draw(matrix, cloth, PackFaceRenderer.WRAPPER, where);
 
-        // Only before it has been touched. Once somebody is tearing it, the tear is the
-        // feedback; a line of text cheering them on is the screen talking for the sake of it.
-        if (tear.isUntouched()) {
+        // Only before it has been touched. Once somebody is pulling at it, the wrapper is the feedback;
+        // a line of text cheering them on is the screen talking for the sake of it.
+        if (cloth.isUntouched()) {
             graphics.drawCenteredString(this.font,
                     Component.translatable("screen.gathering.pack_take_hold"),
                     width() / 2, packY + packHeight + 8, 0xFFBFC7D2);
@@ -475,38 +503,6 @@ public final class PackOpeningScreen extends Screen {
     private static final float PEEL_FADE = 0.55f;
 
     /**
-     * The strip that has been torn off, coming away.
-     * <p>It used to simply stop existing column by column as the tear passed, which is the one thing paper
-     * does not do: what you tear off a booster stays in your hand. So the freed part of the crimp is drawn
-     * again above the tear, lifting clear of the pack and leaning back as more of it comes free, fading as
-     * it goes - the owner asked for the tear to look nicer (2026-09-16), and a wrapper that comes off is
-     * most of what "nicer" means here.
-     * <p>Its own lens rather than the pack's: it is no longer on the pack, and a piece drawn through the
-     * pack's lens is a piece that cannot leave it.
-     */
-    private void drawTheTornStrip(Matrix4f matrix, int steps, int tornTo) {
-        float torn = tear.torn();
-        if (torn <= 0f) {
-            return;
-        }
-        int stripHeight = Math.max(1, (int) Math.round(packHeight * CRIMP));
-        float[] freed = new float[steps];
-        for (int step = 0; step < steps; step++) {
-            int middle = (columnAt(step, steps) + columnAt(step + 1, steps)) / 2;
-            // Nought is the whole strip and one is none of it: the columns the tear has not reached are
-            // still on the pack, and the pack is already drawing them.
-            freed[step] = middle > tornTo ? 1f : 0f;
-        }
-        CardLens peeled = CardLens.of(
-                new Rect(packX, packY - Math.round(stripHeight * PEEL_LIFT * torn), packWidth, stripHeight),
-                yaw, pitch - PEEL_BACK * torn);
-        int left = Math.round(255 * Math.max(0f, 1f - torn * PEEL_FADE));
-        TiltedPack.draw(matrix, peeled, PackFaceRenderer.WRAPPER, freed,
-                new TiltedPack.Piece(CRIMP_ROW, CRIMP_ROWS, 0f, 1f),
-                STRIP_DOWN, MARGIN, WRAPPER_PIXELS, (left << 24) | 0x00FFFFFF);
-    }
-
-    /**
      * What came out, worst first.
      * <p>Sorted rather than left in collation order so the ceremony ends where it should. A
      * pack's own order puts the rare somewhere in the middle, which is the one place it must
@@ -521,127 +517,11 @@ public final class PackOpeningScreen extends Screen {
         return List.copyOf(order);
     }
 
-    /**
-     * How many columns the torn edge is cut into.
-     * <p>The paper and the light are drawn from this same count, because they have to be the
-     * same edge. They were not: the wrapper was cut off at a straight line and the light was
-     * drawn along a wandering one, so the glow floated above the paper down half the tear and
-     * sank into it down the other half. Two edges is one edge too many.
-     */
-    private int tearSteps() {
-        return Math.max(16, Math.min(64, packWidth / 3));
-    }
-
-    /** Where one column of the tear starts, so neighboring columns meet without a seam. */
-    private int columnAt(int step, int steps) {
-        return packX + Math.round(step * packWidth / (float) steps);
-    }
-
-    /**
-     * How far the tear may bite into the body, in pixels.
-     * <p>Down into the body and never up into the crimp: an edge that wandered both ways
-     * would need paper drawn above the line to wander into, and there is none - the strip up
-     * there is the piece being torn off. So the whole wander is a bite out of what is left,
-     * which is what a tear along a crimp does anyway.
-     */
-    private float tearBite() {
-        return packHeight * (float) CRIMP * 0.4f;
-    }
-
-    /**
-     * The torn edge, as a share of the way down the pack per column.
-     * <p>One array, handed to whatever is drawing: the paper, the light, and anything else
-     * that ever needs to know where the tear is. In the pack's own space rather than in
-     * screen rows, because the pack is turned and a screen row is not a place on it any more.
-     * <p>Columns the tear has not reached sit at nought - the top of the pack - because the
-     * strip up there is still attached and the whole wrapper is showing.
-     */
-    private float[] tearTops(int steps, int tornTo, int crimp) {
-        float bite = tearBite();
-        float[] edge = tear.edge(steps, bite);
-        float sink = bite * 0.7f;
-        float crimpAt = (float) CRIMP;
-        float[] top = new float[steps];
-        for (int step = 0; step < steps; step++) {
-            int middle = (columnAt(step, steps) + columnAt(step + 1, steps)) / 2;
-            if (middle > tornTo) {
-                top[step] = 0f;
-                continue;
-            }
-            float down = (crimp - packY + sink + edge[Math.min(step, edge.length - 1)])
-                    / Math.max(1f, packHeight);
-            top[step] = Math.min(1f, Math.max(crimpAt, down));
-        }
-        return top;
-    }
-
-    /**
-     * Turns the pack toward the cursor, a little way, easing rather than snapping.
-     * <p>Square while it is being torn: the tear follows the hand across the top edge, and an
-     * edge that swung away from the hand aiming at it would be the interface arguing with the
-     * gesture. Aimed at its own middle rather than switched off, so it settles over a few
-     * frames the same way it arrived.
-     */
-    private void turnToward(int mouseX, int mouseY) {
-        boolean beingTorn = !tear.isUntouched() && !tear.isOpen();
-        float wantedYaw = 0f;
-        float wantedPitch = 0f;
-        if (!beingTorn) {
-            float centerX = packX + packWidth / 2f;
-            float centerY = packY + packHeight / 2f;
-            float across = Math.max(-1f, Math.min(1f,
-                    (mouseX - centerX) / Math.max(1f, packWidth)));
-            float down = Math.max(-1f, Math.min(1f,
-                    (mouseY - centerY) / Math.max(1f, packHeight)));
-            wantedYaw = across * MOST_YAW;
-            wantedPitch = down * MOST_PITCH;
-        }
-        yaw += (wantedYaw - yaw) * EASE;
-        pitch += (wantedPitch - pitch) * EASE;
-    }
-
-    /**
-     * The light coming out of the tear.
-     * <p>Drawn as a run of short bars along the torn edge rather than a line, because the
-     * light is what is being drawn: a bar per column, brightest at the paper and fading
-     * upward, so the pack looks lit from inside rather than outlined.
-     * <p>Through the same lens the paper went through, off the same line, so it stays on the
-     * tear at every angle. Drawn flat it slid off the moment the pack turned - which is the
-     * whole argument for the pack being a thing in space rather than two pictures.
-     */
-    private void drawTornEdge(
-            GuiGraphics graphics, CardLens lens, Matrix4f matrix,
-            int tornTo, int steps, float[] top) {
-        if (tear.isUntouched() || glow == PackGlow.NO_LIGHT) {
-            return;
-        }
-        // Brighter and further the more of the pack is open, so the light builds toward the reveal
-        // instead of sitting at one strength from the first inch of the tear.
-        float open = 0.55f + 0.45f * tear.torn();
-        float reach = open * Math.max(4f, packHeight / 10f) / Math.max(1f, packHeight);
-        TiltedPack.Glow light = new TiltedPack.Glow(glow & 0x00FFFFFF, Math.round(GLOW_ALPHA * open));
-        TiltedPack.shine(matrix, lens, top, reach, light,
-                columnsTorn(steps, tornTo), GLOW_STEPS);
-    }
-
     /** How brightly the light comes out where it meets the paper. */
     private static final int GLOW_ALPHA = 190;
 
     /** How many bands the light is faded over. Enough to read as light rather than as a bar. */
     private static final int GLOW_STEPS = 7;
-
-    /** How many columns the tear has passed, which is how much of it is giving off light. */
-    private int columnsTorn(int steps, int tornTo) {
-        int torn = 0;
-        for (int step = 0; step < steps; step++) {
-            int middle = (columnAt(step, steps) + columnAt(step + 1, steps)) / 2;
-            if (middle > tornTo) {
-                break;
-            }
-            torn = step + 1;
-        }
-        return torn;
-    }
 
     /**
      * The set's symbol, printed on the wrapper in the product's color.
@@ -674,7 +554,10 @@ public final class PackOpeningScreen extends Screen {
         if (turning != null && !turning.finished() && turning.grabbed(mouseX, mouseY, cardInHand())) {
             return true;
         }
-        follow(mouseX);
+        if (!cloth.isOpen() && cloth.grab(acrossSheet(mouseX), downSheet(mouseY))) {
+            PackSounds.gripped();
+            return true;
+        }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
@@ -684,7 +567,10 @@ public final class PackOpeningScreen extends Screen {
             turning.draggedTo(dragX);
             return true;
         }
-        follow(mouseX);
+        if (cloth.isHeld()) {
+            cloth.dragTo(acrossSheet(mouseX), downSheet(mouseY));
+            return true;
+        }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -692,6 +578,11 @@ public final class PackOpeningScreen extends Screen {
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (turning != null && !turning.finished()) {
             turning.letGo(cardInHand());
+            return true;
+        }
+        if (cloth.isHeld()) {
+            // Let go and it falls or springs back, depending on what is left holding it.
+            cloth.letGo();
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -720,23 +611,17 @@ public final class PackOpeningScreen extends Screen {
     /** How far along the tear was when it last made a noise. */
     private float soundedAt;
 
-    private void follow(double mouseX) {
-        boolean wasSealed = !tear.isOpen();
-        boolean wasUntouched = tear.isUntouched();
-        tear = tear.followedTo((int) Math.round(mouseX - packX));
-        if (wasUntouched && !tear.isUntouched()) {
-            PackSounds.gripped();
-            soundedAt = tear.torn();
-        } else if (wasSealed) {
-            soundedAt = PackSounds.tearing(soundedAt, tear.torn());
-        }
-        if (wasSealed && tear.isOpen()) {
-            PackSounds.opened();
-            // Built once, at the moment it comes apart. Doing it every frame would re-sort a list whose
-            // order is the whole point, as summaries arrive one packet at a time.
-            turning = PackTurning.of(cards);
-            revealed = turning.inOrder();
-        }
+    /**
+     * Where the hand is, in the sheet's own space.
+     * <p>The solver works in nought to one across the wrapper and down it, whatever size the window is,
+     * so this is the one place the two meet.
+     */
+    private float acrossSheet(double mouseX) {
+        return (float) ((mouseX - packX) / Math.max(1, packWidth));
+    }
+
+    private float downSheet(double mouseY) {
+        return (float) ((mouseY - packY) / Math.max(1, packHeight));
     }
 
     /**
@@ -751,6 +636,14 @@ public final class PackOpeningScreen extends Screen {
 
     public int packWidth() {
         return packWidth;
+    }
+
+    public int packTop() {
+        return packY;
+    }
+
+    public int packHeight() {
+        return packHeight;
     }
 
     public int packMiddleY() {
@@ -772,8 +665,9 @@ public final class PackOpeningScreen extends Screen {
         return turning != null && turning.nextUp().worthAnnouncing();
     }
 
-    public PackTear tear() {
-        return tear;
+    /** The wrapper itself, for the scripted run. */
+    public dev.gathering.core.ui.PackCloth cloth() {
+        return cloth;
     }
 
     /** What came out, in the order it is being shown. Empty until the wrapper is off. */

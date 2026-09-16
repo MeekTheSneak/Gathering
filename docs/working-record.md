@@ -2273,6 +2273,42 @@ Verified: gate green (597/16), and `41a-one-card-at-a-time` shows one card and n
 
 Verified: gate green (597/16).
 
+### Twenty-ninth batch: the wrapper is a sheet of foil now (2026-09-16)
+
+The owner asked for the pack to be torn for real rather than along a line the mod drew.
+
+**`PackCloth`** in `:core`: a grid of points held together by links, run with Verlet integration and
+position constraints - each point remembers where it was, a link is satisfied by moving its two ends
+toward each other a few times a step, and a link stretched too far is simply removed. That last part is
+the whole trick: a tear is a link being deleted, not a force being exceeded, which is why this is stable
+where a spring solver would explode.
+
+Two things had to be true for it to feel like a booster rather than a bedsheet:
+
+- **A hand takes hold of a piece, not a point.** Holding one point and dragging pulls that point out
+  through its own neighbours, which is a hole rather than a tear - the first version did exactly that and
+  the strip never came off at all.
+- **The seam gives first.** A booster has a notch cut in it, and that is what a notch is. The crimp row
+  tears at 1.42 times its resting length and everything else at 2.4, so an ordinary pull peels the strip
+  along the crimp while a hard pull somewhere else still rips it there.
+
+It is **deterministic** - fixed step, fixed iteration count, and what wobble there is comes from the
+pack's own seed - which is what lets any of it be checked at all, and what keeps two people watching one
+screen seeing one wrapper. Six tests and three properties, including that the same pack pulled the same
+way tears identically and that a four-second stall cannot fling the sheet off the screen.
+
+Three real defects came out of wiring it up, each of which a scripted tear could never have had:
+
+- The sheet was run from the wall clock inside the wrapper's own drawing - and that drawing **stops the
+  instant the wrapper opens**, so the one frame that mattered was the one frame nothing asked about.
+- The opening was **edge-detected**. The sheet can be run from anywhere, so an edge between two frames is
+  an edge nothing sees; it asks whether the wrapper is open, not whether it became open just now.
+- The scripted hand dragged forty times inside a millisecond, and a simulation given no time does
+  nothing. The tour runs the sheet a frame at a time as it drags.
+
+Verified: gate green (597/16), and `40-tearing-it-open` shows the crimp peeled up and creased over itself
+with the body torn in an arc beneath it - foil, rather than a line.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

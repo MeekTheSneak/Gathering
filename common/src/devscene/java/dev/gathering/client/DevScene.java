@@ -1726,13 +1726,13 @@ public final class DevScene {
             }
             case 127 -> {
                 shoot(client, "39-a-sealed-pack");
-                tearThePack(client, 0.45);
+                tearThePack(client, 0.07);
                 advance(SETTLE / 2);
             }
             case 128 -> {
-                aPackHalfTornIsHalfTorn(client);
+                aWrapperPulledGentlyHoldsTogether(client);
                 shoot(client, "40-tearing-it-open");
-                tearThePack(client, 1.2);
+                tearThePack(client, 1.3);
                 advance(SETTLE / 2);
             }
             case 129 -> {
@@ -6276,7 +6276,7 @@ public final class DevScene {
             fail("there was no pack on the screen to be sealed");
             return;
         }
-        if (!pack.tear().isUntouched()) {
+        if (!pack.cloth().isUntouched()) {
             fail("a pack nobody has touched was already torn");
         }
         if (pack.glow() != dev.gathering.core.ui.PackGlow.MYTHIC_LIGHT) {
@@ -6284,17 +6284,20 @@ public final class DevScene {
         }
     }
 
-    private static void aPackHalfTornIsHalfTorn(Minecraft client) {
+    private static void aWrapperPulledGentlyHoldsTogether(Minecraft client) {
         if (!(client.screen instanceof PackOpeningScreen pack)) {
             fail("the pack screen went away mid-tear");
             return;
         }
-        if (pack.tear().isUntouched()) {
-            fail("dragging across the wrapper tore nothing at all");
+        // A simulated wrapper has no "half torn" to check - it gives way or it does not. What matters is
+        // that a gentle pull does neither nothing nor everything: the foil has moved, and the pack has
+        // not fallen open at a touch.
+        if (pack.cloth().isUntouched()) {
+            fail("a wrapper that has been pulled at says nothing has touched it");
             return;
         }
-        if (pack.tear().isOpen()) {
-            fail("a pack dragged half way across came apart");
+        if (pack.cloth().isOpen()) {
+            fail("a wrapper pulled gently came apart, at " + Math.round(pack.cloth().torn() * 100) + " per cent");
         }
     }
 
@@ -6303,9 +6306,9 @@ public final class DevScene {
             fail("the pack screen went away before it was open");
             return;
         }
-        if (!pack.tear().isOpen()) {
+        if (!pack.cloth().isOpen()) {
             fail("a pack dragged the whole way across is still sealed at "
-                    + Math.round(pack.tear().torn() * 100) + " per cent");
+                    + Math.round(pack.cloth().torn() * 100) + " per cent");
         }
     }
 
@@ -6320,7 +6323,7 @@ public final class DevScene {
             fail("there was no pack screen showing what came out");
             return;
         }
-        if (!pack.tear().isOpen()) {
+        if (!pack.cloth().isOpen()) {
             fail("the pack was not open, so nothing could be shown");
             return;
         }
@@ -6852,18 +6855,32 @@ public final class DevScene {
      * <p>Through the screen's own mouse handlers rather than past them: a tear that works and
      * a tear nothing can reach look identical from the inside.
      */
+    /**
+     * Pulls the wrapper the way a hand does: take hold of the crimp and drag it away.
+     * <p>The wrapper is a simulated sheet now, so there is no line to drag along - it comes apart where it
+     * is pulled. The drag goes up and out, which is what tearing the top off a packet is, and the sheet is
+     * given frames to run in between, because it is a simulation and a drag with no time in it moves
+     * nothing.
+     *
+     * @param toFraction how hard to pull, where one is far enough to take the strip off
+     */
     private static void tearThePack(Minecraft client, double toFraction) {
         if (!(client.screen instanceof PackOpeningScreen pack)) {
             fail("there was no pack to tear");
             return;
         }
-        int y = pack.packMiddleY();
-        int from = pack.packLeft();
-        pack.mouseClicked(from + 1, y, 0);
-        int steps = 24;
+        int wide = pack.packWidth();
+        int fromX = pack.packLeft() + wide / 2;
+        int fromY = pack.packTop() + Math.max(2, pack.packHeight() / 12);
+        pack.mouseClicked(fromX, fromY, 0);
+        int steps = 40;
         for (int step = 1; step <= steps; step++) {
             double along = toFraction * step / steps;
-            pack.mouseDragged(from + along * pack.packWidth(), y, 0, 1, 0);
+            pack.mouseDragged(fromX + along * wide * 2.2, fromY - along * pack.packHeight(), 0, 1, 1);
+            // The sheet only moves when it is run, and the screen runs it from the wall clock as it
+            // draws - so a drag that takes a millisecond of real time moves nothing at all. Run here
+            // instead, a frame's worth per step, which is what the drag would get from a real hand.
+            pack.cloth().advance(1f / 60f);
         }
     }
 
