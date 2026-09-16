@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "gathering:block/warped_shop_counter"
+    },
+    "facing=east": {
+      "model": "gathering:block/warped_shop_counter",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "gathering:block/warped_shop_counter",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "gathering:block/warped_shop_counter",
+      "y": 270
+    }
+  }
+}

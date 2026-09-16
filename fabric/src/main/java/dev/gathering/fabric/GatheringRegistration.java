@@ -19,6 +19,14 @@ import java.util.List;
  */
 final class GatheringRegistration {
 
+    /** The blocks of one kind in the other woods, for a block entity type's valid blocks. */
+    private static net.minecraft.world.level.block.Block[] blocksOf(GatheringContent.Woodwork kind) {
+        return GatheringContent.woodVariants(kind).stream()
+                .map(GatheringContent.WoodVariant::block)
+                .map(dev.gathering.registry.Registered::get)
+                .toArray(net.minecraft.world.level.block.Block[]::new);
+    }
+
     private GatheringRegistration() {
     }
 
@@ -70,6 +78,15 @@ final class GatheringRegistration {
 
         // Fabric's own builder, because BlockEntityType.Builder's supplier interface is
         // package-private in vanilla and only NeoForge access-transforms it.
+        // The same furniture in the other woods, from one list rather than fifty registrations. Each is its
+        // own block and item, named for its wood; everything that asks "is this a table" answers the same.
+        for (GatheringContent.WoodVariant variant : GatheringContent.woodVariants()) {
+            variant.block().bindValue(Registry.register(
+                    BuiltInRegistries.BLOCK, Gathering.id(variant.id()), variant.createBlock()));
+            variant.item().bindValue(Registry.register(
+                    BuiltInRegistries.ITEM, Gathering.id(variant.id()), variant.createItem()));
+        }
+
         GatheringContent.TABLE_ENTITY.bindValue(Registry.register(
                 BuiltInRegistries.BLOCK_ENTITY_TYPE,
                 Gathering.id(dev.gathering.block.TableBlockEntity.ID),
@@ -79,6 +96,7 @@ final class GatheringRegistration {
                         // the ones it was not told about.
                         .create(GatheringContent::createTableEntity, table,
                                 cobblestoneTable, blackstoneTable, cryingObsidianTable)
+                        .addBlocks(blocksOf(GatheringContent.Woodwork.TABLE))
                         .build()));
 
         Item card = Registry.register(
@@ -139,6 +157,7 @@ final class GatheringRegistration {
                 Gathering.id(dev.gathering.block.CollectionBlockEntity.ID),
                 net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
                         .create(GatheringContent::createCollectionEntity, collection)
+                        .addBlocks(blocksOf(GatheringContent.Woodwork.COLLECTION))
                         .build()));
 
         GatheringContent.CHAIR.bindValue(Registry.register(
@@ -160,6 +179,7 @@ final class GatheringRegistration {
                 Gathering.id(dev.gathering.block.ScorekeepersDeskBlockEntity.ID),
                 net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
                         .create(GatheringContent::createScorekeepersDeskEntity, desk)
+                        .addBlocks(blocksOf(GatheringContent.Woodwork.SCOREKEEPERS_DESK))
                         .build()));
 
         // The counter, then somewhere to work at it, then the job. Fabric's helper registers
@@ -218,6 +238,10 @@ final class GatheringRegistration {
                             output.accept(
                                     new ItemStack(GatheringContent.SCOREKEEPERS_DESK_ITEM.get()));
                             output.accept(new ItemStack(GatheringContent.CHAIR_ITEM.get()));
+                            // And the same five things in the other woods, in the order the woods are listed.
+                            for (GatheringContent.WoodVariant variant : GatheringContent.woodVariants()) {
+                                output.accept(new ItemStack(variant.item().get()));
+                            }
                         })
                         .build());
     }

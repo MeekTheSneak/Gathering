@@ -1925,6 +1925,34 @@ in creative, the same color twice costs nothing, a collection's owner only, and 
 what they hold). **Not verified:** any of it in first or third person, Fabric's client drawing it, dyeing
 looked at by eye.
 
+### Seventeenth batch: every wooden thing in every wood (2026-09-16)
+
+The owner: the wooden blocks should come in every wood, the table included. Five wooden things - table,
+chair, shop counter, collection and Scorekeeper's Desk - in eleven woods, which is fifty new blocks.
+
+- **Each wood is its own block**, the way a vanilla door or sign is: `spruce_table`, `cherry_chair`,
+  `warped_scorekeepers_desk`. The plain ids keep the wood they were drawn in, so a world built before this
+  keeps its furniture: `table`, `shop_counter`, `collection` and `scorekeepers_desk` are dark oak, `chair` is
+  oak. Bamboo, crimson and warped are in: they are planks in the hand, which is what "every wood" means.
+- **The Java side is a list, not fifty declarations**: `GatheringContent.Woodwork` and `WoodVariant`, walked
+  by both loaders to register blocks and items, to fill the block entities' valid blocks (a table, collection
+  or desk whose type was not told about it quietly has no block entity at all), and to fill the creative tab.
+- **The assets are generated**: `tools/woodwork.py` writes each wood's blockstate, block models, item model,
+  loot table, recipe and name from the plain block's own, swapping the planks and the stripped log. 242 files.
+  Editing a plain model and running it again carries the change to every wood; `--check` says what would
+  change and changes nothing.
+- **Recipes name their wood.** They took any planks before - and the chair took a mixture - which cannot tell
+  fifty blocks apart, so every recipe now asks for one wood's planks, as vanilla's do. The collection's recipe
+  gains four planks at its corners, which is where its wood is chosen; the shop counter has no recipe in any
+  wood, as before.
+- Tests: `WoodVariantsGameTest` (all fifty registered, each the kind of block it is named for, each placed
+  keeping the block entity its plain twin has) and `CraftingGameTest.theWoodYouLayOutIsTheWoodYouGet` (spruce
+  table, cherry chair, warped desk, bamboo collection); the four plain crafting tests now lay out the plain
+  block's own wood.
+- The tour stands a table of every wood in a row and photographs it (`41c-tables-in-every-wood`); looked at.
+
+Verified: gate green (572/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

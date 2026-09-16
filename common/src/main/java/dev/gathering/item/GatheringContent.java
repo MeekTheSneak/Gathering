@@ -60,16 +60,124 @@ public final class GatheringContent {
     public static final Registered<Item> CRYING_OBSIDIAN_TABLE_ITEM =
             new Registered<>(CRYING_OBSIDIAN_TABLE_ID);
 
-    /** Every table, in the order they are offered. What one hand needs, the others need. */
+    /**
+     * The other woods every wooden thing in the mod is also made of.
+     * <p>The plain ids - {@code table}, {@code chair}, {@code shop_counter}, {@code collection},
+     * {@code scorekeepers_desk} - are the dark oak ones and keep their names, so a world built before this
+     * keeps its furniture. Everything else is named for its wood, the way vanilla names a door or a sign.
+     * <p>Bamboo's planks are a block of bamboo mosaic's neighbour rather than a tree's, and the two nether
+     * stems are not wood at all botanically; all three are planks in the hand and in the recipe book, which is
+     * what a player means by "in every wood".
+     */
+    public static final java.util.List<String> WOODS = java.util.List.of(
+            "oak", "spruce", "birch", "jungle", "acacia", "mangrove", "cherry", "bamboo", "crimson", "warped");
+
+    /** What a wooden thing is: the same block, in one wood or another. */
+    public enum Woodwork {
+        TABLE(TABLE_ID),
+        CHAIR(CHAIR_ID),
+        SHOP_COUNTER(SHOP_COUNTER_ID),
+        COLLECTION(COLLECTION_ID),
+        SCOREKEEPERS_DESK(SCOREKEEPERS_DESK_ID);
+
+        private final String plain;
+
+        Woodwork(String plain) {
+            this.plain = plain;
+        }
+
+        /** The id of this thing in this wood: {@code spruce_table}, and the plain {@code table} for dark oak. */
+        public String idFor(String wood) {
+            return wood == null || wood.isBlank() || "dark_oak".equals(wood) ? plain : wood + "_" + plain;
+        }
+    }
+
+    /** One wooden block in one wood: what to register, and where its block and item are bound. */
+    public record WoodVariant(Woodwork kind, String wood, String id,
+            Registered<Block> block, Registered<Item> item) {
+
+        public Block createBlock() {
+            return switch (kind) {
+                case TABLE -> createTable();
+                case CHAIR -> createChair();
+                case SHOP_COUNTER -> createShopCounter();
+                case COLLECTION -> createCollection();
+                case SCOREKEEPERS_DESK -> createScorekeepersDesk();
+            };
+        }
+
+        public Item createItem() {
+            return switch (kind) {
+                case TABLE -> new TableBlockItem(block.get(), new Item.Properties());
+                case CHAIR -> new DescribedBlockItem(block.get(), new Item.Properties(),
+                        java.util.List.of("tooltip.gathering.chair_sit", "tooltip.gathering.chair_stand"));
+                case SHOP_COUNTER -> new DescribedBlockItem(block.get(), new Item.Properties(),
+                        java.util.List.of("tooltip.gathering.shop_counter_job"));
+                case COLLECTION -> new DescribedBlockItem(block.get(), new Item.Properties().stacksTo(1),
+                        java.util.List.of("tooltip.gathering.collection_open", "tooltip.gathering.collection_put_in",
+                                "tooltip.gathering.collection_sweep"));
+                case SCOREKEEPERS_DESK -> new DescribedBlockItem(block.get(), new Item.Properties(),
+                        java.util.List.of("tooltip.gathering.desk_host", "tooltip.gathering.desk_anybody"),
+                        "tooltip.gathering.desk_board");
+            };
+        }
+    }
+
+    private static final java.util.List<WoodVariant> WOOD_VARIANTS = everyWood();
+
+    private static java.util.List<WoodVariant> everyWood() {
+        java.util.List<WoodVariant> made = new java.util.ArrayList<>();
+        for (Woodwork kind : Woodwork.values()) {
+            for (String wood : WOODS) {
+                String id = kind.idFor(wood);
+                made.add(new WoodVariant(kind, wood, id, new Registered<>(id), new Registered<>(id)));
+            }
+        }
+        return java.util.List.copyOf(made);
+    }
+
+    /**
+     * Every wooden block in every wood but dark oak, which the plain ids already are. Walked by both loaders
+     * to register them, and by everything that has to name all of one kind - the block entities' valid blocks,
+     * the creative tab, Create's display sources.
+     */
+    public static java.util.List<WoodVariant> woodVariants() {
+        return WOOD_VARIANTS;
+    }
+
+    /** Every wooden block of one kind in the other woods. */
+    public static java.util.List<WoodVariant> woodVariants(Woodwork kind) {
+        return WOOD_VARIANTS.stream().filter(variant -> variant.kind() == kind).toList();
+    }
+
+    /** Every block of this kind, the plain dark oak one first. */
+    public static java.util.List<Registered<Block>> allOf(Woodwork kind) {
+        java.util.List<Registered<Block>> all = new java.util.ArrayList<>();
+        all.add(switch (kind) {
+            case TABLE -> TABLE;
+            case CHAIR -> CHAIR;
+            case SHOP_COUNTER -> SHOP_COUNTER;
+            case COLLECTION -> COLLECTION;
+            case SCOREKEEPERS_DESK -> SCOREKEEPERS_DESK;
+        });
+        woodVariants(kind).forEach(variant -> all.add(variant.block()));
+        return java.util.List.copyOf(all);
+    }
+
+    /** Every table, in the order they are offered: the four materials, then the same table in every wood. */
     public static java.util.List<Registered<Block>> tables() {
-        return java.util.List.of(TABLE, COBBLESTONE_TABLE, BLACKSTONE_TABLE, CRYING_OBSIDIAN_TABLE);
+        java.util.List<Registered<Block>> all = new java.util.ArrayList<>(java.util.List.of(
+                TABLE, COBBLESTONE_TABLE, BLACKSTONE_TABLE, CRYING_OBSIDIAN_TABLE));
+        woodVariants(Woodwork.TABLE).forEach(variant -> all.add(variant.block()));
+        return java.util.List.copyOf(all);
     }
 
     /** Every table's item, in the same order. */
     public static java.util.List<Registered<Item>> tableItems() {
-        return java.util.List.of(
-                TABLE_ITEM, COBBLESTONE_TABLE_ITEM, BLACKSTONE_TABLE_ITEM,
-                CRYING_OBSIDIAN_TABLE_ITEM);
+        java.util.List<Registered<Item>> all = new java.util.ArrayList<>(java.util.List.of(
+                TABLE_ITEM, COBBLESTONE_TABLE_ITEM, BLACKSTONE_TABLE_ITEM, CRYING_OBSIDIAN_TABLE_ITEM));
+        woodVariants(Woodwork.TABLE).forEach(variant -> all.add(variant.item()));
+        return java.util.List.copyOf(all);
     }
     public static final Registered<BlockEntityType<TableBlockEntity>> TABLE_ENTITY =
             new Registered<>(TableBlockEntity.ID);

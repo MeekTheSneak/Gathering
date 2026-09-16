@@ -58,6 +58,7 @@ have changed what it draws from.
 | `block_art.py` | The block faces: a collection, a shop counter, a sealed box. |
 | `card_back.py` | The card back and the plain sleeve. |
 | `village.py` | The local game store, as a village building, in every biome it appears in. |
+| `woodwork.py` | The same five wooden blocks in every wood, written out from the plain one: models, blockstates, item models, loot, recipes and names. `--check` says what would change. |
 | `villager_guide.py` | The shopkeeper's UV map, to paint a profession texture by. |
 | `install_villager.py` | Copies a painted shopkeeper from `art/villager` to where the game reads it. |
 | `pack_cut.py` | Cuts BDragon1727's sprites off his sheets into `art/gui/parts`. Ran once, with the sheets on disk; kept because it is the record of where those files came from. See `art/CREDITS.md`. |

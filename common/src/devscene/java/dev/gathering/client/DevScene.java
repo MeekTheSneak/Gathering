@@ -1772,7 +1772,15 @@ public final class DevScene {
                     waited = SETTLE;
                     return;
                 }
-                shoot(client, "41b-a-collection-block");
+                if (!woodsShown) {
+                    // Then back from the row of tables behind it: the same table in every wood Minecraft has.
+                    shoot(client, "41b-a-collection-block");
+                    woodsShown = true;
+                    lookAtTheTablesInEveryWood(client);
+                    waited = SETTLE;
+                    return;
+                }
+                shoot(client, "41c-tables-in-every-wood");
                 openTheCollection(client);
                 advance(SETTLE);
             }
@@ -6219,6 +6227,9 @@ public final class DevScene {
     /** Whether the block itself has been photographed, before the screen it opens. */
     private static boolean collectionShown;
 
+    /** Whether the row of tables in every wood has been photographed. */
+    private static boolean woodsShown;
+
     /**
      * Stands the furniture on the ground in front of the player - the collection block, the shop counter and the
      * Scorekeeper's Desk - and looks down the row.
@@ -6241,6 +6252,19 @@ public final class DevScene {
             ServerLevel level = server.overworld();
             level.setBlock(where, GatheringContent.COLLECTION.get().defaultBlockState()
                     .setValue(dev.gathering.block.CollectionBlock.FACING, net.minecraft.core.Direction.NORTH), 3);
+            // The same table in every wood, in a row behind the furniture: what fifty blocks look like.
+            java.util.List<String> woods = dev.gathering.item.GatheringContent.WOODS;
+            for (int index = 0; index < woods.size(); index++) {
+                String wood = woods.get(index);
+                net.minecraft.world.level.block.Block table = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                        .get(dev.gathering.Gathering.id("dark_oak".equals(wood) ? "table" : wood + "_table"));
+                BlockPos corner = where.offset(index * 4 - 8, 0, 6);
+                for (dev.gathering.block.TablePart part : dev.gathering.block.TablePart.values()) {
+                    level.setBlock(part.offsetFrom(corner), table.defaultBlockState()
+                            .setValue(dev.gathering.block.TableBlock.PART, part), 3);
+                }
+            }
+
             // And the other two pieces of furniture beside it, facing the same way: one picture of the set.
             level.setBlock(where.offset(2, 0, 0), GatheringContent.SHOP_COUNTER.get().defaultBlockState()
                     .setValue(dev.gathering.block.ShopCounterBlock.FACING, net.minecraft.core.Direction.NORTH), 3);
@@ -7175,6 +7199,29 @@ public final class DevScene {
             ServerPlayer player = server.getPlayerList().getPlayer(who);
             if (player != null) {
                 dev.gathering.server.events.Events.useDesk(player, desk);
+            }
+        });
+    }
+
+    /** Stands back from the row of tables in every wood, and photographs them. */
+    private static void lookAtTheTablesInEveryWood(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        java.util.UUID who = client.player == null ? null : client.player.getUUID();
+        if (server == null || who == null || collectionBlock == null) {
+            fail("there is no row of tables to look at");
+            return;
+        }
+        BlockPos where = collectionBlock;
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player != null) {
+                // In front of the middle of the row, high enough to see down it: yaw zero looks south, and the
+                // row runs east to west three blocks that way.
+                double x = where.getX() + 12;
+                double y = where.getY() + 5;
+                double z = where.getZ() - 8;
+                player.teleportTo(server.overworld(), x, y, z, 0f, 22f);
+                player.connection.teleport(x, y, z, 0f, 22f);
             }
         });
     }

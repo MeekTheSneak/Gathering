@@ -94,7 +94,8 @@ final class GatheringRegistration {
     private static final Supplier<BlockEntityType<dev.gathering.block.CollectionBlockEntity>>
             COLLECTION_ENTITY = BLOCK_ENTITIES.register(
                     dev.gathering.block.CollectionBlockEntity.ID, () -> BlockEntityType.Builder
-                            .of(GatheringContent::createCollectionEntity, COLLECTION.get())
+                            .of(GatheringContent::createCollectionEntity,
+                                    everyOne(GatheringContent.Woodwork.COLLECTION, COLLECTION))
                             .build(null));
 
     private static final Supplier<Block> CHAIR =
@@ -111,7 +112,8 @@ final class GatheringRegistration {
     private static final Supplier<BlockEntityType<dev.gathering.block.ScorekeepersDeskBlockEntity>>
             SCOREKEEPERS_DESK_ENTITY = BLOCK_ENTITIES.register(
                     dev.gathering.block.ScorekeepersDeskBlockEntity.ID, () -> BlockEntityType.Builder
-                            .of(GatheringContent::createScorekeepersDeskEntity, SCOREKEEPERS_DESK.get())
+                            .of(GatheringContent::createScorekeepersDeskEntity,
+                                    everyOne(GatheringContent.Woodwork.SCOREKEEPERS_DESK, SCOREKEEPERS_DESK))
                             .build(null));
 
     private static final Supplier<Block> TABLE =
@@ -147,9 +149,7 @@ final class GatheringRegistration {
                             // Every table, or a stone one placed down has no block entity
                             // and therefore no session: "valid blocks" is vanilla's own
                             // check and it refuses the ones it was not told about.
-                            .of(GatheringContent::createTableEntity,
-                                    TABLE.get(), COBBLESTONE_TABLE.get(),
-                                    BLACKSTONE_TABLE.get(), CRYING_OBSIDIAN_TABLE.get())
+                            .of(GatheringContent::createTableEntity, everyTable())
                             .build(null));
 
     private static final Supplier<DataComponentType<CardComponent>> CARD_COMPONENT =
@@ -198,8 +198,48 @@ final class GatheringRegistration {
                 output.accept(new ItemStack(COLLECTION_ITEM.get()));
                 output.accept(new ItemStack(SCOREKEEPERS_DESK_ITEM.get()));
                 output.accept(new ItemStack(CHAIR_ITEM.get()));
+                // And the same five things in the other woods, in the order the woods are listed.
+                everyWoodenItem().forEach(item -> output.accept(new ItemStack(item)));
             })
             .build());
+
+    /**
+     * The same furniture in the other woods, registered from one list rather than fifty times over. Each one
+     * is its own block and item, named for its wood, and everything that asks "is this a table" or "is this a
+     * chair" answers the same for them - see GatheringContent.woodVariants.
+     */
+    private static final java.util.Map<String, Supplier<Block>> WOOD_BLOCKS = new java.util.LinkedHashMap<>();
+    private static final java.util.Map<String, Supplier<Item>> WOOD_ITEMS = new java.util.LinkedHashMap<>();
+
+    static {
+        for (GatheringContent.WoodVariant variant : GatheringContent.woodVariants()) {
+            WOOD_BLOCKS.put(variant.id(), BLOCKS.register(variant.id(), variant::createBlock));
+            WOOD_ITEMS.put(variant.id(), ITEMS.register(variant.id(), variant::createItem));
+        }
+    }
+
+    /** The furniture in the other woods, as items, for the creative tab. */
+    private static java.util.List<Item> everyWoodenItem() {
+        return GatheringContent.woodVariants().stream()
+                .map(variant -> WOOD_ITEMS.get(variant.id()).get()).toList();
+    }
+
+    /** Every table there is - four materials and the woods - for the table block entity's valid blocks. */
+    private static Block[] everyTable() {
+        java.util.List<Block> tables = new java.util.ArrayList<>(java.util.List.of(
+                TABLE.get(), COBBLESTONE_TABLE.get(), BLACKSTONE_TABLE.get(), CRYING_OBSIDIAN_TABLE.get()));
+        GatheringContent.woodVariants(GatheringContent.Woodwork.TABLE)
+                .forEach(variant -> tables.add(WOOD_BLOCKS.get(variant.id()).get()));
+        return tables.toArray(new Block[0]);
+    }
+
+    /** Every block of one kind, the plain one and the woods, for a block entity's valid blocks. */
+    private static Block[] everyOne(GatheringContent.Woodwork kind, Supplier<Block> plain) {
+        java.util.List<Block> blocks = new java.util.ArrayList<>();
+        blocks.add(plain.get());
+        GatheringContent.woodVariants(kind).forEach(variant -> blocks.add(WOOD_BLOCKS.get(variant.id()).get()));
+        return blocks.toArray(new Block[0]);
+    }
 
     private GatheringRegistration() {
     }
@@ -228,6 +268,10 @@ final class GatheringRegistration {
 
         // Bound as suppliers, so this runs safely here in the constructor rather than
         // waiting on a lifecycle event: nothing is resolved until something asks.
+        for (GatheringContent.WoodVariant variant : GatheringContent.woodVariants()) {
+            variant.block().bind(WOOD_BLOCKS.get(variant.id()));
+            variant.item().bind(WOOD_ITEMS.get(variant.id()));
+        }
         GatheringContent.CARD.bind(CARD);
         GatheringContent.DECK.bind(DECK);
         GatheringContent.PACK.bind(PACK);

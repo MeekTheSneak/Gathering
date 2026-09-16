@@ -7,8 +7,12 @@
     "P P"
   ],
   "key": {
-    "W": { "tag": "minecraft:wool" },
-    "P": { "tag": "minecraft:planks" }
+    "W": {
+      "tag": "minecraft:wool"
+    },
+    "P": {
+      "item": "minecraft:dark_oak_planks"
+    }
   },
   "result": {
     "id": "gathering:table",

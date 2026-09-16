@@ -29,10 +29,12 @@ public final class CraftingGameTest {
 
     @GameTest(template = "empty")
     public static void aBinderCanBeCrafted(GameTestHelper helper) {
+        // Planks at its corners since the furniture comes in every wood: which wood they are is which
+        // collection comes out, and the plain one is dark oak.
         crafts(helper, GatheringContent.COLLECTION_ITEM.get(), List.of(
-                ItemStack.EMPTY, new ItemStack(Items.LEATHER), ItemStack.EMPTY,
+                new ItemStack(Items.DARK_OAK_PLANKS), new ItemStack(Items.LEATHER), new ItemStack(Items.DARK_OAK_PLANKS),
                 new ItemStack(Items.LEATHER), new ItemStack(Items.CHEST), new ItemStack(Items.LEATHER),
-                ItemStack.EMPTY, new ItemStack(Items.LEATHER), ItemStack.EMPTY));
+                new ItemStack(Items.DARK_OAK_PLANKS), new ItemStack(Items.LEATHER), new ItemStack(Items.DARK_OAK_PLANKS)));
     }
 
     @GameTest(template = "empty")
@@ -40,9 +42,9 @@ public final class CraftingGameTest {
         crafts(helper, GatheringContent.TABLE_ITEM.get(), List.of(
                 new ItemStack(Items.WHITE_WOOL), new ItemStack(Items.WHITE_WOOL),
                 new ItemStack(Items.WHITE_WOOL),
-                new ItemStack(Items.OAK_PLANKS), new ItemStack(Items.OAK_PLANKS),
-                new ItemStack(Items.OAK_PLANKS),
-                new ItemStack(Items.OAK_PLANKS), ItemStack.EMPTY, new ItemStack(Items.OAK_PLANKS)));
+                new ItemStack(Items.DARK_OAK_PLANKS), new ItemStack(Items.DARK_OAK_PLANKS),
+                new ItemStack(Items.DARK_OAK_PLANKS),
+                new ItemStack(Items.DARK_OAK_PLANKS), ItemStack.EMPTY, new ItemStack(Items.DARK_OAK_PLANKS)));
     }
 
     @GameTest(template = "empty")
@@ -59,17 +61,47 @@ public final class CraftingGameTest {
     public static void aScorekeepersDeskCanBeCrafted(GameTestHelper helper) {
         crafts(helper, GatheringContent.SCOREKEEPERS_DESK_ITEM.get(), List.of(
                 new ItemStack(Items.PAPER), new ItemStack(Items.BOOK), new ItemStack(Items.PAPER),
-                new ItemStack(Items.SPRUCE_PLANKS), new ItemStack(Items.SPRUCE_PLANKS),
-                new ItemStack(Items.SPRUCE_PLANKS),
-                new ItemStack(Items.SPRUCE_PLANKS), ItemStack.EMPTY, new ItemStack(Items.SPRUCE_PLANKS)));
+                new ItemStack(Items.DARK_OAK_PLANKS), new ItemStack(Items.DARK_OAK_PLANKS),
+                new ItemStack(Items.DARK_OAK_PLANKS),
+                new ItemStack(Items.DARK_OAK_PLANKS), ItemStack.EMPTY, new ItemStack(Items.DARK_OAK_PLANKS)));
     }
 
     @GameTest(template = "empty")
     public static void aChairCanBeCrafted(GameTestHelper helper) {
         crafts(helper, GatheringContent.CHAIR_ITEM.get(), List.of(
                 new ItemStack(Items.STICK), ItemStack.EMPTY, ItemStack.EMPTY,
-                new ItemStack(Items.OAK_PLANKS), new ItemStack(Items.BIRCH_PLANKS), new ItemStack(Items.OAK_PLANKS),
+                new ItemStack(Items.OAK_PLANKS), new ItemStack(Items.OAK_PLANKS), new ItemStack(Items.OAK_PLANKS),
                 new ItemStack(Items.STICK), ItemStack.EMPTY, new ItemStack(Items.STICK)));
+    }
+
+    /**
+     * The wood a player lays out is the wood they get. Every one of these used to take any planks and the
+     * chair took a mixture; now each wood is its own block, the way a vanilla door is, and the plain ids are
+     * the woods they were drawn in - dark oak, and oak for the chair.
+     */
+    @GameTest(template = "empty")
+    public static void theWoodYouLayOutIsTheWoodYouGet(GameTestHelper helper) {
+        crafts(helper, item("spruce_table"), List.of(
+                new ItemStack(Items.WHITE_WOOL), new ItemStack(Items.WHITE_WOOL), new ItemStack(Items.WHITE_WOOL),
+                new ItemStack(Items.SPRUCE_PLANKS), new ItemStack(Items.SPRUCE_PLANKS), new ItemStack(Items.SPRUCE_PLANKS),
+                new ItemStack(Items.SPRUCE_PLANKS), ItemStack.EMPTY, new ItemStack(Items.SPRUCE_PLANKS)));
+        crafts(helper, item("cherry_chair"), List.of(
+                new ItemStack(Items.STICK), ItemStack.EMPTY, ItemStack.EMPTY,
+                new ItemStack(Items.CHERRY_PLANKS), new ItemStack(Items.CHERRY_PLANKS), new ItemStack(Items.CHERRY_PLANKS),
+                new ItemStack(Items.STICK), ItemStack.EMPTY, new ItemStack(Items.STICK)));
+        crafts(helper, item("warped_scorekeepers_desk"), List.of(
+                new ItemStack(Items.PAPER), new ItemStack(Items.BOOK), new ItemStack(Items.PAPER),
+                new ItemStack(Items.WARPED_PLANKS), new ItemStack(Items.WARPED_PLANKS), new ItemStack(Items.WARPED_PLANKS),
+                new ItemStack(Items.WARPED_PLANKS), ItemStack.EMPTY, new ItemStack(Items.WARPED_PLANKS)));
+        crafts(helper, item("bamboo_collection"), List.of(
+                new ItemStack(Items.BAMBOO_PLANKS), new ItemStack(Items.LEATHER), new ItemStack(Items.BAMBOO_PLANKS),
+                new ItemStack(Items.LEATHER), new ItemStack(Items.CHEST), new ItemStack(Items.LEATHER),
+                new ItemStack(Items.BAMBOO_PLANKS), new ItemStack(Items.LEATHER), new ItemStack(Items.BAMBOO_PLANKS)));
+    }
+
+    /** One wood's furniture, by id. */
+    private static Item item(String id) {
+        return net.minecraft.core.registries.BuiltInRegistries.ITEM.get(Gathering.id(id));
     }
 
     /** Lays the nine stacks out on a bench and checks what comes off it. */

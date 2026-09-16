@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    " L ",
+    "PLP",
     "LCL",
-    " L "
+    "PLP"
   ],
   "key": {
     "L": {
@@ -12,6 +12,9 @@
     },
     "C": {
       "item": "minecraft:chest"
+    },
+    "P": {
+      "item": "minecraft:dark_oak_planks"
     }
   },
   "result": {
