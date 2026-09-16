@@ -20,12 +20,18 @@ import org.joml.Quaternionf;
  */
 public final class DisplayCaseRenderer implements BlockEntityRenderer<DisplayCaseBlockEntity> {
 
-    /** How tall the card stands in the block, as a fraction of it. Room for the frame above and below. */
-    private static final float TALL = 0.72f;
+    /** How tall a card stands in the case, as a fraction of a block. It is a counter, not a cabinet. */
+    private static final float TALL = 0.34f;
 
-    /** The middle of the block, and the height the card's own middle sits at. */
+    /** The middle of the block, and the height a card's own middle sits at. */
     private static final float MIDDLE = 0.5f;
-    private static final float STANDS_AT = 0.52f;
+    private static final float STANDS_AT = 0.72f;
+
+    /** How far apart the four of them stand, across the front of the block. */
+    private static final float APART = 0.23f;
+
+    /** How far back they lean, in degrees: a case you look down into, not a shelf you look along. */
+    private static final float LEANS = 18f;
 
     public DisplayCaseRenderer(BlockEntityRendererProvider.Context context) {
     }
@@ -33,22 +39,31 @@ public final class DisplayCaseRenderer implements BlockEntityRenderer<DisplayCas
     @Override
     public void render(DisplayCaseBlockEntity display, float partialTick, PoseStack poseStack,
             MultiBufferSource buffers, int packedLight, int packedOverlay) {
-        display.card().ifPresent(card -> {
-            Direction facing = display.getBlockState().hasProperty(HorizontalDirectionalBlock.FACING)
-                    ? display.getBlockState().getValue(HorizontalDirectionalBlock.FACING)
-                    : Direction.SOUTH;
+        java.util.List<net.minecraft.world.item.ItemStack> showing = display.asStacks();
+        if (showing.isEmpty()) {
+            return;
+        }
+        Direction facing = display.getBlockState().hasProperty(HorizontalDirectionalBlock.FACING)
+                ? display.getBlockState().getValue(HorizontalDirectionalBlock.FACING)
+                : Direction.SOUTH;
+        // Centered as a row however many are in it, so two cards sit in the middle of the case rather
+        // than at one end of a row of four gaps.
+        float from = -APART * (showing.size() - 1) / 2f;
+        for (int at = 0; at < showing.size(); at++) {
             poseStack.pushPose();
             poseStack.translate(MIDDLE, STANDS_AT, MIDDLE);
-            // The card faces the way the case does. A card drawn facing north in a case facing south is a
+            // The cards face the way the case does. A card drawn facing north in a case facing south is a
             // case a player has to walk round the back of to read.
             poseStack.mulPose(new Quaternionf().rotateY((float) Math.toRadians(-facing.toYRot())));
+            poseStack.translate(from + APART * at, 0f, 0f);
+            poseStack.mulPose(new Quaternionf().rotateX((float) Math.toRadians(LEANS)));
             poseStack.scale(TALL, TALL, TALL);
             // The card renderer draws in a one-by-one space with its origin at a corner, and centers
             // itself within it; undo the centering it is about to do.
             poseStack.translate(-0.5f, -0.5f, -0.5f);
-            CardFaceRenderer.render(display.asStack(), poseStack, buffers, packedLight);
+            CardFaceRenderer.render(showing.get(at), poseStack, buffers, packedLight);
             poseStack.popPose();
-        });
+        }
     }
 
     /** Seen from as far away as any other block: a case across a room is the point of a case. */

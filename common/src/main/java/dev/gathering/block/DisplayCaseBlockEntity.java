@@ -14,21 +14,28 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * The one card a display case is showing, and whose case it is.
+ * The cards a display case is showing, and whose case it is.
+ * <p>Four of them, standing in a row behind the glass. It held one when it was first built and the owner
+ * asked for a case that shows a handful and stands beside a shop counter (2026-09-16) - which is what a
+ * case in a card shop is: a row of the good ones, at the height you lean over to look at them.
  * <p>Everything in here is public by definition: a card in a case is a card being shown to a room, and
  * the case is glass. That is why it is the only place in this mod where a card's identity is sent to
- * every client in sight - the card goes in face up and is stored face up, so there is no hidden
- * identity here to leak. A face-down card is never accepted; see {@link DisplayCaseBlock}.
+ * every client in sight - cards go in face up and are stored face up, so there is no hidden identity
+ * here to leak. A face-down card is turned over on the way in; see {@link DisplayCaseBlock}.
  */
 public class DisplayCaseBlockEntity extends BlockEntity {
 
     /** The block entity's own id, which both loaders register it under. */
     public static final String ID = "display_case";
 
+    /** How many a case shows. Four across the front of a block is a row you can read at a glance. */
+    public static final int HOLDS = 4;
+
+    private static final String CARDS_KEY = "Cards";
     private static final String CARD_KEY = "Card";
     private static final String OWNER_KEY = "Owner";
 
-    private CardComponent card;
+    private final java.util.List<CardComponent> cards = new java.util.ArrayList<>();
     private UUID owner;
 
     /**
@@ -36,19 +43,28 @@ public class DisplayCaseBlockEntity extends BlockEntity {
      * <p>Built when the card changes rather than every frame: a case is drawn sixty times a second for as
      * long as somebody is looking at it, and a stack built per frame is a stack built per frame.
      */
-    private net.minecraft.world.item.ItemStack stack = net.minecraft.world.item.ItemStack.EMPTY;
+    private final java.util.List<net.minecraft.world.item.ItemStack> stacks = new java.util.ArrayList<>();
 
     public DisplayCaseBlockEntity(BlockPos pos, BlockState state) {
         super(GatheringContent.DISPLAY_CASE_ENTITY.get(), pos, state);
     }
 
-    /** What is on show, if anything. */
+    /** What is on show, in the order it was put in. */
+    public java.util.List<CardComponent> cards() {
+        return java.util.List.copyOf(cards);
+    }
+
+    /** The first card, for everything that only wants to know whether there is one. */
     public Optional<CardComponent> card() {
-        return Optional.ofNullable(card);
+        return cards.isEmpty() ? Optional.empty() : Optional.of(cards.get(0));
     }
 
     public boolean isEmpty() {
-        return card == null;
+        return cards.isEmpty();
+    }
+
+    public boolean isFull() {
+        return cards.size() >= HOLDS;
     }
 
     /** Whose case it is: whoever put it down, and nobody after that unless they break it. */
@@ -72,29 +88,38 @@ public class DisplayCaseBlockEntity extends BlockEntity {
      * Puts a card on show, face up whatever way round it arrived.
      * <p>Face up because a case is glass and what is in it is sent to everybody who can see the block.
      * A face-down card put in here would be a hidden identity on every client in the room.
+     *
+     * @return whether there was room for it
      */
-    public void show(CardComponent showing) {
-        this.card = showing == null ? null : showing.faceUp();
+    public boolean show(CardComponent showing) {
+        if (showing == null || isFull()) {
+            return false;
+        }
+        cards.add(showing.faceUp());
         changed();
+        return true;
     }
 
-    /** The card as an item, for whatever is drawing it. Empty when the case is. */
-    public net.minecraft.world.item.ItemStack asStack() {
-        return stack;
+    /** The cards as items, for whatever is drawing them. Empty when the case is. */
+    public java.util.List<net.minecraft.world.item.ItemStack> asStacks() {
+        return stacks;
     }
 
-    /** Takes the card back out, if there is one. */
+    /** Takes the last card put in back out, which is the one nearest the hand reaching in. */
     public Optional<CardComponent> take() {
-        Optional<CardComponent> taken = card();
-        this.card = null;
+        if (cards.isEmpty()) {
+            return Optional.empty();
+        }
+        CardComponent taken = cards.remove(cards.size() - 1);
         changed();
-        return taken;
+        return Optional.of(taken);
     }
 
     private void changed() {
-        stack = card == null
-                ? net.minecraft.world.item.ItemStack.EMPTY
-                : dev.gathering.item.CardItem.of(card);
+        stacks.clear();
+        for (CardComponent card : cards) {
+            stacks.add(dev.gathering.item.CardItem.of(card));
+        }
         setChanged();
         if (level != null) {
             // The card is drawn in the world, so every client that can see the block has to be told.
@@ -106,13 +131,21 @@ public class DisplayCaseBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         owner = tag.hasUUID(OWNER_KEY) ? tag.getUUID(OWNER_KEY) : null;
-        card = tag.contains(CARD_KEY)
-                ? CardComponent.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag.get(CARD_KEY))
-                        .result().map(CardComponent::faceUp).orElse(null)
-                : null;
-        stack = card == null
-                ? net.minecraft.world.item.ItemStack.EMPTY
-                : dev.gathering.item.CardItem.of(card);
+        cards.clear();
+        // The one-card key first, so a case put down before it held four keeps what is in it.
+        if (tag.contains(CARD_KEY)) {
+            CardComponent.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag.get(CARD_KEY))
+                    .result().map(CardComponent::faceUp).ifPresent(cards::add);
+        }
+        net.minecraft.nbt.ListTag written = tag.getList(CARDS_KEY, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        for (int index = 0; index < written.size() && cards.size() < HOLDS; index++) {
+            CardComponent.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, written.get(index))
+                    .result().map(CardComponent::faceUp).ifPresent(cards::add);
+        }
+        stacks.clear();
+        for (CardComponent card : cards) {
+            stacks.add(dev.gathering.item.CardItem.of(card));
+        }
     }
 
     @Override
@@ -121,9 +154,13 @@ public class DisplayCaseBlockEntity extends BlockEntity {
         if (owner != null) {
             tag.putUUID(OWNER_KEY, owner);
         }
-        if (card != null) {
-            CardComponent.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, card)
-                    .result().ifPresent(written -> tag.put(CARD_KEY, written));
+        if (!cards.isEmpty()) {
+            net.minecraft.nbt.ListTag written = new net.minecraft.nbt.ListTag();
+            for (CardComponent card : cards) {
+                CardComponent.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, card)
+                        .result().ifPresent(written::add);
+            }
+            tag.put(CARDS_KEY, written);
         }
     }
 

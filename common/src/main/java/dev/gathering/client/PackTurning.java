@@ -26,12 +26,6 @@ final class PackTurning {
     /** How far the front card has to be dragged before it comes off the stack, as a share of its width. */
     private static final float TAKES = 0.35f;
 
-    /** How many of the cards behind the front one are drawn. More than this is a stack, not a number. */
-    private static final int STACK_SHOWN = 5;
-
-    /** How far each card behind the front one is offset, in pixels at a card's own width of 100. */
-    private static final float STACK_STEP = 0.035f;
-
     /** How far a card leans as it is dragged, in degrees at a full swipe. */
     private static final float SWEEP = 22f;
 
@@ -56,9 +50,11 @@ final class PackTurning {
     private boolean dragging;
     private long shimmeredAt;
 
-    /** The card that has just been taken off the stack, on its way out, and which way it went. */
+    /** The card that has just been taken off the stack, on its way out, and where it went from. */
     private CardComponent leaving;
     private float leavingWay;
+    private float leavingFrom;
+    private float leavingLean;
     private long leftAt;
 
     private PackTurning(List<CardComponent> cards, List<PackReveal.Tier> tiers) {
@@ -79,8 +75,7 @@ final class PackTurning {
         for (CardComponent card : cards) {
             var summary = ClientCardCache.get().summary(card).orElse(null);
             held.add(new Held(card, PackReveal.Tier.of(
-                    summary == null ? Rarity.UNKNOWN : summary.rarity(),
-                    summary != null && summary.special())));
+                    summary == null ? Rarity.UNKNOWN : summary.rarity())));
         }
         held.sort(java.util.Comparator.comparingInt(one -> one.tier().ordinal()));
         List<CardComponent> order = new ArrayList<>();
@@ -127,27 +122,39 @@ final class PackTurning {
             }
         }
         long now = net.minecraft.Util.getMillis();
-        int step = Math.max(2, Math.round(where.width() * STACK_STEP));
 
-        // The cards still to come, behind it, so the stack has a thickness you can see going down.
-        int behind = Math.min(STACK_SHOWN, reveal.left() - 1);
-        for (int back = behind; back >= 1; back--) {
-            int inset = back * step;
-            // The same face a card with nothing known about it is drawn with, which is what these are:
-            // cards you have not turned to yet. A sprite rather than a filled rectangle, so a theme can
-            // change what the back of the stack looks like.
-            GatheringSprites.inset(graphics, where.x() + inset, where.y() + inset,
-                    where.width(), where.height());
-        }
-
-        // What is coming, promised through the card in front of it. Anchored to the stack rather than to
-        // the card being dragged: the light belongs to the card underneath, and dragging the top one
-        // aside is how you get to it.
+        // What is coming, lit around the stack - which is exactly behind the card in front, so the light
+        // is the only part of the next card you can see until you move the top one off it. It breathes;
+        // the card you are holding does not. That is the difference between "this one" and "the next one"
+        // said without words.
         if (reveal.tells()) {
             int lit = lightOf(reveal.nextUp());
-            float pulse = reducedMotion ? 1f : (float) (0.7 + 0.3 * Math.sin(now / 260.0));
+            float pulse = reducedMotion ? 1f : (float) (0.66 + 0.34 * Math.sin(now / 240.0));
             GuiGlow.around(graphics, where.x(), where.y(), where.width(), where.height(),
-                    Math.max(6, where.width() / 4), (Math.round(0xE0 * pulse) << 24) | (lit & 0x00FFFFFF));
+                    Math.max(8, where.width() / 3), (Math.round(0xF0 * pulse) << 24) | (lit & 0x00FFFFFF));
+        }
+
+        // The card underneath, exactly behind and never offset: a stack of cards is a stack, and the one
+        // you are about to reach is the one the top card is covering. It used to be drawn as a row of
+        // boxes stepping away down the screen, which is a fan rather than a pack.
+        if (reveal.left() > 1) {
+            CardComponent under = cards.get(reveal.shown() + 1);
+            ClientCardCache.get().summary(under).ifPresentOrElse(
+                    summary -> CardInspectPanel.renderArtTurned(graphics, summary, false,
+                            where.x(), where.y(), where.width(), where.height(), 0f, 0f, under.foil()),
+                    () -> GatheringSprites.inset(graphics, where.x(), where.y(),
+                            where.width(), where.height()));
+        }
+
+        // And the card in front lit in its own right, if it is one worth looking at. Steady, and tight
+        // against the card, so it travels with it while the next card's light stays on the stack.
+        if (reveal.inFront().worthAnnouncing()) {
+            int mine = lightOf(reveal.inFront());
+            graphics.pose().pushPose();
+            graphics.pose().translate(swipe, 0f, 0f);
+            GuiGlow.around(graphics, where.x(), where.y(), where.width(), where.height(),
+                    Math.max(4, where.width() / 7), 0xC0000000 | (mine & 0x00FFFFFF));
+            graphics.pose().popPose();
         }
 
         // And the card itself, leaning the way it is being pulled.
@@ -167,12 +174,11 @@ final class PackTurning {
         // makes this a card being moved aside rather than a card being replaced.
         drawTheOneLeaving(graphics, where, now);
 
-        // How many are left, clear of the stack - which leans down and to the right, so text at the
-        // card's own bottom edge sat on top of it.
+        // How many are left. The stack is one card deep to look at, so this is the only thing that says
+        // how much of the pack is still to come.
         GuiText.drawCentered(graphics, font,
                 Component.translatable("screen.gathering.pack_turn", reveal.left()),
-                where.x() + where.width() / 2, where.bottom() + step * STACK_SHOWN + 8,
-                where.width() * 2, 0xFFBFC7D2);
+                where.x() + where.width() / 2, where.bottom() + 10, where.width() * 2, 0xFFBFC7D2);
     }
 
     /**
@@ -189,16 +195,22 @@ final class PackTurning {
             leaving = null;
             return;
         }
-        // Fast at first and slowing: a flick, not a conveyor.
+        // Fast at first and slowing: a flick, not a conveyor. And it carries on from wherever the hand
+        // let go of it rather than starting again from the middle, which is what made a long drag end in
+        // the card jumping back to the center to begin its journey.
         float eased = 1f - (1f - through) * (1f - through);
-        float away = leavingWay * where.width() * FLIES * eased;
+        float to = leavingWay * where.width() * FLIES;
+        float away = leavingFrom + (to - leavingFrom) * eased;
+        final float carried = eased;
         graphics.pose().pushPose();
         graphics.pose().translate(away, eased * 10f, 0f);
         CardComponent going = leaving;
         ClientCardCache.get().summary(going).ifPresentOrElse(
                 summary -> CardInspectPanel.renderArtTurned(graphics, summary, false,
                         where.x(), where.y(), where.width(), where.height(),
-                        leavingWay * SWEEP, 0f, going.foil()),
+                        // Carrying on from the angle the hand left it at rather than snapping to a full
+                        // sweep, which is the same jump the travel had.
+                        (leavingLean + (leavingWay - leavingLean) * carried) * SWEEP, 0f, going.foil()),
                 () -> GatheringSprites.inset(graphics, where.x(), where.y(),
                         where.width(), where.height()));
         graphics.pose().popPose();
@@ -251,6 +263,8 @@ final class PackTurning {
         }
         leaving = cards.get(reveal.shown());
         leavingWay = swipe < 0f ? -1f : 1f;
+        leavingFrom = swipe;
+        leavingLean = Math.clamp(swipe / 200f, -1f, 1f);
         leftAt = net.minecraft.Util.getMillis();
         reveal = reveal.turned();
         swipe = 0f;
@@ -267,7 +281,6 @@ final class PackTurning {
         return switch (tier) {
             case MYTHIC -> dev.gathering.core.ui.PackGlow.MYTHIC_LIGHT;
             case RARE -> dev.gathering.core.ui.PackGlow.RARE_LIGHT;
-            case SPECIAL -> RevealGlow.SPECIAL_GLOW;
             default -> 0;
         };
     }

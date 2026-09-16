@@ -90,7 +90,8 @@ public final class GatheringContent {
         CHAIR(CHAIR_ID, "oak"),
         SHOP_COUNTER(SHOP_COUNTER_ID, "dark_oak"),
         COLLECTION(COLLECTION_ID, "dark_oak"),
-        SCOREKEEPERS_DESK(SCOREKEEPERS_DESK_ID, "dark_oak");
+        SCOREKEEPERS_DESK(SCOREKEEPERS_DESK_ID, "dark_oak"),
+        DISPLAY_CASE(DISPLAY_CASE_ID, "dark_oak");
 
         private final String plain;
         private final String plainWood;
@@ -122,6 +123,7 @@ public final class GatheringContent {
                 case SHOP_COUNTER -> createShopCounter();
                 case COLLECTION -> createCollection();
                 case SCOREKEEPERS_DESK -> createScorekeepersDesk();
+                case DISPLAY_CASE -> createDisplayCase();
             };
         }
 
@@ -138,6 +140,9 @@ public final class GatheringContent {
                 case SCOREKEEPERS_DESK -> new DescribedBlockItem(block.get(), new Item.Properties(),
                         java.util.List.of("tooltip.gathering.desk_host", "tooltip.gathering.desk_anybody"),
                         "tooltip.gathering.desk_board");
+                case DISPLAY_CASE -> new DescribedBlockItem(block.get(), new Item.Properties(),
+                        java.util.List.of("tooltip.gathering.display_case_show",
+                                "tooltip.gathering.display_case_take"));
             };
         }
     }
@@ -181,6 +186,7 @@ public final class GatheringContent {
             case SHOP_COUNTER -> SHOP_COUNTER;
             case COLLECTION -> COLLECTION;
             case SCOREKEEPERS_DESK -> SCOREKEEPERS_DESK;
+            case DISPLAY_CASE -> DISPLAY_CASE;
         });
         woodVariants(kind).forEach(variant -> all.add(variant.block()));
         return java.util.List.copyOf(all);
@@ -194,10 +200,10 @@ public final class GatheringContent {
      */
     public static java.util.List<Registered<Block>> everyDyedBlock() {
         java.util.List<Registered<Block>> all = new java.util.ArrayList<>(java.util.List.of(
-                SHOP_COUNTER, SCOREKEEPERS_DESK, COLLECTION, CHAIR,
+                SHOP_COUNTER, SCOREKEEPERS_DESK, COLLECTION, CHAIR, DISPLAY_CASE,
                 COBBLESTONE_CHAIR, BLACKSTONE_CHAIR, CRYING_OBSIDIAN_CHAIR));
-        for (Woodwork kind : java.util.List.of(
-                Woodwork.SHOP_COUNTER, Woodwork.SCOREKEEPERS_DESK, Woodwork.COLLECTION, Woodwork.CHAIR)) {
+        for (Woodwork kind : java.util.List.of(Woodwork.SHOP_COUNTER, Woodwork.SCOREKEEPERS_DESK,
+                Woodwork.COLLECTION, Woodwork.CHAIR, Woodwork.DISPLAY_CASE)) {
             woodVariants(kind).forEach(variant -> all.add(variant.block()));
         }
         return java.util.List.copyOf(all);

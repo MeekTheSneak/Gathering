@@ -51,6 +51,7 @@ public final class WoodVariantsGameTest {
                 case SHOP_COUNTER -> block instanceof ShopCounterBlock;
                 case COLLECTION -> block instanceof CollectionBlock;
                 case SCOREKEEPERS_DESK -> block instanceof ScorekeepersDeskBlock;
+                case DISPLAY_CASE -> block instanceof dev.gathering.block.DisplayCaseBlock;
             };
             if (!right) {
                 helper.fail(variant.id() + " is a " + block.getClass().getSimpleName()
@@ -58,8 +59,8 @@ public final class WoodVariantsGameTest {
                 return;
             }
         }
-        if (GatheringContent.woodVariants().size() != 50) {
-            helper.fail("five wooden things in ten other woods is fifty blocks, not "
+        if (GatheringContent.woodVariants().size() != 60) {
+            helper.fail("six wooden things in ten other woods is sixty blocks, not "
                     + GatheringContent.woodVariants().size());
             return;
         }
@@ -78,7 +79,7 @@ public final class WoodVariantsGameTest {
             BlockState state = variant.block().get().defaultBlockState();
             helper.setBlock(at, state);
             boolean wanted = switch (variant.kind()) {
-                case TABLE, COLLECTION, SCOREKEEPERS_DESK -> true;
+                case TABLE, COLLECTION, SCOREKEEPERS_DESK, DISPLAY_CASE -> true;
                 case CHAIR, SHOP_COUNTER -> false;
             };
             boolean found = helper.getLevel().getBlockEntity(helper.absolutePos(at)) != null;

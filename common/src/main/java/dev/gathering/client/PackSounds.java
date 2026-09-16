@@ -77,7 +77,6 @@ final class PackSounds {
                 play(SoundEvents.AMETHYST_BLOCK_CHIME, 0.62f, 0.5f);
                 play(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.7f, 0.35f);
             }
-            case SPECIAL -> play(SoundEvents.AMETHYST_BLOCK_CHIME, 1.35f, 0.4f);
             case RARE -> play(SoundEvents.AMETHYST_BLOCK_CHIME, 0.95f, 0.38f);
             default -> { }
         }
@@ -90,7 +89,6 @@ final class PackSounds {
                 play(SoundEvents.TOTEM_USE, 0.9f, 0.55f);
                 play(SoundEvents.AMETHYST_CLUSTER_BREAK, 0.8f, 0.6f);
             }
-            case SPECIAL -> play(SoundEvents.AMETHYST_CLUSTER_BREAK, 1.3f, 0.55f);
             case RARE -> play(SoundEvents.AMETHYST_BLOCK_BREAK, 1.1f, 0.55f);
             default -> play(SoundEvents.BOOK_PAGE_TURN, 1.1f, 0.45f);
         }

@@ -96,6 +96,25 @@ public final class CollectionScreen extends Screen {
     private static final int COUNT_TEXT = 0xFFFFF0D0;
     private static final int FOIL_MARK = 0xFFE8C86A;
     private static final int BOTTOM_BAR = 34;
+
+    /** The buttons in the bottom corner, right to left, and the gap between them. */
+    private static final int CORNER_BUTTON = 18;
+    private static final int CORNER_GAP = 4;
+    private static final int DONE_WIDE = 56;
+    private static final int SETS_WIDE = 58;
+    private static final int SHARE_WIDE = 58;
+
+    /**
+     * Where the corner's row of buttons begins, so the footer's text can stop short of it.
+     * <p>Worked out from the buttons rather than written down beside them, because it was written down:
+     * the footer ended at a number that meant "clear of two buttons", and the third one - Share, for a
+     * collection's owner - was added without it, so the hint was drawn straight over it. A number that
+     * says what it is cannot go stale when a button is added next to it.
+     */
+    private int cornerLeft;
+
+    /** Where the footer's writing actually went, so the tour can check nothing was drawn over. */
+    private Rect footerText = Rect.NONE;
     private static final int TEXT = 0xFFDDE3EC;
     private static final int DIM = 0xFF8A94A3;
 
@@ -239,11 +258,18 @@ public final class CollectionScreen extends Screen {
                 Component.translatable("screen.gathering.collection.build_deck"),
                 () -> this.minecraft.setScreen(new DeckBuilderScreen(this, where, label))));
 
+        // Laid out right to left from the corner, each one off the end of the last.
+        int cornerTop = this.height - BOTTOM_BAR + 8;
+        int doneLeft = this.width - MARGIN - DONE_WIDE;
+        int setsLeft = doneLeft - CORNER_GAP - SETS_WIDE;
+        int shareLeft = setsLeft - CORNER_GAP - SHARE_WIDE;
+        cornerLeft = yours ? shareLeft : setsLeft;
+
         // How much of each set is in here, which is the one question a binder cannot answer
         // by being looked at. Beside the way out because it is a place to go rather than a
         // filter: everything else on this screen changes the list, and this leaves it.
         addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - 118, this.height - BOTTOM_BAR + 8, 58, 18,
+                setsLeft, cornerTop, SETS_WIDE, CORNER_BUTTON,
                 Component.translatable("screen.gathering.collection.sets"),
                 () -> {
                     // Said out loud, because the answer is what opens the screen and the
@@ -258,7 +284,7 @@ public final class CollectionScreen extends Screen {
         // among the filters: it changes who can open the box, not what the list shows.
         if (yours) {
             addRenderableWidget(GatheringButtons.of(
-                    this.width - MARGIN - 180, this.height - BOTTOM_BAR + 8, 58, 18,
+                    shareLeft, cornerTop, SHARE_WIDE, CORNER_BUTTON,
                     Component.translatable("screen.gathering.collection.share"),
                     () -> CollectionKeysScreen.show(where)));
         }
@@ -267,7 +293,7 @@ public final class CollectionScreen extends Screen {
         // relied on the escape key - which is a rule nobody was told. Bottom right, in the
         // bar the page count already lives in.
         addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - 56, this.height - BOTTOM_BAR + 8, 56, 18,
+                doneLeft, cornerTop, DONE_WIDE, CORNER_BUTTON,
                 Component.translatable("gui.done"), this::onClose));
 
         setInitialFocus(searchBox);
@@ -664,11 +690,12 @@ public final class CollectionScreen extends Screen {
         // the buttons own their corner, the hint ends short of them, and the count gets
         // whatever is left and shrinks into it. Drawn in any order they all fit on a wide
         // window and all three overlapped on a narrow one.
-        int hintRight = this.width - MARGIN - 124;
+        int hintRight = cornerLeft - 8;
         Component how = mayTake ? whatAClickDoes()
                 : Component.translatable("screen.gathering.collection.hint_look");
         int hintWidth = Math.min(this.font.width(how), Math.max(0, hintRight - MARGIN));
         graphics.drawString(this.font, how, hintRight - hintWidth, y, DIM, false);
+        footerText = new Rect(hintRight - hintWidth, y, hintWidth, this.font.lineHeight);
 
         Component found = Component.translatable(
                 "screen.gathering.collection.page", matched, page + 1, pages);
@@ -840,6 +867,11 @@ public final class CollectionScreen extends Screen {
     /** What is on the page, for the scripted run. */
     public List<CollectionPagePayload.Row> shown() {
         return rows;
+    }
+
+    /** Where the footer's writing went, so the tour can check nothing was drawn over. */
+    public Rect footerText() {
+        return footerText;
     }
 
     /** Whether this player may take from it, for the scripted run. */

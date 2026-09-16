@@ -2225,6 +2225,37 @@ Verified: gate green (596/16), and the scripted client went through it - `41a-on
 one card, the stack behind it and the count; the run reports "the pack promised something on 1 of its
 cards", which is the card before the mythic and no other.
 
+### Twenty-seventh batch: the owner's notes on the ceremony, and a case for a shop (2026-09-16)
+
+Played, and four things came back about the turn:
+
+- **The stack was a fan.** Cards behind the front one were drawn stepping away down and to the right as
+  boxes, which is a hand of cards rather than a pack. They are exactly behind now, and the one underneath
+  is drawn as itself - so pulling the top card aside reveals the card that was under it all along, which
+  is the whole gesture.
+- **A swiped card jumped back to the middle** before flying out, because the travel started from nought
+  and the drag had already moved it. It carries on from wherever the hand let go, angle included.
+- **Two lights, told apart by what they do.** The next card's sits on the stack and breathes; the card in
+  front has its own, steady, tight against it, and travels with it as it is dragged. Pulling the top card
+  aside pulls one light away from the other, which is the difference said without words.
+- **A showcase mythic announced itself as a showcase.** The tier for a special version was checked first
+  and *shadowed* the rarity, so the biggest card in the pack got the smaller noise - the owner pulled one
+  and said so. Rarity decides now and the showcase tier is gone, here and in the spread's own glow, where
+  it was making showcase mythics purple rather than orange.
+
+And **#5 and #9, the display case**: it was a tall box holding one card. It is a cabinet with a glass top
+at a shop counter's own height and depth, so the two stand in a row; it holds four, standing in a row and
+leaning back the way a case you look down into shows them; its lining takes dye; and it comes in all
+eleven woods. A case saved holding one card keeps it.
+
+**#3, the collection screen's overlapping elements** - which this work caused. The footer's writing stops
+short of a number that meant "clear of two buttons in the corner", and the Share button made it three, so
+the hint was drawn straight over it. The number is worked out from the buttons now. The tour's overlap
+check compares widget against widget and writing is not a widget, so it could not have caught it; there is
+a check for this one.
+
+Verified: gate green (597/16), and `41a-one-card-at-a-time` shows one card and no fan behind it.
+
 Still to do from that list: the collection screen's overlapping elements (#3), a multi-card display case
 that fits beside a counter, in every wood and dyeable (#5, #9), and the deck box looking more like a deck
 box (#9b). The owner also asked whether the pack tear could be a real cloth simulation (#11) - answered in

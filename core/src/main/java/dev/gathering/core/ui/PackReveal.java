@@ -22,18 +22,18 @@ import java.util.List;
 public record PackReveal(List<Tier> order, int shown) {
 
     /**
-     * What a card is worth to the ceremony, which is not quite its rarity.
-     * <p>A showcase or borderless common is a card people shout about, and its rarity says common. So the
-     * tiers are what the moment is worth rather than what the sheet says: a special version outranks its
-     * own rarity, and the ordering and the noise both follow this rather than {@link Rarity}.
+     * What a card is worth to the ceremony.
+     * <p>Rarity and nothing else. A showcase version used to be a tier of its own, which sounds right
+     * and is wrong in the one case that matters: it <em>shadowed</em> the rarity, so pulling a showcase
+     * mythic announced a showcase - the smaller noise - instead of a mythic. The owner hit exactly that
+     * (2026-09-16). A rare and a mythic are the big moments; a special version of one is that same
+     * moment and is announced as what it is.
      */
     public enum Tier {
         /** Nothing to announce. Most of a pack. */
         PLAIN,
         /** A rare, or one of the slots that stands in for one. */
         RARE,
-        /** A special version - showcase, borderless, extended art - whatever its rarity. */
-        SPECIAL,
         /** The one the pack was opened for. */
         MYTHIC;
 
@@ -42,11 +42,8 @@ public record PackReveal(List<Tier> order, int shown) {
             return this != PLAIN;
         }
 
-        /** What a card of this rarity is worth, before its version is taken into account. */
-        public static Tier of(Rarity rarity, boolean special) {
-            if (special) {
-                return SPECIAL;
-            }
+        /** What a card of this rarity is worth. */
+        public static Tier of(Rarity rarity) {
             if (rarity == null) {
                 return PLAIN;
             }

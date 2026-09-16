@@ -105,7 +105,8 @@ final class GatheringRegistration {
     private static final Supplier<BlockEntityType<dev.gathering.block.DisplayCaseBlockEntity>>
             DISPLAY_CASE_ENTITY = BLOCK_ENTITIES.register(
                     dev.gathering.block.DisplayCaseBlockEntity.ID, () -> BlockEntityType.Builder
-                            .of(dev.gathering.block.DisplayCaseBlockEntity::new, DISPLAY_CASE.get())
+                            .of(dev.gathering.block.DisplayCaseBlockEntity::new,
+                                    everyOne(GatheringContent.Woodwork.DISPLAY_CASE, DISPLAY_CASE))
                             .build(null));
 
     private static final Supplier<Block> CHAIR =

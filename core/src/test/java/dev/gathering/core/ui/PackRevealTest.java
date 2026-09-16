@@ -62,16 +62,21 @@ class PackRevealTest {
         assertThat(done.turned()).isEqualTo(done);
     }
 
+    /**
+     * The one that bit: a showcase used to be a tier of its own and shadowed the rarity, so a showcase
+     * mythic announced itself as a showcase - the smaller noise for the bigger card.
+     */
     @Test
-    @DisplayName("a special version outranks its own rarity, because that is what people shout about")
-    void aShowcaseCommonIsNotPlain() {
-        assertThat(Tier.of(Rarity.COMMON, true)).isEqualTo(Tier.SPECIAL);
-        assertThat(Tier.of(Rarity.COMMON, false)).isEqualTo(Tier.PLAIN);
-        assertThat(Tier.of(Rarity.MYTHIC, false)).isEqualTo(Tier.MYTHIC);
-        assertThat(Tier.of(Rarity.RARE, false)).isEqualTo(Tier.RARE);
+    @DisplayName("rarity decides, so a showcase mythic is a mythic")
+    void rarityDecidesAndNothingElse() {
+        assertThat(Tier.of(Rarity.MYTHIC)).isEqualTo(Tier.MYTHIC);
+        assertThat(Tier.of(Rarity.RARE)).isEqualTo(Tier.RARE);
+        assertThat(Tier.of(Rarity.COMMON)).isEqualTo(Tier.PLAIN);
         // The slots that stand in for a rare are rares: a Special Guest is what the pack was opened for.
-        assertThat(Tier.of(Rarity.BONUS, false)).isEqualTo(Tier.RARE);
-        assertThat(Tier.of(null, false)).isEqualTo(Tier.PLAIN);
+        assertThat(Tier.of(Rarity.BONUS)).isEqualTo(Tier.RARE);
+        assertThat(Tier.of(null)).isEqualTo(Tier.PLAIN);
+        // And a mythic is the top of the order however a pack is cut, so it is always turned last.
+        assertThat(Tier.MYTHIC.ordinal()).isGreaterThan(Tier.RARE.ordinal());
     }
 
     @Property

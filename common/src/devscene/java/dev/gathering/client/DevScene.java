@@ -1796,6 +1796,7 @@ public final class DevScene {
             case 133 -> {
                 expectScreen(client, "opening a collection", CollectionScreen.class);
                 aCollectionShowsWhatIsInIt(client);
+                theFooterIsClearOfTheButtons(client);
                 everyButtonSaysSomething(client);
                 everyCardStaysInItsBox(client);
                 shoot(client, "42-a-collection");
@@ -6675,6 +6676,37 @@ public final class DevScene {
                     fail("the screen says the collection is locked and the block says it is open");
                 }
             });
+        }
+    }
+
+    /**
+     * Nothing in the collection's footer is written over a button.
+     * <p>The overlap check every photograph runs compares widget against widget, and writing is not a
+     * widget - so the hint in the footer was drawn straight across the Share button and nothing said so
+     * until the owner saw it. The footer ends where the corner's buttons begin, and this is the question
+     * asked of the pixels rather than of the arithmetic that is supposed to arrange them.
+     */
+    private static void theFooterIsClearOfTheButtons(Minecraft client) {
+        if (!(client.screen instanceof CollectionScreen collection)) {
+            fail("there was no collection screen to check the footer of");
+            return;
+        }
+        Rect writing = collection.footerText();
+        if (writing.isEmpty()) {
+            return;
+        }
+        for (GuiEventListener child : collection.children()) {
+            if (!(child instanceof AbstractWidget widget) || !widget.visible
+                    || widget.getWidth() <= 0 || widget.getHeight() <= 0) {
+                continue;
+            }
+            Rect button = new Rect(widget.getX(), widget.getY(), widget.getWidth(), widget.getHeight());
+            if (writing.right() > button.x() && button.right() > writing.x()
+                    && writing.bottom() > button.y() && button.bottom() > writing.y()) {
+                fail("the collection's footer is written over \"" + widget.getMessage().getString()
+                        + "\": text at " + writing + ", button at " + button);
+                return;
+            }
         }
     }
 

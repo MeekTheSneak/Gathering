@@ -204,4 +204,46 @@ public final class DisplayCaseGameTest {
         }
         throw new IllegalStateException("A display case was placed without its block entity");
     }
+
+    /**
+     * Four of them, and the fifth refused - a case is a row of the good ones, not a chest.
+     * <p>The owner asked for a case that shows a handful beside a shop counter (2026-09-16); it held one.
+     */
+    @GameTest(template = "tables")
+    public static void aCaseShowsFourAndNoMore(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        DisplayCaseBlockEntity display = place(helper, at);
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        display.claimFor(owner.getUUID());
+
+        for (int card = 0; card < DisplayCaseBlockEntity.HOLDS; card++) {
+            click(helper, owner, at, CardItem.of(new CardComponent(
+                    java.util.Optional.of(new UUID(9L, card)), false, java.util.Optional.empty(), false)));
+        }
+        if (display.cards().size() != DisplayCaseBlockEntity.HOLDS) {
+            helper.fail("a case took " + display.cards().size() + " of four cards");
+            return;
+        }
+        ItemStack fifth = CardItem.of(new CardComponent(
+                java.util.Optional.of(new UUID(9L, 99L)), false, java.util.Optional.empty(), false));
+        click(helper, owner, at, fifth);
+        if (display.cards().size() != DisplayCaseBlockEntity.HOLDS) {
+            helper.fail("a full case took a fifth card");
+            return;
+        }
+        if (fifth.isEmpty()) {
+            helper.fail("a full case refused a card and kept it anyway");
+            return;
+        }
+        // Breaking it gives every one of them back, not just the first.
+        java.util.List<ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(
+                display.getBlockState(), helper.getLevel(), helper.absolutePos(at), display, owner,
+                ItemStack.EMPTY);
+        long cards = drops.stream().filter(drop -> drop.is(GatheringContent.CARD.get())).count();
+        if (cards != DisplayCaseBlockEntity.HOLDS) {
+            helper.fail("a broken case holding four gave back " + cards + " card(s)");
+            return;
+        }
+        helper.succeed();
+    }
 }

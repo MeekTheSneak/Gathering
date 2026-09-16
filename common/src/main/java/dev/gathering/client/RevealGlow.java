@@ -27,9 +27,9 @@ final class RevealGlow {
         if (card == null) {
             return 0;
         }
-        if (card.special()) {
-            return SPECIAL_GLOW;
-        }
+        // Rarity and nothing else. A special version used to be checked first and win, so a showcase
+        // mythic glowed the showcase's purple rather than the mythic's orange - the smaller of the two
+        // announcements for the bigger of the two cards.
         return switch (card.rarity()) {
             case MYTHIC -> MYTHIC_GLOW;
             case RARE -> RARE_GLOW;

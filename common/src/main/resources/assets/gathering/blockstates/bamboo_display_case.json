@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "gathering:block/bamboo_display_case",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "gathering:block/bamboo_display_case",
+      "y": 270
+    },
+    "facing=south": {
+      "model": "gathering:block/bamboo_display_case"
+    },
+    "facing=west": {
+      "model": "gathering:block/bamboo_display_case",
+      "y": 90
+    }
+  }
+}

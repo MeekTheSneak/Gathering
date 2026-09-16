@@ -171,6 +171,7 @@ final class GatheringRegistration {
                 Gathering.id(dev.gathering.block.DisplayCaseBlockEntity.ID),
                 net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
                         .create(dev.gathering.block.DisplayCaseBlockEntity::new, displayCase)
+                        .addBlocks(blocksOf(GatheringContent.Woodwork.DISPLAY_CASE))
                         .build()));
 
         GatheringContent.CHAIR.bindValue(Registry.register(

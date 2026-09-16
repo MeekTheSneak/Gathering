@@ -48,7 +48,9 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
 
     public DisplayCaseBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(FurnitureDye.FELT, net.minecraft.world.item.DyeColor.WHITE));
     }
 
     @Override
@@ -58,7 +60,7 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, FurnitureDye.FELT);
     }
 
     @Override
@@ -96,6 +98,10 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
             BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (stack.getItem() instanceof net.minecraft.world.item.DyeItem) {
+            // The lining takes dye like every other piece of felt in the mod.
+            return FurnitureDye.use(stack, state, level, pos, player);
+        }
         CardComponent card = CardItem.cardOf(stack).orElse(null);
         if (card == null) {
             // Not a card. Falls through to the empty-handed path, so clicking with a pickaxe takes the
@@ -112,11 +118,10 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
             say(player, "message.gathering.display_case_not_yours");
             return ItemInteractionResult.CONSUME;
         }
-        if (!display.isEmpty()) {
+        if (!display.show(card)) {
             say(player, "message.gathering.display_case_full");
             return ItemInteractionResult.CONSUME;
         }
-        display.show(card);
         // Not in creative, where the stack in hand is a supply rather than the card itself and taking one
         // would empty the menu slot somebody is holding.
         if (!player.getAbilities().instabuild) {
@@ -156,11 +161,11 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
     protected java.util.List<ItemStack> getDrops(
             BlockState state, net.minecraft.world.level.storage.loot.LootParams.Builder params) {
         java.util.List<ItemStack> drops = new java.util.ArrayList<>();
-        drops.add(new ItemStack(GatheringContent.DISPLAY_CASE_ITEM.get()));
+        drops.add(new ItemStack(state.getBlock().asItem()));
         BlockEntity entity = params.getOptionalParameter(
                 net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY);
         if (entity instanceof DisplayCaseBlockEntity display) {
-            display.card().ifPresent(card -> drops.add(CardItem.of(card)));
+            display.cards().forEach(card -> drops.add(CardItem.of(card)));
         }
         return drops;
     }
@@ -192,11 +197,15 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
         return getShape(state, level, pos, context);
     }
 
-    /** The base, and the glass box standing on it. */
+    /**
+     * A cabinet with a glass top, at a shop counter's own height and depth so the two stand in a row.
+     * <p>It was a tall box holding one card. The owner asked for a case that shows a handful and fits
+     * beside a counter (2026-09-16), which is what a case in a card shop is.
+     */
     private static final VoxelShape SOUTH_FACING = Shapes.or(
-            Block.box(1, 0, 1, 15, 2, 15),
-            Block.box(1, 2, 5, 15, 15, 11),
-            Block.box(1, 15, 1, 15, 16, 15));
+            Block.box(0, 0, 1, 16, 8, 16),
+            Block.box(0, 8, 0, 16, 9, 16),
+            Block.box(0, 9, 1, 16, 16, 16));
 
     private static final VoxelShape[] SHAPES = turned(SOUTH_FACING);
 
