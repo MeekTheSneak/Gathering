@@ -1951,7 +1951,7 @@ chair, shop counter, collection and Scorekeeper's Desk - in eleven woods, which 
   block's own wood.
 - The tour stands a table of every wood in a row and photographs it (`41c-tables-in-every-wood`); looked at.
 
-Verified: gate green (572/16).
+Verified: gate green (570/16).
 
 ## Decisions needed from the owner
 
