@@ -112,17 +112,19 @@ public class TableBlock extends BaseEntityBlock {
      */
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        VoxelShape under = switch (state.getValue(PART)) {
-            case NORTH_WEST -> LEG_NORTH_WEST;
-            case NORTH_EAST -> LEG_NORTH_EAST;
-            case SOUTH_EAST -> LEG_SOUTH_EAST;
-            case SOUTH_WEST -> LEG_SOUTH_WEST;
-            // The crying obsidian table stands on one glowing plinth in the middle instead of four legs.
-            case MIDDLE -> state.is(dev.gathering.item.GatheringContent.CRYING_OBSIDIAN_TABLE.get())
-                    ? PLINTH : net.minecraft.world.phys.shapes.Shapes.empty();
-            default -> net.minecraft.world.phys.shapes.Shapes.empty();
+        if (state.is(dev.gathering.item.GatheringContent.CRYING_OBSIDIAN_TABLE.get())) {
+            return state.getValue(PART) == TablePart.MIDDLE ? PLINTH : TOP;
+        }
+        VoxelShape[] supports = state.is(dev.gathering.item.GatheringContent.COBBLESTONE_TABLE.get())
+                ? STONE_SUPPORTS : state.is(dev.gathering.item.GatheringContent.BLACKSTONE_TABLE.get())
+                ? BLACKSTONE_SUPPORTS : WOOD_SUPPORTS;
+        return switch (state.getValue(PART)) {
+            case NORTH_WEST -> supports[0];
+            case NORTH_EAST -> supports[1];
+            case SOUTH_EAST -> supports[2];
+            case SOUTH_WEST -> supports[3];
+            default -> TOP;
         };
-        return under.isEmpty() ? TOP : net.minecraft.world.phys.shapes.Shapes.or(TOP, under);
     }
 
     /**
@@ -136,14 +138,28 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /** The felt and the apron under it, which every part of every table has. */
-    private static final VoxelShape TOP = Block.box(0, 11, 0, 16, 15, 16);
-    private static final VoxelShape LEG_NORTH_WEST = Block.box(1, 0, 1, 4, 11, 4);
-    private static final VoxelShape LEG_NORTH_EAST = Block.box(12, 0, 1, 15, 11, 4);
-    private static final VoxelShape LEG_SOUTH_EAST = Block.box(12, 0, 12, 15, 11, 15);
-    private static final VoxelShape LEG_SOUTH_WEST = Block.box(1, 0, 12, 4, 11, 15);
-    /** The crying obsidian table's column and the foot it stands on. */
-    private static final VoxelShape PLINTH = net.minecraft.world.phys.shapes.Shapes.or(
-            Block.box(3, 2, 3, 13, 11, 13), Block.box(2, 0, 2, 14, 2, 14));
+    private static final VoxelShape TOP = Block.box(0, 12, 0, 16, 15, 16);
+    private static final VoxelShape[] WOOD_SUPPORTS = turnSupports(Block.box(1, 0, 1, 5, 12, 5));
+    private static final VoxelShape[] STONE_SUPPORTS = turnSupports(net.minecraft.world.phys.shapes.Shapes.or(
+            Block.box(1, 0, 1, 9, 12, 3), Block.box(1, 0, 3, 3, 12, 9)));
+    private static final VoxelShape[] BLACKSTONE_SUPPORTS = turnSupports(net.minecraft.world.phys.shapes.Shapes.or(
+            Block.box(1, 0, 1, 9, 2, 9), Block.box(3, 2, 3, 7, 10, 7), Block.box(2, 10, 2, 8, 12, 8)));
+    private static final VoxelShape PLINTH = net.minecraft.world.phys.shapes.Shapes.or(TOP,
+            Block.box(2, 0, 2, 14, 2, 14), Block.box(5, 2, 5, 11, 10, 11), Block.box(3, 10, 3, 13, 12, 13));
+
+    /** Precompute all corner shapes, matching blockstate model rotations. */
+    private static VoxelShape[] turnSupports(VoxelShape northWest) {
+        VoxelShape[] result = new VoxelShape[4];
+        VoxelShape turned = northWest;
+        for (int i = 0; i < result.length; i++) {
+            result[i] = net.minecraft.world.phys.shapes.Shapes.or(TOP, turned);
+            VoxelShape[] next = {net.minecraft.world.phys.shapes.Shapes.empty()};
+            turned.forAllBoxes((x0, y0, z0, x1, y1, z1) -> next[0] = net.minecraft.world.phys.shapes.Shapes.or(
+                    next[0], net.minecraft.world.phys.shapes.Shapes.box(1-z1, y0, x0, 1-z0, y1, x1)));
+            turned = next[0];
+        }
+        return result;
+    }
 
     /**
      * Only the corner that owns the table ticks, and only when there is a game on it.

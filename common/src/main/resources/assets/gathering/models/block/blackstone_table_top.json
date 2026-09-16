@@ -1,18 +1,16 @@
 {
-  "__comment": "The edge and middle blocks of a blackstone table: the felt and what is under it, and nothing standing on the floor. A table is three blocks by three; its legs are on the four corners.",
-  "parent": "block/block",
+  "parent": "minecraft:block/block",
   "textures": {
-    "particle": "minecraft:block/polished_blackstone",
     "felt": "minecraft:block/white_wool",
-    "frame": "minecraft:block/polished_blackstone",
-    "accent": "minecraft:block/chiseled_polished_blackstone"
+    "wood": "minecraft:block/polished_blackstone",
+    "particle": "minecraft:block/polished_blackstone"
   },
   "elements": [
     {
-      "__comment": "Felt surface. Tinted, so every table dyes the same way.",
+      "name": "White dyeable felt",
       "from": [
         0,
-        13,
+        14,
         0
       ],
       "to": [
@@ -21,6 +19,46 @@
         16
       ],
       "faces": {
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
         "up": {
           "texture": "#felt",
           "uv": [
@@ -32,71 +70,68 @@
           "tintindex": 0
         },
         "down": {
-          "texture": "#frame",
+          "texture": "#felt",
           "uv": [
             0,
             0,
             16,
             16
-          ]
-        },
-        "north": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "south": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "east": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "west": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
           ],
           "tintindex": 0
         }
       }
     },
     {
-      "__comment": "Polished apron.",
+      "name": "Apron",
       "from": [
         0,
-        11,
+        12,
         0
       ],
       "to": [
         16,
-        13,
+        14,
         16
       ],
       "faces": {
-        "down": {
-          "texture": "#frame",
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
           "uv": [
             0,
             0,
@@ -104,118 +139,13 @@
             16
           ]
         },
-        "up": {
-          "texture": "#frame",
+        "down": {
+          "texture": "#wood",
           "uv": [
             0,
             0,
             16,
             16
-          ]
-        },
-        "north": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            3,
-            16,
-            5
-          ]
-        },
-        "south": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            3,
-            16,
-            5
-          ]
-        },
-        "east": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            3,
-            16,
-            5
-          ]
-        },
-        "west": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            3,
-            16,
-            5
-          ]
-        }
-      }
-    },
-    {
-      "__comment": "Chiseled course, inset so it reads as molding rather than as more apron.",
-      "from": [
-        1,
-        10,
-        1
-      ],
-      "to": [
-        15,
-        11,
-        15
-      ],
-      "faces": {
-        "down": {
-          "texture": "#accent",
-          "uv": [
-            1,
-            1,
-            15,
-            15
-          ]
-        },
-        "up": {
-          "texture": "#accent",
-          "uv": [
-            1,
-            1,
-            15,
-            15
-          ]
-        },
-        "north": {
-          "texture": "#accent",
-          "uv": [
-            1,
-            5,
-            15,
-            6
-          ]
-        },
-        "south": {
-          "texture": "#accent",
-          "uv": [
-            1,
-            5,
-            15,
-            6
-          ]
-        },
-        "east": {
-          "texture": "#accent",
-          "uv": [
-            1,
-            5,
-            15,
-            6
-          ]
-        },
-        "west": {
-          "texture": "#accent",
-          "uv": [
-            1,
-            5,
-            15,
-            6
           ]
         }
       }

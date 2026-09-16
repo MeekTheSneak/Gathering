@@ -1,17 +1,16 @@
 {
-  "__comment": "The middle block of a crying obsidian table: felt over the apron, on a stepped column ten by ten that the whole table stands on.",
-  "parent": "block/block",
+  "parent": "minecraft:block/block",
   "textures": {
-    "particle": "minecraft:block/crying_obsidian",
     "felt": "minecraft:block/white_wool",
-    "frame": "minecraft:block/crying_obsidian"
+    "wood": "minecraft:block/crying_obsidian",
+    "particle": "minecraft:block/crying_obsidian"
   },
   "elements": [
     {
-      "__comment": "Felt surface. Tinted, so every table dyes the same way.",
+      "name": "White dyeable felt",
       "from": [
         0,
-        13,
+        14,
         0
       ],
       "to": [
@@ -20,6 +19,46 @@
         16
       ],
       "faces": {
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
         "up": {
           "texture": "#felt",
           "uv": [
@@ -31,195 +70,88 @@
           "tintindex": 0
         },
         "down": {
-          "texture": "#frame",
+          "texture": "#felt",
           "uv": [
             0,
             0,
             16,
             16
-          ]
-        },
-        "north": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "south": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "east": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "west": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
           ],
           "tintindex": 0
         }
       }
     },
     {
-      "__comment": "Apron.",
+      "name": "Apron",
       "from": [
         0,
-        11,
+        12,
         0
       ],
       "to": [
         16,
-        13,
+        14,
         16
       ],
       "faces": {
-        "down": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "up": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
         "north": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            3,
+            0,
             16,
-            5
+            2
           ]
         },
         "south": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            3,
+            0,
             16,
-            5
+            2
           ]
         },
         "east": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            3,
+            0,
             16,
-            5
+            2
           ]
         },
         "west": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            3,
+            0,
             16,
-            5
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            16
           ]
         }
       }
     },
     {
-      "from": [
-        3,
-        2,
-        3
-      ],
-      "to": [
-        13,
-        11,
-        13
-      ],
-      "faces": {
-        "down": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            10,
-            10
-          ]
-        },
-        "up": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            10,
-            10
-          ]
-        },
-        "north": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            5,
-            10,
-            14
-          ]
-        },
-        "south": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            5,
-            10,
-            14
-          ]
-        },
-        "east": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            5,
-            10,
-            14
-          ]
-        },
-        "west": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            5,
-            10,
-            14
-          ]
-        }
-      },
-      "__comment": "Column."
-    },
-    {
+      "name": "Central plinth foot",
       "from": [
         2,
         0,
@@ -231,62 +163,199 @@
         14
       ],
       "faces": {
-        "down": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            12,
-            12
-          ]
-        },
-        "up": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            12,
-            12
-          ]
-        },
         "north": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            14,
+            0,
             12,
-            16
+            2
           ]
         },
         "south": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            14,
+            0,
             12,
-            16
+            2
           ]
         },
         "east": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            14,
+            0,
             12,
-            16
+            2
           ]
         },
         "west": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            14,
+            0,
             12,
-            16
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            12,
+            12
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            12,
+            12
           ]
         }
-      },
-      "__comment": "Foot, one step wider than the column."
+      }
+    },
+    {
+      "name": "Narrow central pillar",
+      "from": [
+        5,
+        2,
+        5
+      ],
+      "to": [
+        11,
+        10,
+        11
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            8
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            8
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            8
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            8
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            6
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "name": "Flared central capital",
+      "from": [
+        3,
+        10,
+        3
+      ],
+      "to": [
+        13,
+        12,
+        13
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            10,
+            2
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            10,
+            2
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            10,
+            2
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            10,
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            10,
+            10
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            10,
+            10
+          ]
+        }
+      }
     }
   ]
 }

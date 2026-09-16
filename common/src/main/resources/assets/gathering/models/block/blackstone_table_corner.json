@@ -1,18 +1,16 @@
 {
-  "__comment": "One quarter of a blackstone table: a polished apron over a chiseled course, on a slim leg set further in. Where the cobblestone one is heavy this is cut - the same table for a hall rather than a cellar.",
-  "parent": "block/block",
+  "parent": "minecraft:block/block",
   "textures": {
-    "particle": "minecraft:block/polished_blackstone",
     "felt": "minecraft:block/white_wool",
-    "frame": "minecraft:block/polished_blackstone",
-    "accent": "minecraft:block/chiseled_polished_blackstone"
+    "wood": "minecraft:block/polished_blackstone",
+    "particle": "minecraft:block/polished_blackstone"
   },
   "elements": [
     {
-      "__comment": "Felt surface. Tinted, so every table dyes the same way.",
+      "name": "White dyeable felt",
       "from": [
         0,
-        13,
+        14,
         0
       ],
       "to": [
@@ -21,6 +19,46 @@
         16
       ],
       "faces": {
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
         "up": {
           "texture": "#felt",
           "uv": [
@@ -32,259 +70,289 @@
           "tintindex": 0
         },
         "down": {
-          "texture": "#frame",
+          "texture": "#felt",
           "uv": [
             0,
             0,
             16,
             16
-          ]
-        },
-        "north": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "south": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "east": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "west": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
           ],
           "tintindex": 0
         }
       }
     },
     {
-      "__comment": "Polished apron.",
+      "name": "Apron",
       "from": [
         0,
-        11,
+        12,
         0
       ],
       "to": [
         16,
-        13,
+        14,
         16
       ],
       "faces": {
-        "down": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "up": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
         "north": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            3,
+            0,
             16,
-            5
+            2
           ]
         },
         "south": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            3,
+            0,
             16,
-            5
+            2
           ]
         },
         "east": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            3,
+            0,
             16,
-            5
+            2
           ]
         },
         "west": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            3,
+            0,
             16,
-            5
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            16
           ]
         }
       }
     },
     {
-      "__comment": "Chiseled course, inset so it reads as molding rather than as more apron.",
+      "name": "Broad stepped foot",
       "from": [
         1,
-        10,
+        0,
         1
       ],
       "to": [
-        15,
-        11,
-        15
+        9,
+        2,
+        9
       ],
       "faces": {
-        "down": {
-          "texture": "#accent",
-          "uv": [
-            1,
-            1,
-            15,
-            15
-          ]
-        },
-        "up": {
-          "texture": "#accent",
-          "uv": [
-            1,
-            1,
-            15,
-            15
-          ]
-        },
         "north": {
-          "texture": "#accent",
+          "texture": "#wood",
           "uv": [
-            1,
-            5,
-            15,
-            6
+            0,
+            0,
+            8,
+            2
           ]
         },
         "south": {
-          "texture": "#accent",
+          "texture": "#wood",
           "uv": [
-            1,
-            5,
-            15,
-            6
+            0,
+            0,
+            8,
+            2
           ]
         },
         "east": {
-          "texture": "#accent",
+          "texture": "#wood",
           "uv": [
-            1,
-            5,
-            15,
-            6
+            0,
+            0,
+            8,
+            2
           ]
         },
         "west": {
-          "texture": "#accent",
+          "texture": "#wood",
           "uv": [
-            1,
-            5,
-            15,
-            6
+            0,
+            0,
+            8,
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            8,
+            8
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            8,
+            8
           ]
         }
       }
     },
     {
-      "__comment": "Slim leg, set in from the corner.",
+      "name": "Inset pillar",
       "from": [
+        3,
         2,
-        0,
-        2
+        3
       ],
       "to": [
-        5,
+        7,
         10,
-        5
+        7
       ],
       "faces": {
-        "down": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            3,
-            3
-          ]
-        },
-        "up": {
-          "texture": "#frame",
-          "uv": [
-            0,
-            0,
-            3,
-            3
-          ]
-        },
         "north": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            6,
-            3,
-            16
+            0,
+            4,
+            8
           ]
         },
         "south": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            6,
-            3,
-            16
+            0,
+            4,
+            8
           ]
         },
         "east": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
-            6,
-            3,
-            16
+            0,
+            4,
+            8
           ]
         },
         "west": {
-          "texture": "#frame",
+          "texture": "#wood",
           "uv": [
             0,
+            0,
+            4,
+            8
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            4
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "name": "Square capital",
+      "from": [
+        2,
+        10,
+        2
+      ],
+      "to": [
+        8,
+        12,
+        8
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
             6,
-            3,
-            16
+            2
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            2
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            2
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            6
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            6,
+            6
           ]
         }
       }

@@ -45,13 +45,13 @@ public class CollectionBlock extends BaseEntityBlock {
 
     public CollectionBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, net.minecraft.core.Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(FurnitureDye.FELT, net.minecraft.world.item.DyeColor.WHITE).setValue(FACING, net.minecraft.core.Direction.NORTH));
     }
 
     @Override
     protected void createBlockStateDefinition(
             net.minecraft.world.level.block.state.StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, FurnitureDye.FELT);
     }
 
     /** Drawers towards whoever placed it: what a player looking at the front of a cabinet expects to have put down. */
@@ -154,6 +154,9 @@ public class CollectionBlock extends BaseEntityBlock {
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
             BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (stack.getItem() instanceof net.minecraft.world.item.DyeItem) {
+            return FurnitureDye.use(stack, state, level, pos, player);
+        }
         if (!(level.getBlockEntity(pos) instanceof CollectionBlockEntity collection)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }

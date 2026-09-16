@@ -1,47 +1,222 @@
 {
-  "__comment": "One quarter of a table: a felt top over a wooden apron, with a leg on the outside corner. Rotated by the blockstate into each of the four quarters, so the leg always lands on an outer corner and the four pieces meet flush.",
-  "parent": "block/block",
+  "parent": "minecraft:block/block",
   "textures": {
-    "particle": "minecraft:block/white_wool",
     "felt": "minecraft:block/white_wool",
-    "wood": "minecraft:block/stripped_oak_log"
+    "wood": "minecraft:block/dark_oak_planks",
+    "particle": "minecraft:block/dark_oak_planks"
   },
   "elements": [
     {
-      "__comment": "Felt surface.",
-      "from": [0, 13, 0],
-      "to": [16, 15, 16],
+      "name": "White dyeable felt",
+      "from": [
+        0,
+        14,
+        0
+      ],
+      "to": [
+        16,
+        15,
+        16
+      ],
       "faces": {
-        "up":    { "texture": "#felt", "uv": [0, 0, 16, 16], "tintindex": 0 },
-        "down":  { "texture": "#wood", "uv": [0, 0, 16, 16] },
-        "north": { "texture": "#felt", "uv": [0, 0, 16, 2], "tintindex": 0 },
-        "south": { "texture": "#felt", "uv": [0, 0, 16, 2], "tintindex": 0 },
-        "east":  { "texture": "#felt", "uv": [0, 0, 16, 2], "tintindex": 0 },
-        "west":  { "texture": "#felt", "uv": [0, 0, 16, 2], "tintindex": 0 }
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        }
       }
     },
     {
-      "__comment": "Apron under the surface.",
-      "from": [0, 11, 0],
-      "to": [16, 13, 16],
+      "name": "Apron",
+      "from": [
+        0,
+        12,
+        0
+      ],
+      "to": [
+        16,
+        14,
+        16
+      ],
       "faces": {
-        "down":  { "texture": "#wood", "uv": [0, 0, 16, 16] },
-        "north": { "texture": "#wood", "uv": [0, 3, 16, 5] },
-        "south": { "texture": "#wood", "uv": [0, 3, 16, 5] },
-        "east":  { "texture": "#wood", "uv": [0, 3, 16, 5] },
-        "west":  { "texture": "#wood", "uv": [0, 3, 16, 5] }
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
       }
     },
     {
-      "__comment": "Leg, on the outer corner of this quarter.",
-      "from": [1, 0, 1],
-      "to": [4, 11, 4],
+      "name": "Straight wooden leg",
+      "from": [
+        1,
+        0,
+        1
+      ],
+      "to": [
+        5,
+        12,
+        5
+      ],
       "faces": {
-        "down":  { "texture": "#wood", "uv": [0, 0, 3, 3] },
-        "north": { "texture": "#wood", "uv": [0, 5, 3, 16] },
-        "south": { "texture": "#wood", "uv": [0, 5, 3, 16] },
-        "east":  { "texture": "#wood", "uv": [0, 5, 3, 16] },
-        "west":  { "texture": "#wood", "uv": [0, 5, 3, 16] }
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            12
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            12
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            12
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            12
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            4
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            4
+          ]
+        }
       }
     }
   ]

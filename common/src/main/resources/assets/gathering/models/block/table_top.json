@@ -1,17 +1,16 @@
 {
-  "__comment": "The edge and middle blocks of a wooden table: the felt and what is under it, and nothing standing on the floor. A table is three blocks by three; its legs are on the four corners.",
-  "parent": "block/block",
+  "parent": "minecraft:block/block",
   "textures": {
-    "particle": "minecraft:block/white_wool",
     "felt": "minecraft:block/white_wool",
-    "wood": "minecraft:block/stripped_oak_log"
+    "wood": "minecraft:block/dark_oak_planks",
+    "particle": "minecraft:block/dark_oak_planks"
   },
   "elements": [
     {
-      "__comment": "Felt surface.",
+      "name": "White dyeable felt",
       "from": [
         0,
-        13,
+        14,
         0
       ],
       "to": [
@@ -20,6 +19,46 @@
         16
       ],
       "faces": {
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
         "up": {
           "texture": "#felt",
           "uv": [
@@ -31,6 +70,67 @@
           "tintindex": 0
         },
         "down": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Apron",
+      "from": [
+        0,
+        12,
+        0
+      ],
+      "to": [
+        16,
+        14,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "up": {
           "texture": "#wood",
           "uv": [
             0,
@@ -39,61 +139,6 @@
             16
           ]
         },
-        "north": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "south": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "east": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        },
-        "west": {
-          "texture": "#felt",
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "tintindex": 0
-        }
-      }
-    },
-    {
-      "__comment": "Apron under the surface.",
-      "from": [
-        0,
-        11,
-        0
-      ],
-      "to": [
-        16,
-        13,
-        16
-      ],
-      "faces": {
         "down": {
           "texture": "#wood",
           "uv": [
@@ -101,42 +146,6 @@
             0,
             16,
             16
-          ]
-        },
-        "north": {
-          "texture": "#wood",
-          "uv": [
-            0,
-            3,
-            16,
-            5
-          ]
-        },
-        "south": {
-          "texture": "#wood",
-          "uv": [
-            0,
-            3,
-            16,
-            5
-          ]
-        },
-        "east": {
-          "texture": "#wood",
-          "uv": [
-            0,
-            3,
-            16,
-            5
-          ]
-        },
-        "west": {
-          "texture": "#wood",
-          "uv": [
-            0,
-            3,
-            16,
-            5
           ]
         }
       }

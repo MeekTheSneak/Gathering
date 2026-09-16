@@ -34,7 +34,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * <p>Another host takes a desk over by using it twice: the first use says whose desk it is, and a
  * second soon after runs their tournament here. Not by sneaking, which vanilla gives to whatever is
  * in the hand - and a player signing up for constructed is holding a deck.
- * <p>Its look borrows vanilla's lectern until it has one of its own.
+ * <p>Its white writing surface accepts dye.
  */
 public class ScorekeepersDeskBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
@@ -42,7 +42,7 @@ public class ScorekeepersDeskBlock extends HorizontalDirectionalBlock implements
 
     public ScorekeepersDeskBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(FurnitureDye.FELT, net.minecraft.world.item.DyeColor.WHITE).setValue(FACING, Direction.NORTH));
     }
 
     @Override
@@ -52,7 +52,7 @@ public class ScorekeepersDeskBlock extends HorizontalDirectionalBlock implements
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, FurnitureDye.FELT);
     }
 
     @Override
@@ -72,8 +72,8 @@ public class ScorekeepersDeskBlock extends HorizontalDirectionalBlock implements
 
     private static final VoxelShape BODY = Shapes.or(
             Block.box(1, 0, 1, 15, 2, 15),
-            Block.box(4, 2, 4, 12, 10.5, 12),
-            Block.box(1, 10.5, 1, 15, 12.125, 15));
+            Block.box(4, 2, 4, 12, 11, 12),
+            Block.box(1, 11, 1, 15, 13, 15));
     private static final VoxelShape NORTH = Shapes.or(BODY, Block.box(2, 12, 12, 14, 16, 14));
     private static final VoxelShape EAST = Shapes.or(BODY, Block.box(2, 12, 2, 4, 16, 14));
     private static final VoxelShape SOUTH = Shapes.or(BODY, Block.box(2, 12, 2, 14, 16, 4));
@@ -153,4 +153,12 @@ public class ScorekeepersDeskBlock extends HorizontalDirectionalBlock implements
         }
         super.onRemove(state, level, pos, replacement, moving);
     }
+    @Override
+    protected net.minecraft.world.ItemInteractionResult useItemOn(net.minecraft.world.item.ItemStack stack,
+            BlockState state, net.minecraft.world.level.Level level, BlockPos pos,
+            net.minecraft.world.entity.player.Player player, net.minecraft.world.InteractionHand hand,
+            net.minecraft.world.phys.BlockHitResult hit) {
+        return FurnitureDye.use(stack, state, level, pos, player);
+    }
+
 }

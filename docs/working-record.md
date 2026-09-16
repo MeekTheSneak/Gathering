@@ -1898,29 +1898,32 @@ The owner's three notes on the new collection block, and the same question asked
 
 Verified: gate green (565/16).
 
-### Sixteenth batch: the owner's furniture and deck box (2026-09-15)
+### Sixteenth batch: the owner's furniture, v2 then v3 (2026-09-15/16)
 
-The owner sent `Gathering-furniture-and-deckbox.zip`, built against `3e4b8854`: new models for the shop
-counter and the Scorekeeper's Desk, a 3D deck box for the deck item, and one shared 64x64 atlas
-(`furniture_atlas.png`) whose quadrants are walnut, teal leather, brass and parchment.
+The owner sent `Gathering-furniture-and-deckbox.zip` (v2) and then `Gathering-furniture-v3.zip`, which replaces
+it. v2 was applied and pushed (`bf50175d`); v3 is what stands now.
 
-- Its `source-changes.patch` applied to this revision unchanged: the two block models, the item model, the
-  generated deck model pointing at it, the datagen line that writes it, real outline and collision shapes for
-  both blocks (the desk had borrowed the lectern's), the atlas, and the art list. It removes the four flat
-  textures those models replace (`shop_counter*.png`, `item/deck.png`); they are in the drop's
-  `source/original-textures/` and in git.
-- **One thing the drop dropped: a deck's color.** The old flat item was tinted by
-  `DeckItem.tintOf` - a deck box is its color so a shelf of them can be told apart - and the new model had no
-  tinted faces, so every box would have come out the same teal. The leather parts of the case (body, lid, lid
-  underside and front flap) carry `tintindex: 0` now; the brass, label and walnut trim do not. Photographed:
-  `86-a-shelf-of-decks` is eight boxes in eight colors.
-- The tour's furniture step stands all three pieces in a row and photographs them
-  (`41b-a-collection-block`); looked at: the counter's trays and framed panel, the desk's ledger, score tiles
-  and drawers, the cabinet beside them.
-- The drop's prebuilt jars were not used; this is the patch built here.
+- **v2** was three models on a 64x64 atlas of its own. One thing it dropped was a deck's color: the flat item
+  was tinted by `DeckItem.tintOf` and the new case had no tinted faces, so every box came out the same teal.
+  The case's leather was marked `tintindex: 0` here, and `86-a-shelf-of-decks` showed eight colors again.
+- **v3** is simpler and vanilla-textured: no atlas at all, every model drawn from `dark_oak_planks`,
+  `white_wool`, `gold_block` and `sandstone_top`, five to eight cuboids each. Its own `source-changes.patch`
+  from `3e4b8854` applied once v2's files were rewound to that commit (its `upgrade-from-v2.patch` did not
+  apply: its idea of v2 included table models this repository never had).
+- It brings: the counter, desk, cabinet and deck box as simple models; four table structures (wooden legs,
+  cobblestone L-supports, stepped blackstone feet, the crying obsidian pedestal) with outlines and collision
+  that follow them, keeping the owner's "get under a table"; and **dyeable fabric** on the counter, desk and
+  cabinet, through a shared `FurnitureDye.FELT` blockstate and a dye in hand, with the deck box's white body
+  still taking the deck's own color.
+- **The owner's own cabinet art goes** (asked and answered, 2026-09-16): `BlockFullTexture.png` and the model
+  built from it are replaced by v3's vanilla-textured cabinet, which can be dyed. Both are in git and in the
+  owner's Assets folder.
+- The drop's prebuilt jars were not used; this is its patch built here.
 
-Verified: gate green (565/16). **Not verified:** the deck box in first or third person, Fabric's own client
-drawing any of it, and the blocks in a village rather than on flat grass.
+Verified: gate green (567/16), which includes v3's own `FurnitureDyeGameTest` (dye consumed in survival, not
+in creative, the same color twice costs nothing, a collection's owner only, and the collection and desk keep
+what they hold). **Not verified:** any of it in first or third person, Fabric's client drawing it, dyeing
+looked at by eye.
 
 ## Decisions needed from the owner
 
