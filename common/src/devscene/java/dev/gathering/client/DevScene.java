@@ -1764,6 +1764,15 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 132 -> {
+                if (!collectionShown) {
+                    // The block itself, drawn in the world: its drawers, and the front turned to whoever put it
+                    // down. A model that will not load draws as black and purple, which only a picture shows.
+                    collectionShown = true;
+                    lookAtTheCollectionBlock(client);
+                    waited = SETTLE;
+                    return;
+                }
+                shoot(client, "41b-a-collection-block");
                 openTheCollection(client);
                 advance(SETTLE);
             }
@@ -6206,6 +6215,38 @@ public final class DevScene {
 
     /** Where the collection block is, once it has been put down. */
     private static BlockPos collectionBlock;
+
+    /** Whether the block itself has been photographed, before the screen it opens. */
+    private static boolean collectionShown;
+
+    /**
+     * Stands a collection block on the ground in front of the player, drawers towards them, and looks at it.
+     * <p>Its own block rather than the one the rest of these steps use: that one is sunk into the ground, where
+     * a picture of it would be a picture of grass.
+     */
+    private static void lookAtTheCollectionBlock(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there is no player to stand a collection block in front of");
+            return;
+        }
+        BlockPos where = client.player.blockPosition().offset(0, 0, 3);
+        java.util.UUID who = client.player.getUUID();
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                return;
+            }
+            server.overworld().setBlock(where, GatheringContent.COLLECTION.get().defaultBlockState()
+                    .setValue(dev.gathering.block.CollectionBlock.FACING, net.minecraft.core.Direction.NORTH), 3);
+            // Two blocks north of it, looking south at the face its drawers are on: yaw zero faces south.
+            double x = where.getX() + 0.5;
+            double y = where.getY();
+            double z = where.getZ() - 2.0;
+            player.teleportTo(server.overworld(), x, y, z, 0f, 10f);
+            player.connection.teleport(x, y, z, 0f, 10f);
+        });
+    }
 
     /**
      * A collection with a few real cards in it.

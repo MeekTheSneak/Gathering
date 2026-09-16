@@ -1855,6 +1855,28 @@ library (1.6.0) in its own jar, so Gathering no longer bundles a copy:
 - Docs: pack-authors and TESTING.md say what is bundled (nothing) and the 21.1.1 floor.
 - Verified: gate green (564/16); the built NeoForge jar has no `META-INF/jarjar` and asks for NeoForge [21.1.1,21.2).
 
+### Fourteenth batch: the owner's collection block art (2026-09-15)
+
+The owner sent a model and a texture for the collection block (`Assets/Collection Block`).
+
+- `textures/block/collection.png` is the owner's 64x64 sheet, and `collection_top.png` is gone: the new model
+  draws the whole block from one sheet, and a texture nothing names fails texturecheck. Both are signed into
+  `docs/art-hashes.txt` (`artcheck --write`).
+- `models/block/collection.json` is the owner's four cubes - the body and three drawer fronts - with the
+  Blockbench-only fields dropped, its texture named in this mod's namespace, `minecraft:block/block` as the
+  parent for the standard item display, and the particle taken from the same sheet (the file named a vanilla
+  barrel texture by a path that does not resolve).
+- **The block now has a front**, so it needed a facing: `CollectionBlock.FACING`, set to face whoever puts it
+  down, with the four turned variants in the blockstate. A collection in a world from before keeps its default
+  and faces north until it is broken and put down again.
+- `artcheck` skipped `neoforge/run` but not `neoforge/runs`, where the runs against other mods' jars write their
+  screenshots, so signing the art in first put sixteen of those on the list - which the next clone would have
+  reported as missing art. Both spellings are skipped now, on both loaders.
+- The tour stands a collection block on the grass in front of the player and photographs it
+  (`41b-a-collection-block`); the picture was looked at: three drawers, gold handles, front to the camera.
+
+Verified: gate green (564/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

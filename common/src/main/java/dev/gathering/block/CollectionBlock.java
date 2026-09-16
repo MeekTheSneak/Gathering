@@ -34,8 +34,40 @@ public class CollectionBlock extends BaseEntityBlock {
 
     public static final MapCodec<CollectionBlock> CODEC = simpleCodec(CollectionBlock::new);
 
+    /**
+     * Which way its drawers face, set to face whoever puts it down.
+     * <p>The block has a front - three drawers down one side - so it has to know which way it is turned, the way
+     * a chair or a desk does. A collection placed before it had one keeps its default and faces north until it is
+     * broken and put down again.
+     */
+    public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING =
+            net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING;
+
     public CollectionBlock(Properties properties) {
         super(properties);
+        registerDefaultState(stateDefinition.any().setValue(FACING, net.minecraft.core.Direction.NORTH));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(
+            net.minecraft.world.level.block.state.StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+        builder.add(FACING);
+    }
+
+    /** Drawers towards whoever placed it: what a player looking at the front of a cabinet expects to have put down. */
+    @Override
+    public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, net.minecraft.world.level.block.Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, net.minecraft.world.level.block.Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override

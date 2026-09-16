@@ -31,7 +31,10 @@ LIST = os.path.join(ROOT, "docs", "art-hashes.txt")
 SUFFIXES = (".png", ".mcmeta", ".ogg", ".wav")
 
 #: Directories that hold copies rather than originals.
-SKIP = ("/build/", "/.git/", "/neoforge/run/", "/fabric/run/", "/.gradle/")
+#: Run directories, whose pictures are output rather than art. Both spellings: the scripted client writes to
+#: neoforge/run, and the runs against another mod's jars to neoforge/runs/<name>. Signing those in put sixteen
+#: screenshots on the list, which the next clone would report as missing.
+SKIP = ("/build/", "/.git/", "/neoforge/run/", "/neoforge/runs/", "/fabric/run/", "/fabric/runs/", "/.gradle/")
 
 
 def art():
