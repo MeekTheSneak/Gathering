@@ -686,21 +686,47 @@ public final class CollectionScreen extends Screen {
         int y = this.height - BOTTOM_BAR + WALL + 2;
 
         // Three things want this line: what was found, what a click does, and two buttons in
-        // the corner. They are laid out right to left so none of them can land on another -
-        // the buttons own their corner, the hint ends short of them, and the count gets
-        // whatever is left and shrinks into it. Drawn in any order they all fit on a wide
-        // window and all three overlapped on a narrow one.
+        // the corner. The buttons own their corner. Of the other two the count goes first and
+        // the hint takes what is left, which is the other way round from how it was: the hint
+        // took all it wanted and the count shrank into the remainder, so on a narrow window a
+        // count became an ellipsis. A count is why this screen exists and is a handful of
+        // characters; a hint is advice, and one cut short is not advice.
         int hintRight = cornerLeft - 8;
-        Component how = mayTake ? whatAClickDoes()
-                : Component.translatable("screen.gathering.collection.hint_look");
-        int hintWidth = Math.min(this.font.width(how), Math.max(0, hintRight - MARGIN));
-        graphics.drawString(this.font, how, hintRight - hintWidth, y, DIM, false);
-        footerText = new Rect(hintRight - hintWidth, y, hintWidth, this.font.lineHeight);
+        int row = Math.max(0, hintRight - MARGIN);
 
+        // How many were found and which page of them this is, said as fully as the row allows.
+        // The page number is the part worth losing first - the pager below already shows which
+        // page is lit - and the last way is a number and a word.
         Component found = Component.translatable(
                 "screen.gathering.collection.page", matched, page + 1, pages);
-        GuiText.draw(graphics, this.font, found, MARGIN, y,
-                Math.max(0, hintRight - hintWidth - MARGIN - 8), DIM);
+        if (!GuiText.fitsWhole(this.font, found, row)) {
+            Component shorter = Component.translatable(
+                    "screen.gathering.collection.page_short", matched, page + 1, pages);
+            found = GuiText.fitsWhole(this.font, shorter, row) ? shorter
+                    : Component.translatable("screen.gathering.collection.found", matched);
+        }
+        GuiText.draw(graphics, this.font, found, MARGIN, y, row, DIM);
+
+        // And the hint in what the count did not use, said as fully as that allows: the second
+        // gesture goes before the first one does, and the first before the hint goes entirely.
+        // A row narrow enough to lose all of it is one somebody has made narrow, and the
+        // gestures are still on the tooltip over a card.
+        int hintRoom = Math.max(0, row - GuiText.width(this.font, found, row) - 8);
+        Component how = null;
+        for (Component way : mayTake ? whatAClickDoes()
+                : List.of(Component.translatable("screen.gathering.collection.hint_look"))) {
+            if (GuiText.fitsWhole(this.font, way, hintRoom)) {
+                how = way;
+                break;
+            }
+        }
+        if (how != null) {
+            int hintWidth = GuiText.width(this.font, how, hintRoom);
+            GuiText.draw(graphics, this.font, how, hintRight - hintWidth, y, hintWidth, DIM);
+            footerText = new Rect(hintRight - hintWidth, y, hintWidth, this.font.lineHeight);
+        } else {
+            footerText = Rect.NONE;
+        }
 
         // The gestures that happen on the block rather than in here, said where somebody
         // is in the state each one applies to. This is the only place either can be found,
@@ -715,9 +741,17 @@ public final class CollectionScreen extends Screen {
         }
     }
 
-    /** What clicking a row will do: take the card into the inventory, whatever is in hand. */
-    private Component whatAClickDoes() {
-        return Component.translatable("screen.gathering.collection.hint_take");
+    /**
+     * What clicking a row will do - take the card into the inventory, whatever is in hand - said
+     * several ways, longest first, for a footer to take the first that fits.
+     * <p>Both gestures, then the one somebody will reach for first, then what the click does at
+     * all. The right-click is the one worth losing: it is a shortcut for the left one.
+     */
+    private List<Component> whatAClickDoes() {
+        return List.of(
+                Component.translatable("screen.gathering.collection.hint_take"),
+                Component.translatable("screen.gathering.collection.hint_take_short"),
+                Component.translatable("screen.gathering.collection.hint_take_shortest"));
     }
 
     /**

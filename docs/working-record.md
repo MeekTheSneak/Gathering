@@ -2457,6 +2457,21 @@ difference and one real defect behind it:
 Verified: gate green (607/16), and the guard fails without the fix - the ladder without it reads
 `Turn 1 - Somebodyorother · free play`, then `Turn 1 - Somebodyorother · !`, then nothing.
 
+- **A collection said `...` where it meant "1 found".** The same shape of fault, found by the same
+  comparison, and this one both loaders had. The footer's three things - the count, the hint, and the
+  two corner buttons - were laid out with the hint taking all it wanted and the count shrinking into
+  whatever remained, so on an ordinary window the count was drawn as a bare ellipsis while
+  "Click to take one - right-click for four" ran the width of the screen. The count is the fact this
+  screen exists to report; the hint is advice, and advice cut short is not advice.
+  So the count goes first, at the longest of three true lengths that fits, and the hint takes what is
+  left, at the longest of its three. Both are now said in full on the same window that showed
+  `...` before: `1 found - page 1 of 1   Click to take one`.
+  The guard is the scripted run's own cut-short check, and it failed three times on the way here -
+  first on the count, then on the shortest count when the hint still took everything, then not at all.
+
+Verified: gate green (607/16); steps 125-140 of the scripted run, 0 failures, and the footer
+photographed with both lines whole (`43-searching-a-collection.png`).
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).
