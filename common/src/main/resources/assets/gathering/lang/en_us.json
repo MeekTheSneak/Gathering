@@ -1228,6 +1228,7 @@
   "message.gathering.hand_over_maximum": "Over seven in hand: discard %s at end of turn",
   "screen.gathering.table.your_turn": "Your turn",
   "screen.gathering.table.turn": "Turn %1$s - %2$s",
+  "screen.gathering.table.turn_short": "Turn %s",
   "screen.gathering.table.seat_tip.away": "Away from the table",
   "screen.gathering.table.seat_tip.afb": "Away from the board: seat kept for %s",
   "screen.gathering.table.seat_tip.afb_votes": "Votes to free the seat: %1$s of %2$s",

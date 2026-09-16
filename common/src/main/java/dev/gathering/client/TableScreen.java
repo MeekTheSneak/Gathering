@@ -2985,13 +2985,17 @@ public final class TableScreen extends Screen {
         Component said = turn;
         String shown;
         if (terms != null && !strip.terms().isEmpty()) {
-            Component termsLine = fitting(TableTermsText.candidates(null, terms), turnWidth);
+            Component termsLine = fitting(TableTermsText.candidates(null, null, terms), turnWidth);
             GuiText.drawOverTheBoard(graphics, this.font, termsLine, strip.terms().x(),
                     strip.terms().y() + (strip.terms().height() - this.font.lineHeight) / 2, turnWidth, QUIET);
             shown = turn.getString() + " " + termsLine.getString();
         } else {
             if (terms != null) {
-                said = fitting(TableTermsText.candidates(turn, terms), turnWidth);
+                // The same turn without the name, for a row too narrow to say both it and the
+                // terms: the seat columns above already say whose turn it is.
+                Component turnAlone = Component.translatable("screen.gathering.table.turn_short",
+                        board.turn().turnNumber()).withColor(mine ? ACCENT : QUIET);
+                said = fitting(TableTermsText.candidates(turn, turnAlone, terms), turnWidth);
             }
             shown = said.getString();
         }

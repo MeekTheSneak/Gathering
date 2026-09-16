@@ -2430,6 +2430,33 @@ The owner asked what had been missed and then asked for all of it.
 
 Verified: gate green (605/16).
 
+### Thirty-fourth batch: the second loader, looked at (2026-09-16)
+
+Every photograph this project has ever taken was NeoForge. Fabric builds, passes its own in-world
+tests and ships, and nobody had ever *looked* at it - so the wrapper simulation, the reveal, the case
+and the tinting were all unseen on half the mod's audience. The scripted tour ran on Fabric.
+
+It came back with 128 failures against NeoForge's 127, and comparing the two texts found one real
+difference and one real defect behind it:
+
+- **A table said `!` where it meant "free play".** The top row offers the sentence at several
+  lengths and the board takes the first that fits, and the rung below "Turn 1 - Somebody · free play"
+  was a bare exclamation mark, with the meaning only in a tooltip nobody knows to hover. The two
+  loaders differ only in what they call the development player - `Dev` against `Player840` - and six
+  more letters was the whole distance between the words and the mark. Most real names are longer
+  than `Dev`.
+  The name goes first now. Whose turn it is is already up in the seat columns with a face and a color
+  beside it; "for keeps" and "free play" are said nowhere else on the board. The mark is still there,
+  after every way of saying it in words.
+  The guard caught a flaw in the first attempt at the fix, which appended the shortened rungs after
+  the bare mark rather than before it - so the mark still won, and the board still said `!`.
+- Everything else Fabric reported, NeoForge reported too, including the table going away after the
+  ante steps. **The wrapper tears, falls and reveals on Fabric exactly as it does on NeoForge**
+  (`fabric/run/screenshots/40-tearing-it-open.png`), and the deck boxes carry their colors.
+
+Verified: gate green (607/16), and the guard fails without the fix - the ladder without it reads
+`Turn 1 - Somebodyorother · free play`, then `Turn 1 - Somebodyorother · !`, then nothing.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

@@ -29,11 +29,37 @@ final class TableTermsText {
 
     /**
      * The turn and the table's terms, from the longest way of saying it to just the turn.
+     * <p>When the room runs out, the player's name goes before the words do. Whose turn it is is
+     * already up in the seat columns - their face, their name, their color, the active one lit -
+     * whereas "for keeps" and "free play" are said nowhere else on the board. Without that rung the
+     * board went straight from the whole sentence to a bare mark, and it took only a name a few
+     * letters longer than the one the scripted run uses to land there.
      *
-     * @param turn "Turn 3 - Dev", already colored for whose turn it is - or null for the terms alone,
-     *     on a row of their own
+     * @param turn      "Turn 3 - Dev", already colored for whose turn it is - or null for the terms
+     *     alone, on a row of their own
+     * @param shortTurn the same without the name, "Turn 3", colored the same - or null to keep the
+     *     name whatever it costs
      */
-    static List<Component> candidates(Component turn, TableTerms terms) {
+    static List<Component> candidates(Component turn, Component shortTurn, TableTerms terms) {
+        List<Component> ways = new ArrayList<>(ways(turn, terms));
+        if (shortTurn != null) {
+            ways.addAll(ways(shortTurn, terms));
+        }
+        if (terms.unusual()) {
+            // The shortest mark there is, for a row that has room for nothing else: the tooltip says
+            // what it means. It comes after every way of saying it in words, including the ways that
+            // have already given up the name - a mark nobody hovers is worth less than the word.
+            ways.add(join(turn, null, List.of(colored(Component.literal("!"), true))));
+            if (shortTurn != null) {
+                ways.add(join(shortTurn, null, List.of(colored(Component.literal("!"), true))));
+            }
+        }
+        ways.add(turn == null ? Component.empty() : turn);
+        return ways;
+    }
+
+    /** Every way of saying the terms in words after the given turn, longest first. */
+    private static List<Component> ways(Component turn, TableTerms terms) {
         List<Component> ways = new ArrayList<>();
         String format = terms.format().map(preset -> preset.displayName()).orElse("");
         boolean oddLength = terms.notes().contains(Note.UNUSUAL_LENGTH);
@@ -65,12 +91,6 @@ final class TableTermsText {
                 ways.add(join(turn, null, warnings.subList(0, 1)));
             }
         }
-        if (terms.unusual()) {
-            // The shortest mark there is, for a window that has room for nothing else: the tooltip
-            // says what it means.
-            ways.add(join(turn, null, List.of(colored(Component.literal("!"), true))));
-        }
-        ways.add(turn == null ? Component.empty() : turn);
         return ways;
     }
 
