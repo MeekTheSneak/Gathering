@@ -76,8 +76,15 @@ public final class JdkHttpTransport implements HttpTransport {
                 .orElse(0L);
     }
 
-    /** The longest a far end may hold us up for, however long it asks for. */
-    private static final long MOST_RETRY_AFTER_MILLIS = 30_000L;
+    /**
+     * The longest a far end may hold us up for, however long it asks for.
+     * <p>Five seconds, not thirty. This holds the whole rate limiter, so every other request waits too -
+     * and opening one pack is a set read a page at a time, so a generous Retry-After honoured four times
+     * over turned into minutes of nothing. The owner said packs were taking for ever. Five seconds is
+     * long enough to be a real pause and short enough that four of them is still a wait somebody will sit
+     * through; past that we would rather try and be turned away again than sit on our hands.
+     */
+    private static final long MOST_RETRY_AFTER_MILLIS = 5_000L;
 
     private HttpReply send(HttpRequest request) throws IOException {
         try {

@@ -2363,6 +2363,40 @@ run says so and checks nothing, the way the pack-symbol step already did.
 Verified: gate green (599/16), and photographed - `114-deck-boxes` shows the flip-top tinted four ways,
 `113-a-card-under-glass` the flush case at counter height.
 
+### Thirty-second batch: pockets, tilts, joins and the crimp (2026-09-16)
+
+- **Cards in a deck still loaded for ever in creative - and the handle was only half of it.** The real
+  list is pushed by `tellTheOwner`, which only ever ran for a deck **in a hand**. A deck in a pocket -
+  which is where one sits while somebody adds cards to it in the creative menu - was never told about, so
+  the client had nothing but the public copy and every card in it read as loading. Pushes are filed by
+  deck handle now, the way the client has always filed them, and every deck a player owns is described to
+  them wherever it is. It still goes only to its owner about their own inventory.
+  Two old checks said the opposite and had to go: one asserted a pocketed deck is told nothing, which was
+  the bug written down; the other **passed for the wrong reason** - it handed its deck to
+  `Inventory.add`, which empties the stack it is given, so it was ticking an empty stack.
+- **The cards in a display case leaned the wrong way** - tops to the ceiling, faces to the floor - and not
+  far enough to read. They tip the other way and further, toward somebody standing over the case.
+- **Cases side by side are one case.** Two ends back to back read as a row of boxes; a case now knows
+  whether another of its own kind, facing the same way, is against either end and drops that end - so the
+  glass, the lining and the lid run straight through. `tools/casejoin.py` cuts the three joined models out
+  of the plain one by two rules and no judgement, so a new case model regenerates all four rather than
+  somebody hand-editing three copies of the owner's work. Guards: a row of three, and a case turned the
+  other way that must not join.
+- **The tear was in the wrong place.** The wrapper is sixteen rows and the crimp is the top four, but the
+  sheet had nineteen rows, so the seam fell at four and a half and rounded to five - a sixteenth of the
+  artwork came away with the crimp. Seventeen rows now, so the rows land on sixteenths and the seam is
+  exactly the crimp's edge.
+- **And the crimp comes off whole.** Past the point where it is plainly off, the rest of the seam goes at
+  once, rather than the last few links being worried apart - there was no moment it came away, only a
+  gradual giving up. The solver is stiffer too, so the strip holds its shape as it peels.
+- **Packs took for ever.** Honouring a `Retry-After` of up to thirty seconds holds the whole rate limiter,
+  and opening one pack is a set read a page at a time - so four generous waits became minutes of nothing.
+  Capped at five seconds: long enough to be a real pause, short enough that four of them is a wait
+  somebody will sit through.
+
+Verified: gate green (602/16), and `40-tearing-it-open` shows the crimp off as a single piece with the
+body square and whole beneath it.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

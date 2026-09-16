@@ -246,4 +246,71 @@ public final class DisplayCaseGameTest {
         }
         helper.succeed();
     }
+
+    /**
+     * Cases put side by side become one long case, and closing up again when one is taken out.
+     * <p>The owner asked for the edges between adjacent cases to go away (2026-09-16). Two ends back to
+     * back read as a row of boxes; with them dropped the glass, the lining and the lid run through.
+     */
+    @GameTest(template = "tables")
+    public static void casesSideBySideBecomeOneCase(GameTestHelper helper) {
+        BlockPos left = new BlockPos(1, 1, 1);
+        BlockPos middle = new BlockPos(2, 1, 1);
+        BlockPos right = new BlockPos(3, 1, 1);
+        net.minecraft.world.level.block.state.BlockState facing =
+                GatheringContent.DISPLAY_CASE.get().defaultBlockState()
+                        .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING,
+                                Direction.SOUTH);
+        for (BlockPos at : java.util.List.of(left, middle, right)) {
+            helper.setBlock(at, facing);
+        }
+
+        if (!joinedOn(helper, middle, dev.gathering.block.DisplayCaseBlock.LEFT)
+                || !joinedOn(helper, middle, dev.gathering.block.DisplayCaseBlock.RIGHT)) {
+            helper.fail("a case with one either side of it is open at neither end");
+            return;
+        }
+        // The ends of the row keep their outside end, or the run has no end to it.
+        boolean leftOpen = joinedOn(helper, left, dev.gathering.block.DisplayCaseBlock.LEFT)
+                && joinedOn(helper, left, dev.gathering.block.DisplayCaseBlock.RIGHT);
+        if (leftOpen) {
+            helper.fail("the case at the end of a row lost the end nothing is against");
+            return;
+        }
+
+        // And taking the middle one out closes the two either side back up.
+        helper.setBlock(middle, net.minecraft.world.level.block.Blocks.AIR);
+        if (joinedOn(helper, left, dev.gathering.block.DisplayCaseBlock.LEFT)
+                || joinedOn(helper, left, dev.gathering.block.DisplayCaseBlock.RIGHT)
+                || joinedOn(helper, right, dev.gathering.block.DisplayCaseBlock.LEFT)
+                || joinedOn(helper, right, dev.gathering.block.DisplayCaseBlock.RIGHT)) {
+            helper.fail("a case still thinks it is joined to one that has been taken away");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A case facing the other way is a corner, not part of the run. */
+    @GameTest(template = "tables")
+    public static void acaseTurnedTheOtherWayDoesNotJoin(GameTestHelper helper) {
+        BlockPos one = new BlockPos(1, 1, 1);
+        BlockPos other = new BlockPos(2, 1, 1);
+        var facingProperty = net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING;
+        helper.setBlock(one, GatheringContent.DISPLAY_CASE.get().defaultBlockState()
+                .setValue(facingProperty, Direction.SOUTH));
+        helper.setBlock(other, GatheringContent.DISPLAY_CASE.get().defaultBlockState()
+                .setValue(facingProperty, Direction.EAST));
+
+        if (joinedOn(helper, one, dev.gathering.block.DisplayCaseBlock.LEFT)
+                || joinedOn(helper, one, dev.gathering.block.DisplayCaseBlock.RIGHT)) {
+            helper.fail("a case joined itself to one facing a different way");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static boolean joinedOn(GameTestHelper helper, BlockPos at,
+            net.minecraft.world.level.block.state.properties.BooleanProperty end) {
+        return helper.getBlockState(at).getValue(end);
+    }
 }

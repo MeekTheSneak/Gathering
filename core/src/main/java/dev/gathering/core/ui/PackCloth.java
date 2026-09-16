@@ -20,9 +20,15 @@ package dev.gathering.core.ui;
  */
 public final class PackCloth {
 
-    /** How many points across the sheet and down it. Enough to tear raggedly, few enough to be free. */
+    /**
+     * How many points across the sheet and down it.
+     * <p>Seventeen down, so the rows land on sixteenths and the crimp's edge is a row rather than a
+     * rounding. At nineteen the seam fell at four and a half rows and rounded to five, which put the tear
+     * a sixteenth of the way into the artwork - the owner could see it taking a slice of the pack with
+     * the crimp.
+     */
     public static final int ACROSS = 15;
-    public static final int DOWN = 19;
+    public static final int DOWN = 17;
 
     /** The fixed step the solver runs at, in seconds. Everything below is tuned to it. */
     private static final float STEP = 1f / 60f;
@@ -30,8 +36,12 @@ public final class PackCloth {
     /** How many steps may be run for one frame, so a stalled window does not run a minute of cloth. */
     private static final int MOST_STEPS = 4;
 
-    /** How many times each link is satisfied per step. More is stiffer; four is foil rather than jelly. */
-    private static final int ITERATIONS = 4;
+    /**
+     * How many times each link is satisfied per step. More is stiffer.
+     * <p>Eight rather than four: the crimp has to hold its shape as it comes away, or it peels like a
+     * rubber sheet and the moment it lets go is lost in the wobble.
+     */
+    private static final int ITERATIONS = 8;
 
     /** Downward pull, in sheet-heights per second squared. */
     private static final float GRAVITY = 2.4f;
@@ -52,7 +62,10 @@ public final class PackCloth {
     private static final float TEARS_AT = 6f;
     private static final float SEAM_TEARS_AT = 1.42f;
 
-    /** How far the crimped strip reaches down the wrapper. Above this line, nothing is pinned. */
+    /**
+     * How far the crimped strip reaches down the wrapper, which is where the picture says it does: the
+     * wrapper is sixteen rows and the top four of them are the crimp.
+     */
     private static final float CRIMP = 4f / 16f;
 
     /**
@@ -183,7 +196,10 @@ public final class PackCloth {
         seamLinks = alongTheSeam;
     }
 
-    /** The row the crimped strip hangs from, which is where a pack is torn. */
+    /**
+     * The row the crimped strip hangs from, which is where a pack is torn.
+     * <p>Exactly on the crimp's own edge, because the rows were chosen to land there.
+     */
     private static int seamRow() {
         return Math.max(0, Math.round(CRIMP * (DOWN - 1)));
     }
@@ -285,6 +301,7 @@ public final class PackCloth {
             }
             satisfy();
         }
+        letTheRestGo();
     }
 
     /** One pass over the links, moving each one's ends toward its resting length, and tearing what is over. */
@@ -347,6 +364,26 @@ public final class PackCloth {
     /** Whether enough of it has come away that the pack is open. */
     public boolean isOpen() {
         return torn() >= OPEN_AT;
+    }
+
+    /**
+     * Once most of the seam has gone, the rest of it goes at once.
+     * <p>A crimp does not come off a booster one centimetre at a time and then hang by a corner: past the
+     * point where it is plainly off, it is off. Leaving the last few links to be worried apart is what
+     * made the moment it comes away unsatisfying - there was no moment, only a gradual giving up.
+     */
+    private void letTheRestGo() {
+        if (seamTorn >= seamLinks || torn() < OPEN_AT) {
+            return;
+        }
+        int seam = seamRow();
+        for (int at = 0; at < links; at++) {
+            if (linkAlive[at] && linkB[at] == linkA[at] + ACROSS && linkA[at] / ACROSS == seam) {
+                linkAlive[at] = false;
+                downAlive[linkA[at]] = false;
+                seamTorn++;
+            }
+        }
     }
 
     /** Whether anything has happened to it yet. */

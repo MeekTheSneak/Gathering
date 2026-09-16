@@ -346,12 +346,13 @@ public class DeckItem extends Item {
      */
     private static void tellTheOwner(
             net.minecraft.server.level.ServerPlayer holder, ItemStack stack) {
-        // In a pocket rather than in a hand: nothing has a screen open on it, and its tooltip
-        // is drawn from the public copy like everybody else's.
-        net.minecraft.world.InteractionHand hand = handHolding(holder, stack).orElse(null);
-        if (hand == null) {
-            return;
-        }
+        // Every deck of theirs, wherever it is, and not only the one in a hand. A deck in a pocket has a
+        // tooltip and can have a screen opened on it, and both read the real list out of this push - so a
+        // deck that was never held listed cards that loaded for ever, which is what the owner kept seeing
+        // after adding a card to one in the creative menu (2026-09-16). It goes only to its owner, about
+        // their own inventory, so there is nothing here anybody else could learn.
+        net.minecraft.world.InteractionHand hand =
+                handHolding(holder, stack).orElse(net.minecraft.world.InteractionHand.MAIN_HAND);
         DeckComponent deck = deckOf(stack).orElse(null);
         if (deck == null) {
             return;
@@ -366,17 +367,18 @@ public class DeckItem extends Item {
             handle = java.util.UUID.randomUUID();
             stack.set(GatheringComponents.DECK_HANDLE.get(), handle);
         }
-        Told[] last = LAST_TOLD.computeIfAbsent(holder.getUUID(), who -> new Told[2]);
-        int at = hand.ordinal();
-        Told before = last[at];
-        // The handle is part of what "unchanged" means. Swap one deck for another with the
-        // same cards in it and the contents compare equal, but it is a different deck and the
-        // client has nothing cached under the new handle - so without this the push is
-        // skipped and the screen falls back to the counts without the list.
-        if (before != null && handle.equals(before.handle()) && deck.equals(before.deck())) {
+        // Remembered by which deck it is, not by which hand it was in - the same way the client files
+        // it. A hand is a place, and a deck that never goes near one still has to be told about.
+        java.util.Map<java.util.UUID, Told> last =
+                LAST_TOLD.computeIfAbsent(holder.getUUID(), who -> new java.util.LinkedHashMap<>());
+        Told before = last.get(handle);
+        if (before != null && deck.equals(before.deck())) {
             return;
         }
-        last[at] = new Told(handle, deck);
+        if (last.size() > REMEMBERED_PER_PLAYER) {
+            last.clear();
+        }
+        last.put(handle, new Told(handle, hand, deck));
         // Numbered, so a client can drop a push that arrives after a newer one. Per player
         // rather than per deck, which is fine: what matters is only that it goes up.
         int revision = TOLD_SO_FAR.merge(holder.getUUID(), 1, Integer::sum);
@@ -385,25 +387,43 @@ public class DeckItem extends Item {
     }
 
     /**
-     * What was last pushed to this player about the deck in that hand.
-     * <p>Written before the send rather than after it, so this is what the server decided to
-     * tell them and not what the wire managed to carry. That is what a test wants to read: a
-     * stand-in player has no channel to take a payload on, and the decision is the part with
-     * the rule in it.
+     * What was last pushed to this player about one deck of theirs, by its handle.
+     * <p>Written before the send rather than after it, so this is what the server decided to tell them
+     * and not what the wire managed to carry. That is what a test wants to read: a stand-in player has no
+     * channel to take a payload on, and the decision is the part with the rule in it.
+     * <p>By handle rather than by hand, because a hand is no longer how these are filed - every deck a
+     * player owns is told about, wherever it is.
      */
     public static java.util.Optional<DeckComponent> toldTheOwner(
-            java.util.UUID player, net.minecraft.world.InteractionHand hand) {
-        Told[] last = LAST_TOLD.get(player);
-        Told told = last == null ? null : last[hand.ordinal()];
+            java.util.UUID player, java.util.UUID deckHandle) {
+        java.util.Map<java.util.UUID, Told> last = LAST_TOLD.get(player);
+        Told told = last == null || deckHandle == null ? null : last.get(deckHandle);
         return told == null ? java.util.Optional.empty() : java.util.Optional.of(told.deck());
     }
 
-    /** Which deck was last sent for a hand, and which deck it was. */
-    private record Told(java.util.UUID handle, DeckComponent deck) {
+    /** Which hand the last push about that deck said it was in, if one was sent. */
+    public static java.util.Optional<net.minecraft.world.InteractionHand> toldTheOwnersHand(
+            java.util.UUID player, java.util.UUID deckHandle) {
+        java.util.Map<java.util.UUID, Told> last = LAST_TOLD.get(player);
+        Told told = last == null || deckHandle == null ? null : last.get(deckHandle);
+        return told == null ? java.util.Optional.empty() : java.util.Optional.of(told.hand());
     }
 
-    /** Per player, the deck last sent for each hand, so an unchanged deck is not re-sent. */
-    private static final java.util.Map<java.util.UUID, Told[]> LAST_TOLD =
+    /** Whether anything at all has been pushed to this player. */
+    public static boolean toldTheOwnerAnything(java.util.UUID player) {
+        java.util.Map<java.util.UUID, Told> last = LAST_TOLD.get(player);
+        return last != null && !last.isEmpty();
+    }
+
+    /** How many decks one player's pushes are remembered for, before the lot is sent again. */
+    private static final int REMEMBERED_PER_PLAYER = 64;
+
+    /** Which deck was last sent, which hand the push said it was in, and what was in it. */
+    private record Told(java.util.UUID handle, net.minecraft.world.InteractionHand hand, DeckComponent deck) {
+    }
+
+    /** Per player, the deck last sent for each handle, so an unchanged deck is not re-sent. */
+    private static final java.util.Map<java.util.UUID, java.util.Map<java.util.UUID, Told>> LAST_TOLD =
             new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Per player, how many pushes have gone out. Numbers a push so an older one is dropped. */

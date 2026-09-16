@@ -30,8 +30,13 @@ public final class DisplayCaseRenderer implements BlockEntityRenderer<DisplayCas
     /** How far apart the four of them stand, across the front of the block. */
     private static final float APART = 0.21f;
 
-    /** How far back they lean, in degrees: a case you look down into, not a shelf you look along. */
-    private static final float LEANS = 18f;
+    /**
+     * How far the cards lean, in degrees.
+     * <p>Tipped so the printed face turns <em>upward</em>, toward somebody standing over the case - which
+     * is what a case at counter height is for. They leaned the other way, showing their tops to the
+     * ceiling and their faces to the floor, and not far enough to read either.
+     */
+    private static final float LEANS = -34f;
 
     public DisplayCaseRenderer(BlockEntityRendererProvider.Context context) {
     }

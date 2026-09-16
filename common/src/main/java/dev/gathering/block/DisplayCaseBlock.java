@@ -45,10 +45,25 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
 
     public static final MapCodec<DisplayCaseBlock> CODEC = simpleCodec(DisplayCaseBlock::new);
 
+    /**
+     * Whether there is another case of the same kind, facing the same way, against each end.
+     * <p>Named for the model rather than for the world: a case's own left is its minus-x side, which is
+     * whichever way round the block happens to be turned. Two cases side by side used to show two glass
+     * ends and four corner posts back to back at the join, which reads as a row of boxes; with the ends
+     * dropped the glass, the lining and the lid run straight through and a row is one long case, which is
+     * what a shop has. The owner asked for exactly this (2026-09-16).
+     */
+    public static final net.minecraft.world.level.block.state.properties.BooleanProperty LEFT =
+            net.minecraft.world.level.block.state.properties.BooleanProperty.create("left");
+    public static final net.minecraft.world.level.block.state.properties.BooleanProperty RIGHT =
+            net.minecraft.world.level.block.state.properties.BooleanProperty.create("right");
+
     public DisplayCaseBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any()
                 .setValue(FACING, Direction.NORTH)
+                .setValue(LEFT, false)
+                .setValue(RIGHT, false)
                 .setValue(FurnitureDye.FELT, net.minecraft.world.item.DyeColor.WHITE));
     }
 
@@ -59,16 +74,52 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, FurnitureDye.FELT);
+        builder.add(FACING, LEFT, RIGHT, FurnitureDye.FELT);
     }
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+        BlockState placed = defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+        return joinedTo(placed, context.getLevel(), context.getClickedPos());
+    }
+
+    /**
+     * A case rejoins its neighbors whenever one is put down or taken away beside it.
+     * <p>Which is what makes a row close up behind a case taken out of the middle of it, rather than
+     * leaving the two either side still open to a gap.
+     */
+    @Override
+    protected BlockState updateShape(BlockState state, Direction towards, BlockState neighbor,
+            net.minecraft.world.level.LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
+        if (towards.getAxis().isHorizontal() && level instanceof net.minecraft.world.level.Level world) {
+            return joinedTo(state, world, pos);
+        }
+        return super.updateShape(state, towards, neighbor, level, pos, neighborPos);
+    }
+
+    /**
+     * The same case, told which of its ends are against another.
+     * <p>The model is drawn facing one way and turned, so its own plus-x side is whichever world
+     * direction that turn lands on - see the blockstate. Only a case of the same wood facing the same way
+     * counts: an oak case beside a spruce one is two cases, and one turned the other way is a corner.
+     */
+    private static BlockState joinedTo(BlockState state, BlockGetter level, BlockPos pos) {
+        Direction facing = state.getValue(FACING);
+        return state
+                .setValue(RIGHT, joins(state, level, pos.relative(facing.getCounterClockWise())))
+                .setValue(LEFT, joins(state, level, pos.relative(facing.getClockWise())));
+    }
+
+    private static boolean joins(BlockState state, BlockGetter level, BlockPos beside) {
+        BlockState neighbor = level.getBlockState(beside);
+        return neighbor.getBlock() == state.getBlock()
+                && neighbor.getValue(FACING) == state.getValue(FACING);
     }
 
     @Override
     protected BlockState rotate(BlockState state, Rotation rotation) {
+        // The ends stay with the block: a whole row turned together is still a row, and one turned on
+        // its own rejoins nothing, which the next neighbor update works out.
         return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
     }
 

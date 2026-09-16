@@ -147,8 +147,8 @@ public final class DeckPrivacyGameTest {
         }
         stack.getItem().inventoryTick(stack, helper.getLevel(), player, 40, true);
 
-        DeckComponent told = DeckItem.toldTheOwner(player.getUUID(), InteractionHand.OFF_HAND)
-                .orElse(null);
+        java.util.UUID handle = DeckItem.handleOf(stack).orElseThrow();
+        DeckComponent told = DeckItem.toldTheOwner(player.getUUID(), handle).orElse(null);
         if (told == null) {
             helper.fail("the owner was told nothing about the deck in their off hand");
             return;
@@ -158,23 +158,35 @@ public final class DeckPrivacyGameTest {
                     + " cards, not the seven that are in it");
             return;
         }
-        if (DeckItem.toldTheOwner(player.getUUID(), InteractionHand.MAIN_HAND).isPresent()) {
+        // The push still says which hand it came from - that is what the client needs to know which of
+        // the two it is looking at - even though pushes are now filed by deck rather than by hand.
+        if (DeckItem.toldTheOwnersHand(player.getUUID(), handle).orElse(null) != InteractionHand.OFF_HAND) {
             helper.fail("an off-hand deck was pushed as the main hand's");
             return;
         }
         helper.succeed();
     }
 
-    /** A deck in a pocket is nobody's hand, so nothing is pushed about it. */
+    /**
+     * A deck in a pocket is told about too.
+     * <p>This used to assert the opposite, and the opposite was the bug. The real list only ever went to
+     * the deck in a hand, so a deck sitting in the inventory - which is where one sits while somebody
+     * adds cards to it in the creative menu - had nothing but the public copy behind its tooltip, and
+     * every card in it read as still loading. The owner reported that three times.
+     * <p>It is still only ever sent to the deck's own owner, about their own inventory, so there is
+     * nothing here anybody else could learn.
+     */
     @GameTest(template = "empty")
-    public static void adeckInAPocketIsInNoHand(GameTestHelper helper) {
+    public static void adeckInAPocketIsToldAboutToo(GameTestHelper helper) {
         var player = helper.makeMockServerPlayerInLevel();
         DeckItem.forget(player.getUUID());
 
         net.minecraft.world.item.ItemStack stack = DeckItem.of(new DeckComponent(
                 "in the bag", "", Optional.empty(), cards(3), List.of(), List.of(),
                 Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
-        player.getInventory().add(stack);
+        // Put in a slot rather than handed to Inventory.add, which empties the stack it is given as it
+        // places it - so the old version of this check ticked an empty stack and passed for that reason.
+        player.getInventory().setItem(9, stack);
 
         if (DeckItem.handHolding(player, stack).isPresent()) {
             helper.fail("a deck in a pocket is being read as held");
@@ -182,9 +194,14 @@ public final class DeckPrivacyGameTest {
         }
         stack.getItem().inventoryTick(stack, helper.getLevel(), player, 9, false);
 
-        if (DeckItem.toldTheOwner(player.getUUID(), InteractionHand.MAIN_HAND).isPresent()
-                || DeckItem.toldTheOwner(player.getUUID(), InteractionHand.OFF_HAND).isPresent()) {
-            helper.fail("the list of a deck sat in a pocket was pushed to its owner");
+        java.util.UUID handle = DeckItem.handleOf(stack).orElseThrow();
+        DeckComponent told = DeckItem.toldTheOwner(player.getUUID(), handle).orElse(null);
+        if (told == null) {
+            helper.fail("the list of a deck sat in a pocket was never pushed, so its cards never load");
+            return;
+        }
+        if (told.entries().size() != 3) {
+            helper.fail("the owner was told their pocketed deck holds " + told.entries().size() + " cards");
             return;
         }
         helper.succeed();

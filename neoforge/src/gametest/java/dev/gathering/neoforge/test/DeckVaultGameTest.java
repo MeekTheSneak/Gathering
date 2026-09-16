@@ -332,4 +332,38 @@ public final class DeckVaultGameTest {
         }
         helper.succeed();
     }
+
+    /**
+     * A deck the player has never held is still told about, so its cards do not load for ever.
+     * <p>The real list only ever went to the deck in a hand. A deck in a pocket - which is where one sits
+     * while somebody adds cards to it in the creative menu - was never pushed, so the client had nothing
+     * but the public copy and every card in it read as still loading. The owner reported it twice after
+     * the handle was fixed, because the handle was only half of it.
+     */
+    @GameTest(template = "empty")
+    public static void aDeckInAPocketIsToldAboutToo(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(GameType.CREATIVE);
+        DeckItem.forget(player.getUUID());
+        // Nowhere near a hand: slot nine is the top row of the pack, not the hotbar.
+        ItemStack stack = DeckItem.of(new DeckComponent("In a pocket", "", Optional.of(player.getUUID()),
+                List.of(BOLT), List.of(), List.of()));
+        player.getInventory().setItem(9, stack);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, ItemStack.EMPTY);
+
+        stack.inventoryTick(helper.getLevel(), player, 9, false);
+
+        Optional<DeckComponent> told =
+                DeckItem.toldTheOwner(player.getUUID(), DeckItem.handleOf(stack).orElseThrow());
+        if (told.isEmpty()) {
+            helper.fail("a deck in a pocket was never described to its owner, so its cards never load");
+            return;
+        }
+        if (!told.get().entries().equals(List.of(BOLT))) {
+            helper.fail("the owner was told their pocketed deck holds " + told.get().entries());
+            return;
+        }
+        helper.succeed();
+    }
 }

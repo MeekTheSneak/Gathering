@@ -60,7 +60,8 @@ KINDS = {
     "shop_counter": {"models": ["shop_counter"], "name": "%s Shop Counter"},
     "collection": {"models": ["collection"], "name": "%s Collection"},
     "scorekeepers_desk": {"models": ["scorekeepers_desk"], "name": "%s Scorekeeper's Desk"},
-    "display_case": {"models": ["display_case"], "name": "%s Display Case"},
+    "display_case": {"models": ["display_case", "display_case_left", "display_case_right",
+                                "display_case_middle"], "name": "%s Display Case"},
 }
 
 #: Where the woods and the plain woods are declared, once, for both sides.
