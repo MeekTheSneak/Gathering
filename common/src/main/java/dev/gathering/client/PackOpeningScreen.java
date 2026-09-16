@@ -34,11 +34,18 @@ public final class PackOpeningScreen extends Screen {
     /** How big the pack is drawn, as a fraction of the shorter side of the window. */
     private static final double PACK_HEIGHT = 0.62;
 
-    /** A booster wrapper is about half again as tall as it is wide. */
-    private static final double PACK_SHAPE = 0.66;
+    /**
+     * The shape of the wrapper, which is the shape of the wrapper's own picture: twelve pixels of printed
+     * bag across sixteen down. It was 0.66, so opening a pack squashed it a tenth narrower than the one in
+     * the hand that was just clicked, which is what the owner saw stretch (2026-09-16).
+     */
+    private static final double PACK_SHAPE = dev.gathering.core.ui.PackWrapper.shape();
 
-    /** How deep the torn strip is, as a fraction of the pack's height. */
-    private static final double CRIMP = 0.16;
+    /**
+     * How deep the torn strip is, as a fraction of the pack's height - and so where the crimp ends and the
+     * body begins, because that is where a pack tears. Four of the wrapper's sixteen rows are crimp.
+     */
+    private static final double CRIMP = dev.gathering.core.ui.PackWrapper.crimp();
 
     /** How the cards are laid out once the wrapper is off. */
     private static final int GAP = 4;
@@ -58,13 +65,17 @@ public final class PackOpeningScreen extends Screen {
      * <p>The item texture is one picture of a whole pack, and this screen draws two pieces of
      * one - so it cuts them from where they are. Named here so a new wrapper is these four
      * numbers rather than a hunt through the drawing.
+     * <p>All sixteen rows, and each piece laid along the same share of the pack it takes up in the
+     * picture. They used to start a row late and stop a row early - the white top of the crimp and the
+     * fold at the bottom were never drawn, the first row of the body was drawn as crimp, and the
+     * fourteen rows that were left were stretched over a pack the wrong shape for them.
      */
-    private static final int WRAPPER_PIXELS = 16;
-    private static final int MARGIN = 2;
-    private static final int CRIMP_ROW = 1;
-    private static final int CRIMP_ROWS = 4;
-    private static final int BODY_ROW = 5;
-    private static final int BODY_ROWS = 10;
+    private static final int WRAPPER_PIXELS = dev.gathering.core.ui.PackWrapper.PIXELS;
+    private static final int MARGIN = dev.gathering.core.ui.PackWrapper.MARGIN;
+    private static final int CRIMP_ROW = dev.gathering.core.ui.PackWrapper.CRIMP_ROW;
+    private static final int CRIMP_ROWS = dev.gathering.core.ui.PackWrapper.CRIMP_ROWS;
+    private static final int BODY_ROW = dev.gathering.core.ui.PackWrapper.BODY_ROW;
+    private static final int BODY_ROWS = dev.gathering.core.ui.PackWrapper.BODY_ROWS;
 
     /**
      * How many rows each piece is cut into down the pack, for the turn to be a curve.
@@ -255,6 +266,7 @@ public final class PackOpeningScreen extends Screen {
                 new TiltedPack.Piece(CRIMP_ROW, CRIMP_ROWS, 0f, (float) CRIMP),
                 STRIP_DOWN, MARGIN, WRAPPER_PIXELS);
         drawSymbol(graphics, lens, matrix);
+        drawTheTornStrip(matrix, steps, tornTo);
         drawTornEdge(graphics, lens, matrix, tornTo, steps, top);
 
         // Only before it has been touched. Once somebody is tearing it, the tear is the
@@ -426,6 +438,47 @@ public final class PackOpeningScreen extends Screen {
         return Math.max(-1f, Math.min(1f, (at - center) / Math.max(1f, span / 2f)));
     }
 
+    /** How far the freed strip leans back as it comes away, in degrees at a whole tear. */
+    private static final float PEEL_BACK = 30f;
+
+    /** How far it lifts clear of the pack, as a multiple of its own height, at a whole tear. */
+    private static final float PEEL_LIFT = 1.15f;
+
+    /** How much of it has faded by the time the tear is across. */
+    private static final float PEEL_FADE = 0.55f;
+
+    /**
+     * The strip that has been torn off, coming away.
+     * <p>It used to simply stop existing column by column as the tear passed, which is the one thing paper
+     * does not do: what you tear off a booster stays in your hand. So the freed part of the crimp is drawn
+     * again above the tear, lifting clear of the pack and leaning back as more of it comes free, fading as
+     * it goes - the owner asked for the tear to look nicer (2026-09-16), and a wrapper that comes off is
+     * most of what "nicer" means here.
+     * <p>Its own lens rather than the pack's: it is no longer on the pack, and a piece drawn through the
+     * pack's lens is a piece that cannot leave it.
+     */
+    private void drawTheTornStrip(Matrix4f matrix, int steps, int tornTo) {
+        float torn = tear.torn();
+        if (torn <= 0f) {
+            return;
+        }
+        int stripHeight = Math.max(1, (int) Math.round(packHeight * CRIMP));
+        float[] freed = new float[steps];
+        for (int step = 0; step < steps; step++) {
+            int middle = (columnAt(step, steps) + columnAt(step + 1, steps)) / 2;
+            // Nought is the whole strip and one is none of it: the columns the tear has not reached are
+            // still on the pack, and the pack is already drawing them.
+            freed[step] = middle > tornTo ? 1f : 0f;
+        }
+        CardLens peeled = CardLens.of(
+                new Rect(packX, packY - Math.round(stripHeight * PEEL_LIFT * torn), packWidth, stripHeight),
+                yaw, pitch - PEEL_BACK * torn);
+        int left = Math.round(255 * Math.max(0f, 1f - torn * PEEL_FADE));
+        TiltedPack.draw(matrix, peeled, PackFaceRenderer.WRAPPER, freed,
+                new TiltedPack.Piece(CRIMP_ROW, CRIMP_ROWS, 0f, 1f),
+                STRIP_DOWN, MARGIN, WRAPPER_PIXELS, (left << 24) | 0x00FFFFFF);
+    }
+
     /**
      * What came out, worst first.
      * <p>Sorted rather than left in collation order so the ceremony ends where it should. A
@@ -535,8 +588,11 @@ public final class PackOpeningScreen extends Screen {
         if (tear.isUntouched() || glow == PackGlow.NO_LIGHT) {
             return;
         }
-        float reach = Math.max(4f, packHeight / 10f) / Math.max(1f, packHeight);
-        TiltedPack.Glow light = new TiltedPack.Glow(glow & 0x00FFFFFF, GLOW_ALPHA);
+        // Brighter and further the more of the pack is open, so the light builds toward the reveal
+        // instead of sitting at one strength from the first inch of the tear.
+        float open = 0.55f + 0.45f * tear.torn();
+        float reach = open * Math.max(4f, packHeight / 10f) / Math.max(1f, packHeight);
+        TiltedPack.Glow light = new TiltedPack.Glow(glow & 0x00FFFFFF, Math.round(GLOW_ALPHA * open));
         TiltedPack.shine(matrix, lens, top, reach, light,
                 columnsTorn(steps, tornTo), GLOW_STEPS);
     }
@@ -598,10 +654,21 @@ public final class PackOpeningScreen extends Screen {
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
+    /** How far along the tear was when it last made a noise. */
+    private float soundedAt;
+
     private void follow(double mouseX) {
         boolean wasSealed = !tear.isOpen();
+        boolean wasUntouched = tear.isUntouched();
         tear = tear.followedTo((int) Math.round(mouseX - packX));
+        if (wasUntouched && !tear.isUntouched()) {
+            PackSounds.gripped();
+            soundedAt = tear.torn();
+        } else if (wasSealed) {
+            soundedAt = PackSounds.tearing(soundedAt, tear.torn());
+        }
         if (wasSealed && tear.isOpen()) {
+            PackSounds.opened();
             // Sorted once, at the moment it comes apart. Doing it every frame would re-sort a
             // list whose order is the whole point, as summaries arrive one packet at a time.
             revealed = inRevealOrder();

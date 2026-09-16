@@ -2043,6 +2043,39 @@ made the stronger way.
 
 Verified: gate green (578/16).
 
+### Twenty-second batch: the pack and the deck box, as things rather than pictures (2026-09-16)
+
+Four of the owner's findings, all of them about what a pack or a deck box looks like.
+
+- **#5, the wrapper stretched when a pack opened.** The screen cut rows one to fourteen out of a sixteen-row
+  wrapper - losing the white top of the crimp and the fold at the bottom, drawing the first row of the body
+  as crimp - and laid them along a pack two thirds as wide as it was tall. All sixteen rows now, each piece
+  along the share of the pack it takes up in the picture, and the pack drawn at the printed bag's own shape.
+  The numbers moved to `PackWrapper` in `:core`, where `PackWrapperTest.theWrapperIsDrawnWhole` can check
+  they still add up to the whole picture without a window.
+- **#10, a pack was flat.** Two quads a hundredth of a block apart, so held in the third person - where a
+  player is seen from the side - it was a line. Six faces now, the four edges taking a pixel of the
+  wrapper's own border so the sides are the color the front is, and the third-person pose is vanilla's
+  held-flat-item angle rather than square on.
+- **#6, the tear.** The strip you tear off used to stop existing column by column. It comes away now:
+  the freed part of the crimp is drawn again above the tear, lifting clear of the pack and leaning back as
+  more of it comes free, fading as it goes. The light out of the tear builds as the tear crosses instead of
+  sitting at one strength. And it makes a noise - there was none at all. A crinkle every fourteenth of the
+  way across, rising in pitch, and a rip when it comes apart, under the player's own table-sound setting.
+  Vanilla sounds: every sound this mod ships is the owner's, and putting a new one in the jar is not this
+  project's call.
+- **#2, the deck box in the first person.** Drawn at 0.85 of full size and turned thirty degrees the wrong
+  way, so a box nearly a block tall filled the corner of the screen. Vanilla's block angle and 0.45.
+
+Verified: gate green (578/16), and the scripted client photographed the pack screen - `39-a-sealed-pack`
+shows the whole wrapper at its own shape, `40-tearing-it-open` shows the strip peeled up and leaning back
+off the torn half with the glow along the ragged edge, and `38-sealed-packs` shows the held pack with a
+visible top edge. The run was started at step 120 and the steps after the pack failed for want of the
+setup those earlier steps do; nothing there is a claim about them.
+
+Not done: the third-person pack was not photographed - the tour has no step that stands back from the
+player - so its new angle is reasoned from vanilla's and is for the owner to look at.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

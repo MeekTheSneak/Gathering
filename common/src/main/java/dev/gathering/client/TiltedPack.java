@@ -75,15 +75,27 @@ public final class TiltedPack {
     public static void draw(
             Matrix4f matrix, CardLens lens, ResourceLocation texture,
             float[] topAt, Piece piece, int rows, float margin, float pixels) {
-        if (topAt == null || topAt.length == 0 || rows < 1) {
+        draw(matrix, lens, texture, topAt, piece, rows, margin, pixels, 0xFFFFFFFF);
+    }
+
+    /**
+     * The same, tinted - for the strip that has been torn off, which lifts away and fades rather than
+     * simply ceasing to exist as the tear passes it.
+     *
+     * @param tint the color every corner is drawn in, alpha first
+     */
+    public static void draw(
+            Matrix4f matrix, CardLens lens, ResourceLocation texture,
+            float[] topAt, Piece piece, int rows, float margin, float pixels, int tint) {
+        if (topAt == null || topAt.length == 0 || rows < 1 || (tint >>> 24) == 0) {
             return;
         }
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderTexture(0, texture);
-        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
         BufferBuilder buffer = Tesselator.getInstance()
-                .begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+                .begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
         float[] corner = new float[2];
         float bottom = piece.fromDown() + piece.down();
         int columns = topAt.length;
@@ -102,10 +114,10 @@ public final class TiltedPack {
                 float v0 = top + (bottom - top) * row / rows;
                 float v1 = top + (bottom - top) * (row + 1) / rows;
                 // Vanilla's winding: top left, bottom left, bottom right, top right.
-                at(buffer, matrix, lens, corner, u0, v0, piece, margin, pixels);
-                at(buffer, matrix, lens, corner, u0, v1, piece, margin, pixels);
-                at(buffer, matrix, lens, corner, u1, v1, piece, margin, pixels);
-                at(buffer, matrix, lens, corner, u1, v0, piece, margin, pixels);
+                at(buffer, matrix, lens, corner, u0, v0, piece, margin, pixels, tint);
+                at(buffer, matrix, lens, corner, u0, v1, piece, margin, pixels, tint);
+                at(buffer, matrix, lens, corner, u1, v1, piece, margin, pixels, tint);
+                at(buffer, matrix, lens, corner, u1, v0, piece, margin, pixels, tint);
                 anything = true;
             }
         }
@@ -120,10 +132,11 @@ public final class TiltedPack {
 
     private static void at(
             BufferBuilder buffer, Matrix4f matrix, CardLens lens, float[] corner,
-            float u, float v, Piece piece, float margin, float pixels) {
+            float u, float v, Piece piece, float margin, float pixels, int tint) {
         lens.at(u, v, corner);
         buffer.addVertex(matrix, corner[0], corner[1], 0f)
-                .setUv((margin + u * (pixels - 2f * margin)) / pixels, piece.rowAt(v, pixels));
+                .setUv((margin + u * (pixels - 2f * margin)) / pixels, piece.rowAt(v, pixels))
+                .setColor(tint);
     }
 
     /** What color comes out of the tear, and how brightly where it meets the paper. */

@@ -24,6 +24,38 @@ public final class PackWrapper {
     /** A collector booster, in the same orange a mythic glows. */
     public static final int COLLECTOR = PackGlow.MYTHIC_LIGHT;
 
+    /**
+     * Where the wrapper's picture is, so the screen that tears one open draws it at the shape it was drawn
+     * at.
+     * <p>The picture is sixteen pixels square: two blank columns either side of a twelve-pixel bag, four
+     * rows of crimp at the top and twelve of body below it. The screen used to cut rows one to fourteen out
+     * of it and lay them along a pack two thirds as wide as it was tall, which stretched the bag every way
+     * at once - the owner saw it as soon as a pack opened (2026-09-16). The numbers live here, where
+     * something without a window can check they still add up to the whole picture.
+     */
+    public static final int PIXELS = 16;
+
+    /** Blank columns either side of the bag. */
+    public static final int MARGIN = 2;
+
+    /** The crimped strip at the top, which is where a pack is torn. */
+    public static final int CRIMP_ROW = 0;
+    public static final int CRIMP_ROWS = 4;
+
+    /** The body below it, down to the fold at the bottom. */
+    public static final int BODY_ROW = CRIMP_ROW + CRIMP_ROWS;
+    public static final int BODY_ROWS = PIXELS - BODY_ROW;
+
+    /** How wide a pack is drawn against its height: the printed bag's own shape. */
+    public static double shape() {
+        return (PIXELS - 2.0 * MARGIN) / PIXELS;
+    }
+
+    /** How much of a pack's height the crimp takes, which is where the tear runs. */
+    public static double crimp() {
+        return CRIMP_ROWS / (double) PIXELS;
+    }
+
     private PackWrapper() {
     }
 

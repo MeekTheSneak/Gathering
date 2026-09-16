@@ -51,4 +51,25 @@ class PackWrapperTest {
             assertThat(color >>> 24).isEqualTo(0xFF);
         }
     }
+
+    /**
+     * The whole picture is drawn, and it is drawn at its own shape. The screen that tears a pack open used
+     * to cut rows one to fourteen out of a sixteen-row wrapper - losing the white top of the crimp and the
+     * fold at the bottom, and drawing the first row of the body as crimp - and then lay them along a pack
+     * two thirds as wide as it was tall. The owner saw it stretch the moment a pack opened (2026-09-16).
+     */
+    @Test
+    @DisplayName("the two pieces of the wrapper are the whole wrapper, laid out at its own shape")
+    void theWrapperIsDrawnWhole() {
+        assertThat(PackWrapper.CRIMP_ROW).isZero();
+        assertThat(PackWrapper.BODY_ROW).isEqualTo(PackWrapper.CRIMP_ROW + PackWrapper.CRIMP_ROWS);
+        assertThat(PackWrapper.BODY_ROW + PackWrapper.BODY_ROWS).isEqualTo(PackWrapper.PIXELS);
+        // A pack as wide against its height as the bag is against the picture, so nothing is squashed.
+        assertThat(PackWrapper.shape())
+                .isEqualTo((PackWrapper.PIXELS - 2.0 * PackWrapper.MARGIN) / PackWrapper.PIXELS);
+        // And each piece laid along the share of the pack it takes up in the picture.
+        assertThat(PackWrapper.crimp()).isEqualTo(PackWrapper.CRIMP_ROWS / (double) PackWrapper.PIXELS);
+        assertThat(1.0 - PackWrapper.crimp())
+                .isEqualTo(PackWrapper.BODY_ROWS / (double) PackWrapper.PIXELS);
+    }
 }
