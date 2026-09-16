@@ -107,8 +107,6 @@ public class CardItem extends Item {
         // On the creative menu the server never sees this click, only the deck it made - with its cards
         // hidden on the way - so the two cards are said separately. See DeckVault.
         if (player.level().isClientSide()) {
-            DeckItem.handleOf(deck).ifPresent(handle -> dev.gathering.service.CreativeDeckHook.Binding.cardsWentIn(
-                    player, handle, List.of(beneath.get().faceUp(), carried.get().faceUp())));
         }
         DeckItem.playAssembleSound(player);
         return true;

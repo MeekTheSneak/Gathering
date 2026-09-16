@@ -70,11 +70,13 @@ public final class GatheringProtocol {
      * board, and a vote to free a seat.
      * <p>Twenty, for telling the server the guided first game began and was finished, which the starter boosters
      * now require; and a top cut left to the player count.
+     * <p>Twenty-one, for taking a payload away: a creative client no longer tells the server which cards it
+     * put into a deck, because the server now reads them off the copy the creative menu sends it anyway.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 20;
+    public static final int VERSION = 21;
 
     private GatheringProtocol() {
     }
@@ -172,13 +174,6 @@ public final class GatheringProtocol {
             toServer(MakeTokenPayload.TYPE, MakeTokenPayload.STREAM_CODEC,
                     budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, (player, payload) -> CardDataService.active().ifPresent(service ->
                             dev.gathering.server.TokenCreation.handleChosen(player, service, payload)))),
-            toServer(CreativeDeckEditPayload.TYPE, CreativeDeckEditPayload.STREAM_CODEC,
-                    (player, payload) -> {
-                        // Creative only: anybody else's clicks are the server's own to see.
-                        if (player.isCreative()) {
-                            dev.gathering.server.DeckVault.cardsWentIn(payload.deck(), player.getUUID(), payload.cards());
-                        }
-                    }),
             toServer(PackTornPayload.TYPE, PackTornPayload.STREAM_CODEC,
                     (player, payload) -> dev.gathering.server.PackWrappers.torn(player, payload.wrapper())),
             toServer(StarterPayload.TYPE, StarterPayload.STREAM_CODEC,

@@ -173,7 +173,6 @@ public class DeckItem extends Item {
             return insertable(cards);
         }
         ItemStack taken = slot.safeTake(room, room, player);
-        tellACreativeServer(player, stack, taken);
         insert(stack, taken);
         playAssembleSound(player);
         return true;
@@ -191,21 +190,9 @@ public class DeckItem extends Item {
             return insertable(other);
         }
         ItemStack taken = other.split(room);
-        tellACreativeServer(player, stack, taken);
         insert(stack, taken);
         playAssembleSound(player);
         return true;
-    }
-
-    /** Says which cards went into this deck, when the click was on a client's creative menu. See DeckVault. */
-    private static void tellACreativeServer(Player player, ItemStack deck, ItemStack cards) {
-        Optional<CardComponent> card = CardItem.cardOf(cards);
-        java.util.UUID handle = handleOf(deck).orElse(null);
-        if (!player.level().isClientSide() || card.isEmpty() || handle == null) {
-            return;
-        }
-        dev.gathering.service.CreativeDeckHook.Binding.cardsWentIn(player, handle,
-                java.util.Collections.nCopies(cards.getCount(), card.get()));
     }
 
     /**

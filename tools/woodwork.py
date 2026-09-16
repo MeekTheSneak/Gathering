@@ -50,16 +50,35 @@ NAMES = {
     "crimson": "Crimson", "warped": "Warped",
 }
 
-#: Each wooden thing: the plain id, the wood it is already drawn in, the block models that belong
-#: to it, and what to call one in another wood.
+#: Each wooden thing: the block models that belong to it, and what to call one in another wood. Which wood
+#: it is already drawn in is not written here - it is read from the Java enum that registers them, below,
+#: because the two disagreeing is a block with no model, which is what happened: the chair is oak and the
+#: rest are dark oak, this file said otherwise, and oak_chair drew as the missing model.
 KINDS = {
-    "table": {"wood": "dark_oak", "models": ["table_top", "table_corner"], "name": "%s Table"},
-    "chair": {"wood": "oak", "models": ["chair"], "name": "%s Chair"},
-    "shop_counter": {"wood": "dark_oak", "models": ["shop_counter"], "name": "%s Shop Counter"},
-    "collection": {"wood": "dark_oak", "models": ["collection"], "name": "%s Collection"},
-    "scorekeepers_desk": {"wood": "dark_oak", "models": ["scorekeepers_desk"],
-                          "name": "%s Scorekeeper's Desk"},
+    "table": {"models": ["table_top", "table_corner"], "name": "%s Table"},
+    "chair": {"models": ["chair"], "name": "%s Chair"},
+    "shop_counter": {"models": ["shop_counter"], "name": "%s Shop Counter"},
+    "collection": {"models": ["collection"], "name": "%s Collection"},
+    "scorekeepers_desk": {"models": ["scorekeepers_desk"], "name": "%s Scorekeeper's Desk"},
 }
+
+#: Where the woods and the plain woods are declared, once, for both sides.
+CONTENT = ROOT / "common/src/main/java/dev/gathering/item/GatheringContent.java"
+
+
+def plainWoods() -> dict:
+    """The wood each thing is already drawn in, read from GatheringContent.Woodwork."""
+    import re
+    source = CONTENT.read_text(encoding="utf-8")
+    woods = {}
+    for _, idName, wood in re.findall(r'(\w+)\((\w+_ID), "(\w+)"\)', source):
+        plainId = re.search(r'String ' + idName + r' = "([a-z_]+)"', source)
+        if plainId:
+            woods[plainId.group(1)] = wood
+    if sorted(woods) != sorted(KINDS):
+        raise SystemExit("the things in GatheringContent.Woodwork are " + str(sorted(woods))
+                         + ", not " + str(sorted(KINDS)))
+    return woods
 
 written = []
 unchanged = []
@@ -119,8 +138,9 @@ def write(check: bool):
     # Read in order and add at the end: the language file is written by hand and sorting it would be a
     # thousand-line change nobody asked for.
     lang = json.loads(LANG.read_text(encoding="utf-8"), object_pairs_hook=__import__("collections").OrderedDict)
+    plain = plainWoods()
     for plainId, kind in KINDS.items():
-        plainWood = kind["wood"]
+        plainWood = plain[plainId]
         for wood in WOODS:
             if wood == plainWood:
                 continue
@@ -169,9 +189,9 @@ def write(check: bool):
     # Every one of them is chopped with an axe, like the plain ones.
     axe = json.loads((DATA / "minecraft/tags/block/mineable/axe.json").read_text(encoding="utf-8"))
     values = [value for value in axe["values"] if ":" not in value or value.startswith("gathering:")]
-    for plainId, kind in KINDS.items():
+    for plainId in KINDS:
         for wood in WOODS:
-            if wood != kind["wood"]:
+            if wood != plain[plainId]:
                 values.append("gathering:" + wood + "_" + plainId)
     axe["values"] = sorted(set(values), key=lambda value: (value.count("_"), value))
     put(DATA / "minecraft/tags/block/mineable/axe.json", asJson(axe), check)

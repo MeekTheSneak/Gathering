@@ -1953,6 +1953,27 @@ chair, shop counter, collection and Scorekeeper's Desk - in eleven woods, which 
 
 Verified: gate green (570/16).
 
+### Eighteenth batch: cards deleted by a deck in creative, and a chair with no model (2026-09-16)
+
+The owner's first find of the new playtest, and one the same playtest turned up in the log:
+
+- **Cards put into a carried deck were deleted** (creative). The creative menu sends the client's copy of a
+  stack back to the server, and a deck that crossed the wire has every card hidden; the server took the list
+  it had kept for that deck and threw the rest away, so a card the client had just put in went nowhere.
+  `DeckVault.real` now keeps the cards it has and adds whatever the arriving copy carries **face up** - which
+  can only be a card the client just put in, since everything that crossed the wire is hidden. Ticking the
+  same stack again adds nothing twice. With that, the client no longer has to tell the server what it did:
+  `CreativeDeckEditPayload`, `CreativeDeckHook` and both loaders' bindings are gone (protocol 21), and one
+  mechanism does the job two did. Guard: `DeckVaultGameTest.cardsPutIntoACarriedDeckSurviveTheCreativeMenu`.
+- **`oak_chair` drew as the missing model.** The chair was already drawn in oak and the other four in dark
+  oak; the generator assumed dark oak for all five, so the block registered as `oak_chair` while the files on
+  disk were `dark_oak_chair`. Each kind now carries its own plain wood (`Woodwork.plainWood`), `WOODS` lists
+  all eleven, and `tools/woodwork.py` reads the plain woods out of the Java rather than keeping its own copy.
+  Guard: the tour asks the client whether every block it registers has a model of its own -
+  "all 58 blocks are drawn by a model of their own" - which is how this was found at all.
+
+Verified: gate green (571/16); tour steps 0-3, no failures.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

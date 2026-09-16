@@ -68,12 +68,6 @@ public final class GatheringFabricClient implements ClientModInitializer {
 
         CardNameLookup.Binding.bind(ClientCardCache.get());
         DeckScreenHook.Binding.bind(hand -> Minecraft.getInstance().setScreen(new DeckContentsScreen(hand)));
-        dev.gathering.service.CreativeDeckHook.Binding.bind((player, deck, cards) -> {
-            if (player.level().isClientSide() && player.isCreative()
-                && Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) {
-                dev.gathering.client.ClientNetworking.send(new dev.gathering.network.CreativeDeckEditPayload(deck, cards));
-            }
-        });
         CardZoomOverlay.bindKeyState(ZoomKeyState.of(ZOOM_KEY, () -> KeyBindingHelper.getBoundKeyOf(ZOOM_KEY)));
         CardZoomOverlay.bindKeyName(ZOOM_KEY::getTranslatedKeyMessage);
         dev.gathering.client.TableShortcuts.bindKeyLookup(KeyBindingHelper::getBoundKeyOf);

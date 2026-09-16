@@ -314,6 +314,7 @@ public final class DevScene {
             }
             case 2 -> {
                 if (client.level != null && client.player != null) {
+                    everyBlockHasAModel(client);
                     shoot(client, "01-in-world");
                     // Asked already, as far as this tour is concerned. A profile that has never
                     // been offered the guided first game gets it the moment it sits down or asks
@@ -7201,6 +7202,39 @@ public final class DevScene {
                 dev.gathering.server.events.Events.useDesk(player, desk);
             }
         });
+    }
+
+    /**
+     * Every block this mod registers is drawn by a model of its own.
+     * <p>A block whose blockstate names a model that is not there draws as the black and purple missing
+     * cube, and nothing else says so: the game logs a warning at load and carries on. It happened the day
+     * the furniture came in every wood - the chair is oak and everything else is dark oak, the generator
+     * thought otherwise, and `oak_chair` was registered with `dark_oak_chair`'s files on disk. Fifty blocks
+     * is too many to look at one at a time, so the client is asked instead, once, for all of them.
+     */
+    private static void everyBlockHasAModel(Minecraft client) {
+        var shaper = client.getBlockRenderer().getBlockModelShaper();
+        var missing = client.getModelManager().getMissingModel();
+        java.util.List<String> without = new java.util.ArrayList<>();
+        int checked = 0;
+        for (var entry : net.minecraft.core.registries.BuiltInRegistries.BLOCK.entrySet()) {
+            if (!entry.getKey().location().getNamespace().equals(dev.gathering.Gathering.MOD_ID)) {
+                continue;
+            }
+            checked++;
+            for (net.minecraft.world.level.block.state.BlockState state
+                    : entry.getValue().getStateDefinition().getPossibleStates()) {
+                if (shaper.getBlockModel(state) == missing) {
+                    without.add(entry.getKey().location().getPath());
+                    break;
+                }
+            }
+        }
+        if (!without.isEmpty()) {
+            fail("blocks drawn as the missing model: " + without);
+        } else {
+            System.out.println("[devscene] all " + checked + " blocks are drawn by a model of their own");
+        }
     }
 
     /** Stands back from the row of tables in every wood, and photographs them. */

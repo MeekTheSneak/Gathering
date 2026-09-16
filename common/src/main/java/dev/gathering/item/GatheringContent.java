@@ -62,33 +62,47 @@ public final class GatheringContent {
 
     /**
      * The other woods every wooden thing in the mod is also made of.
-     * <p>The plain ids - {@code table}, {@code chair}, {@code shop_counter}, {@code collection},
-     * {@code scorekeepers_desk} - are the dark oak ones and keep their names, so a world built before this
-     * keeps its furniture. Everything else is named for its wood, the way vanilla names a door or a sign.
+     * <p>Every wood there is. Each wooden thing keeps the plain id for the wood it was already drawn in - the
+     * chair is oak, the rest are dark oak - so a world built before this keeps its furniture, and the other
+     * ten are named for their wood, the way vanilla names a door or a sign.
      * <p>Bamboo's planks are a block of bamboo mosaic's neighbour rather than a tree's, and the two nether
      * stems are not wood at all botanically; all three are planks in the hand and in the recipe book, which is
      * what a player means by "in every wood".
      */
     public static final java.util.List<String> WOODS = java.util.List.of(
-            "oak", "spruce", "birch", "jungle", "acacia", "mangrove", "cherry", "bamboo", "crimson", "warped");
+            "oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "mangrove", "cherry", "bamboo",
+            "crimson", "warped");
 
-    /** What a wooden thing is: the same block, in one wood or another. */
+    /**
+     * What a wooden thing is: the same block, in one wood or another.
+     * <p>Each carries the wood it was already drawn in, because they are not all the same one - the chair is
+     * oak and the rest are dark oak - and that wood keeps the plain id. Getting this wrong registers a block
+     * whose model was written for another name, which draws as the missing model and nothing else says so.
+     * <p>{@code tools/woodwork.py} reads these lines to know which wood not to write.
+     */
     public enum Woodwork {
-        TABLE(TABLE_ID),
-        CHAIR(CHAIR_ID),
-        SHOP_COUNTER(SHOP_COUNTER_ID),
-        COLLECTION(COLLECTION_ID),
-        SCOREKEEPERS_DESK(SCOREKEEPERS_DESK_ID);
+        TABLE(TABLE_ID, "dark_oak"),
+        CHAIR(CHAIR_ID, "oak"),
+        SHOP_COUNTER(SHOP_COUNTER_ID, "dark_oak"),
+        COLLECTION(COLLECTION_ID, "dark_oak"),
+        SCOREKEEPERS_DESK(SCOREKEEPERS_DESK_ID, "dark_oak");
 
         private final String plain;
+        private final String plainWood;
 
-        Woodwork(String plain) {
+        Woodwork(String plain, String plainWood) {
             this.plain = plain;
+            this.plainWood = plainWood;
         }
 
-        /** The id of this thing in this wood: {@code spruce_table}, and the plain {@code table} for dark oak. */
+        /** The wood this thing is already drawn in, which keeps the plain id. */
+        public String plainWood() {
+            return plainWood;
+        }
+
+        /** The id of this thing in this wood: {@code spruce_table}, and the plain {@code table} for its own wood. */
         public String idFor(String wood) {
-            return wood == null || wood.isBlank() || "dark_oak".equals(wood) ? plain : wood + "_" + plain;
+            return wood == null || wood.isBlank() || plainWood.equals(wood) ? plain : wood + "_" + plain;
         }
     }
 
@@ -129,6 +143,9 @@ public final class GatheringContent {
         java.util.List<WoodVariant> made = new java.util.ArrayList<>();
         for (Woodwork kind : Woodwork.values()) {
             for (String wood : WOODS) {
+                if (wood.equals(kind.plainWood())) {
+                    continue;
+                }
                 String id = kind.idFor(wood);
                 made.add(new WoodVariant(kind, wood, id, new Registered<>(id), new Registered<>(id)));
             }

@@ -70,17 +70,52 @@ public final class DeckVaultGameTest {
     public static void aDeckMadeOnTheCreativeMenuHasTheCardsItWasMadeFrom(GameTestHelper helper) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         player.setGameMode(GameType.CREATIVE);
-        // What the client makes of two cards right-clicked together, and says went in.
+        // What the client makes of two cards right-clicked together: its cards are real, because it made them
+        // out of the two card items in front of it, so the first copy the server sees is the whole deck.
         ItemStack made = DeckItem.of(new DeckComponent("", "", Optional.of(player.getUUID()),
                 List.of(BOLT, BEARS), List.of(), List.of()));
-        UUID handle = DeckItem.handleOf(made).orElseThrow();
-        DeckVault.cardsWentIn(handle, player.getUUID(), List.of(BOLT, BEARS));
-        // And what reaches the server of the deck itself.
-        made.set(GatheringComponents.DECK.get(), asAClientHasIt(helper, DeckItem.deckOf(made).orElseThrow()));
         player.getInventory().setItem(4, made);
+        made.inventoryTick(helper.getLevel(), player, 4, false);
+        // And what reaches the server the next time the creative menu sends that slot back.
+        made.set(GatheringComponents.DECK.get(), asAClientHasIt(helper, DeckItem.deckOf(made).orElseThrow()));
         made.inventoryTick(helper.getLevel(), player, 4, false);
         if (!DeckItem.deckOf(made).orElseThrow().entries().equals(List.of(BOLT, BEARS))) {
             helper.fail("a deck made of two cards on the creative menu holds " + DeckItem.deckOf(made).orElseThrow().entries());
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A card put into a deck that is already carried is kept, not deleted.
+     * <p>The owner found this in creative: right-clicking cards onto a deck emptied their hand and the deck
+     * came back the size it was. The creative menu sends the client's copy of the stack back, every card in it
+     * hidden except the ones the client has just put in - and the server was taking the list it had kept and
+     * throwing the rest away. Twice over, because a stack ticks every tick: what is added must be added once.
+     */
+    @GameTest(template = "empty")
+    public static void cardsPutIntoACarriedDeckSurviveTheCreativeMenu(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(GameType.CREATIVE);
+        ItemStack stack = DeckItem.of(new DeckComponent("Jank", "", Optional.of(player.getUUID()),
+                List.of(BOLT), List.of(), List.of()));
+        player.getInventory().setItem(5, stack);
+        stack.inventoryTick(helper.getLevel(), player, 5, false);
+
+        // The client's copy of that deck, with a card it has just put in: hidden cards, and one real one.
+        DeckComponent hidden = asAClientHasIt(helper, DeckItem.deckOf(stack).orElseThrow());
+        stack.set(GatheringComponents.DECK.get(),
+                hidden.withAdded(DeckComponent.Section.MAINBOARD, BEARS).orElseThrow());
+        stack.inventoryTick(helper.getLevel(), player, 5, false);
+        if (!DeckItem.deckOf(stack).orElseThrow().entries().equals(List.of(BOLT, BEARS))) {
+            helper.fail("a card put into a carried deck left it holding "
+                    + DeckItem.deckOf(stack).orElseThrow().entries());
+            return;
+        }
+        stack.inventoryTick(helper.getLevel(), player, 5, false);
+        stack.inventoryTick(helper.getLevel(), player, 5, false);
+        if (!DeckItem.deckOf(stack).orElseThrow().entries().equals(List.of(BOLT, BEARS))) {
+            helper.fail("ticking the same deck again made it " + DeckItem.deckOf(stack).orElseThrow().entries());
             return;
         }
         helper.succeed();

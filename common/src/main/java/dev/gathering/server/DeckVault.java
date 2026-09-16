@@ -54,30 +54,21 @@ public final class DeckVault {
             return Optional.ofNullable(deck);
         }
         DeckComponent known = handle == null ? null : KEPT.get(handle);
-        return known == null ? Optional.empty() : Optional.of(deck.holding(known));
-    }
-
-    /**
-     * A creative player put these cards into the deck with this handle - one they already carry, or one
-     * that has just become a deck from the first of them.
-     */
-    public static void cardsWentIn(UUID handle, UUID owner, List<CardComponent> cards) {
-        if (handle == null || cards == null || cards.isEmpty()) {
-            return;
+        if (known == null) {
+            return Optional.empty();
         }
-        DeckComponent deck = KEPT.getOrDefault(handle,
-                new DeckComponent("", "", Optional.ofNullable(owner), List.of(), List.of(), List.of()));
-        for (CardComponent card : cards) {
+        // The cards it is kept with, and then whatever this copy carries face up. A copy that crossed the
+        // wire has every card hidden, so a card in it that is not hidden is one the client has just put in -
+        // a creative player right-clicking cards onto a deck, whose click the server never sees. Taking the
+        // kept list alone threw those cards away, which is a card deleted rather than a card moved.
+        DeckComponent restored = deck.holding(known);
+        for (CardComponent card : deck.entries()) {
             if (card == null || card.isHidden()) {
                 continue;
             }
-            Optional<DeckComponent> next = deck.withAdded(DeckComponent.Section.MAINBOARD, card.faceUp());
-            if (next.isEmpty()) {
-                break;
-            }
-            deck = next.get();
+            restored = restored.withAdded(DeckComponent.Section.MAINBOARD, card.faceUp()).orElse(restored);
         }
-        KEPT.put(handle, deck);
+        return Optional.of(restored);
     }
 
     /** For a server that is stopping. */
