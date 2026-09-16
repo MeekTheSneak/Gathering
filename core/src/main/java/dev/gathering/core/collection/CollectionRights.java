@@ -7,24 +7,30 @@ import java.util.UUID;
 
 /**
  * Who may do what with one collection.
- * <p>Looking is public and touching is permissioned. A collection is a thing you show off, and
- * being able to browse the playgroup's pool without asking anybody is most of what it is for -
- * so reading is not a right at all, it is just what a collection is. Taking and adding are.
- * <p>Two rights rather than one, because separating them is what buys the shapes people
+ * <p>Three rights rather than one, because separating them is what buys the shapes people
  * actually build: a donation box is anyone-adds and owner-takes, a lending library is
- * trusted-take and owner-stocks, a display case is neither. One "trusted" flag would collapse
- * all three into the same thing.
- * <p>Owner-only to begin with, so sharing a collection is something somebody did on purpose
- * rather than the default a griefer finds first.
+ * trusted-take and owner-stocks, a display case is neither, and a locked cabinet is none of
+ * them - not even to look in. One "trusted" flag would collapse all four into the same thing.
+ * <p>Looking is open to begin with and can be closed. A collection is a thing you show off, and
+ * being able to browse the playgroup's pool without asking anybody is most of what it is for,
+ * so that is the default; but the owner asked to be able to lock one outright (2026-09-16), and
+ * a cabinet in a shared base whose contents anybody can read is a cabinet whose owner knows
+ * exactly what to take from it. Closed, it is the owner's and whoever has been let in.
+ * <p>Whoever may take from it or add to it may look in it, whether or not they are on the
+ * looking list: taking from a box you cannot see into is not a thing anybody could do, and a
+ * right granted with a second right needed to use it is a right that does not work.
+ * <p>Owner-only for touching to begin with, so sharing a collection is something somebody did
+ * on purpose rather than the default a griefer finds first.
  * <p>Pure.
  */
-public record CollectionRights(UUID owner, Set<UUID> mayTake, Set<UUID> mayAdd) {
+public record CollectionRights(UUID owner, boolean open, Set<UUID> mayLook, Set<UUID> mayTake, Set<UUID> mayAdd) {
 
-    /** What a collection nobody has claimed allows, which is nothing. */
+    /** What a collection nobody has claimed allows: looking, which is what an empty shelf is for. */
     public static final CollectionRights NOBODYS =
-            new CollectionRights(null, Set.of(), Set.of());
+            new CollectionRights(null, true, Set.of(), Set.of(), Set.of());
 
     public CollectionRights {
+        mayLook = unmodifiable(mayLook);
         mayTake = unmodifiable(mayTake);
         mayAdd = unmodifiable(mayAdd);
     }
@@ -39,7 +45,13 @@ public record CollectionRights(UUID owner, Set<UUID> mayTake, Set<UUID> mayAdd) 
 
     /** A fresh collection, belonging to whoever put it down and to nobody else. */
     public static CollectionRights ownedBy(UUID owner) {
-        return new CollectionRights(Objects.requireNonNull(owner, "owner"), Set.of(), Set.of());
+        return new CollectionRights(Objects.requireNonNull(owner, "owner"), true, Set.of(), Set.of(), Set.of());
+    }
+
+    /** The same rights, with looking open to everybody or shut to everybody not let in. */
+    public CollectionRights openedToLook(boolean toEverybody) {
+        return toEverybody == open ? this
+                : new CollectionRights(owner, toEverybody, mayLook, mayTake, mayAdd);
     }
 
     public boolean isOwner(UUID player) {
@@ -61,34 +73,61 @@ public record CollectionRights(UUID owner, Set<UUID> mayTake, Set<UUID> mayAdd) 
     }
 
     /**
-     * Whether this player may read it, which is everybody.
-     * <p>Written out rather than left implicit, because every caller asking "may they?" should
-     * be asking this object, and one that has to know reading is free is a caller that will
-     * one day guess wrong about it.
+     * Whether this player may look in it.
+     * <p>Everybody, while it is open. Closed, the owner and whoever has been let in - by name, or by
+     * being allowed to take from it or add to it, neither of which anybody could do blind.
      */
     public boolean mayLook(UUID player) {
-        return true;
+        if (open) {
+            return true;
+        }
+        return player != null
+                && (isOwner(player) || mayLook.contains(player) || mayTake.contains(player) || mayAdd.contains(player));
     }
 
     /** Whether anybody at all besides the owner has been let in. */
     public boolean isShared() {
-        return !mayTake.isEmpty() || !mayAdd.isEmpty();
+        return !mayLook.isEmpty() || !mayTake.isEmpty() || !mayAdd.isEmpty();
     }
 
+    /** Everybody who has been let in to do anything, in the order they were let in. */
+    public Set<UUID> everybodyLetIn() {
+        Set<UUID> all = new LinkedHashSet<>(mayLook);
+        all.addAll(mayTake);
+        all.addAll(mayAdd);
+        return java.util.Collections.unmodifiableSet(all);
+    }
+
+    public CollectionRights allowingLook(UUID player) {
+        return with(player, Right.LOOK, true);
+    }
+
+    public CollectionRights refusingLook(UUID player) {
+        return with(player, Right.LOOK, false);
+    }
+
+    /** Off every list: the whole of what "this person is no longer let in" means. */
+    public CollectionRights refusingEverything(UUID player) {
+        return refusingLook(player).refusingTake(player).refusingAdd(player);
+    }
+
+    /** Which of the three lists a change is about. */
+    private enum Right { LOOK, TAKE, ADD }
+
     public CollectionRights allowingTake(UUID player) {
-        return with(player, true, true);
+        return with(player, Right.TAKE, true);
     }
 
     public CollectionRights refusingTake(UUID player) {
-        return with(player, true, false);
+        return with(player, Right.TAKE, false);
     }
 
     public CollectionRights allowingAdd(UUID player) {
-        return with(player, false, true);
+        return with(player, Right.ADD, true);
     }
 
     public CollectionRights refusingAdd(UUID player) {
-        return with(player, false, false);
+        return with(player, Right.ADD, false);
     }
 
     /**
@@ -98,27 +137,34 @@ public record CollectionRights(UUID owner, Set<UUID> mayTake, Set<UUID> mayAdd) 
      */
     public CollectionRights ownedNowBy(UUID newOwner) {
         Objects.requireNonNull(newOwner, "newOwner");
+        Set<UUID> look = new LinkedHashSet<>(mayLook);
         Set<UUID> take = new LinkedHashSet<>(mayTake);
         Set<UUID> add = new LinkedHashSet<>(mayAdd);
+        look.remove(newOwner);
         take.remove(newOwner);
         add.remove(newOwner);
-        return new CollectionRights(newOwner, take, add);
+        return new CollectionRights(newOwner, open, look, take, add);
     }
 
-    private CollectionRights with(UUID player, boolean taking, boolean allowed) {
+    private CollectionRights with(UUID player, Right right, boolean allowed) {
         if (player == null || isOwner(player)) {
             // The owner's rights are not a list entry, so there is nothing to add and nothing
             // that could be taken away.
             return this;
         }
+        Set<UUID> look = new LinkedHashSet<>(mayLook);
         Set<UUID> take = new LinkedHashSet<>(mayTake);
         Set<UUID> add = new LinkedHashSet<>(mayAdd);
-        Set<UUID> which = taking ? take : add;
+        Set<UUID> which = switch (right) {
+            case LOOK -> look;
+            case TAKE -> take;
+            case ADD -> add;
+        };
         if (allowed) {
             which.add(player);
         } else {
             which.remove(player);
         }
-        return new CollectionRights(owner, take, add);
+        return new CollectionRights(owner, open, look, take, add);
     }
 }

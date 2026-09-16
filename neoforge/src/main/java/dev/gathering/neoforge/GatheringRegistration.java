@@ -98,6 +98,16 @@ final class GatheringRegistration {
                                     everyOne(GatheringContent.Woodwork.COLLECTION, COLLECTION))
                             .build(null));
 
+    private static final Supplier<Block> DISPLAY_CASE =
+            BLOCKS.register(GatheringContent.DISPLAY_CASE_ID, GatheringContent::createDisplayCase);
+    private static final Supplier<Item> DISPLAY_CASE_ITEM =
+            ITEMS.register(GatheringContent.DISPLAY_CASE_ID, GatheringContent::createDisplayCaseItem);
+    private static final Supplier<BlockEntityType<dev.gathering.block.DisplayCaseBlockEntity>>
+            DISPLAY_CASE_ENTITY = BLOCK_ENTITIES.register(
+                    dev.gathering.block.DisplayCaseBlockEntity.ID, () -> BlockEntityType.Builder
+                            .of(dev.gathering.block.DisplayCaseBlockEntity::new, DISPLAY_CASE.get())
+                            .build(null));
+
     private static final Supplier<Block> CHAIR =
             BLOCKS.register(GatheringContent.CHAIR_ID, GatheringContent::createChair);
     private static final Supplier<Item> CHAIR_ITEM =
@@ -208,6 +218,7 @@ final class GatheringRegistration {
                 output.accept(new ItemStack(BLACKSTONE_TABLE_ITEM.get()));
                 output.accept(new ItemStack(CRYING_OBSIDIAN_TABLE_ITEM.get()));
                 output.accept(new ItemStack(COLLECTION_ITEM.get()));
+                output.accept(new ItemStack(DISPLAY_CASE_ITEM.get()));
                 output.accept(new ItemStack(SCOREKEEPERS_DESK_ITEM.get()));
                 output.accept(new ItemStack(CHAIR_ITEM.get()));
                 output.accept(new ItemStack(COBBLESTONE_CHAIR_ITEM.get()));
@@ -315,6 +326,9 @@ final class GatheringRegistration {
         GatheringContent.COLLECTION.bind(COLLECTION);
         GatheringContent.COLLECTION_ITEM.bind(COLLECTION_ITEM);
         GatheringContent.COLLECTION_ENTITY.bind(COLLECTION_ENTITY);
+        GatheringContent.DISPLAY_CASE.bind(DISPLAY_CASE);
+        GatheringContent.DISPLAY_CASE_ITEM.bind(DISPLAY_CASE_ITEM);
+        GatheringContent.DISPLAY_CASE_ENTITY.bind(DISPLAY_CASE_ENTITY);
         GatheringContent.CHAIR.bind(CHAIR);
         GatheringContent.CHAIR_ITEM.bind(CHAIR_ITEM);
         GatheringContent.COBBLESTONE_CHAIR.bind(COBBLESTONE_CHAIR);

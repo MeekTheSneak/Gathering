@@ -45,6 +45,7 @@ public final class GatheringContent {
     public static final String SHOP_COUNTER_ID = "shop_counter";
     public static final String SCOREKEEPERS_DESK_ID = "scorekeepers_desk";
     public static final String CHAIR_ID = "chair";
+    public static final String DISPLAY_CASE_ID = "display_case";
     public static final String COBBLESTONE_CHAIR_ID = "cobblestone_chair";
     public static final String BLACKSTONE_CHAIR_ID = "blackstone_chair";
     public static final String CRYING_OBSIDIAN_CHAIR_ID = "crying_obsidian_chair";
@@ -210,6 +211,10 @@ public final class GatheringContent {
     public static final Registered<BlockEntityType<dev.gathering.block.CollectionBlockEntity>>
             COLLECTION_ENTITY = new Registered<>(
                     dev.gathering.block.CollectionBlockEntity.ID);
+    public static final Registered<Block> DISPLAY_CASE = new Registered<>(DISPLAY_CASE_ID);
+    public static final Registered<Item> DISPLAY_CASE_ITEM = new Registered<>(DISPLAY_CASE_ID);
+    public static final Registered<BlockEntityType<dev.gathering.block.DisplayCaseBlockEntity>>
+            DISPLAY_CASE_ENTITY = new Registered<>(dev.gathering.block.DisplayCaseBlockEntity.ID);
     public static final Registered<Block> CHAIR = new Registered<>(CHAIR_ID);
     public static final Registered<Item> CHAIR_ITEM = new Registered<>(CHAIR_ID);
     public static final Registered<Block> COBBLESTONE_CHAIR = new Registered<>(COBBLESTONE_CHAIR_ID);
@@ -380,6 +385,24 @@ public final class GatheringContent {
                 // Pistons would take the block and leave the block entity, which is a
                 // collection deleted by a redstone accident.
                 .pushReaction(PushReaction.BLOCK));
+    }
+
+    /**
+     * One card under glass. Wood, glass and a wool mat, all of them vanilla: the case is a frame around
+     * somebody else's card and has no art of its own to need.
+     */
+    public static Block createDisplayCase() {
+        return new dev.gathering.block.DisplayCaseBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.WOOD)
+                .strength(2.0f)
+                .sound(SoundType.WOOD)
+                // Glass and air, which is nothing like a cube.
+                .noOcclusion());
+    }
+
+    public static Item createDisplayCaseItem() {
+        return new DescribedBlockItem(DISPLAY_CASE.get(), new Item.Properties(),
+                java.util.List.of("tooltip.gathering.display_case_show", "tooltip.gathering.display_case_take"));
     }
 
     public static Item createCollectionItem() {

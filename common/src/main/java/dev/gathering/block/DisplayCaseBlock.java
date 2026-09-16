@@ -1,0 +1,216 @@
+package dev.gathering.block;
+
+import com.mojang.serialization.MapCodec;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.CardItem;
+import dev.gathering.item.GatheringContent;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
+
+/**
+ * One card, under glass, for a room to look at.
+ * <p>The thing a shop has by the till and a player has by the door: the card you are proudest of,
+ * standing up where it can be read from across the room rather than counted in a binder. The owner asked
+ * for one (2026-09-16).
+ * <p>Right-click it holding a card and the card goes in; right-click it empty-handed and the card comes
+ * back out. Both are the case's owner's, which is whoever put it down - a case anybody could empty is a
+ * case for a card you do not mind losing, which is the opposite of what this is for. Anybody at all may
+ * look, because a case is glass and looking is the whole point.
+ * <p>The card goes in face up and is stored face up. Everything a case holds is sent to every client
+ * that can see the block, so a face-down card in one would be a hidden identity handed to the room; a
+ * card put in face down turns over on the way in rather than being refused, which is what putting a card
+ * in a display case means.
+ */
+public class DisplayCaseBlock extends HorizontalDirectionalBlock implements EntityBlock {
+
+    public static final MapCodec<DisplayCaseBlock> CODEC = simpleCodec(DisplayCaseBlock::new);
+
+    public DisplayCaseBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+    }
+
+    @Override
+    protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
+        return CODEC;
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FACING);
+    }
+
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new DisplayCaseBlockEntity(pos, state);
+    }
+
+    /** Whoever puts one down owns it, and owns what goes in it. */
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state,
+            net.minecraft.world.entity.LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide() && placer instanceof Player player
+                && level.getBlockEntity(pos) instanceof DisplayCaseBlockEntity display) {
+            display.claimFor(player.getUUID());
+        }
+    }
+
+    /** A card in hand goes on show. */
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
+            BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        CardComponent card = CardItem.cardOf(stack).orElse(null);
+        if (card == null) {
+            // Not a card. Falls through to the empty-handed path, so clicking with a pickaxe takes the
+            // card out rather than doing nothing at all.
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (!(level.getBlockEntity(pos) instanceof DisplayCaseBlockEntity display)) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (level.isClientSide()) {
+            return ItemInteractionResult.SUCCESS;
+        }
+        if (!display.isOwner(player.getUUID())) {
+            say(player, "message.gathering.display_case_not_yours");
+            return ItemInteractionResult.CONSUME;
+        }
+        if (!display.isEmpty()) {
+            say(player, "message.gathering.display_case_full");
+            return ItemInteractionResult.CONSUME;
+        }
+        display.show(card);
+        // Not in creative, where the stack in hand is a supply rather than the card itself and taking one
+        // would empty the menu slot somebody is holding.
+        if (!player.getAbilities().instabuild) {
+            stack.shrink(1);
+        }
+        return ItemInteractionResult.SUCCESS;
+    }
+
+    /** An empty hand takes it back out. */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+            Player player, BlockHitResult hit) {
+        if (!(level.getBlockEntity(pos) instanceof DisplayCaseBlockEntity display)) {
+            return InteractionResult.PASS;
+        }
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (display.isEmpty()) {
+            say(player, "message.gathering.display_case_empty");
+            return InteractionResult.CONSUME;
+        }
+        if (!display.isOwner(player.getUUID())) {
+            say(player, "message.gathering.display_case_not_yours");
+            return InteractionResult.CONSUME;
+        }
+        display.take().ifPresent(card -> give(player, card));
+        return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * What one drops: itself, and whatever was in it.
+     * <p>The card comes out beside the case rather than inside it, the way a jukebox gives its record
+     * back. A card that travelled in the item would be a card nobody can see they are carrying.
+     */
+    @Override
+    protected java.util.List<ItemStack> getDrops(
+            BlockState state, net.minecraft.world.level.storage.loot.LootParams.Builder params) {
+        java.util.List<ItemStack> drops = new java.util.ArrayList<>();
+        drops.add(new ItemStack(GatheringContent.DISPLAY_CASE_ITEM.get()));
+        BlockEntity entity = params.getOptionalParameter(
+                net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY);
+        if (entity instanceof DisplayCaseBlockEntity display) {
+            display.card().ifPresent(card -> drops.add(CardItem.of(card)));
+        }
+        return drops;
+    }
+
+    private static void give(Player player, CardComponent card) {
+        ItemStack stack = CardItem.of(card);
+        if (!player.getInventory().add(stack)) {
+            player.drop(stack, false);
+        }
+    }
+
+    private static void say(Player player, String message) {
+        player.displayClientMessage(Component.translatable(message), true);
+    }
+
+    /**
+     * A stand with a card standing on it, and glass around the card.
+     * <p>The shape is the block minus the air over the base in front of and behind the card, so an
+     * outline round one is the case rather than a cube, and so it is not a cube for the purpose of
+     * hiding its neighbors - see {@code BlockOcclusionGameTest}.
+     */
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return SHAPES[state.getValue(FACING).get2DDataValue()];
+    }
+
+    @Override
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return getShape(state, level, pos, context);
+    }
+
+    /** The base, and the glass box standing on it. */
+    private static final VoxelShape SOUTH_FACING = Shapes.or(
+            Block.box(1, 0, 1, 15, 2, 15),
+            Block.box(1, 2, 5, 15, 15, 11),
+            Block.box(1, 15, 1, 15, 16, 15));
+
+    private static final VoxelShape[] SHAPES = turned(SOUTH_FACING);
+
+    /** The same shape facing each of the four ways, in the order a horizontal facing counts them. */
+    private static VoxelShape[] turned(VoxelShape south) {
+        // SOUTH is 0, WEST 1, NORTH 2, EAST 3 - a quarter turn clockwise from one to the next.
+        VoxelShape[] result = new VoxelShape[4];
+        result[0] = south;
+        for (int index = 1; index < result.length; index++) {
+            VoxelShape[] next = {Shapes.empty()};
+            result[index - 1].forAllBoxes((x0, y0, z0, x1, y1, z1) ->
+                    next[0] = Shapes.or(next[0], Shapes.box(1 - z1, y0, x0, 1 - z0, y1, x1)));
+            result[index] = next[0];
+        }
+        return result;
+    }
+}

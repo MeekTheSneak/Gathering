@@ -125,10 +125,68 @@ class CollectionRightsTest {
     @Test
     @DisplayName("a list handed out cannot be edited behind its back")
     void theListsAreNotWritable() {
-        CollectionRights rights = new CollectionRights(OWNER, Set.of(FRIEND), Set.of());
+        CollectionRights rights = new CollectionRights(OWNER, true, Set.of(), Set.of(FRIEND), Set.of());
 
         org.assertj.core.api.Assertions
                 .assertThatThrownBy(() -> rights.mayTake().add(STRANGER))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @DisplayName("an open collection is open to everybody, and a closed one to the owner and whoever is let in")
+    void theLockShutsOutEverybodyNotLetIn() {
+        CollectionRights open = CollectionRights.ownedBy(OWNER);
+        assertThat(open.open()).isTrue();
+        assertThat(open.mayLook(STRANGER)).isTrue();
+
+        CollectionRights shut = open.openedToLook(false);
+        assertThat(shut.mayLook(STRANGER)).isFalse();
+        assertThat(shut.mayLook(OWNER)).isTrue();
+        assertThat(shut.allowingLook(FRIEND).mayLook(FRIEND)).isTrue();
+        assertThat(shut.allowingLook(FRIEND).refusingLook(FRIEND).mayLook(FRIEND)).isFalse();
+        // Nobody at all, not even a client that sent no id.
+        assertThat(shut.mayLook(null)).isFalse();
+    }
+
+    /**
+     * Taking from a box you cannot see into is not a thing anybody could do, so a right granted with a
+     * second right needed to use it is a right that does not work.
+     */
+    @Test
+    @DisplayName("whoever may take or add may look, whether or not they were told they could")
+    void takingOrAddingCarriesLooking() {
+        CollectionRights shut = CollectionRights.ownedBy(OWNER).openedToLook(false);
+        assertThat(shut.allowingTake(FRIEND).mayLook(FRIEND)).isTrue();
+        assertThat(shut.allowingAdd(FRIEND).mayLook(FRIEND)).isTrue();
+    }
+
+    @Test
+    @DisplayName("shutting somebody out takes them off every list at once")
+    void shuttingOutIsOffEveryList() {
+        CollectionRights rights = CollectionRights.ownedBy(OWNER)
+                .allowingLook(FRIEND).allowingTake(FRIEND).allowingAdd(FRIEND)
+                .openedToLook(false)
+                .refusingEverything(FRIEND);
+
+        assertThat(rights.mayLook(FRIEND)).isFalse();
+        assertThat(rights.mayTake(FRIEND)).isFalse();
+        assertThat(rights.mayAdd(FRIEND)).isFalse();
+        assertThat(rights.everybodyLetIn()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a new owner keeps the lock and comes off every list")
+    void handingItOverKeepsTheLock() {
+        CollectionRights rights = CollectionRights.ownedBy(OWNER)
+                .openedToLook(false)
+                .allowingLook(FRIEND).allowingTake(FRIEND)
+                .ownedNowBy(FRIEND);
+
+        assertThat(rights.open()).isFalse();
+        assertThat(rights.isOwner(FRIEND)).isTrue();
+        assertThat(rights.everybodyLetIn()).isEmpty();
+        assertThat(rights.mayLook(FRIEND)).isTrue();
+        assertThat(rights.mayTake(FRIEND)).isTrue();
+        assertThat(rights.mayLook(OWNER)).isFalse();
     }
 }

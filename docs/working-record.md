@@ -2076,6 +2076,40 @@ setup those earlier steps do; nothing there is a claim about them.
 Not done: the third-person pack was not photographed - the tour has no step that stands back from the
 player - so its new angle is reasoned from vanilla's and is for the owner to look at.
 
+
+### Twenty-third batch: a lock on a collection, and a case to show one card in (2026-09-16)
+
+- **#9, who may use a collection.** The rights have been there since collections were - a list of who may
+  take and a list of who may add - and **nothing could change either of them**, so in practice every
+  collection was its owner's forever and nobody else's ever. Now: `CollectionRights` carries a third
+  right, looking, and whether the collection is open to everybody; `CollectionKeys` is the only thing that
+  changes any of it, and only for the owner; and `CollectionKeysScreen` is where the owner does it - a
+  lock, a name to let somebody in by, and a row per person with Look, Take and Add on it. Whoever may take
+  or add may look, because taking from a box you cannot see into is not a thing anybody could do.
+  Protocol 22.
+  The lock is asked in `CollectionView.at`, which is the one place every payload naming a position goes
+  through, so a closed collection answers nothing at all - not a page, not a count, not whether a card is
+  in it. A collection saved before the lock existed loads open, which is what it was.
+  Guards: `CollectionKeysGameTest`, seven of them, reading through `CollectionView.pageFor` - the same
+  path every page a screen shows comes down. Proven: with looking always allowed, three fail; with the
+  owner check gone, the stranger one fails.
+  **A first draft of that stranger test passed for the wrong reason** and the proof run is what showed it:
+  it used a *locked* collection, which refuses a stranger before ownership is ever considered, so it would
+  have passed whether or not anybody checked who owned the block. It uses an open one now, where the only
+  thing between a stranger and the keys is that the collection is not theirs.
+- **#7, a display case.** One card, under glass, for a room to look at: `DisplayCaseBlock` and its block
+  entity, drawn in the world through the same renderer a card in the hand goes through. A card goes in
+  with a right-click and comes back out with an empty hand, both the owner's; anybody may look, because a
+  case is glass. What a case holds is sent to every client that can see the block, so **what goes in is
+  turned face up on the way**, and a case with somebody else's card in it cannot be broken by anybody
+  else. Glass, planks and wool - no new textures. Guards: `DisplayCaseGameTest`, five of them through the
+  block's own right-click; proven by reverting the face-up turn and the owner checks.
+
+`tools/recipecheck.py` caught the display case shipping without a recipe unlock before the gate did, which
+is what it is for.
+
+Verified: gate green (592/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

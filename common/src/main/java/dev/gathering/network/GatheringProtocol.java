@@ -72,11 +72,13 @@ public final class GatheringProtocol {
      * now require; and a top cut left to the player count.
      * <p>Twenty-one, for taking a payload away: a creative client no longer tells the server which cards it
      * put into a deck, because the server now reads them off the copy the creative menu sends it anyway.
+     * <p>Twenty-two, for who is let into a collection: the owner asks for the list, opens or shuts it to
+     * everybody, and lets a player in or shuts them out by name.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 21;
+    public static final int VERSION = 22;
 
     private GatheringProtocol() {
     }
@@ -227,6 +229,12 @@ public final class GatheringProtocol {
                             player, payload.where(), payload.card(), payload.howMany())),
             toServer(BuildDeckPayload.TYPE, BuildDeckPayload.STREAM_CODEC,
                     dev.gathering.server.CollectionView::build),
+            toServer(CollectionKeysAskPayload.TYPE, CollectionKeysAskPayload.STREAM_CODEC,
+                    (player, payload) -> dev.gathering.server.CollectionKeys.show(player, payload.where())),
+            toServer(CollectionLockPayload.TYPE, CollectionLockPayload.STREAM_CODEC,
+                    dev.gathering.server.CollectionKeys::lock),
+            toServer(CollectionKeyPayload.TYPE, CollectionKeyPayload.STREAM_CODEC,
+                    dev.gathering.server.CollectionKeys::set),
             toServer(WatchReplayPayload.TYPE, WatchReplayPayload.STREAM_CODEC,
                     dev.gathering.server.ReplayWatch::handle));
 
@@ -257,6 +265,7 @@ public final class GatheringProtocol {
             toClient(EventPointerPayload.TYPE, EventPointerPayload.STREAM_CODEC),
             toClient(OpenCollectionPayload.TYPE, OpenCollectionPayload.STREAM_CODEC),
             toClient(CollectionPagePayload.TYPE, CollectionPagePayload.STREAM_CODEC),
+            toClient(CollectionKeysPayload.TYPE, CollectionKeysPayload.STREAM_CODEC),
             toClient(OpenLoanersPayload.TYPE, OpenLoanersPayload.STREAM_CODEC),
             toClient(AntePotPayload.TYPE, AntePotPayload.STREAM_CODEC),
             toClient(TableTermsPayload.TYPE, TableTermsPayload.STREAM_CODEC),

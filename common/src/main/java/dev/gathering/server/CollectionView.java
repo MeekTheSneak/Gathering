@@ -120,13 +120,22 @@ public final class CollectionView {
      */
     public static void open(ServerPlayer player, BlockPos where, CollectionBlockEntity collection) {
         UUID who = player.getUUID();
+        if (!collection.rights().mayLook(who)) {
+            // Over the hotbar rather than in the chat: somebody who has walked up to a locked cabinet is
+            // going to click it more than once.
+            player.displayClientMessage(
+                    Component.translatable("message.gathering.collection_locked"), true);
+            return;
+        }
         Sending.to(player, new OpenCollectionPayload(
                 where,
                 collection.label(),
                 collection.cards().total(),
                 collection.cards().distinct(),
-                collection.rights().mayTake(who),
-                collection.rights().mayAdd(who)));
+                OpenCollectionPayload.allowing(
+                        collection.rights().mayTake(who),
+                        collection.rights().mayAdd(who),
+                        collection.rights().isOwner(who))));
     }
 
     /**
@@ -687,9 +696,12 @@ public final class CollectionView {
      * server go and fetch one; and a collection across the world is somebody reading a
      * stranger's binder from their own base.
      * <p>Package-visible so {@link CollectionDecks} asks the same question rather than a
-     * second one that looks like it. Reading a collection is public; being in front of one is
-     * not, and a payload naming a position is a payload naming <em>any</em> position - so
-     * every path in has to check, and there is one check.
+     * second one that looks like it. A payload naming a position is a payload naming
+     * <em>any</em> position - so every path in has to check, and there is one check.
+     * <p>The fourth half is the lock. A closed collection answers nothing at all to somebody who
+     * has not been let in: not a page, not a count, not whether a card is in it. Asked here rather
+     * than at each of the half-dozen payloads that arrive with a position, because the one that
+     * gets forgotten is the one somebody reads a locked cabinet through.
      */
     static CollectionBlockEntity at(ServerPlayer player, BlockPos where) {
         if (where == null || !player.level().isLoaded(where)) {
@@ -699,9 +711,10 @@ public final class CollectionView {
                 > WITHIN * WITHIN) {
             return null;
         }
-        return player.level().getBlockEntity(where) instanceof CollectionBlockEntity collection
-                ? collection
-                : null;
+        if (!(player.level().getBlockEntity(where) instanceof CollectionBlockEntity collection)) {
+            return null;
+        }
+        return collection.rights().mayLook(player.getUUID()) ? collection : null;
     }
 
     /** The collection as rows, with whatever the cache already knows about each card. */

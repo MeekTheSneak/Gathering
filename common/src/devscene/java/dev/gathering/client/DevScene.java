@@ -179,7 +179,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 371;
+    private static final int LAST_STEP = 376;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -4165,6 +4165,37 @@ public final class DevScene {
                 client.setScreen(null);
                 advance(SETTLE / 2);
             }
+            case 372 -> {
+                // Who may use a collection: the owner's screen, and the one place the lock can be put on.
+                openTheCollectionWeOwn(client);
+                advance(SETTLE);
+            }
+            case 373 -> {
+                expectScreen(client, "the collection we own", CollectionScreen.class);
+                press(client, Component.translatable("screen.gathering.collection.share").getString());
+                advance(SETTLE);
+            }
+            case 374 -> {
+                expectScreen(client, "who may use this collection", CollectionKeysScreen.class);
+                shoot(client, "111-who-may-use-this-collection");
+                // The lock goes on, and the screen says so rather than the button still offering it.
+                press(client, Component.translatable("screen.gathering.collection_keys.anyone_may_look").getString());
+                advance(SETTLE);
+                theCollectionIsLocked(client);
+                shoot(client, "112-a-locked-collection");
+                client.setScreen(null);
+                advance(SETTLE / 2);
+            }
+            case 375 -> {
+                // A card under glass, which is a block whose whole job is to be looked at.
+                aDisplayCaseWithACardInIt(client);
+                advance(SETTLE * 2);
+            }
+            case 376 -> {
+                theCaseIsShowingItsCard(client);
+                shoot(client, "113-a-card-under-glass");
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -6281,6 +6312,76 @@ public final class DevScene {
         });
     }
 
+    /** Where the display case was put down, for the step that photographs it. */
+    private static BlockPos displayCase;
+
+    /**
+     * A display case with a real card in it, and the camera in front of it.
+     * <p>Put down and filled on the server, then looked at: what is being checked is that a card in a
+     * case reaches every client that can see the block and is drawn there, which is a block entity
+     * renderer and a block update rather than a screen.
+     */
+    private static void aDisplayCaseWithACardInIt(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to put a display case on");
+            return;
+        }
+        BlockPos where = client.player.blockPosition().offset(2, -1, 2);
+        displayCase = where;
+        java.util.UUID player = client.player.getUUID();
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            level.setBlock(where, GatheringContent.DISPLAY_CASE.get().defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING,
+                            net.minecraft.core.Direction.NORTH), 3);
+            if (!(level.getBlockEntity(where)
+                    instanceof dev.gathering.block.DisplayCaseBlockEntity display)) {
+                fail("a display case was placed without its block entity");
+                return;
+            }
+            display.claimFor(player);
+            // A card the import has already resolved, so the case shows a printed face rather than
+            // "not looked up yet" - which would photograph as a placeholder and say nothing.
+            var service = dev.gathering.service.CardDataService.active().orElse(null);
+            if (service == null) {
+                fail("there was no card service to put a card in a case");
+                return;
+            }
+            service.findByName("Lightning Bolt").thenAccept(found -> found.ifPresent(card ->
+                    server.execute(() -> display.show(dev.gathering.item.CardComponent.of(
+                            dev.gathering.core.card.CardIdentity.ofPrinting(card.scryfallId(), false))))));
+            var opener = server.getPlayerList().getPlayer(player);
+            if (opener != null) {
+                double x = where.getX() + 0.5;
+                double y = where.getY() + 0.2;
+                double z = where.getZ() - 2.0;
+                opener.teleportTo(level, x, y, z, 0f, 5f);
+                opener.connection.teleport(x, y, z, 0f, 5f);
+            }
+        });
+    }
+
+    /** The case the client can see is showing the card the server put in it. */
+    private static void theCaseIsShowingItsCard(Minecraft client) {
+        if (client.level == null || displayCase == null) {
+            fail("there was no display case to look at");
+            return;
+        }
+        if (!(client.level.getBlockEntity(displayCase)
+                instanceof dev.gathering.block.DisplayCaseBlockEntity display)) {
+            fail("the client has no display case at " + displayCase);
+            return;
+        }
+        if (display.isEmpty()) {
+            fail("the server put a card in the case and this client's copy is empty");
+            return;
+        }
+        if (display.card().map(dev.gathering.item.CardComponent::flipped).orElse(true)) {
+            fail("the card in the case reached this client face down");
+        }
+    }
+
     /**
      * A collection with a few real cards in it.
      * <p>Stocked on the server, which is where a collection lives - the client is told what
@@ -6346,6 +6447,58 @@ public final class DevScene {
             opener.teleportTo(where.getX() + 0.5, where.getY() + 1, where.getZ() + 1.5);
             dev.gathering.server.CollectionView.open(opener, where, collection);
         });
+    }
+
+    /**
+     * Opens the collection this player put down, which is theirs - so the Share button is on the screen.
+     * <p>The same server call the block's own right-click makes, because what is being checked is the
+     * screen and the payload behind it rather than the aiming.
+     */
+    private static void openTheCollectionWeOwn(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null || collectionBlock == null) {
+            fail("there was no collection to share");
+            return;
+        }
+        java.util.UUID player = client.player.getUUID();
+        BlockPos where = collectionBlock;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            var opener = server.getPlayerList().getPlayer(player);
+            if (opener == null
+                    || !(level.getBlockEntity(where)
+                            instanceof dev.gathering.block.CollectionBlockEntity collection)) {
+                fail("the collection went away before it could be shared");
+                return;
+            }
+            // Ours, which is what puts the Share button on it. A collection placed in this scene is
+            // already claimed; saying so here keeps the step honest if that ever stops being true.
+            collection.setRights(dev.gathering.core.collection.CollectionRights.ownedBy(player));
+            opener.teleportTo(where.getX() + 0.5, where.getY() + 1, where.getZ() + 1.5);
+            dev.gathering.server.CollectionView.open(opener, where, collection);
+        });
+    }
+
+    /** The lock went on, said by the screen and by the block behind it. */
+    private static void theCollectionIsLocked(Minecraft client) {
+        if (!(client.screen instanceof CollectionKeysScreen keys)) {
+            fail("the sharing screen went away before the lock could be put on");
+            return;
+        }
+        if (keys.openToAll()) {
+            fail("the collection was locked and its screen still says anyone may look");
+        }
+        MinecraftServer server = client.getSingleplayerServer();
+        BlockPos where = collectionBlock;
+        if (server != null && where != null) {
+            server.execute(() -> {
+                if (server.overworld().getBlockEntity(where)
+                        instanceof dev.gathering.block.CollectionBlockEntity collection
+                        && collection.rights().open()) {
+                    fail("the screen says the collection is locked and the block says it is open");
+                }
+            });
+        }
     }
 
     /**

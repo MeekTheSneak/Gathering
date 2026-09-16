@@ -103,6 +103,7 @@ public final class CollectionScreen extends Screen {
     private final String label;
     private final boolean mayTake;
     private final boolean mayAdd;
+    private final boolean yours;
     private int total;
     private int distinct;
 
@@ -131,6 +132,7 @@ public final class CollectionScreen extends Screen {
         this.distinct = opened.distinct();
         this.mayTake = opened.mayTake();
         this.mayAdd = opened.mayAdd();
+        this.yours = opened.yours();
     }
 
     /** Opens one, replacing whatever collection was open before. */
@@ -251,6 +253,15 @@ public final class CollectionScreen extends Screen {
                     ClientNetworking.send(
                             new dev.gathering.network.AskSetProgressPayload(where));
                 }));
+
+        // Who may use it, for its owner and nobody else. Beside the other place to go rather than
+        // among the filters: it changes who can open the box, not what the list shows.
+        if (yours) {
+            addRenderableWidget(GatheringButtons.of(
+                    this.width - MARGIN - 180, this.height - BOTTOM_BAR + 8, 58, 18,
+                    Component.translatable("screen.gathering.collection.share"),
+                    () -> CollectionKeysScreen.show(where)));
+        }
 
         // A way out somebody can see. Every other panel in the mod has one, and this one
         // relied on the escape key - which is a rule nobody was told. Bottom right, in the

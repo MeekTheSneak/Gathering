@@ -44,6 +44,12 @@ public final class BreakRules {
             return Optional.of(
                     Component.translatable("message.gathering.collection_may_not_take"));
         }
+        // Nor somebody else's display case with a card in it, which would be a card taken by breaking
+        // the glass rather than by asking - the same rule the collection has, for the same reason.
+        if (level.getBlockEntity(pos) instanceof DisplayCaseBlockEntity display
+                && !display.isEmpty() && !display.isOwner(player.getUUID())) {
+            return Optional.of(Component.translatable("message.gathering.display_case_not_yours"));
+        }
         return Optional.empty();
     }
 

@@ -160,6 +160,19 @@ final class GatheringRegistration {
                         .addBlocks(blocksOf(GatheringContent.Woodwork.COLLECTION))
                         .build()));
 
+        net.minecraft.world.level.block.Block displayCase = Registry.register(BuiltInRegistries.BLOCK,
+                Gathering.id(GatheringContent.DISPLAY_CASE_ID), GatheringContent.createDisplayCase());
+        GatheringContent.DISPLAY_CASE.bindValue(displayCase);
+        GatheringContent.DISPLAY_CASE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.DISPLAY_CASE_ID),
+                GatheringContent.createDisplayCaseItem()));
+        GatheringContent.DISPLAY_CASE_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.DisplayCaseBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(dev.gathering.block.DisplayCaseBlockEntity::new, displayCase)
+                        .build()));
+
         GatheringContent.CHAIR.bindValue(Registry.register(
                 BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.CHAIR_ID), GatheringContent.createChair()));
         GatheringContent.CHAIR_ITEM.bindValue(Registry.register(
@@ -247,6 +260,8 @@ final class GatheringRegistration {
                                     GatheringContent.CRYING_OBSIDIAN_TABLE_ITEM.get()));
                             output.accept(
                                     new ItemStack(GatheringContent.COLLECTION_ITEM.get()));
+                            output.accept(
+                                    new ItemStack(GatheringContent.DISPLAY_CASE_ITEM.get()));
                             output.accept(
                                     new ItemStack(GatheringContent.SCOREKEEPERS_DESK_ITEM.get()));
                             output.accept(new ItemStack(GatheringContent.CHAIR_ITEM.get()));
