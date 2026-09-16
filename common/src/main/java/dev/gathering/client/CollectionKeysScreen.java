@@ -35,8 +35,14 @@ public final class CollectionKeysScreen extends Screen {
     private static final int GAP = 4;
     private static final int ROW = 20;
     private static final int PANEL_WIDTH = 320;
+
+    /** How wide each of Look, Take and Add would like to be, and the least they will fit in. */
     private static final int RIGHT_BUTTON = 46;
+    private static final int NARROWEST_RIGHT = 26;
+
+    /** The cross that shuts somebody out, and the least room a name gets beside the three rights. */
     private static final int CROSS = 20;
+    private static final int NAME_ROOM = 40;
     private static final int TEXT = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
 
@@ -47,6 +53,14 @@ public final class CollectionKeysScreen extends Screen {
     private Rect panel = Rect.NONE;
     private Rect track = Rect.NONE;
     private EditBox nameBox;
+
+    /**
+     * How wide the three rights are drawn at this window size.
+     * <p>They are anchored to the right of the row, so at their full width in a narrow window the
+     * leftmost one hangs off the left edge of the panel and over the name it belongs to. Squeezed to fit
+     * instead, down to a floor - below which a row is not a row anybody can read anyway.
+     */
+    private int rightButton = RIGHT_BUTTON;
 
     private CollectionKeysScreen(BlockPos where) {
         super(Component.translatable("screen.gathering.collection_keys"));
@@ -82,6 +96,8 @@ public final class CollectionKeysScreen extends Screen {
                 Math.min(height, this.height - 8));
         int inner = panel.width() - PADDING * 2;
         int left = panel.x() + PADDING;
+        rightButton = Math.max(NARROWEST_RIGHT,
+                Math.min(RIGHT_BUTTON, (inner - CROSS - NAME_ROOM - GAP * 4) / 3));
 
         // The lock, said as what it is now and pressed to make it the other thing.
         int lockTop = panel.y() + PADDING + this.font.lineHeight + GAP;
@@ -93,7 +109,7 @@ public final class CollectionKeysScreen extends Screen {
 
         // A name, and the button that lets them look.
         int addTop = lockTop + ROW + GAP;
-        int letInWidth = RIGHT_BUTTON + 20;
+        int letInWidth = rightButton + 20;
         nameBox = new EditBox(this.font, left + 1, addTop + 1, inner - letInWidth - GAP - 2, ROW - 2,
                 Component.translatable("screen.gathering.collection_keys.name"));
         nameBox.setMaxLength(CollectionKeyPayload.MOST_NAME_CHARACTERS);
@@ -114,13 +130,13 @@ public final class CollectionKeysScreen extends Screen {
             addRenderableWidget(GatheringButtons.of(end - CROSS, top, CROSS, ROW,
                     Component.translatable("screen.gathering.collection_keys.shut_out"),
                     () -> send(key.name(), false, false, false)));
-            addRenderableWidget(right(end - CROSS - GAP - RIGHT_BUTTON, top, key,
+            addRenderableWidget(right(end - CROSS - GAP - rightButton, top,
                     "screen.gathering.collection_keys.add", key.add(),
                     () -> send(key.name(), key.look(), key.take(), !key.add())));
-            addRenderableWidget(right(end - CROSS - (GAP + RIGHT_BUTTON) * 2, top, key,
+            addRenderableWidget(right(end - CROSS - (GAP + rightButton) * 2, top,
                     "screen.gathering.collection_keys.take", key.take(),
                     () -> send(key.name(), key.look(), !key.take(), key.add())));
-            addRenderableWidget(right(end - CROSS - (GAP + RIGHT_BUTTON) * 3, top, key,
+            addRenderableWidget(right(end - CROSS - (GAP + rightButton) * 3, top,
                     "screen.gathering.collection_keys.look", key.look(),
                     () -> send(key.name(), !key.look(), key.take(), key.add())));
         }
@@ -135,8 +151,8 @@ public final class CollectionKeysScreen extends Screen {
 
     /** One of a row's three rights, lit when it is allowed. */
     private net.minecraft.client.gui.components.Button right(
-            int x, int y, CollectionKeysPayload.Key key, String label, boolean allowed, Runnable action) {
-        return GatheringButtons.toggle(x, y, RIGHT_BUTTON, ROW,
+            int x, int y, String label, boolean allowed, Runnable action) {
+        return GatheringButtons.toggle(x, y, rightButton, ROW,
                 Component.translatable(label), () -> allowed, action);
     }
 
@@ -195,7 +211,7 @@ public final class CollectionKeysScreen extends Screen {
         }
         int scrollbar = track == Rect.NONE ? 0
                 : dev.gathering.core.ui.ListScreenLayout.SCROLLBAR + dev.gathering.core.ui.ListScreenLayout.SCROLLBAR_GAP;
-        int names = panel.width() - PADDING * 2 - scrollbar - CROSS - (GAP + RIGHT_BUTTON) * 3 - GAP;
+        int names = panel.width() - PADDING * 2 - scrollbar - CROSS - (GAP + rightButton) * 3 - GAP;
         for (int index = 0; index < showing; index++) {
             CollectionKeysPayload.Key key = keys.get(scroll + index);
             GuiText.draw(graphics, this.font, Component.literal(key.name()), panel.x() + PADDING,

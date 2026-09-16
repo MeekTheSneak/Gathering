@@ -31,6 +31,13 @@ public class DisplayCaseBlockEntity extends BlockEntity {
     private CardComponent card;
     private UUID owner;
 
+    /**
+     * The card as an item, which is what the renderer draws it from.
+     * <p>Built when the card changes rather than every frame: a case is drawn sixty times a second for as
+     * long as somebody is looking at it, and a stack built per frame is a stack built per frame.
+     */
+    private net.minecraft.world.item.ItemStack stack = net.minecraft.world.item.ItemStack.EMPTY;
+
     public DisplayCaseBlockEntity(BlockPos pos, BlockState state) {
         super(GatheringContent.DISPLAY_CASE_ENTITY.get(), pos, state);
     }
@@ -71,6 +78,11 @@ public class DisplayCaseBlockEntity extends BlockEntity {
         changed();
     }
 
+    /** The card as an item, for whatever is drawing it. Empty when the case is. */
+    public net.minecraft.world.item.ItemStack asStack() {
+        return stack;
+    }
+
     /** Takes the card back out, if there is one. */
     public Optional<CardComponent> take() {
         Optional<CardComponent> taken = card();
@@ -80,6 +92,9 @@ public class DisplayCaseBlockEntity extends BlockEntity {
     }
 
     private void changed() {
+        stack = card == null
+                ? net.minecraft.world.item.ItemStack.EMPTY
+                : dev.gathering.item.CardItem.of(card);
         setChanged();
         if (level != null) {
             // The card is drawn in the world, so every client that can see the block has to be told.
@@ -95,6 +110,9 @@ public class DisplayCaseBlockEntity extends BlockEntity {
                 ? CardComponent.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag.get(CARD_KEY))
                         .result().map(CardComponent::faceUp).orElse(null)
                 : null;
+        stack = card == null
+                ? net.minecraft.world.item.ItemStack.EMPTY
+                : dev.gathering.item.CardItem.of(card);
     }
 
     @Override

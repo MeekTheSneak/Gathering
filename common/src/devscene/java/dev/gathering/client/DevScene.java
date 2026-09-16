@@ -2505,8 +2505,13 @@ public final class DevScene {
                 // written by sending the event, which proves the card carries it and proves
                 // nothing at all about the screen a player actually types it into - and that
                 // screen is now two pens sharing one body.
-                ClientTableActions.send(table, new GameEvent.CardStrengthSet(
-                        ClientTableState.seatAt(table).orElseThrow(), loyal, "5/5"));
+                // Asked rather than assumed. This step used to take the seat with orElseThrow, so a run
+                // that had lost its board somewhere earlier crashed the client here instead of failing
+                // the step - and a crash takes the other hundred and seventy steps with it, including
+                // every one that would have said what was actually wrong.
+                ClientTableState.seatAt(table).ifPresentOrElse(
+                        seat -> ClientTableActions.send(table, new GameEvent.CardStrengthSet(seat, loyal, "5/5")),
+                        () -> fail("there was no seat at " + table + " to write strength from"));
                 advance(SETTLE);
             }
             case 204 -> {

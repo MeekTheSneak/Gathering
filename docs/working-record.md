@@ -2110,6 +2110,27 @@ is what it is for.
 
 Verified: gate green (592/16).
 
+Then a review pass over the two of them, which found four things:
+
+- A row on the sharing screen showed whether somebody **may** look rather than whether they are **on the
+  looking list**, so while the collection was open every row's Look lit up - including for people who had
+  only been allowed to take - and pressing it changed nothing visible.
+- The three rights are anchored to the right of a row at a fixed width; in a narrow window the leftmost
+  hung off the left edge of the panel and over the name it belongs to. They squeeze to fit now, down to a
+  floor.
+- The case's card was built into an item stack every frame, in a block entity renderer. It is built when
+  the card changes.
+- An unused parameter.
+
+**And the scripted tour loses its table part way through, which is not this work.** Both runs today failed
+from "the table went away before a pot could go on it" onward; a run of the same tour on `8a567411` - the
+commit before any of the table, occlusion, pack, collection or display-case work - produces the same five
+failures in the same order. It is older than all of it and still unexplained.
+
+The tour also **crashed** at step 203 rather than failing it: the step took its seat with `orElseThrow`, so
+a run that had lost its board somewhere earlier took the client down and the remaining hundred and seventy
+steps with it - including every step that would have said what was wrong. It fails the step now.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

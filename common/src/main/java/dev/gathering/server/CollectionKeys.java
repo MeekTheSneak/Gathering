@@ -40,8 +40,11 @@ public final class CollectionKeys {
             if (keys.size() >= CollectionKeysPayload.MOST_KEYS) {
                 break;
             }
+            // Whether they are on the looking list, not whether they may look: while the collection is
+            // open everybody may, and a row that showed that would light up for people who have not
+            // been let in and would not change when the owner pressed it.
             keys.add(new CollectionKeysPayload.Key(nameOf(player, letIn),
-                    rights.mayLook(letIn), rights.mayTake(letIn), rights.mayAdd(letIn)));
+                    rights.mayLook().contains(letIn), rights.mayTake(letIn), rights.mayAdd(letIn)));
         }
         Sending.to(player, new CollectionKeysPayload(where, rights.open(), keys));
     }

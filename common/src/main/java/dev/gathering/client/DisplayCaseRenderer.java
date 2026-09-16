@@ -2,7 +2,6 @@ package dev.gathering.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.gathering.block.DisplayCaseBlockEntity;
-import dev.gathering.item.CardItem;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
@@ -47,7 +46,7 @@ public final class DisplayCaseRenderer implements BlockEntityRenderer<DisplayCas
             // The card renderer draws in a one-by-one space with its origin at a corner, and centers
             // itself within it; undo the centering it is about to do.
             poseStack.translate(-0.5f, -0.5f, -0.5f);
-            CardFaceRenderer.render(CardItem.of(card), poseStack, buffers, packedLight);
+            CardFaceRenderer.render(display.asStack(), poseStack, buffers, packedLight);
             poseStack.popPose();
         });
     }
