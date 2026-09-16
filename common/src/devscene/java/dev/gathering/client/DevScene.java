@@ -6098,7 +6098,8 @@ public final class DevScene {
         for (net.minecraft.client.gui.components.events.GuiEventListener child
                 : shelf.children()) {
             if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget
-                    && widget.getMessage().getString().equals("No thanks")) {
+                    && widget.getMessage().getString().equals(net.minecraft.network.chat.Component
+                            .translatable("screen.gathering.loaners.no_thanks").getString())) {
                 wayOut = true;
             }
         }
@@ -6521,7 +6522,10 @@ public final class DevScene {
         }
         // At the player's own level rather than a block below it: a case put down in the ground is a case
         // the client has and nobody can see, which is exactly what the first photograph of this showed.
-        BlockPos where = client.player.blockPosition().offset(2, 0, 3);
+        BlockPos where = roomForFurnitureNear(client, client.player.blockPosition().offset(2, 0, 3), 0, 0);
+        if (where == null) {
+            return;
+        }
         displayCase = where;
         java.util.UUID player = client.player.getUUID();
         server.execute(() -> {

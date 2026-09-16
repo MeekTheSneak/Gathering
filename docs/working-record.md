@@ -2504,6 +2504,36 @@ twelve lines. **The full scripted run has not been re-run since the placement fi
 run still carried it, and the run that would have confirmed it was cut short. The fix is right by
 construction and by the arithmetic above, and it is unconfirmed.
 
+### Thirty-sixth batch: confirmed, and three the owner asked for (2026-09-16)
+
+**The placement fix is confirmed: the scripted run went from 127 failures to 12.** The table now
+stands to step 377 of 382 rather than dying at 132, and the five steps of cascade left behind it are
+the display case laying itself down the same way the cabinet did - fixed the same way. What the run
+reports now is twelve separate faults instead of one fault reported a hundred and twenty-seven times.
+
+One of the twelve was mine: a scene check spelled the word "No thanks" out by hand, so renaming that
+button to "Decline" in the text audit read as the loaner screen having no way out of it. It asks the
+mod for the label now, which is what it should always have done.
+
+- **The display case locks.** Whoever puts it down owns it, which was already true; crouch and
+  right-click now shuts the glass, and again opens it. The lock holds against the owner's own hand as
+  much as anybody else's, which is the point of it: every gesture on this block was already the
+  owner's alone, so a lock that only shut strangers out would have changed nothing. What it is for is
+  a case somebody walks past every day, where one empty-handed click on the way past pockets the card.
+- **The glow on a card being swiped follows the card.** It was drawn around the rectangle the card was
+  asked for while the card itself slid, dropped and leaned - so it sat level and full width around a
+  card that was neither, and came away from the edge that had turned away from the eye. The lens that
+  draws the card now says where its corners land and the light is drawn around that. Its own guard
+  caught a wrong assumption on the way: a turned card is genuinely not centered on the box it was
+  given, because perspective magnifies the near edge.
+- **A face-down card has its corners cut.** A face has come rounded all along, because the art arrives
+  with transparent corners, so a face-down card beside a face-up one was the only square thing on the
+  table. The two back textures are square and they are the owner's, so the shape is made by what is
+  drawn: the middle in one piece and each row of a corner as its own slice. A handful of extra draws
+  rather than a mesh, because a board can hold sixty face-down cards.
+
+Verified: gate green (615/16), up from 607 by the eight guards this added.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

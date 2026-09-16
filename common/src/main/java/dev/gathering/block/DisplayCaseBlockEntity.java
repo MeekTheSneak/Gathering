@@ -34,9 +34,11 @@ public class DisplayCaseBlockEntity extends BlockEntity {
     private static final String CARDS_KEY = "Cards";
     private static final String CARD_KEY = "Card";
     private static final String OWNER_KEY = "Owner";
+    private static final String LOCKED_KEY = "Locked";
 
     private final java.util.List<CardComponent> cards = new java.util.ArrayList<>();
     private UUID owner;
+    private boolean locked;
 
     /**
      * The card as an item, which is what the renderer draws it from.
@@ -52,6 +54,24 @@ public class DisplayCaseBlockEntity extends BlockEntity {
     /** What is on show, in the order it was put in. */
     public java.util.List<CardComponent> cards() {
         return java.util.List.copyOf(cards);
+    }
+
+    /**
+     * Whether the glass is shut, so nothing goes in or comes out.
+     * <p>Against the owner's own hand as much as anybody else's: a case is a thing people walk past,
+     * and an empty-handed right-click on the way past took the card out of it. Everything in this
+     * block is already the owner's alone, so a lock that only shut other people out would do nothing.
+     */
+    public boolean isLocked() {
+        return locked;
+    }
+
+    /** Shuts the glass, or opens it. The caller decides who is allowed to ask. */
+    public void setLocked(boolean shut) {
+        if (locked != shut) {
+            locked = shut;
+            changed();
+        }
     }
 
     /** The first card, for everything that only wants to know whether there is one. */
@@ -131,6 +151,7 @@ public class DisplayCaseBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         owner = tag.hasUUID(OWNER_KEY) ? tag.getUUID(OWNER_KEY) : null;
+        locked = tag.getBoolean(LOCKED_KEY);
         cards.clear();
         // The one-card key first, so a case put down before it held four keeps what is in it.
         if (tag.contains(CARD_KEY)) {
@@ -153,6 +174,9 @@ public class DisplayCaseBlockEntity extends BlockEntity {
         super.saveAdditional(tag, registries);
         if (owner != null) {
             tag.putUUID(OWNER_KEY, owner);
+        }
+        if (locked) {
+            tag.putBoolean(LOCKED_KEY, true);
         }
         if (!cards.isEmpty()) {
             net.minecraft.nbt.ListTag written = new net.minecraft.nbt.ListTag();

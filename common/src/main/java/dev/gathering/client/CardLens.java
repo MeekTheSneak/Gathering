@@ -92,6 +92,34 @@ public final class CardLens {
         out[1] = centerY + y * near;
     }
 
+    /**
+     * The smallest upright rectangle the turned card fits inside, on the screen.
+     * <p>For anything that has to sit around the card without being able to turn with it - a glow,
+     * a highlight. Drawn against the rectangle the card was asked for rather than the one it ended
+     * up in, such a thing stays level and full width while the card leans and narrows, and comes
+     * away from the card's edge on the side that went away.
+     * <p>All four corners, because perspective means the turned card is a trapezoid: the edge that
+     * came towards the eye is longer than the one that went away, so its height is not the height
+     * the card was given.
+     */
+    public Rect bounds() {
+        float[] point = new float[2];
+        float left = Float.MAX_VALUE;
+        float top = Float.MAX_VALUE;
+        float right = -Float.MAX_VALUE;
+        float bottom = -Float.MAX_VALUE;
+        for (int corner = 0; corner < 4; corner++) {
+            at(corner % 2, corner / 2, point);
+            left = Math.min(left, point[0]);
+            right = Math.max(right, point[0]);
+            top = Math.min(top, point[1]);
+            bottom = Math.max(bottom, point[1]);
+        }
+        int x = Math.round(left);
+        int y = Math.round(top);
+        return new Rect(x, y, Math.max(1, Math.round(right) - x), Math.max(1, Math.round(bottom) - y));
+    }
+
     /** How much taller the card is than it is wide, for anything drawn square on it. */
     public float aspect() {
         return width <= 0f ? 1f : width / Math.max(1f, height);

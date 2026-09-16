@@ -142,7 +142,8 @@ public final class GatheringContent {
                         "tooltip.gathering.desk_board");
                 case DISPLAY_CASE -> new DescribedBlockItem(block.get(), new Item.Properties(),
                         java.util.List.of("tooltip.gathering.display_case_show",
-                                "tooltip.gathering.display_case_take"));
+                                "tooltip.gathering.display_case_take",
+                                "tooltip.gathering.display_case_lock"));
             };
         }
     }
@@ -425,7 +426,8 @@ public final class GatheringContent {
 
     public static Item createDisplayCaseItem() {
         return new DescribedBlockItem(DISPLAY_CASE.get(), new Item.Properties(),
-                java.util.List.of("tooltip.gathering.display_case_show", "tooltip.gathering.display_case_take"));
+                java.util.List.of("tooltip.gathering.display_case_show",
+                        "tooltip.gathering.display_case_take", "tooltip.gathering.display_case_lock"));
     }
 
     public static Item createCollectionItem() {

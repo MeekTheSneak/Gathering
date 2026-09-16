@@ -186,6 +186,114 @@ public final class DisplayCaseGameTest {
      * be asked. See {@code CollectionBlockGameTest.aCreativeDeckDoesNotSurviveDissolving}, which is the
      * same vanilla behavior seen from the other side.
      */
+    /**
+     * A locked case keeps its cards, from the hand that locked it as much as from anybody else's.
+     * <p>The owner asked for a lock (2026-09-16). Every gesture on this block was already the owner's
+     * alone, so a lock that only shut strangers out would have changed nothing: what it is for is a
+     * case somebody walks past every day, where one empty-handed click on the way past pockets the
+     * card. So this checks the owner being refused, which is the whole point of it.
+     */
+    @GameTest(template = "tables")
+    public static void alockedCaseRefusesItsOwnOwner(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        DisplayCaseBlockEntity display = place(helper, at);
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        display.claimFor(owner.getUUID());
+        click(helper, owner, at, CardItem.of(new CardComponent(
+                java.util.Optional.of(BOLT), false, java.util.Optional.empty(), false)));
+        if (display.isEmpty()) {
+            helper.fail("the case would not take a card before it was even locked");
+            return;
+        }
+
+        crouchClick(helper, owner, at);
+        if (!display.isLocked()) {
+            helper.fail("the owner crouched and clicked and the case did not lock");
+            return;
+        }
+
+        // The gesture that empties it, from the owner, on a locked case.
+        click(helper, owner, at, ItemStack.EMPTY);
+        if (display.isEmpty()) {
+            helper.fail("a locked case handed its card to the owner anyway");
+            return;
+        }
+        // And nothing more goes in either, or a locked case is a case that only half locks.
+        ItemStack another = CardItem.of(new CardComponent(
+                java.util.Optional.of(BOLT), false, java.util.Optional.empty(), false));
+        click(helper, owner, at, another);
+        if (display.cards().size() != 1) {
+            helper.fail("a locked case took another card: it now holds " + display.cards().size());
+            return;
+        }
+
+        // Unlocked again by the same gesture, and it behaves as it did.
+        crouchClick(helper, owner, at);
+        if (display.isLocked()) {
+            helper.fail("the owner crouched and clicked a locked case and it stayed locked");
+            return;
+        }
+        click(helper, owner, at, ItemStack.EMPTY);
+        if (!display.isEmpty()) {
+            helper.fail("an unlocked case would not give its card back");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A stranger cannot lock somebody else's case, or unlock one. */
+    @GameTest(template = "tables")
+    public static void astrangerCannotWorkTheLock(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        DisplayCaseBlockEntity display = place(helper, at);
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        display.claimFor(owner.getUUID());
+        ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+
+        crouchClick(helper, stranger, at);
+        if (display.isLocked()) {
+            helper.fail("a stranger locked somebody else's case");
+            return;
+        }
+
+        crouchClick(helper, owner, at);
+        crouchClick(helper, stranger, at);
+        if (!display.isLocked()) {
+            helper.fail("a stranger unlocked somebody else's case");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** The lock survives the block being written out and read back, as the card and the owner do. */
+    @GameTest(template = "tables")
+    public static void alockSurvivesASave(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        DisplayCaseBlockEntity display = place(helper, at);
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        display.claimFor(owner.getUUID());
+        display.setLocked(true);
+
+        CompoundTag written = display.saveWithoutMetadata(helper.getLevel().registryAccess());
+        DisplayCaseBlockEntity read = place(helper, new BlockPos(1, 1, 3));
+        read.loadWithComponents(written, helper.getLevel().registryAccess());
+        if (!read.isLocked()) {
+            helper.fail("a locked case was saved and came back unlocked");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** The same click, crouching, which is how the lock is worked. */
+    private static void crouchClick(GameTestHelper helper, ServerPlayer player, BlockPos at) {
+        player.setShiftKeyDown(true);
+        try {
+            click(helper, player, at, ItemStack.EMPTY);
+        } finally {
+            player.setShiftKeyDown(false);
+        }
+    }
+
     private static void click(GameTestHelper helper, ServerPlayer player, BlockPos at, ItemStack holding) {
         player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         BlockPos where = helper.absolutePos(at);

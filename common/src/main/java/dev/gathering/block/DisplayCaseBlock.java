@@ -168,6 +168,10 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
             say(player, "message.gathering.display_case_not_yours");
             return ItemInteractionResult.CONSUME;
         }
+        if (display.isLocked()) {
+            say(player, "message.gathering.display_case_locked");
+            return ItemInteractionResult.CONSUME;
+        }
         if (!display.show(card)) {
             say(player, "message.gathering.display_case_full");
             return ItemInteractionResult.CONSUME;
@@ -180,7 +184,16 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
         return ItemInteractionResult.SUCCESS;
     }
 
-    /** An empty hand takes it back out. */
+    /**
+     * An empty hand takes it back out. Crouching, it shuts the glass instead, or opens it again.
+     * <p>Locking is against the owner's own hand as much as anybody else's. Everything about this
+     * block is already the owner's alone, so a lock that shut other people out would do nothing
+     * they were not already stopped from doing. What it is for is a case somebody walks past every
+     * day: one empty-handed click on the way past and the card is in their pocket.
+     * <p><b>Both hands have to be empty for the crouching half to happen</b>, and that is vanilla's
+     * rule rather than this block's - a crouching player holding anything skips block interaction
+     * altogether. The same note is on the collection, which has the same gesture.
+     */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
             Player player, BlockHitResult hit) {
@@ -190,12 +203,25 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        if (display.isEmpty()) {
-            say(player, "message.gathering.display_case_empty");
-            return InteractionResult.CONSUME;
-        }
         if (!display.isOwner(player.getUUID())) {
             say(player, "message.gathering.display_case_not_yours");
+            return InteractionResult.CONSUME;
+        }
+        if (player.isSecondaryUseActive()) {
+            // Said in both directions, because a lock nobody is told about is a case that has
+            // stopped working.
+            boolean shut = !display.isLocked();
+            display.setLocked(shut);
+            say(player, shut ? "message.gathering.display_case_shut"
+                    : "message.gathering.display_case_opened");
+            return InteractionResult.SUCCESS;
+        }
+        if (display.isLocked()) {
+            say(player, "message.gathering.display_case_locked");
+            return InteractionResult.CONSUME;
+        }
+        if (display.isEmpty()) {
+            say(player, "message.gathering.display_case_empty");
             return InteractionResult.CONSUME;
         }
         display.take().ifPresent(card -> give(player, card));

@@ -153,20 +153,25 @@ final class PackTurning {
                             where.width(), where.height()));
         }
 
-        // And the card in front lit in its own right, if it is one worth looking at. Steady, and tight
-        // against the card, so it travels with it while the next card's light stays on the stack.
+        // And the card itself, leaning the way it is being pulled.
+        CardComponent front = cards.get(reveal.shown());
+        float lean = Math.clamp(swipe / Math.max(1f, where.width()), -1f, 1f);
+
+        // The card in front lit in its own right, if it is one worth looking at. Around where the
+        // card actually ends up rather than around the rectangle it was asked for: dragged, it slides,
+        // drops and turns, and its light was following only the slide - so it sat level and full width
+        // against a card that was leaning and foreshortened, and came away from the edge that went
+        // away from the eye. The lens that draws the card says where its corners land, so ask that.
         if (reveal.inFront().worthAnnouncing()) {
             int mine = lightOf(reveal.inFront());
+            Rect lit = lean == 0f ? where : CardLens.of(where, lean * SWEEP, 0f).bounds();
             graphics.pose().pushPose();
-            graphics.pose().translate(swipe, 0f, 0f);
-            GuiGlow.aroundCard(graphics, where.x(), where.y(), where.width(), where.height(),
+            graphics.pose().translate(swipe, Math.abs(lean) * 6f, 0f);
+            GuiGlow.aroundCard(graphics, lit.x(), lit.y(), lit.width(), lit.height(),
                     Math.max(4, where.width() / 7), 0xC0000000 | (mine & 0x00FFFFFF));
             graphics.pose().popPose();
         }
 
-        // And the card itself, leaning the way it is being pulled.
-        CardComponent front = cards.get(reveal.shown());
-        float lean = Math.clamp(swipe / Math.max(1f, where.width()), -1f, 1f);
         graphics.pose().pushPose();
         graphics.pose().translate(swipe, Math.abs(lean) * 6f, 0f);
         ClientCardCache.get().summary(front).ifPresentOrElse(

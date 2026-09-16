@@ -68,7 +68,7 @@ public final class LoanerScreen extends Screen {
 
     /**
      * The space between the last deck and the way out.
-     * <p>Not decoration. Drawn flush against the list, "No thanks" is a sixth button the same
+     * <p>Not decoration. Drawn flush against the list, the way out is a sixth button the same
      * size and color as the five above it, which makes it read as a deck with an odd name.
      */
     private static final int BREAK = GAP * 3;
