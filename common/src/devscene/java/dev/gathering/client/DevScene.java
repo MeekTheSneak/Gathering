@@ -6239,12 +6239,13 @@ public final class DevScene {
             }
             server.overworld().setBlock(where, GatheringContent.COLLECTION.get().defaultBlockState()
                     .setValue(dev.gathering.block.CollectionBlock.FACING, net.minecraft.core.Direction.NORTH), 3);
-            // Two blocks north of it, looking south at the face its drawers are on: yaw zero faces south.
-            double x = where.getX() + 0.5;
-            double y = where.getY();
-            double z = where.getZ() - 2.0;
-            player.teleportTo(server.overworld(), x, y, z, 0f, 10f);
-            player.connection.teleport(x, y, z, 0f, 10f);
+            // Off its north-west corner, looking down at it: the drawer fronts, the side of the cabinet and the
+            // top all in one picture, and the outline round what the block actually is.
+            double x = where.getX() - 1.5;
+            double y = where.getY() + 1;
+            double z = where.getZ() - 1.5;
+            player.teleportTo(server.overworld(), x, y, z, -45f, 30f);
+            player.connection.teleport(x, y, z, -45f, 30f);
         });
     }
 

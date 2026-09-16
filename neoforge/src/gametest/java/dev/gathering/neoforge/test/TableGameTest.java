@@ -39,6 +39,43 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class TableGameTest {
 
+    /**
+     * A table is the table and not the air under it: what it is drawn as is what a player walks into and what the
+     * outline goes round. The owner asked to be able to get under one (2026-09-15); it used to be a square block
+     * down to the floor, so the space between the legs was solid.
+     */
+    @GameTest(template = "tables")
+    public static void aTableIsSolidOnlyWhereItIsDrawn(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        var level = helper.getLevel();
+        // Under the felt, in the middle of the table, where nothing is drawn.
+        BlockPos middle = TablePart.MIDDLE.offsetFrom(origin);
+        var under = net.minecraft.world.phys.shapes.Shapes.box(0.2, 0.1, 0.2, 0.8, 0.6, 0.8);
+        var collision = level.getBlockState(middle).getCollisionShape(level, middle);
+        if (net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(collision, under,
+                net.minecraft.world.phys.shapes.BooleanOp.AND)) {
+            helper.fail("the space under the middle of a table is solid, so nobody can get under it");
+            return;
+        }
+        // And the felt itself still holds somebody up.
+        var felt = net.minecraft.world.phys.shapes.Shapes.box(0.2, 0.75, 0.2, 0.8, 0.9, 0.8);
+        if (!net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(collision, felt,
+                net.minecraft.world.phys.shapes.BooleanOp.AND)) {
+            helper.fail("the felt of a table is not solid, so a player would fall through the top");
+            return;
+        }
+        // A corner has its leg, which is what somebody walking into a table bumps into.
+        BlockPos corner = TablePart.NORTH_WEST.offsetFrom(origin);
+        var leg = net.minecraft.world.phys.shapes.Shapes.box(0.1, 0.1, 0.1, 0.24, 0.6, 0.24);
+        if (!net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(
+                level.getBlockState(corner).getCollisionShape(level, corner), leg,
+                net.minecraft.world.phys.shapes.BooleanOp.AND)) {
+            helper.fail("a table's corner has no leg to walk into");
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "tables")
     public static void aTableIsFourBlocksWithOneOwner(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);

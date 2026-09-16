@@ -106,16 +106,44 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
-     * Solid up to the felt, so you stand on the surface rather than a pixel above it.
-     * <p>Square-sided rather than following the legs: a shape with a gap under it is a shape
-     * a player can walk into and a card can fall through, and neither is worth the accuracy.
+     * The outline follows the table: the felt and its apron, and the leg or the plinth under the part that has
+     * one. What is drawn round a block a player is looking at should be the block they are looking at, which a
+     * square down to the floor was not - it drew a box round the empty air between the legs.
      */
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPE;
+        VoxelShape under = switch (state.getValue(PART)) {
+            case NORTH_WEST -> LEG_NORTH_WEST;
+            case NORTH_EAST -> LEG_NORTH_EAST;
+            case SOUTH_EAST -> LEG_SOUTH_EAST;
+            case SOUTH_WEST -> LEG_SOUTH_WEST;
+            // The crying obsidian table stands on one glowing plinth in the middle instead of four legs.
+            case MIDDLE -> state.is(dev.gathering.item.GatheringContent.CRYING_OBSIDIAN_TABLE.get())
+                    ? PLINTH : net.minecraft.world.phys.shapes.Shapes.empty();
+            default -> net.minecraft.world.phys.shapes.Shapes.empty();
+        };
+        return under.isEmpty() ? TOP : net.minecraft.world.phys.shapes.Shapes.or(TOP, under);
     }
 
-    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 15, 16);
+    /**
+     * What a player walks into is what the table is: the felt to stand on, and the legs to bump into. It was a
+     * square down to the floor, so the space between the legs was solid; the owner asked to be able to get under
+     * a table (2026-09-15), and a dropped card can roll under one now as it would in a shop.
+     */
+    @Override
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return getShape(state, level, pos, context);
+    }
+
+    /** The felt and the apron under it, which every part of every table has. */
+    private static final VoxelShape TOP = Block.box(0, 11, 0, 16, 15, 16);
+    private static final VoxelShape LEG_NORTH_WEST = Block.box(1, 0, 1, 4, 11, 4);
+    private static final VoxelShape LEG_NORTH_EAST = Block.box(12, 0, 1, 15, 11, 4);
+    private static final VoxelShape LEG_SOUTH_EAST = Block.box(12, 0, 12, 15, 11, 15);
+    private static final VoxelShape LEG_SOUTH_WEST = Block.box(1, 0, 12, 4, 11, 15);
+    /** The crying obsidian table's column and the foot it stands on. */
+    private static final VoxelShape PLINTH = net.minecraft.world.phys.shapes.Shapes.or(
+            Block.box(3, 2, 3, 13, 11, 13), Block.box(2, 0, 2, 14, 2, 14));
 
     /**
      * Only the corner that owns the table ticks, and only when there is a game on it.

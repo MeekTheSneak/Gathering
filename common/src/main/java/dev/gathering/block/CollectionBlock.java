@@ -86,6 +86,48 @@ public class CollectionBlock extends BaseEntityBlock {
     }
 
     /**
+     * The cabinet and its three drawer fronts, turned the way it is: what is drawn round it is what is there.
+     * <p>Its body stops a pixel short of the back of the block and the drawers stand two pixels proud of the
+     * front, so the full cube it used to claim was wrong at both ends.
+     */
+    @Override
+    protected net.minecraft.world.phys.shapes.VoxelShape getShape(BlockState state,
+            net.minecraft.world.level.BlockGetter level, BlockPos pos,
+            net.minecraft.world.phys.shapes.CollisionContext context) {
+        return SHAPES.get(state.getValue(FACING));
+    }
+
+    /** The body, back a pixel, with the three drawers standing out in front of it. Drawn facing north. */
+    private static final net.minecraft.world.phys.shapes.VoxelShape FACING_NORTH =
+            net.minecraft.world.phys.shapes.Shapes.or(
+                    net.minecraft.world.level.block.Block.box(0, 0, 1, 16, 16, 16),
+                    net.minecraft.world.level.block.Block.box(1, 1, 0, 15, 5, 2),
+                    net.minecraft.world.level.block.Block.box(1, 6, 0, 15, 10, 2),
+                    net.minecraft.world.level.block.Block.box(1, 11, 0, 15, 15, 2));
+
+    private static final java.util.Map<net.minecraft.core.Direction, net.minecraft.world.phys.shapes.VoxelShape>
+            SHAPES = turnedEveryWay();
+
+    /** The same shape facing each way, worked out once rather than per look. */
+    private static java.util.Map<net.minecraft.core.Direction, net.minecraft.world.phys.shapes.VoxelShape> turnedEveryWay() {
+        java.util.EnumMap<net.minecraft.core.Direction, net.minecraft.world.phys.shapes.VoxelShape> shapes =
+                new java.util.EnumMap<>(net.minecraft.core.Direction.class);
+        shapes.put(net.minecraft.core.Direction.NORTH, FACING_NORTH);
+        shapes.put(net.minecraft.core.Direction.EAST, turned(FACING_NORTH));
+        shapes.put(net.minecraft.core.Direction.SOUTH, turned(turned(FACING_NORTH)));
+        shapes.put(net.minecraft.core.Direction.WEST, turned(turned(turned(FACING_NORTH))));
+        return shapes;
+    }
+
+    /** A quarter turn clockwise, seen from above: (x, z) becomes (16 - z, x). */
+    private static net.minecraft.world.phys.shapes.VoxelShape turned(net.minecraft.world.phys.shapes.VoxelShape shape) {
+        net.minecraft.world.phys.shapes.VoxelShape[] turned = {net.minecraft.world.phys.shapes.Shapes.empty()};
+        shape.forAllBoxes((x0, y0, z0, x1, y1, z1) -> turned[0] = net.minecraft.world.phys.shapes.Shapes.or(turned[0],
+                net.minecraft.world.phys.shapes.Shapes.box(1 - z1, y0, x0, 1 - z0, y1, x1)));
+        return turned[0];
+    }
+
+    /**
      * Whoever places it owns it, and nobody else may touch what is inside.
      * <p>A collection placed from an item that already held one keeps its owner: it was
      * somebody's before it was picked up, and the person carrying it home is usually them.

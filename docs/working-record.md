@@ -1877,6 +1877,27 @@ The owner sent a model and a texture for the collection block (`Assets/Collectio
 
 Verified: gate green (564/16).
 
+### Fifteenth batch: the collection block's faces, and what a table really is (2026-09-15)
+
+The owner's three notes on the new collection block, and the same question asked of the tables:
+
+- **The drawer sides.** The exported model pointed each drawer's sides, top and bottom at the strip of stray
+  pixels along the bottom edge of the sheet (the teal, pink and green slivers). Each drawer now takes those
+  faces from a slice of its own front, and the drawers' backs - inside the cabinet, never drawn - are gone.
+  Photographed from the corner (`41b-a-collection-block`) and looked at.
+- **Blocks beside it went invisible.** It was registered as a full cube, so the game hid the faces of whatever
+  touched it, and its back sits a pixel in and its drawers stand two pixels out. `noOcclusion()` now, as the
+  tables already had.
+- **Hitboxes follow the models.** The collection block's outline is the cabinet and its three drawer fronts,
+  turned with it. A table's is the felt and its apron, plus the leg on a corner or the crying obsidian table's
+  plinth in the middle - it was a square down to the floor.
+- **And a table's collision is the same**, so a player can get under one, which the owner asked for: it used to
+  be solid between the legs. Standing on the felt is unchanged. Guard:
+  `TableGameTest.aTableIsSolidOnlyWhereItIsDrawn` (nothing under the middle, the felt still holds, a corner
+  still has its leg), shown failing with the old square block.
+
+Verified: gate green (565/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

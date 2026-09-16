@@ -233,6 +233,10 @@ public final class GatheringContent {
                 .mapColor(MapColor.COLOR_BROWN)
                 .strength(3.0f)
                 .sound(SoundType.WOOD)
+                // Its drawers stand out in front of it and its back is a pixel short of the block, so it is not
+                // the full cube it was drawn as: without this the game hid the faces of whatever was beside it,
+                // and you could see through the world past the drawers.
+                .noOcclusion()
                 // Pistons would take the block and leave the block entity, which is a
                 // collection deleted by a redstone accident.
                 .pushReaction(PushReaction.BLOCK));
