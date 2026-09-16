@@ -765,6 +765,44 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /**
+     * The one message that carries a deck's real cards, which every other one hides.
+     * <p>It uses the full deck format rather than the public one on purpose, and that makes it the
+     * only place where getting the codec wrong would quietly reintroduce the fault it exists to fix:
+     * a deck arriving with its cards gone. So the cards are compared, not just the shape.
+     */
+    @GameTest(template = "empty")
+    public static void adeckJustMadeSurvivesTheWire(GameTestHelper helper) {
+        java.util.UUID handle = java.util.UUID.randomUUID();
+        dev.gathering.item.DeckComponent deck = new dev.gathering.item.DeckComponent(
+                "Two of them", "", java.util.Optional.empty(),
+                java.util.List.of(
+                        new dev.gathering.item.CardComponent(
+                                java.util.Optional.of(java.util.UUID.randomUUID()), true,
+                                java.util.Optional.empty(), false),
+                        new dev.gathering.item.CardComponent(
+                                java.util.Optional.of(java.util.UUID.randomUUID()), false,
+                                java.util.Optional.empty(), false)),
+                java.util.List.of(), java.util.List.of());
+
+        dev.gathering.network.DeckMadePayload back = roundTrip(helper,
+                new dev.gathering.network.DeckMadePayload(handle, deck),
+                dev.gathering.network.DeckMadePayload.STREAM_CODEC);
+
+        if (!back.handle().equals(handle)) {
+            throw new GameTestAssertException("the deck's handle did not survive the wire: " + back.handle());
+        }
+        if (back.deck().isRedacted()) {
+            throw new GameTestAssertException(
+                    "the one message that carries a deck's cards arrived with them hidden");
+        }
+        if (!back.deck().entries().equals(deck.entries())) {
+            throw new GameTestAssertException(
+                    "the cards did not survive the wire: " + back.deck().entries());
+        }
+        helper.succeed();
+    }
+
     private static <T> T roundTrip(
             GameTestHelper helper, T payload, StreamCodec<RegistryFriendlyByteBuf, T> codec) {
         RegistryAccess registries = helper.getLevel().registryAccess();

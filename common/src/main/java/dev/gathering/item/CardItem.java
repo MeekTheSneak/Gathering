@@ -106,7 +106,17 @@ public class CardItem extends Item {
         access.set(ItemStack.EMPTY);
         // On the creative menu the server never sees this click, only the deck it made - with its cards
         // hidden on the way - so the two cards are said separately. See DeckVault.
-        if (player.level().isClientSide()) {
+        //
+        // Sent from here, during the click, so it is on the wire ahead of the stack the menu sends
+        // afterwards: the vault knows the deck before the hidden copy of it arrives, and the repair
+        // the server already does on a redacted deck finds something to repair it with.
+        //
+        // Only from creative, and only believed from creative. In any other inventory the server runs
+        // this very method itself and builds the deck out of its own cards, so saying it again would
+        // be a second, less trustworthy way to make the same deck.
+        if (player.level().isClientSide() && player.getAbilities().instabuild) {
+            DeckItem.deckOf(deck).ifPresent(made -> DeckItem.handleOf(deck).ifPresent(handle ->
+                    dev.gathering.service.DeckMadeHook.Binding.say(handle, made)));
         }
         DeckItem.playAssembleSound(player);
         return true;

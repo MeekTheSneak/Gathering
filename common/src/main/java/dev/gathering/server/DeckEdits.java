@@ -72,6 +72,31 @@ public final class DeckEdits {
         stack.set(GatheringComponents.DECK.get(), deck.sleeved(asked.chosen()));
     }
 
+    /**
+     * A deck the client has just made in the creative menu, said before the stack arrives.
+     * <p>That menu never replays the click on the server - it sends the resulting stack, and a deck
+     * component's only wire format replaces every card in it with a stand-in, in both directions. So
+     * the deck reached the server with its cards already gone, under a handle nothing had seen, and
+     * there was no copy of the real list anywhere. This is that copy, and it goes to the vault the
+     * server already reads when a redacted deck turns up: the repair happens on the path that was
+     * already there rather than as a second way to make a deck.
+     * <p>Refused unless the sender is in creative, where they can conjure any card in the game from
+     * the menu they are standing in - so believing them grants nothing that was not already theirs.
+     * A player who is not in creative is refused and does not need it, because for them the server
+     * ran the click and built the deck itself.
+     * <p>Refused, too, for a deck that arrives already hidden: that is a client passing on a copy it
+     * was given rather than one it made, and remembering it would write stand-ins over the truth.
+     */
+    public static void made(Player player, dev.gathering.network.DeckMadePayload said) {
+        if (!player.getAbilities().instabuild) {
+            return;
+        }
+        if (said.handle() == null || said.deck() == null || said.deck().isRedacted()) {
+            return;
+        }
+        dev.gathering.server.DeckVault.remember(said.handle(), said.deck());
+    }
+
     public static void handle(Player player, DeckEditPayload edit) {
         InteractionHand hand = edit.hand();
         ItemStack stack = player.getItemInHand(hand);

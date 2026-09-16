@@ -83,7 +83,7 @@ public final class GatheringProtocol {
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 24;
+    public static final int VERSION = 25;
 
     private GatheringProtocol() {
     }
@@ -141,6 +141,7 @@ public final class GatheringProtocol {
                             CardMetadataRequests.handle(player, service, payload))),
             toServer(DeckEditPayload.TYPE, DeckEditPayload.STREAM_CODEC, DeckEdits::handle),
             toServer(RenameDeckPayload.TYPE, RenameDeckPayload.STREAM_CODEC, DeckEdits::rename),
+            toServer(DeckMadePayload.TYPE, DeckMadePayload.STREAM_CODEC, DeckEdits::made),
             toServer(SleeveDeckPayload.TYPE, SleeveDeckPayload.STREAM_CODEC, DeckEdits::sleeve),
             toServer(TradeActionPayload.TYPE, TradeActionPayload.STREAM_CODEC,
                     dev.gathering.server.TradeSessions::handle),

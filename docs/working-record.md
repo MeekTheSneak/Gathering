@@ -2546,6 +2546,44 @@ Verified: gate green (615/16), up from 607 by the eight guards this added.
 Verified: gate green (615/16). The guard fails without the fix, saying "the tear took row 4 of the
 pack's own artwork", and `40-tearing-it-open.png` shows the body square and whole under the strip.
 
+### Thirty-seventh batch: the blank cards in creative, found properly (2026-09-16)
+
+The owner reported this three times and it was patched twice without being understood. Investigated
+this time by instrumenting every boundary and running once, rather than by reading and guessing.
+
+**What the evidence said.** The same steps, survival then creative:
+
+```
+survival:  combine side=client, combine side=server
+           tick carriedRedacted=false carriedCards=2 vaultHad=true  -> 3 rows, 0 unnamed, 1 card back
+creative:  combine side=client            (and no server line at all)
+           tick carriedRedacted=true  carriedCards=2 vaultHad=false -> 2 rows, 1 unnamed, no card back
+```
+
+**The cause, which was in none of the places it had been looked for.** The creative menu never
+replays the click on the server - it sends the resulting *stack*. And a deck component has exactly
+one wire format, `PUBLIC_STREAM_CODEC`, which replaces every card with a stand-in so that carrying a
+deck past somebody does not hand them your list. That format is symmetric, so it redacted the deck on
+the way **to** the server too. What arrived was a deck of stand-ins under a handle nothing had seen,
+and the real list existed nowhere: not on the item, not in the vault, not on the wire. The recovery
+that already existed had nothing to recover from - `vaultHad=false` is the whole bug in one word.
+
+Everything downstream followed, including the part that looked like a second bug: the take was
+refused outright by the `edit.card().isHidden()` guard, which is why a card came back *missing*
+rather than blank.
+
+**The fix.** The client says what it made, during the click, so it is on the wire ahead of the stack
+the menu sends after it. It goes to `DeckVault`, which is where the server already looks to put a
+redacted deck back together, so the repair happens on the path that was already there.
+Believed only from a player in creative, who can conjure any card from the menu they are standing in,
+so it grants nothing that was not already theirs; a survival player is refused and does not need it,
+because for them the server ran the click itself. Through a seam like `DeckScreenHook`, because a
+common class naming the client's networking crashes a dedicated server. Protocol 25.
+
+Verified: gate green (620/16). Three of the four new guards fail without the fix, one of them showing
+the stand-ins still on the item after a tick. End to end, the scripted run's own creative pass now
+reads exactly as its survival pass does: `3 rows, 0 unnamed` and `1 card(s) with a printing, 0 blank`.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).
