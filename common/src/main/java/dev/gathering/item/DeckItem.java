@@ -269,7 +269,22 @@ public class DeckItem extends Item {
         DeckComponent carried = deckOf(stack).orElse(null);
         if (carried != null) {
             java.util.UUID handle = handleOf(stack).orElse(null);
+            if (handle == null && !carried.isRedacted()) {
+                // Minted the first time the server sees a deck with its real cards, rather than only when
+                // one reaches a hand. A deck nobody had ever held had no handle at all, so there was
+                // nothing to remember it under - and the moment a creative menu handed the server that
+                // player's hidden copy of it, there was no way to put it back together. Its cards loaded
+                // for ever and came out blank, which is what the owner reported twice.
+                handle = java.util.UUID.randomUUID();
+                stack.set(GatheringComponents.DECK_HANDLE.get(), handle);
+            }
             DeckComponent real = dev.gathering.server.DeckVault.real(handle, carried).orElse(null);
+            if (real == null && carried.isRedacted()) {
+                // A hidden copy of a deck this server has never seen whole. Keeping the stand-ins leaves
+                // an item that lists cards forever loading and hands out blank ones; what is really in it
+                // is what is left.
+                real = carried.withoutHiddenCards();
+            }
             if (real != null && real != carried) {
                 stack.set(GatheringComponents.DECK.get(), real);
             }

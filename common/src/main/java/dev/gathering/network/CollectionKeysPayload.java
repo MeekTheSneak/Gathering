@@ -13,7 +13,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * the owner typed and what they will read back; a client that was handed ids would be a client
  * that had been told who plays on this server.
  */
-public record CollectionKeysPayload(BlockPos where, boolean open, List<Key> keys)
+public record CollectionKeysPayload(BlockPos where, Key everyone, List<Key> keys)
         implements CustomPacketPayload {
 
     /** Enough for a shared base's worth of people, and a bound on what one message can carry. */
@@ -41,11 +41,12 @@ public record CollectionKeysPayload(BlockPos where, boolean open, List<Key> keys
     public static final StreamCodec<RegistryFriendlyByteBuf, CollectionKeysPayload> STREAM_CODEC =
             StreamCodec.composite(
                     BlockPos.STREAM_CODEC, CollectionKeysPayload::where,
-                    ByteBufCodecs.BOOL, CollectionKeysPayload::open,
+                    Key.STREAM_CODEC, CollectionKeysPayload::everyone,
                     Key.STREAM_CODEC.apply(ByteBufCodecs.list(MOST_KEYS)), CollectionKeysPayload::keys,
                     CollectionKeysPayload::new);
 
     public CollectionKeysPayload {
+        everyone = everyone == null ? new Key("", false, false, false) : everyone;
         keys = keys == null ? List.of() : List.copyOf(keys);
     }
 

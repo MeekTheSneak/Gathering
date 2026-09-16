@@ -74,11 +74,14 @@ public final class GatheringProtocol {
      * put into a deck, because the server now reads them off the copy the creative menu sends it anyway.
      * <p>Twenty-two, for who is let into a collection: the owner asks for the list, opens or shuts it to
      * everybody, and lets a player in or shuts them out by name.
+     * <p>Twenty-three, for what anybody at all may do with a collection: three switches rather than one
+     * lock, so "anyone may look and only I may take" is a thing its owner says rather than the default
+     * they hope for.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 22;
+    public static final int VERSION = 23;
 
     private GatheringProtocol() {
     }

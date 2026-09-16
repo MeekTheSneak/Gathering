@@ -120,7 +120,7 @@ public final class CollectionKeysGameTest {
         collection.setRights(CollectionRights.ownedBy(owner.getUUID()));
         standAt(helper, stranger, at);
 
-        CollectionKeys.lock(stranger, new CollectionLockPayload(helper.absolutePos(at), false));
+        CollectionKeys.lock(stranger, new CollectionLockPayload(helper.absolutePos(at), false, false, false));
         if (!collection.rights().open()) {
             helper.fail("a stranger locked somebody else's collection");
             return;
@@ -147,7 +147,7 @@ public final class CollectionKeysGameTest {
         collection.setRights(CollectionRights.ownedBy(owner.getUUID()).openedToLook(false));
         standAt(helper, stranger, at);
 
-        CollectionKeys.lock(stranger, new CollectionLockPayload(helper.absolutePos(at), true));
+        CollectionKeys.lock(stranger, new CollectionLockPayload(helper.absolutePos(at), true, false, false));
         if (collection.rights().open()) {
             helper.fail("a stranger unlocked somebody else's collection");
             return;
@@ -166,7 +166,7 @@ public final class CollectionKeysGameTest {
         standAt(helper, owner, at);
         standAt(helper, friend, at);
 
-        CollectionKeys.lock(owner, new CollectionLockPayload(helper.absolutePos(at), false));
+        CollectionKeys.lock(owner, new CollectionLockPayload(helper.absolutePos(at), false, false, false));
         if (collection.rights().open()) {
             helper.fail("the owner locked their collection and it stayed open");
             return;

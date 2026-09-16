@@ -45,7 +45,9 @@ public class ChairBlock extends HorizontalDirectionalBlock {
 
     public ChairBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(FurnitureDye.FELT, net.minecraft.world.item.DyeColor.WHITE));
     }
 
     @Override
@@ -55,7 +57,20 @@ public class ChairBlock extends HorizontalDirectionalBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, FurnitureDye.FELT);
+    }
+
+    /**
+     * Dye recolors the cushion, as it does on the stone chairs.
+     * <p>The wooden chair had a bare plank seat while its three stone cousins had wool ones you could
+     * dye; the owner asked for the same cushion on all of them (2026-09-16).
+     */
+    @Override
+    protected net.minecraft.world.ItemInteractionResult useItemOn(
+            net.minecraft.world.item.ItemStack stack, BlockState state, net.minecraft.world.level.Level level,
+            BlockPos pos, net.minecraft.world.entity.player.Player player,
+            net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.BlockHitResult hit) {
+        return FurnitureDye.use(stack, state, level, pos, player);
     }
 
     /** Facing where the player was looking: put down by somebody at a table, it faces the table. */

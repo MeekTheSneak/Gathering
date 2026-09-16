@@ -45,6 +45,8 @@ public class CollectionBlockEntity extends BlockEntity {
     private static final String MAY_TAKE_KEY = "MayTake";
     private static final String MAY_ADD_KEY = "MayAdd";
     private static final String CLOSED_KEY = "Closed";
+    private static final String EVERYONE_TAKES_KEY = "EveryoneTakes";
+    private static final String EVERYONE_ADDS_KEY = "EveryoneAdds";
     private static final String LABEL_KEY = "Label";
     private static final String STORIED_KEY = "Storied";
     private static final String STORY_KEY = "Story";
@@ -330,7 +332,11 @@ public class CollectionBlockEntity extends BlockEntity {
         UUID owner = tag.hasUUID(OWNER_KEY) ? tag.getUUID(OWNER_KEY) : null;
         // Written as "closed" rather than "open" so a collection saved before there was a lock - and one
         // whose tag has lost the key - loads open, which is what it was.
-        rights = new CollectionRights(owner, !tag.getBoolean(CLOSED_KEY), readPlayers(tag, MAY_LOOK_KEY),
+        // Written as "closed" rather than "open" so a collection saved before there was a lock - and one
+        // whose tag has lost the key - loads open, which is what it was.
+        CollectionRights.Everyone everyone = new CollectionRights.Everyone(
+                !tag.getBoolean(CLOSED_KEY), tag.getBoolean(EVERYONE_TAKES_KEY), tag.getBoolean(EVERYONE_ADDS_KEY));
+        rights = new CollectionRights(owner, everyone, readPlayers(tag, MAY_LOOK_KEY),
                 readPlayers(tag, MAY_TAKE_KEY), readPlayers(tag, MAY_ADD_KEY));
     }
 
@@ -345,8 +351,14 @@ public class CollectionBlockEntity extends BlockEntity {
         if (rights.owner() != null) {
             tag.putUUID(OWNER_KEY, rights.owner());
         }
-        if (!rights.open()) {
+        if (!rights.everyone().looks()) {
             tag.putBoolean(CLOSED_KEY, true);
+        }
+        if (rights.everyone().takes()) {
+            tag.putBoolean(EVERYONE_TAKES_KEY, true);
+        }
+        if (rights.everyone().adds()) {
+            tag.putBoolean(EVERYONE_ADDS_KEY, true);
         }
         writePlayers(tag, MAY_LOOK_KEY, rights.mayLook());
         writePlayers(tag, MAY_TAKE_KEY, rights.mayTake());

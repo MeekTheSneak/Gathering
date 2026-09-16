@@ -47,7 +47,7 @@ public final class CollectionKeysScreen extends Screen {
     private static final int DIM = 0xFF9A9690;
 
     private final BlockPos where;
-    private boolean open = true;
+    private CollectionKeysPayload.Key everyone = new CollectionKeysPayload.Key("", true, false, false);
     private final List<CollectionKeysPayload.Key> keys = new ArrayList<>();
     private int scroll;
     private Rect panel = Rect.NONE;
@@ -77,7 +77,7 @@ public final class CollectionKeysScreen extends Screen {
     public static void accept(CollectionKeysPayload keys) {
         if (Minecraft.getInstance().screen instanceof CollectionKeysScreen screen
                 && screen.where.equals(keys.where())) {
-            screen.open = keys.open();
+            screen.everyone = keys.everyone();
             screen.keys.clear();
             screen.keys.addAll(keys.keys());
             screen.scroll = Math.max(0, Math.min(screen.scroll, screen.keys.size() - screen.rowsThatFit()));
@@ -99,13 +99,19 @@ public final class CollectionKeysScreen extends Screen {
         rightButton = Math.max(NARROWEST_RIGHT,
                 Math.min(RIGHT_BUTTON, (inner - CROSS - NAME_ROOM - GAP * 4) / 3));
 
-        // The lock, said as what it is now and pressed to make it the other thing.
+        // What anybody at all may do, as the same three switches a named player gets - so the row reads
+        // the same way and "anyone may look, only I may take" is a thing you set rather than hope for.
         int lockTop = panel.y() + PADDING + this.font.lineHeight + GAP;
-        addRenderableWidget(GatheringButtons.of(left, lockTop, inner, ROW,
-                Component.translatable(open
-                        ? "screen.gathering.collection_keys.anyone_may_look"
-                        : "screen.gathering.collection_keys.only_those_let_in"),
-                () -> ClientNetworking.send(new CollectionLockPayload(where, !open))));
+        int end = panel.right() - PADDING;
+        addRenderableWidget(right(end - rightButton, lockTop,
+                "screen.gathering.collection_keys.add", everyone.add(),
+                () -> everyone(everyone.look(), everyone.take(), !everyone.add())));
+        addRenderableWidget(right(end - (GAP + rightButton) * 2 + GAP, lockTop,
+                "screen.gathering.collection_keys.take", everyone.take(),
+                () -> everyone(everyone.look(), !everyone.take(), everyone.add())));
+        addRenderableWidget(right(end - (GAP + rightButton) * 3 + GAP, lockTop,
+                "screen.gathering.collection_keys.look", everyone.look(),
+                () -> everyone(!everyone.look(), everyone.take(), everyone.add())));
 
         // A name, and the button that lets them look.
         int addTop = lockTop + ROW + GAP;
@@ -126,17 +132,17 @@ public final class CollectionKeysScreen extends Screen {
         for (int index = 0; index < showing; index++) {
             CollectionKeysPayload.Key key = keys.get(scroll + index);
             int top = listTop + index * (ROW + GAP);
-            int end = panel.right() - PADDING - scrollbar;
-            addRenderableWidget(GatheringButtons.of(end - CROSS, top, CROSS, ROW,
+            int rowEnd = panel.right() - PADDING - scrollbar;
+            addRenderableWidget(GatheringButtons.of(rowEnd - CROSS, top, CROSS, ROW,
                     Component.translatable("screen.gathering.collection_keys.shut_out"),
                     () -> send(key.name(), false, false, false)));
-            addRenderableWidget(right(end - CROSS - GAP - rightButton, top,
+            addRenderableWidget(right(rowEnd - CROSS - GAP - rightButton, top,
                     "screen.gathering.collection_keys.add", key.add(),
                     () -> send(key.name(), key.look(), key.take(), !key.add())));
-            addRenderableWidget(right(end - CROSS - (GAP + rightButton) * 2, top,
+            addRenderableWidget(right(rowEnd - CROSS - (GAP + rightButton) * 2, top,
                     "screen.gathering.collection_keys.take", key.take(),
                     () -> send(key.name(), key.look(), !key.take(), key.add())));
-            addRenderableWidget(right(end - CROSS - (GAP + rightButton) * 3, top,
+            addRenderableWidget(right(rowEnd - CROSS - (GAP + rightButton) * 3, top,
                     "screen.gathering.collection_keys.look", key.look(),
                     () -> send(key.name(), !key.look(), key.take(), key.add())));
         }
@@ -154,6 +160,10 @@ public final class CollectionKeysScreen extends Screen {
             int x, int y, String label, boolean allowed, Runnable action) {
         return GatheringButtons.toggle(x, y, rightButton, ROW,
                 Component.translatable(label), () -> allowed, action);
+    }
+
+    private void everyone(boolean look, boolean take, boolean add) {
+        ClientNetworking.send(new CollectionLockPayload(where, look, take, add));
     }
 
     private void letIn() {
@@ -203,7 +213,12 @@ public final class CollectionKeysScreen extends Screen {
         GuiText.drawCentered(graphics, this.font, this.title, panel.x() + panel.width() / 2, panel.y() + PADDING,
                 inner, TEXT);
         int showing = rowsThatFit();
-        int listTop = panel.y() + PADDING + this.font.lineHeight + GAP + (ROW + GAP) * 2;
+        int lockTop = panel.y() + PADDING + this.font.lineHeight + GAP;
+        int listTop = lockTop + (ROW + GAP) * 2;
+        // The row's own name, in the place a player's name sits on every row below it.
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.collection_keys.everyone"),
+                panel.x() + PADDING, lockTop + (ROW - this.font.lineHeight) / 2,
+                panel.width() - PADDING * 2 - (GAP + rightButton) * 3, TEXT);
         if (keys.isEmpty()) {
             GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.collection_keys.nobody"),
@@ -233,6 +248,6 @@ public final class CollectionKeysScreen extends Screen {
     }
 
     boolean openToAll() {
-        return open;
+        return everyone.look();
     }
 }

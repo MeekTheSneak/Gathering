@@ -186,6 +186,23 @@ public final class GatheringContent {
         return java.util.List.copyOf(all);
     }
 
+    /**
+     * Every block whose fabric takes dye, in every wood.
+     * <p>Listed once, because both loaders register the same color handler and the list had been written
+     * out by hand on each - which is how the ten wooden shop counters, desks and cabinets ended up with a
+     * felt property nothing tinted: dyeing a spruce cabinet changed its state and not its color.
+     */
+    public static java.util.List<Registered<Block>> everyDyedBlock() {
+        java.util.List<Registered<Block>> all = new java.util.ArrayList<>(java.util.List.of(
+                SHOP_COUNTER, SCOREKEEPERS_DESK, COLLECTION, CHAIR,
+                COBBLESTONE_CHAIR, BLACKSTONE_CHAIR, CRYING_OBSIDIAN_CHAIR));
+        for (Woodwork kind : java.util.List.of(
+                Woodwork.SHOP_COUNTER, Woodwork.SCOREKEEPERS_DESK, Woodwork.COLLECTION, Woodwork.CHAIR)) {
+            woodVariants(kind).forEach(variant -> all.add(variant.block()));
+        }
+        return java.util.List.copyOf(all);
+    }
+
     /** Every table, in the order they are offered: the four materials, then the same table in every wood. */
     public static java.util.List<Registered<Block>> tables() {
         java.util.List<Registered<Block>> all = new java.util.ArrayList<>(java.util.List.of(

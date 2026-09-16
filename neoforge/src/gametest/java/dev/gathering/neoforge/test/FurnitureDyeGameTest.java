@@ -71,4 +71,43 @@ public final class FurnitureDyeGameTest {
         helper.assertTrue(helper.getLevel().getBlockState(pos).equals(state) && dye.getCount() == 3, "visitor recolored a protected collection");
         helper.succeed();
     }
+
+    /**
+     * Everything the mod says takes dye really does, in every wood.
+     * <p>Two things were wrong at once and neither said so: the wooden chair had a bare plank seat while
+     * its three stone cousins had cushions you could dye, and the ten wooden shop counters, desks and
+     * cabinets had the felt property with nothing registered to tint it - so dyeing a spruce cabinet
+     * changed its block state and not one pixel of its color. The owner asked for the wooden chairs to
+     * match (2026-09-16); this asks it of the whole list, since the list is what both loaders register.
+     */
+    @GameTest(template = "empty")
+    public static void everythingThatTakesDyeHasACushion(GameTestHelper helper) {
+        java.util.List<String> without = new java.util.ArrayList<>();
+        for (var dyed : dev.gathering.item.GatheringContent.everyDyedBlock()) {
+            net.minecraft.world.level.block.state.BlockState state = dyed.get().defaultBlockState();
+            if (!state.hasProperty(dev.gathering.block.FurnitureDye.FELT)) {
+                without.add(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(dyed.get()).getPath());
+                continue;
+            }
+            // And white is white, while a color is that color - which is the handler doing its work.
+            if (dev.gathering.block.FurnitureDye.tint(state, 0) != 0xFFFFFF) {
+                without.add("undyed " + dyed.get() + " is not white");
+            }
+            if (dev.gathering.block.FurnitureDye.tint(
+                    state.setValue(dev.gathering.block.FurnitureDye.FELT,
+                            net.minecraft.world.item.DyeColor.RED), 0) == 0xFFFFFF) {
+                without.add("dyed " + dyed.get() + " is still white");
+            }
+        }
+        if (dev.gathering.item.GatheringContent.everyDyedBlock().size() < 40) {
+            helper.fail("the list of dyed blocks is only "
+                    + dev.gathering.item.GatheringContent.everyDyedBlock().size() + " long, so the woods are missing");
+            return;
+        }
+        if (!without.isEmpty()) {
+            helper.fail(without.size() + " block(s) are listed as taking dye and do not: " + String.join(", ", without));
+            return;
+        }
+        helper.succeed();
+    }
 }

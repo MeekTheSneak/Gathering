@@ -179,7 +179,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 379;
+    private static final int LAST_STEP = 381;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -4215,6 +4215,17 @@ public final class DevScene {
                 shoot(client, "114-deck-boxes");
                 advance(SETTLE / 2);
             }
+            case 380 -> {
+                // How a pack is held when somebody else is looking at you, and how one lies on the floor.
+                // Neither is visible from the first person, which is the only view the rest of this uses.
+                aPackInHandAndOneOnTheFloor(client);
+                advance(SETTLE * 2);
+            }
+            case 381 -> {
+                shoot(client, "115-a-pack-held-and-dropped");
+                client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -6373,6 +6384,39 @@ public final class DevScene {
         if (colors.size() < 2) {
             fail("four decks are all one color, so the box is not being tinted: " + colors);
         }
+    }
+
+    /**
+     * A pack in the hand, seen from behind, and another lying on the ground beside it.
+     * <p>The two views of a pack the rest of the run never shows: what somebody else sees you holding,
+     * and what one looks like dropped. Both are model display transforms, which nothing headless reads.
+     */
+    private static void aPackInHandAndOneOnTheFloor(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no player to hand a pack to");
+            return;
+        }
+        client.player.getInventory().setItem(0, dev.gathering.item.PackItem.of(
+                new dev.gathering.item.PackComponent("dmu", "draft")));
+        client.player.getInventory().selected = 0;
+        java.util.UUID who = client.player.getUUID();
+        server.execute(() -> {
+            var holder = server.getPlayerList().getPlayer(who);
+            if (holder == null) {
+                fail("the player went away before a pack could be dropped");
+                return;
+            }
+            net.minecraft.world.entity.item.ItemEntity dropped = new net.minecraft.world.entity.item.ItemEntity(
+                    holder.serverLevel(), holder.getX() + 1.5, holder.getY(), holder.getZ() + 1.0,
+                    dev.gathering.item.PackItem.of(new dev.gathering.item.PackComponent("blb", "collector")));
+            // Still rather than tumbling, so the picture is of the model and not of a bounce.
+            dropped.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            dropped.setNoPickUpDelay();
+            holder.serverLevel().addFreshEntity(dropped);
+        });
+        // From behind, which is the whole point of this step.
+        client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
     }
 
     /** Where the display case was put down, for the step that photographs it. */

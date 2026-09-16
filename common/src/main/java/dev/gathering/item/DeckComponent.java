@@ -89,6 +89,23 @@ public record DeckComponent(
                 color, sleeve, cards.stories(), loaner);
     }
 
+    /**
+     * The same deck with the stand-ins taken out, leaving whatever cards are really in it.
+     * <p>The last resort for a copy that arrived with its cards hidden and cannot be put back together -
+     * a deck the server has never seen whole. Keeping the stand-ins is worse than dropping them: a deck
+     * holding them lists cards that load for ever and hands out blank ones when a card is taken, which is
+     * the shape the owner has reported twice. What is left is at least true.
+     */
+    public DeckComponent withoutHiddenCards() {
+        if (!isRedacted()) {
+            return this;
+        }
+        return new DeckComponent(name, description, owner,
+                entries.stream().filter(card -> !card.isHidden()).toList(), commanders,
+                sideboard.stream().filter(card -> !card.isHidden()).toList(),
+                color, sleeve, stories, loaner);
+    }
+
     /** A deck built without any histories to carry, which is most of the ways one is made. */
     public DeckComponent(
             String name, String description, Optional<UUID> owner,

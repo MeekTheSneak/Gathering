@@ -186,6 +186,13 @@ def write(check: bool):
 
             lang["block.gathering." + newId] = kind["name"] % NAMES[wood]
 
+        # And the plain one, named for the wood it is actually drawn in. It used to be called just
+        # "Table" or "Chair" while its ten siblings said which wood they were, so the one on the shelf
+        # next to Spruce Table and Birch Table was the only one that did not say - the owner asked for
+        # the wood on all of them (2026-09-16). Written here rather than by hand, because the wood it
+        # is drawn in is read from the Java a few lines above and the two can then never disagree.
+        lang["block.gathering." + plainId] = kind["name"] % NAMES[plainWood]
+
     # Every one of them is chopped with an axe, like the plain ones.
     axe = json.loads((DATA / "minecraft/tags/block/mineable/axe.json").read_text(encoding="utf-8"))
     values = [value for value in axe["values"] if ":" not in value or value.startswith("gathering:")]

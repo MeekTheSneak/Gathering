@@ -46,17 +46,21 @@ public final class CollectionKeys {
             keys.add(new CollectionKeysPayload.Key(nameOf(player, letIn),
                     rights.mayLook().contains(letIn), rights.mayTake(letIn), rights.mayAdd(letIn)));
         }
-        Sending.to(player, new CollectionKeysPayload(where, rights.open(), keys));
+        CollectionRights.Everyone everyone = rights.everyone();
+        Sending.to(player, new CollectionKeysPayload(where,
+                new CollectionKeysPayload.Key("", everyone.looks(), everyone.takes(), everyone.adds()),
+                keys));
     }
 
-    /** Opens a collection to everybody, or shuts it to everybody not let in. */
+    /** Says what anybody at all may do with a collection: look in it, take from it, add to it. */
     public static void lock(ServerPlayer player, CollectionLockPayload payload) {
         CollectionBlockEntity collection = owned(player, payload.where());
         if (collection == null) {
             return;
         }
-        collection.setRights(collection.rights().openedToLook(payload.open()));
-        player.displayClientMessage(Component.translatable(payload.open()
+        collection.setRights(collection.rights().allowingEveryone(
+                new CollectionRights.Everyone(payload.look(), payload.take(), payload.add())));
+        player.displayClientMessage(Component.translatable(collection.rights().open()
                 ? "message.gathering.collection_opened_to_all"
                 : "message.gathering.collection_closed_to_all"), false);
         show(player, payload.where());

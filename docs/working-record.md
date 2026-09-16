@@ -2166,6 +2166,43 @@ way through - identically on `8a567411`, before any of it - and then sticks on t
 for COUNT while the scene presses TAP, repeating until the run gives up at step 305 of 380. The new steps
 were run directly with `-PdevsceneFrom=376`, which they are now self-sufficient enough to allow.
 
+### Twenty-fifth batch: the owner's second playtest, first six (2026-09-16)
+
+- **#2, cards put into a deck loading for ever and coming out blank - found at last.** The deck's handle
+  was minted only when a deck reached a player's *hand*, so a deck made and fiddled with in the creative
+  menu had none; with no handle there was nothing to remember its real cards under, and the first hidden
+  copy the menu handed back was kept as-is. From then on that deck really did hold stand-ins: its list
+  loaded for ever and a card taken out of it was blank. The handle is minted the first time the server
+  ticks a deck with real cards in it now. Two more locks on the same door: a hidden copy nothing can
+  restore has its stand-ins dropped rather than kept, and `DeckEdits` refuses an edit that names a hidden
+  card instead of handing back a blank one. Guards: `DeckVaultGameTest.aDeckNeverHeldIsStillPutBackTogether`
+  and `.aHiddenDeckNothingRemembersKeepsNoStandIns`, both proven; and
+  `.aCardRightClickedOntoADeckInCreativeIsStillThere`, which goes through the item's own
+  `overrideStackedOnOther` rather than setting the component by hand the way the older check did.
+- **#1 and #10, the pack in the hand and on the floor.** Vanilla's flat-item pose tipped it onto a
+  diagonal, which is a pose for a thing with no thickness; it uses vanilla's block pose now, which reads
+  as a pack being carried. And it stood on its face on the ground - it stands upright. Both were looked
+  at: `115-a-pack-held-and-dropped`, through a new scene step that switches to the third person, which
+  nothing else in the tour does.
+- **#4, letting everyone look but not take.** It was the default and *only* the default: the screen had a
+  lock and nothing else, so any other arrangement had to be built one name at a time. What anybody at all
+  may do is now the same three switches a named player gets - look, take, add - so a donation box, a
+  lending library and a display shelf are things the owner sets rather than hopes for. Protocol 23.
+- **#6, the wood in the name.** "Table" and "Chair" sat on the shelf beside Spruce Table and Birch Chair
+  without saying what they were. `tools/woodwork.py` writes the plain names too now, from the same wood it
+  reads out of the Java, so the two can never disagree.
+- **#7, the wooden chairs' cushion**, dyed like the stone ones - and, found doing it, **the ten wooden
+  counters, desks and cabinets had the felt property with nothing registered to tint it**: dyeing a spruce
+  cabinet changed its block state and not one pixel of its color. One list, `everyDyedBlock`, registered by
+  both loaders. Guard: `FurnitureDyeGameTest.everythingThatTakesDyeHasACushion`, proven.
+
+Verified: gate green (596/16).
+
+Still to do from that list: the collection screen's overlapping elements (#3), a multi-card display case
+that fits beside a counter, in every wood and dyeable (#5, #9), and the deck box looking more like a deck
+box (#9b). The owner also asked whether the pack tear could be a real cloth simulation (#11) - answered in
+conversation, not built.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

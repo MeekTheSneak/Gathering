@@ -83,6 +83,14 @@ public final class DeckEdits {
             return;
         }
         DeckComponent deck = held.get();
+        // Never the stand-in. A client's copy of a deck is a row of cards it is not being told the names
+        // of, and an edit naming one is a client whose real list has not arrived - so obeying it would
+        // take a card out by an identity nothing has and hand back a blank one.
+        if (edit.card() != null && edit.card().isHidden()) {
+            player.sendSystemMessage(
+                    net.minecraft.network.chat.Component.translatable("message.gathering.deck_not_listed_yet"));
+            return;
+        }
         if (deck.loaner() && edit.action() == DeckEditPayload.Action.TAKE) {
             // A card taken out of a loaner would be a card made out of nothing.
             player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.gathering.loaner_not_kept"));

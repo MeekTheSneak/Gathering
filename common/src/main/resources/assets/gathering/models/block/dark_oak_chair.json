@@ -4,7 +4,8 @@
   "textures": {
     "particle": "minecraft:block/dark_oak_planks",
     "seat": "minecraft:block/dark_oak_planks",
-    "leg": "minecraft:block/stripped_dark_oak_log"
+    "leg": "minecraft:block/stripped_dark_oak_log",
+    "felt": "minecraft:block/white_wool"
   },
   "elements": [
     {
@@ -287,7 +288,7 @@
       ],
       "to": [
         15,
-        10,
+        9,
         15
       ],
       "faces": {
@@ -344,6 +345,45 @@
             14,
             14
           ]
+        }
+      }
+    },
+    {
+      "name": "Cushion",
+      "from": [
+        2,
+        9,
+        2
+      ],
+      "to": [
+        14,
+        10,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#felt",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#felt",
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#felt",
+          "tintindex": 0
         }
       }
     },

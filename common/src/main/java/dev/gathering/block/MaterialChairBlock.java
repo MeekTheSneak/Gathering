@@ -26,23 +26,10 @@ public final class MaterialChairBlock extends ChairBlock {
 
     public MaterialChairBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(FurnitureDye.FELT, DyeColor.WHITE));
     }
 
     @Override
     protected MapCodec<? extends HorizontalDirectionalBlock> codec() { return CODEC; }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(FurnitureDye.FELT);
-    }
-
-    @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
-            BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        return FurnitureDye.use(stack, state, level, pos, player);
-    }
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {

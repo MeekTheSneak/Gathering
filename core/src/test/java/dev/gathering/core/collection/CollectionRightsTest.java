@@ -125,7 +125,7 @@ class CollectionRightsTest {
     @Test
     @DisplayName("a list handed out cannot be edited behind its back")
     void theListsAreNotWritable() {
-        CollectionRights rights = new CollectionRights(OWNER, true, Set.of(), Set.of(FRIEND), Set.of());
+        CollectionRights rights = new CollectionRights(OWNER, CollectionRights.Everyone.LOOK, Set.of(), Set.of(FRIEND), Set.of());
 
         org.assertj.core.api.Assertions
                 .assertThatThrownBy(() -> rights.mayTake().add(STRANGER))
@@ -188,5 +188,35 @@ class CollectionRightsTest {
         assertThat(rights.mayLook(FRIEND)).isTrue();
         assertThat(rights.mayTake(FRIEND)).isTrue();
         assertThat(rights.mayLook(OWNER)).isFalse();
+    }
+
+    /**
+     * The thing the owner could not say before: everybody may look, and only the owner may touch.
+     * <p>It was the default and nothing else, so any other arrangement had to be built one name at a
+     * time and "let everyone look but not take" could not be set at all - it could only be left alone.
+     */
+    @Test
+    @DisplayName("what anybody at all may do is three switches, not one lock")
+    void everybodyGetsTheSameThreeRights() {
+        CollectionRights shop = CollectionRights.ownedBy(OWNER);
+        assertThat(shop.mayLook(STRANGER)).isTrue();
+        assertThat(shop.mayTake(STRANGER)).isFalse();
+        assertThat(shop.mayAdd(STRANGER)).isFalse();
+
+        // A donation box: anybody may put cards in, nobody may take them out.
+        CollectionRights donations = shop.allowingEveryone(
+                new CollectionRights.Everyone(true, false, true));
+        assertThat(donations.mayAdd(STRANGER)).isTrue();
+        assertThat(donations.mayTake(STRANGER)).isFalse();
+
+        // A lending library: anybody may take, nobody may stock it but its owner.
+        CollectionRights library = shop.allowingEveryone(
+                new CollectionRights.Everyone(true, true, false));
+        assertThat(library.mayTake(STRANGER)).isTrue();
+        assertThat(library.mayAdd(STRANGER)).isFalse();
+
+        // And anybody allowed to touch it can see it, however the looking switch is set.
+        CollectionRights odd = shop.allowingEveryone(new CollectionRights.Everyone(false, true, false));
+        assertThat(odd.mayLook(STRANGER)).isTrue();
     }
 }
