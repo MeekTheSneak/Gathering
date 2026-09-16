@@ -1737,6 +1737,17 @@ public final class DevScene {
             }
             case 129 -> {
                 aTornPackIsOpen(client);
+                // A pack is gone through one card at a time now, so the spread the next steps ask about
+                // is only reached at the end of it. The first card is photographed on the way past.
+                thePackIsBeingTurnedThrough(client);
+                shoot(client, "41a-one-card-at-a-time");
+                goThroughThePack(client);
+                advance(SETTLE / 2);
+            }
+            case 130 -> {
+                // Only now is the spread drawn, so only now does it know where anything is: the checks
+                // below read positions the last frame wrote, and asking in the step that turned the last
+                // card asked before any frame had drawn one.
                 everyCardIsShown(client);
                 // The cursor onto one of them, so the next step can ask which way they are
                 // leaning. These cards are made up and have no art, so they draw as the
@@ -1745,7 +1756,7 @@ public final class DevScene {
                 putTheCursorOnAPulledCard(client);
                 advance(SETTLE / 2);
             }
-            case 130 -> {
+            case 131 -> {
                 shoot(client, "41-what-was-in-it");
                 thePulledCardsLeanTowardTheCursor(client);
                 // Done in a strip of its own under the cards: it was drawn behind them, dark on dark.
@@ -1756,9 +1767,6 @@ public final class DevScene {
                         fail("Done on the pack reveal is at " + done + ", not clear of the cards at " + cards);
                     }
                 }
-                advance(SETTLE);
-            }
-            case 131 -> {
                 theReadKeyAnswersOverAPulledCard(client);
                 client.setScreen(null);
                 aCollectionWithSomethingInIt(client);
@@ -6184,6 +6192,52 @@ public final class DevScene {
         }
         if (trade.listedTheirs() <= 0) {
             fail("a trade screen listed none of the cards I am being offered");
+        }
+    }
+
+    /**
+     * The pack came apart into a stack rather than a spread, and the stack promises what is coming.
+     * <p>The ceremony the owner asked for (2026-09-16): the card in front is the only one you can read,
+     * and the one before a rare or a mythic is lit from behind by it.
+     */
+    private static void thePackIsBeingTurnedThrough(Minecraft client) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("the pack screen went away before its cards could be turned");
+            return;
+        }
+        if (pack.turnedSoFar() < 0) {
+            fail("a torn pack is not being turned through at all");
+            return;
+        }
+        if (pack.turnedSoFar() != 0) {
+            fail("a pack just torn open has already turned " + pack.turnedSoFar() + " card(s)");
+        }
+    }
+
+    /**
+     * Turns every card in the pack, the way a player does.
+     * <p>Through the screen's own key, which is the path somebody without a mouse takes - and the one
+     * that has to work, because a ceremony only a drag can perform is one some players cannot have.
+     */
+    private static void goThroughThePack(Minecraft client) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("the pack screen went away mid-turn");
+            return;
+        }
+        int promised = 0;
+        for (int turn = 0; turn < 32 && !pack.turnedThrough(); turn++) {
+            if (pack.promisesSomething()) {
+                promised++;
+            }
+            client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE, 0, 0);
+        }
+        if (!pack.turnedThrough()) {
+            fail("a pack of four was still not turned through after thirty-two goes");
+            return;
+        }
+        System.out.println("[devscene] the pack promised something on " + promised + " of its cards");
+        if (promised == 0) {
+            fail("a pack with a mythic in it never once said something was coming");
         }
     }
 

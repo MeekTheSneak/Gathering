@@ -2198,6 +2198,33 @@ were run directly with `-PdevsceneFrom=376`, which they are now self-sufficient 
 
 Verified: gate green (596/16).
 
+### Twenty-sixth batch: opening a pack one card at a time (2026-09-16)
+
+The owner asked to overhaul the pack ceremony outright: a stack you thumb through rather than a spread,
+the card before a good one lit by what is coming, and a noise to match - "look at Pokemon TCG Pocket".
+This is the first half of it, the turn. The cloth tear is the second and is not built.
+
+- **`PackReveal`** in `:core` owns the whole ceremony's arithmetic - the order, what is in front, what is
+  behind it, whether to shine, and what the turn is worth - so all of it is checked without a window.
+  Tiers rather than rarities, because a showcase common is a card people shout about and its rarity says
+  common. Four tests and three properties, one of which is that the light never promises something the
+  pack does not still have to give.
+- **`PackTurning`** on the client is the stack: the cards left drawn behind the one in front, the front
+  card dragged aside with the mouse or turned with a key, the one just taken off flying out over the top
+  of everything, and the next one underneath it all along. The light belongs to the card underneath, so it
+  stays with the stack while the top one is dragged away.
+- **Sounds**: a shimmer while something worth announcing is next, grander for a mythic than a rare, and an
+  impact when the card lands. **These are vanilla sounds standing in for the owner's** - four places where
+  four of their own would go, one line each.
+- The spread is still there, at the end, as what you got.
+
+Their own `TestHygieneTest` caught that the three new properties were being skipped: jqwik needs `@Label`,
+and `@DisplayName` on a `@Property` makes the engine pass it over silently.
+
+Verified: gate green (596/16), and the scripted client went through it - `41a-one-card-at-a-time` shows
+one card, the stack behind it and the count; the run reports "the pack promised something on 1 of its
+cards", which is the card before the mythic and no other.
+
 Still to do from that list: the collection screen's overlapping elements (#3), a multi-card display case
 that fits beside a counter, in every wood and dyeable (#5, #9), and the deck box looking more like a deck
 box (#9b). The owner also asked whether the pack tear could be a real cloth simulation (#11) - answered in

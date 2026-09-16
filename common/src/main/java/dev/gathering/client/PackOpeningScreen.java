@@ -93,6 +93,13 @@ public final class PackOpeningScreen extends Screen {
     private List<CardComponent> revealed = List.of();
 
     /**
+     * Going through the pack a card at a time, between the wrapper coming off and the spread.
+     * <p>Null until the pack is open. The owner asked for the whole ceremony (2026-09-16): a stack you
+     * thumb through rather than a grid that hands you every answer at once.
+     */
+    private PackTurning turning;
+
+    /**
      * How far the pack is turned, and how far it is easing toward being turned.
      * <p>Its own rather than {@link CardTilt}'s, which belongs to the inspect panel. Two
      * things easing one value would fight over it the moment a card was hovered on top of a
@@ -221,7 +228,15 @@ public final class PackOpeningScreen extends Screen {
         if (tear.isOpen()) {
             // Torn: the cards come out now, into the inventory, as the wrapper comes off.
             tellTheServerItIsOpen();
-            drawWhatWasInIt(graphics, mouseX, mouseY);
+            if (turning != null && !turning.finished()) {
+                // One card at a time, which is what a pack is opened for.
+                turning.tick();
+                turning.draw(graphics, this.font, cardInHand(), mouseX, mouseY,
+                        ClientSettings.reducedMotion());
+            } else {
+                // And then all of it at once, which is what you got.
+                drawWhatWasInIt(graphics, mouseX, mouseY);
+            }
         } else {
             drawThePack(graphics, mouseX, mouseY);
         }
@@ -234,6 +249,18 @@ public final class PackOpeningScreen extends Screen {
 
     /** How far in front of the glow behind it a revealed card is drawn: more than a turned card leans back. */
     private static final float IN_FRONT_OF_ITS_GLOW = 60f;
+
+    /**
+     * Where the card being turned sits: where the wrapper was, at a card's shape rather than a pack's.
+     * <p>The same place the pack was a moment ago, so the cards come out of it rather than appearing
+     * somewhere else on the screen.
+     */
+    private Rect cardInHand() {
+        int tall = Math.min(packHeight, height() - BELOW_THE_CARDS - 40);
+        int wide = (int) Math.round(dev.gathering.core.ui.CardShape.widthFor(tall));
+        return new Rect((width() - wide) / 2, Math.max(24, (height() - BELOW_THE_CARDS - tall) / 2),
+                wide, tall);
+    }
 
     /** The sealed pack, torn as far as it has been. */
     private void drawThePack(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -644,14 +671,50 @@ public final class PackOpeningScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (turning != null && !turning.finished() && turning.grabbed(mouseX, mouseY, cardInHand())) {
+            return true;
+        }
         follow(mouseX);
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (turning != null && !turning.finished()) {
+            turning.draggedTo(dragX);
+            return true;
+        }
         follow(mouseX);
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (turning != null && !turning.finished()) {
+            turning.letGo(cardInHand());
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    /**
+     * The keyboard's way through the stack, for anybody not dragging with a mouse.
+     * <p>A ceremony only a mouse can perform is a ceremony some players cannot have.
+     */
+    @Override
+    public boolean keyPressed(int key, int scan, int modifiers) {
+        if (turning != null && !turning.finished() && isTurnKey(key)) {
+            turning.turn();
+            return true;
+        }
+        return super.keyPressed(key, scan, modifiers);
+    }
+
+    private static boolean isTurnKey(int key) {
+        return key == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
     }
 
     /** How far along the tear was when it last made a noise. */
@@ -669,9 +732,10 @@ public final class PackOpeningScreen extends Screen {
         }
         if (wasSealed && tear.isOpen()) {
             PackSounds.opened();
-            // Sorted once, at the moment it comes apart. Doing it every frame would re-sort a
-            // list whose order is the whole point, as summaries arrive one packet at a time.
-            revealed = inRevealOrder();
+            // Built once, at the moment it comes apart. Doing it every frame would re-sort a list whose
+            // order is the whole point, as summaries arrive one packet at a time.
+            turning = PackTurning.of(cards);
+            revealed = turning.inOrder();
         }
     }
 
@@ -691,6 +755,21 @@ public final class PackOpeningScreen extends Screen {
 
     public int packMiddleY() {
         return packY + packHeight / 2;
+    }
+
+    /** How many cards have been turned, or -1 where the pack is not being turned at all. For the tour. */
+    public int turnedSoFar() {
+        return turning == null ? -1 : turning.shown();
+    }
+
+    /** Whether every card has been turned and the spread is showing. For the tour. */
+    public boolean turnedThrough() {
+        return turning == null || turning.finished();
+    }
+
+    /** Whether the card in front is lit by something worth announcing behind it. For the tour. */
+    public boolean promisesSomething() {
+        return turning != null && turning.nextUp().worthAnnouncing();
     }
 
     public PackTear tear() {

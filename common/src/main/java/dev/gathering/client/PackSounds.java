@@ -2,6 +2,7 @@ package dev.gathering.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import dev.gathering.core.ui.PackReveal;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 
@@ -60,6 +61,39 @@ final class PackSounds {
     /** Taking hold of the corner, which is the one thing about this nobody is told how to do. */
     static void gripped() {
         play(SoundEvents.BOOK_PAGE_TURN, FROM_PITCH, CRINKLE);
+    }
+
+    /**
+     * The shimmer, while something worth announcing is the next card.
+     * <p>Grander for a mythic than for a rare, which is the whole information the sound carries: a player
+     * who has heard both knows which one is coming before they turn it.
+     * <p><b>These are vanilla sounds standing in for the owner's.</b> Every sound this mod ships is
+     * theirs, and a shimmer that builds is a thing to record rather than to assemble out of amethyst. The
+     * four below are where four of their own would go, one line each.
+     */
+    static void shimmer(PackReveal.Tier next) {
+        switch (next) {
+            case MYTHIC -> {
+                play(SoundEvents.AMETHYST_BLOCK_CHIME, 0.62f, 0.5f);
+                play(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.7f, 0.35f);
+            }
+            case SPECIAL -> play(SoundEvents.AMETHYST_BLOCK_CHIME, 1.35f, 0.4f);
+            case RARE -> play(SoundEvents.AMETHYST_BLOCK_CHIME, 0.95f, 0.38f);
+            default -> { }
+        }
+    }
+
+    /** The card landing: a flick of paper for most of them, and something bigger for the rest. */
+    static void turned(PackReveal.Tier arriving) {
+        switch (arriving) {
+            case MYTHIC -> {
+                play(SoundEvents.TOTEM_USE, 0.9f, 0.55f);
+                play(SoundEvents.AMETHYST_CLUSTER_BREAK, 0.8f, 0.6f);
+            }
+            case SPECIAL -> play(SoundEvents.AMETHYST_CLUSTER_BREAK, 1.3f, 0.55f);
+            case RARE -> play(SoundEvents.AMETHYST_BLOCK_BREAK, 1.1f, 0.55f);
+            default -> play(SoundEvents.BOOK_PAGE_TURN, 1.1f, 0.45f);
+        }
     }
 
     private static void play(SoundEvent sound, float pitch, float volume) {
