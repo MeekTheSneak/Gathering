@@ -2131,6 +2131,41 @@ The tour also **crashed** at step 203 rather than failing it: the step took its 
 a run that had lost its board somewhere earlier took the client down and the remaining hundred and seventy
 steps with it - including every step that would have said what was wrong. It fails the step now.
 
+### Twenty-fourth batch: a deck box made of plastic, and a case you can see into (2026-09-16)
+
+The owner asked for the deck box to stop being wool: "some sort of more solid looking material like a
+plastic. And the top doesn't need to be so bulky. And it doesn't need the fake label on the front."
+
+- **White concrete rather than white wool** for the body and the lid, which is the flattest, most uniform
+  white vanilla has and the closest thing it owns to moulded plastic. The dark oak foot went with it, to
+  black concrete: one box, one substance.
+- **The lid was three pixels deep and stood a whole pixel proud on every side**, which is most of a third
+  box sitting on top of the second one. It is one and a half deep and half a pixel proud now.
+- **The label is gone.** A blank plaque on every deck box in the world said nothing.
+- The clasp moved into the step the lid's overhang leaves, so it sits under the lip rather than floating
+  in front of where the label used to be.
+
+Guard: `texturecheck` now also asks that every model a color handler tints still has a face saying
+`tintindex`. Losing that is silent - the item simply comes out white - and it has happened once already,
+when a furniture package arrived with the deck box redrawn without one. Proven by taking the tintindexes
+out: the check names the model and the handler.
+
+And, found by photographing it: **the display case drew its glass solid**, so the card inside was a card
+nobody could see - which is the whole block. A model using a transparent texture has to say which layer it
+draws in; it says `render_type` for NeoForge and registers the same layer through Fabric's own map.
+
+Verified: gate green (592/16), and the scripted client photographed all four -
+`111-who-may-use-this-collection`, `112-a-locked-collection`, `113-a-card-under-glass` (glass you can see
+through, card standing inside) and `114-deck-boxes` (four boxes, three colors, no label, slim lid).
+The tour's own new steps went from three failures to none: two were the scene asking whether the lock had
+gone on in the same tick it pressed the button, and the third was a case put down a block below the
+player, which the client had and nobody could see.
+
+**The full tour still does not finish**, and neither of the reasons is this work: it loses its table part
+way through - identically on `8a567411`, before any of it - and then sticks on the guided lesson asking
+for COUNT while the scene presses TAP, repeating until the run gives up at step 305 of 380. The new steps
+were run directly with `-PdevsceneFrom=376`, which they are now self-sufficient enough to allow.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

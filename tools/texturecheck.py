@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Every texture a model asks for exists, and every texture that ships is asked for.
+"""Every texture a model asks for exists, every texture that ships is asked for, and what is
+dyed says it is dyed.
 
 Two failures, both silent until somebody looks at the right pixel.
 
@@ -11,6 +12,13 @@ A texture nothing names is dead weight that reads as art somebody forgot to wire
 the direction that has actually gone wrong: item/deck.png was deleted as unreferenced because
 the search covered the checked-in models and not the generated ones, and it took a datagen run
 to notice - the model that names it is written by the generator into src/generated.
+
+The third is the same kind of silence from the other end. A face is tinted by a color handler
+only where the model puts a tintindex on it, so a model redrawn without one loses its color and
+nothing anywhere fails - the item simply comes out white. That is not hypothetical: a furniture
+package arrived with the deck box redrawn and no tintindex, and every deck in the world went
+white until somebody looked at a picture. So the models whose faces are tinted from code are
+named below, and each one has to keep at least one face saying so.
 
 Run from the repository root:
 
@@ -82,6 +90,35 @@ def texturesOnDisk():
     return found
 
 
+#: Models whose faces are colored by a handler in code, and what colors them. A model here with no
+#: tinted face at all is a thing that has quietly stopped being dyeable.
+TINTED = {
+    "item/deck_box.json": "DeckItem.tintOf",
+}
+
+
+def modelsMissingTheirTint():
+    """The tinted models that no longer say any face is tinted."""
+    missing = []
+    for model, by in sorted(TINTED.items()):
+        found = None
+        for root in MODEL_ROOTS:
+            path = os.path.join(ROOT, root, model)
+            if os.path.exists(path):
+                found = path
+                break
+        if found is None:
+            missing.append(f"{model} is tinted by {by} and is not there")
+            continue
+        drawn = json.load(open(found, encoding="utf-8"))
+        tinted = any("tintindex" in face
+                     for element in drawn.get("elements", [])
+                     for face in element.get("faces", {}).values())
+        if not tinted:
+            missing.append(f"{model} is colored by {by} and no face of it says tintindex")
+    return missing
+
+
 def main():
     named = texturesNamedByModels()
     onDisk = texturesOnDisk()
@@ -102,6 +139,8 @@ def main():
             continue
         if texture not in named and texture not in FROM_CODE:
             problems.append(f"{texture} is on disk and nothing names it")
+
+    problems.extend(modelsMissingTheirTint())
 
     for line in problems:
         print("  " + line)

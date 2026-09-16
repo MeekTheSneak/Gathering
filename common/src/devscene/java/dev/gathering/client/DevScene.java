@@ -179,7 +179,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 376;
+    private static final int LAST_STEP = 379;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -4183,22 +4183,36 @@ public final class DevScene {
             case 374 -> {
                 expectScreen(client, "who may use this collection", CollectionKeysScreen.class);
                 shoot(client, "111-who-may-use-this-collection");
-                // The lock goes on, and the screen says so rather than the button still offering it.
+                // The lock goes on. Asked about in the next step and not in this one: pressing a button
+                // sends a payload, and the answer is not back before the next line of this method runs -
+                // which is how the first go at this reported a lock that had in fact gone on.
                 press(client, Component.translatable("screen.gathering.collection_keys.anyone_may_look").getString());
                 advance(SETTLE);
+            }
+            case 375 -> {
                 theCollectionIsLocked(client);
                 shoot(client, "112-a-locked-collection");
                 client.setScreen(null);
-                advance(SETTLE / 2);
+                advance(SETTLE);
             }
-            case 375 -> {
+            case 376 -> {
                 // A card under glass, which is a block whose whole job is to be looked at.
                 aDisplayCaseWithACardInIt(client);
                 advance(SETTLE * 2);
             }
-            case 376 -> {
+            case 377 -> {
                 theCaseIsShowingItsCard(client);
                 shoot(client, "113-a-card-under-glass");
+                advance(SETTLE / 2);
+            }
+            case 378 -> {
+                // The deck box itself, in the hand and in the hotbar. A model is a thing you look at.
+                deckBoxesInTheHotbar(client);
+                advance(SETTLE);
+            }
+            case 379 -> {
+                theDeckBoxesAreColored(client);
+                shoot(client, "114-deck-boxes");
                 advance(SETTLE / 2);
             }
             default -> {
@@ -6317,6 +6331,50 @@ public final class DevScene {
         });
     }
 
+    /**
+     * Four decks in the hotbar, one of them in the hand.
+     * <p>The deck box is drawn from a model and tinted per deck, and neither of those is a thing any
+     * headless check looks at. Four colors rather than one so the picture shows the tint working and the
+     * shape at the same time.
+     */
+    private static void deckBoxesInTheHotbar(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player to hand a deck to");
+            return;
+        }
+        String[] named = {"Mono-Red Burn", "Azorius Control", "Golgari Midrange", "Bant Ramp"};
+        java.util.UUID who = client.player.getUUID();
+        java.util.random.RandomGenerator boxes = new java.util.Random(0x0DEC0B07L);
+        for (int slot = 0; slot < named.length; slot++) {
+            dev.gathering.item.DeckComponent deck = new dev.gathering.item.DeckComponent(
+                    named[slot], "", java.util.Optional.of(who), List.of(), List.of(), List.of())
+                    .colored(dev.gathering.core.card.DeckColors.pick(boxes.nextLong()));
+            client.player.getInventory().setItem(slot, dev.gathering.item.DeckItem.of(deck));
+        }
+        client.player.getInventory().selected = 0;
+    }
+
+    /** The boxes are drawn and no two of them came out the same color. */
+    private static void theDeckBoxesAreColored(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player holding decks");
+            return;
+        }
+        java.util.Set<Integer> colors = new java.util.LinkedHashSet<>();
+        for (int slot = 0; slot < 4; slot++) {
+            net.minecraft.world.item.ItemStack stack = client.player.getInventory().getItem(slot);
+            if (dev.gathering.item.DeckItem.deckOf(stack).isEmpty()) {
+                fail("slot " + slot + " of the hotbar is " + stack + " rather than a deck");
+                return;
+            }
+            colors.add(dev.gathering.item.DeckItem.tintOf(stack, 0));
+        }
+        System.out.println("[devscene] four deck boxes in " + colors.size() + " color(s)");
+        if (colors.size() < 2) {
+            fail("four decks are all one color, so the box is not being tinted: " + colors);
+        }
+    }
+
     /** Where the display case was put down, for the step that photographs it. */
     private static BlockPos displayCase;
 
@@ -6332,7 +6390,9 @@ public final class DevScene {
             fail("there was no server to put a display case on");
             return;
         }
-        BlockPos where = client.player.blockPosition().offset(2, -1, 2);
+        // At the player's own level rather than a block below it: a case put down in the ground is a case
+        // the client has and nobody can see, which is exactly what the first photograph of this showed.
+        BlockPos where = client.player.blockPosition().offset(2, 0, 3);
         displayCase = where;
         java.util.UUID player = client.player.getUUID();
         server.execute(() -> {
@@ -6358,19 +6418,24 @@ public final class DevScene {
                             dev.gathering.core.card.CardIdentity.ofPrinting(card.scryfallId(), false))))));
             var opener = server.getPlayerList().getPlayer(player);
             if (opener != null) {
+                // Standing at the case's own level, two blocks off it, looking a little down at it.
                 double x = where.getX() + 0.5;
-                double y = where.getY() + 0.2;
+                double y = where.getY();
                 double z = where.getZ() - 2.0;
-                opener.teleportTo(level, x, y, z, 0f, 5f);
-                opener.connection.teleport(x, y, z, 0f, 5f);
+                opener.teleportTo(level, x, y, z, 0f, 12f);
+                opener.connection.teleport(x, y, z, 0f, 12f);
             }
         });
     }
 
     /** The case the client can see is showing the card the server put in it. */
     private static void theCaseIsShowingItsCard(Minecraft client) {
-        if (client.level == null || displayCase == null) {
-            fail("there was no display case to look at");
+        if (client.level == null) {
+            fail("there was no world to look at a display case in");
+            return;
+        }
+        if (displayCase == null) {
+            fail("no display case was ever put down to look at");
             return;
         }
         if (!(client.level.getBlockEntity(displayCase)
@@ -6461,14 +6526,23 @@ public final class DevScene {
      */
     private static void openTheCollectionWeOwn(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
-        if (server == null || client.player == null || collectionBlock == null) {
+        if (server == null || client.player == null) {
             fail("there was no collection to share");
             return;
         }
         java.util.UUID player = client.player.getUUID();
-        BlockPos where = collectionBlock;
+        // Its own if the run has not been past the collection steps. A step that needs a block put down
+        // two hundred steps earlier is a step nobody can run on its own to look at one screen, which is
+        // exactly what somebody working on that screen wants to do.
+        BlockPos where = collectionBlock != null
+                ? collectionBlock
+                : client.player.blockPosition().offset(-2, -1, 2);
+        collectionBlock = where;
         server.execute(() -> {
             ServerLevel level = server.overworld();
+            if (!(level.getBlockEntity(where) instanceof dev.gathering.block.CollectionBlockEntity)) {
+                level.setBlock(where, GatheringContent.COLLECTION.get().defaultBlockState(), 3);
+            }
             var opener = server.getPlayerList().getPlayer(player);
             if (opener == null
                     || !(level.getBlockEntity(where)
