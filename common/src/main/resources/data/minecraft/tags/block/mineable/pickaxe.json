@@ -3,6 +3,9 @@
   "values": [
     "gathering:cobblestone_table",
     "gathering:blackstone_table",
-    "gathering:crying_obsidian_table"
+    "gathering:crying_obsidian_table",
+    "gathering:cobblestone_chair",
+    "gathering:blackstone_chair",
+    "gathering:crying_obsidian_chair"
   ]
 }

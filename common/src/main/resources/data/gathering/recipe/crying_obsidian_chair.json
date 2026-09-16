@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "M  ",
+    "MWM",
+    "M M"
+  ],
+  "key": {
+    "M": {
+      "item": "minecraft:crying_obsidian"
+    },
+    "W": {
+      "item": "minecraft:white_wool"
+    }
+  },
+  "result": {
+    "id": "gathering:crying_obsidian_chair",
+    "count": 1
+  }
+}

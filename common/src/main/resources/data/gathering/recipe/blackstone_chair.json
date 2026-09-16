@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "M  ",
+    "MWM",
+    "M M"
+  ],
+  "key": {
+    "M": {
+      "item": "minecraft:polished_blackstone"
+    },
+    "W": {
+      "item": "minecraft:white_wool"
+    }
+  },
+  "result": {
+    "id": "gathering:blackstone_chair",
+    "count": 1
+  }
+}

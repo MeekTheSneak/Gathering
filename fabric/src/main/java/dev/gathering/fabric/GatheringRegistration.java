@@ -164,6 +164,18 @@ final class GatheringRegistration {
                 BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.CHAIR_ID), GatheringContent.createChair()));
         GatheringContent.CHAIR_ITEM.bindValue(Registry.register(
                 BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CHAIR_ID), GatheringContent.createChairItem()));
+        GatheringContent.COBBLESTONE_CHAIR.bindValue(Registry.register(BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.COBBLESTONE_CHAIR_ID),
+                GatheringContent.createStoneChair(net.minecraft.world.level.material.MapColor.STONE, 2.0f, net.minecraft.world.level.block.SoundType.STONE)));
+        GatheringContent.COBBLESTONE_CHAIR_ITEM.bindValue(Registry.register(BuiltInRegistries.ITEM, Gathering.id(GatheringContent.COBBLESTONE_CHAIR_ID),
+                GatheringContent.createStoneChairItem(GatheringContent.COBBLESTONE_CHAIR.get())));
+        GatheringContent.BLACKSTONE_CHAIR.bindValue(Registry.register(BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.BLACKSTONE_CHAIR_ID),
+                GatheringContent.createStoneChair(net.minecraft.world.level.material.MapColor.COLOR_BLACK, 2.0f, net.minecraft.world.level.block.SoundType.STONE)));
+        GatheringContent.BLACKSTONE_CHAIR_ITEM.bindValue(Registry.register(BuiltInRegistries.ITEM, Gathering.id(GatheringContent.BLACKSTONE_CHAIR_ID),
+                GatheringContent.createStoneChairItem(GatheringContent.BLACKSTONE_CHAIR.get())));
+        GatheringContent.CRYING_OBSIDIAN_CHAIR.bindValue(Registry.register(BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.CRYING_OBSIDIAN_CHAIR_ID),
+                GatheringContent.createStoneChair(net.minecraft.world.level.material.MapColor.COLOR_PURPLE, 5.0f, net.minecraft.world.level.block.SoundType.STONE)));
+        GatheringContent.CRYING_OBSIDIAN_CHAIR_ITEM.bindValue(Registry.register(BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CRYING_OBSIDIAN_CHAIR_ID),
+                GatheringContent.createStoneChairItem(GatheringContent.CRYING_OBSIDIAN_CHAIR.get())));
         GatheringContent.CHAIR_SEAT.bindValue(Registry.register(
                 BuiltInRegistries.ENTITY_TYPE, Gathering.id(dev.gathering.block.ChairSeat.ID), GatheringContent.createChairSeat()));
 
@@ -238,6 +250,9 @@ final class GatheringRegistration {
                             output.accept(
                                     new ItemStack(GatheringContent.SCOREKEEPERS_DESK_ITEM.get()));
                             output.accept(new ItemStack(GatheringContent.CHAIR_ITEM.get()));
+                            output.accept(new ItemStack(GatheringContent.COBBLESTONE_CHAIR_ITEM.get()));
+                            output.accept(new ItemStack(GatheringContent.BLACKSTONE_CHAIR_ITEM.get()));
+                            output.accept(new ItemStack(GatheringContent.CRYING_OBSIDIAN_CHAIR_ITEM.get()));
                             // And the same five things in the other woods, in the order the woods are listed.
                             for (GatheringContent.WoodVariant variant : GatheringContent.woodVariants()) {
                                 output.accept(new ItemStack(variant.item().get()));

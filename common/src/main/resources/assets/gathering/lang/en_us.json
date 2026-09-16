@@ -1413,5 +1413,9 @@
   "block.gathering.cherry_scorekeepers_desk": "Cherry Scorekeeper's Desk",
   "block.gathering.bamboo_scorekeepers_desk": "Bamboo Scorekeeper's Desk",
   "block.gathering.crimson_scorekeepers_desk": "Crimson Scorekeeper's Desk",
-  "block.gathering.warped_scorekeepers_desk": "Warped Scorekeeper's Desk"
+  "block.gathering.warped_scorekeepers_desk": "Warped Scorekeeper's Desk",
+  "block.gathering.cobblestone_chair": "Cobblestone Chair",
+  "block.gathering.blackstone_chair": "Blackstone Chair",
+  "block.gathering.crying_obsidian_chair": "Crying Obsidian Chair",
+  "tooltip.gathering.chair_dye": "Use dye to recolor the cushion."
 }

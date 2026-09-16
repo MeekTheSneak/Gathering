@@ -45,6 +45,10 @@ public final class GatheringContent {
     public static final String SHOP_COUNTER_ID = "shop_counter";
     public static final String SCOREKEEPERS_DESK_ID = "scorekeepers_desk";
     public static final String CHAIR_ID = "chair";
+    public static final String COBBLESTONE_CHAIR_ID = "cobblestone_chair";
+    public static final String BLACKSTONE_CHAIR_ID = "blackstone_chair";
+    public static final String CRYING_OBSIDIAN_CHAIR_ID = "crying_obsidian_chair";
+
 
     public static final Registered<Item> CARD = new Registered<>(CARD_ID);
     public static final Registered<Item> DECK = new Registered<>(DECK_ID);
@@ -208,6 +212,13 @@ public final class GatheringContent {
                     dev.gathering.block.CollectionBlockEntity.ID);
     public static final Registered<Block> CHAIR = new Registered<>(CHAIR_ID);
     public static final Registered<Item> CHAIR_ITEM = new Registered<>(CHAIR_ID);
+    public static final Registered<Block> COBBLESTONE_CHAIR = new Registered<>(COBBLESTONE_CHAIR_ID);
+    public static final Registered<Item> COBBLESTONE_CHAIR_ITEM = new Registered<>(COBBLESTONE_CHAIR_ID);
+    public static final Registered<Block> BLACKSTONE_CHAIR = new Registered<>(BLACKSTONE_CHAIR_ID);
+    public static final Registered<Item> BLACKSTONE_CHAIR_ITEM = new Registered<>(BLACKSTONE_CHAIR_ID);
+    public static final Registered<Block> CRYING_OBSIDIAN_CHAIR = new Registered<>(CRYING_OBSIDIAN_CHAIR_ID);
+    public static final Registered<Item> CRYING_OBSIDIAN_CHAIR_ITEM = new Registered<>(CRYING_OBSIDIAN_CHAIR_ID);
+
     public static final Registered<net.minecraft.world.entity.EntityType<dev.gathering.block.ChairSeat>> CHAIR_SEAT =
             new Registered<>(dev.gathering.block.ChairSeat.ID);
     public static final Registered<Block> SCOREKEEPERS_DESK = new Registered<>(SCOREKEEPERS_DESK_ID);
@@ -398,6 +409,18 @@ public final class GatheringContent {
     public static Item createChairItem() {
         return new DescribedBlockItem(CHAIR.get(), new Item.Properties(),
                 java.util.List.of("tooltip.gathering.chair_sit", "tooltip.gathering.chair_stand"));
+    }
+
+    /** Stone seating uses the same seat entity and interactions as the original wooden chair. */
+    public static Block createStoneChair(net.minecraft.world.level.material.MapColor color, float hardness,
+            net.minecraft.world.level.block.SoundType sound) {
+        return new dev.gathering.block.MaterialChairBlock(BlockBehaviour.Properties.of()
+                .mapColor(color).strength(hardness).sound(sound).requiresCorrectToolForDrops().noOcclusion());
+    }
+
+    public static Item createStoneChairItem(Block block) {
+        return new DescribedBlockItem(block, new Item.Properties(),
+                java.util.List.of("tooltip.gathering.chair_sit", "tooltip.gathering.chair_stand", "tooltip.gathering.chair_dye"));
     }
 
     /** The invisible thing a player sitting in a chair rides: tiny, unsaved, and never sent to be drawn as anything. */

@@ -1974,6 +1974,22 @@ The owner's first find of the new playtest, and one the same playtest turned up 
 
 Verified: gate green (571/16); tour steps 0-3, no failures.
 
+### Nineteenth batch: the owner's furniture, v4 (2026-09-16)
+
+`Gathering-furniture-v4.zip` adds three stone chairs - cobblestone, blackstone and crying obsidian - each a
+`MaterialChairBlock` extending the wooden chair, so seats, table claims, spectating and dismount cleanup are
+the ones already tested. Each has its own model and a collision shape generated from the same cuboids, a
+white wool cushion recolored by dye through the `FurnitureDye.FELT` state the other furniture uses, a recipe
+of five of its material plus one white wool, a pickaxe tag, loot and a creative-tab entry on both loaders.
+No new textures: cobblestone, polished blackstone, crying obsidian and white wool are vanilla.
+
+`upgrade-from-v3.patch` did not apply cleanly - the three places it adds a chair to (the language file and
+both loaders' creative tabs) are the three places the wood variants already occupy. Applied with `git apply
+-3` and the three conflicts resolved by keeping both: the stone chairs first, in the order the package lists
+them, then the wooden ones in the order the woods are listed.
+
+Verified: gate green (573/16), the two new tests being `MaterialChairGameTest`'s.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

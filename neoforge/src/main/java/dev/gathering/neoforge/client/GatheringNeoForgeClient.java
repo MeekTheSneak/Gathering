@@ -114,7 +114,8 @@ public final class GatheringNeoForgeClient {
         // of them, and a table left off this list keeps its undyed texture forever with no
         // error to say why.
         event.register((state, level, pos, tint) -> dev.gathering.block.FurnitureDye.tint(state, tint),
-                GatheringContent.SHOP_COUNTER.get(), GatheringContent.SCOREKEEPERS_DESK.get(), GatheringContent.COLLECTION.get());
+                GatheringContent.SHOP_COUNTER.get(), GatheringContent.SCOREKEEPERS_DESK.get(), GatheringContent.COLLECTION.get(),
+                GatheringContent.COBBLESTONE_CHAIR.get(), GatheringContent.BLACKSTONE_CHAIR.get(), GatheringContent.CRYING_OBSIDIAN_CHAIR.get());
         for (var table : GatheringContent.tables()) {
             event.register(TableColors::tintOf, table.get());
         }
