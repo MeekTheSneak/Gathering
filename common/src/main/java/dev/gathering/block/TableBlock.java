@@ -235,36 +235,56 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
-     * Whether a table can be placed with its corner here.
-     * <p>Two questions, both of which have to be answered before anything is placed: is there
-     * room for nine blocks, and would joining what is already there make a cluster bigger than
-     * a cluster is allowed to be.
+     * Why a table will not go down with its corner here, as a message key, or empty if it will.
+     * <p>Every question a table has to answer before any of it is placed, and each with its own
+     * answer for the player: is there room for nine blocks, is anything standing in them, is
+     * anybody registered at the edge this would move, and would joining what is already there
+     * make a cluster bigger, or a shape other than a line.
+     * <p>Only one of the nine blocks goes through the check vanilla gives a block being placed,
+     * because only one of them is the block the player clicked. The other eight are checked here,
+     * against the same collision shape they will have: without it a table went down through a
+     * player, a boat or an armor stand and left them inside it.
      */
-    public static boolean canPlaceAt(BlockPlaceContext context, BlockPos origin) {
+    public static String whyItWillNotGoHere(BlockPlaceContext context, BlockPos origin, BlockState state) {
+        Level level = context.getLevel();
+        CollisionContext collision = context.getPlayer() == null
+                ? CollisionContext.empty()
+                : CollisionContext.of(context.getPlayer());
         for (TablePart part : TablePart.values()) {
             BlockPos pos = part.offsetFrom(origin);
-            if (!context.getLevel().getBlockState(pos).canBeReplaced(context)) {
-                return false;
+            if (!level.getWorldBorder().isWithinBounds(pos)
+                    || !level.getBlockState(pos).canBeReplaced(context)) {
+                return "message.gathering.table_no_room";
             }
-            if (!context.getLevel().getWorldBorder().isWithinBounds(pos)) {
-                return false;
+            VoxelShape solid = state.setValue(PART, part).getCollisionShape(level, pos, collision)
+                    .move(pos.getX(), pos.getY(), pos.getZ());
+            if (solid.isEmpty()) {
+                continue;
             }
-        }
-        if (!TableClusters.wouldFit(context.getLevel(), origin)) {
-            return false;
+            // Twice, because "you are standing there" and "something else is standing there" are
+            // different things to be told and only one of them is fixed by stepping back. A level
+            // leaves the entity it is given out of the answer, so the first asks about everything
+            // except the player and the second about the player as well.
+            if (context.getPlayer() != null && !level.isUnobstructed(context.getPlayer(), solid)) {
+                return "message.gathering.table_something_there";
+            }
+            if (!level.isUnobstructed(null, solid)) {
+                return context.getPlayer() == null
+                        ? "message.gathering.table_something_there"
+                        : "message.gathering.table_stand_back";
+            }
         }
         // Joining a cluster reshapes its perimeter, which moves its seats. Somebody
         // registered at an edge should not find that edge is now the middle of the surface.
         for (Side side : Side.values()) {
             BlockPos neighbor = origin.offset(
                     side.stepX() * TableCell.BLOCKS_PER_TABLE, 0, side.stepZ() * TableCell.BLOCKS_PER_TABLE);
-            if (context.getLevel() instanceof Level level
-                    && TableBlock.entityAt(level, neighbor).isPresent()
+            if (TableBlock.entityAt(level, neighbor).isPresent()
                     && TableSeats.isShapeFrozen(level, neighbor)) {
-                return false;
+                return "message.gathering.table_seats_settled";
             }
         }
-        return true;
+        return TableClusters.whyItWouldNotFit(level, origin);
     }
 
     /**

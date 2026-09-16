@@ -40,6 +40,87 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class TableGameTest {
 
     /**
+     * A table goes down around the block that was clicked, not off to one side of it. The owner asked for this
+     * (2026-09-16): the clicked block used to become the north-west corner, so a table aimed at one spot grew
+     * east and south out of it and into whatever was there.
+     */
+    @GameTest(template = "tables")
+    public static void aTableGoesDownAroundTheBlockYouClick(GameTestHelper helper) {
+        BlockPos clicked = placeATable(helper, new BlockPos(5, 2, 5), new BlockPos(10, 2, 10));
+
+        BlockState middle = helper.getBlockState(clicked);
+        if (!(middle.getBlock() instanceof TableBlock) || middle.getValue(TableBlock.PART) != TablePart.MIDDLE) {
+            helper.fail("the block clicked is " + middle + ", not the middle of the table");
+            return;
+        }
+        BlockPos origin = TablePart.MIDDLE.originFrom(clicked);
+        for (TablePart part : TablePart.values()) {
+            BlockState there = helper.getBlockState(part.offsetFrom(origin));
+            if (!(there.getBlock() instanceof TableBlock) || there.getValue(TableBlock.PART) != part) {
+                helper.fail("the " + part + " of the table is " + there);
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * And it refuses rather than going down through whatever is standing in it. Only one of the nine blocks
+     * goes through the check vanilla gives a block being placed; the other eight are the mod's to make.
+     */
+    @GameTest(template = "tables")
+    public static void aTableWillNotGoDownThroughSomethingStandingInIt(GameTestHelper helper) {
+        // In a corner of the table, which is not the block clicked, so only the mod's own check can see it.
+        BlockPos corner = new BlockPos(6, 2, 6);
+        net.minecraft.world.entity.decoration.ArmorStand stand =
+                new net.minecraft.world.entity.decoration.ArmorStand(helper.getLevel(), 0, 0, 0);
+        stand.moveTo(helper.absoluteVec(new net.minecraft.world.phys.Vec3(
+                corner.getX() + 0.5, corner.getY(), corner.getZ() + 0.5)));
+        helper.getLevel().addFreshEntity(stand);
+
+        BlockPos clicked = placeATable(helper, new BlockPos(5, 2, 5), new BlockPos(10, 2, 10));
+
+        if (helper.getBlockState(clicked).getBlock() instanceof TableBlock) {
+            helper.fail("a table went down through an armor stand standing in one of its corners");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** And not through the player placing it either, who is told to stand back rather than left inside it. */
+    @GameTest(template = "tables")
+    public static void aTableWillNotGoDownThroughThePlayerPlacingIt(GameTestHelper helper) {
+        // Standing on the edge of where the table would be, which is where somebody aiming at their own feet is.
+        BlockPos clicked = placeATable(helper, new BlockPos(5, 2, 5), new BlockPos(6, 2, 6));
+
+        if (helper.getBlockState(clicked).getBlock() instanceof TableBlock) {
+            helper.fail("a table went down through the player placing it");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Clicks the top of the block under {@code at} with a table in hand, from {@code from}, and says which
+     * block was clicked. The real path: the player's own game mode, the item's own placement.
+     */
+    private static BlockPos placeATable(GameTestHelper helper, BlockPos at, BlockPos from) {
+        helper.setBlock(at.below(), net.minecraft.world.level.block.Blocks.STONE);
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.moveTo(helper.absoluteVec(new net.minecraft.world.phys.Vec3(
+                from.getX() + 0.5, from.getY(), from.getZ() + 0.5)));
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new net.minecraft.world.item.ItemStack(GatheringContent.TABLE_ITEM.get()));
+        BlockPos under = helper.absolutePos(at.below());
+        player.gameMode.useItemOn(player, helper.getLevel(), player.getMainHandItem(),
+                net.minecraft.world.InteractionHand.MAIN_HAND,
+                new net.minecraft.world.phys.BlockHitResult(
+                        net.minecraft.world.phys.Vec3.atCenterOf(under).add(0, 0.5, 0),
+                        net.minecraft.core.Direction.UP, under, false));
+        return at;
+    }
+
+    /**
      * A table is the table and not the air under it: what it is drawn as is what a player walks into and what the
      * outline goes round. The owner asked to be able to get under one (2026-09-15); it used to be a square block
      * down to the floor, so the space between the legs was solid.

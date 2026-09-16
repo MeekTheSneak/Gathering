@@ -16,10 +16,13 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Places a whole table, or none of it.
- * <p>The block clicked becomes the table's north-west corner and the table extends east and
- * south from it. All nine blocks go down in one go: a table that placed its first block and
- * then discovered there was no room for the last would leave a stump behind, and the player
- * would have to work out which of the blocks in front of them was the wrong one.
+ * <p>The block clicked becomes the middle of the table, and the other eight go around it. It
+ * used to become the north-west corner, so a table grew east and south out of the spot aimed
+ * at and into whatever was there - the player aimed at one block and got a table two blocks
+ * away from it. A three-by-three thing placed by its middle goes where it was pointed.
+ * <p>All nine blocks go down in one go: a table that placed its first block and then
+ * discovered there was no room for the last would leave a stump behind, and the player would
+ * have to work out which of the blocks in front of them was the wrong one.
  */
 public class TableBlockItem extends BlockItem {
 
@@ -29,15 +32,13 @@ public class TableBlockItem extends BlockItem {
 
     @Override
     protected boolean placeBlock(BlockPlaceContext context, BlockState state) {
-        BlockPos origin = context.getClickedPos();
-        if (!TableBlock.canPlaceAt(context, origin)) {
+        BlockPos origin = TablePart.MIDDLE.originFrom(context.getClickedPos());
+        String why = TableBlock.whyItWillNotGoHere(context, origin, state);
+        if (!why.isEmpty()) {
             // Say why. A table that simply refuses to go down is a player clicking the same
-            // spot four times and then putting the mod away: the two reasons it can refuse -
-            // the cluster is already as big as one gets, and tables join in a line - are both
-            // things somebody would move one block to the side for if they were told.
-            String why = TableClusters.whyItWouldNotFit(context.getLevel(), origin);
-            if (!why.isEmpty() && context.getPlayer() != null
-                    && !context.getLevel().isClientSide()) {
+            // spot four times and then putting the mod away: every reason it can refuse is
+            // something somebody would move a block to the side for if they were told.
+            if (context.getPlayer() != null && !context.getLevel().isClientSide()) {
                 // Over the hotbar: holding the button down asks again every few ticks, and each answer
                 // in the chat would push the last off it.
                 context.getPlayer().displayClientMessage(Component.translatable(why), true);

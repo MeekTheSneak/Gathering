@@ -1990,6 +1990,32 @@ them, then the wooden ones in the order the woods are listed.
 
 Verified: gate green (573/16), the two new tests being `MaterialChairGameTest`'s.
 
+### Twentieth batch: a table goes where it was pointed (2026-09-16)
+
+The owner's third find: "Tables should place from the center block (clicked block = center), and must not
+place clipping into other objects."
+
+- **The clicked block is the middle now**, not the north-west corner. A table aimed at a spot used to grow
+  east and south out of it, so the player pointed at one block and got a table two blocks away, over
+  whatever was there. `TablePart.MIDDLE.originFrom(clickedPos)` is the whole change; nothing else knows
+  where the click was.
+- **Eight of the nine blocks never went through an obstruction check.** Vanilla checks the block the player
+  clicked; the other eight were written straight into the world, so a table went down through a player, an
+  armor stand or a boat and left them inside it. `TableBlock.whyItWillNotGoHere` now asks each of the nine
+  against the collision shape it will have, twice: once ignoring the player, so "something else is standing
+  there" and "you are standing there" are different messages, because only one of them is fixed by
+  stepping back.
+- **Every refusal says why.** It returned a bare boolean and then asked `TableClusters` for a reason, which
+  had one for two of the five refusals - a table blocked by a neighbor's settled seats simply would not
+  place, with nothing said. One method, one reason, five messages.
+
+Guards: `TableGameTest.aTableGoesDownAroundTheBlockYouClick`, `.aTableWillNotGoDownThroughSomethingStandingInIt`
+and `.aTableWillNotGoDownThroughThePlayerPlacingIt`, all three through the player's own game mode and the
+item's own placement. Proven: with the middle restored to the corner only the first fails; with the
+obstruction check removed only the other two do.
+
+Verified: gate green (576/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,
