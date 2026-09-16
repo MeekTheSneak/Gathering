@@ -25,7 +25,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
@@ -181,45 +180,16 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
         player.displayClientMessage(Component.translatable(message), true);
     }
 
-    /**
-     * A stand with a card standing on it, and glass around the card.
-     * <p>The shape is the block minus the air over the base in front of and behind the card, so an
-     * outline round one is the case rather than a cube, and so it is not a cube for the purpose of
-     * hiding its neighbors - see {@code BlockOcclusionGameTest}.
-     */
+    /** Flush counter-height cabinet; the felt counter surface and case lid both finish at y=15. */
+    private static final VoxelShape CASE_SHAPE = Block.box(0, 0, 0, 16, 15, 16);
+
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPES[state.getValue(FACING).get2DDataValue()];
+        return CASE_SHAPE;
     }
 
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return getShape(state, level, pos, context);
-    }
-
-    /**
-     * A cabinet with a glass top, at a shop counter's own height and depth so the two stand in a row.
-     * <p>It was a tall box holding one card. The owner asked for a case that shows a handful and fits
-     * beside a counter (2026-09-16), which is what a case in a card shop is.
-     */
-    private static final VoxelShape SOUTH_FACING = Shapes.or(
-            Block.box(0, 0, 1, 16, 8, 16),
-            Block.box(0, 8, 0, 16, 9, 16),
-            Block.box(0, 9, 1, 16, 16, 16));
-
-    private static final VoxelShape[] SHAPES = turned(SOUTH_FACING);
-
-    /** The same shape facing each of the four ways, in the order a horizontal facing counts them. */
-    private static VoxelShape[] turned(VoxelShape south) {
-        // SOUTH is 0, WEST 1, NORTH 2, EAST 3 - a quarter turn clockwise from one to the next.
-        VoxelShape[] result = new VoxelShape[4];
-        result[0] = south;
-        for (int index = 1; index < result.length; index++) {
-            VoxelShape[] next = {Shapes.empty()};
-            result[index - 1].forAllBoxes((x0, y0, z0, x1, y1, z1) ->
-                    next[0] = Shapes.or(next[0], Shapes.box(1 - z1, y0, x0, 1 - z0, y1, x1)));
-            result[index] = next[0];
-        }
-        return result;
+        return CASE_SHAPE;
     }
 }

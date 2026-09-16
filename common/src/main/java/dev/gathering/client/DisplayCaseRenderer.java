@@ -25,10 +25,10 @@ public final class DisplayCaseRenderer implements BlockEntityRenderer<DisplayCas
 
     /** The middle of the block, and the height a card's own middle sits at. */
     private static final float MIDDLE = 0.5f;
-    private static final float STANDS_AT = 0.72f;
+    private static final float STANDS_AT = 0.6875f;
 
     /** How far apart the four of them stand, across the front of the block. */
-    private static final float APART = 0.23f;
+    private static final float APART = 0.21f;
 
     /** How far back they lean, in degrees: a case you look down into, not a shelf you look along. */
     private static final float LEANS = 18f;

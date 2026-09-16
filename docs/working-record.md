@@ -2339,6 +2339,30 @@ with the body torn in an arc beneath it - foil, rather than a line.
 Verified: gate green (599/16), and `40-tearing-it-open` shows a square pack with the crimp peeled up off
 it as a single creased piece.
 
+### Thirty-first batch: the owner's deck box and display case, v5 (2026-09-16)
+
+`Gathering-deck-and-display-v5.zip`, cut against `eb5ea673` - the commit before this session's last one -
+so `source-changes.patch` applied clean with no conflicts.
+
+- **The deck box** is a closed flip-top now: a fitted lid with a recessed seam, a broad folding flap and a
+  tapered closure tab, in white concrete with gray concrete seams. My version was the right proportions
+  and nothing else - a plain box with a band round the top. Theirs reads as a deck box at inventory size,
+  which is the only size most people will ever see it at. The shell still takes the deck's own color;
+  twenty-four faces carry a tintindex, which `texturecheck` checks.
+- **The display case** is flush: a full-width base with no projecting shelf, and a lid at y=15 exactly
+  matching the shop counter's felt surface, so a case sits between two counters as one run of furniture.
+  Its collision shape is the same envelope, which also makes it simpler than the three-part shape I had.
+  All eleven woods regenerated; `woodwork.py` reported nothing left to write, which is the generator
+  agreeing with what the package shipped.
+
+The tour's display-case step could not tell a broken sync from a card that had not arrived - the card in
+it is looked up on somebody else's server, and a throttled one now keeps us waiting. It asks the server
+whether it has a card at all: if it does and this client does not, that is a fault; if neither does, the
+run says so and checks nothing, the way the pack-symbol step already did.
+
+Verified: gate green (599/16), and photographed - `114-deck-boxes` shows the flip-top tinted four ways,
+`113-a-card-under-glass` the flush case at counter height.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).
