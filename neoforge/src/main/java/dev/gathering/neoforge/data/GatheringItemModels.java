@@ -24,6 +24,7 @@ public final class GatheringItemModels extends ItemModelProvider {
         // builtin/entity so their own renderers draw the real card art and the real set
         // symbol, and their display transforms are meant to be edited by hand rather than
         // regenerated.
-        basicItem(GatheringContent.DECK.get());
+        // The playable deck uses a native cuboid case, shared by both loaders.
+        withExistingParent("deck", modLoc("item/deck_box"));
     }
 }

@@ -1898,6 +1898,30 @@ The owner's three notes on the new collection block, and the same question asked
 
 Verified: gate green (565/16).
 
+### Sixteenth batch: the owner's furniture and deck box (2026-09-15)
+
+The owner sent `Gathering-furniture-and-deckbox.zip`, built against `3e4b8854`: new models for the shop
+counter and the Scorekeeper's Desk, a 3D deck box for the deck item, and one shared 64x64 atlas
+(`furniture_atlas.png`) whose quadrants are walnut, teal leather, brass and parchment.
+
+- Its `source-changes.patch` applied to this revision unchanged: the two block models, the item model, the
+  generated deck model pointing at it, the datagen line that writes it, real outline and collision shapes for
+  both blocks (the desk had borrowed the lectern's), the atlas, and the art list. It removes the four flat
+  textures those models replace (`shop_counter*.png`, `item/deck.png`); they are in the drop's
+  `source/original-textures/` and in git.
+- **One thing the drop dropped: a deck's color.** The old flat item was tinted by
+  `DeckItem.tintOf` - a deck box is its color so a shelf of them can be told apart - and the new model had no
+  tinted faces, so every box would have come out the same teal. The leather parts of the case (body, lid, lid
+  underside and front flap) carry `tintindex: 0` now; the brass, label and walnut trim do not. Photographed:
+  `86-a-shelf-of-decks` is eight boxes in eight colors.
+- The tour's furniture step stands all three pieces in a row and photographs them
+  (`41b-a-collection-block`); looked at: the counter's trays and framed panel, the desk's ledger, score tiles
+  and drawers, the cabinet beside them.
+- The drop's prebuilt jars were not used; this is the patch built here.
+
+Verified: gate green (565/16). **Not verified:** the deck box in first or third person, Fabric's own client
+drawing any of it, and the blocks in a village rather than on flat grass.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

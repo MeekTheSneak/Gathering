@@ -2,6 +2,12 @@ package dev.gathering.block;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.Direction;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.Mirror;
@@ -25,6 +31,32 @@ public class ShopCounterBlock extends HorizontalDirectionalBlock {
     public ShopCounterBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+    }
+
+    private static final VoxelShape BODY = Block.box(0, 0, 0, 16, 14.125, 16);
+    private static final VoxelShape NORTH = Shapes.or(BODY, Block.box(1, 14.125, 10, 15, 15.75, 15));
+    private static final VoxelShape EAST = Shapes.or(BODY, Block.box(1, 14.125, 1, 6, 15.75, 15));
+    private static final VoxelShape SOUTH = Shapes.or(BODY, Block.box(1, 14.125, 1, 15, 15.75, 6));
+    private static final VoxelShape WEST = Shapes.or(BODY, Block.box(10, 14.125, 1, 15, 15.75, 15));
+
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return switch (state.getValue(FACING)) {
+            case NORTH -> NORTH;
+            case EAST -> EAST;
+            case SOUTH -> SOUTH;
+            default -> WEST;
+        };
+    }
+
+    @Override
+    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
+        return BODY;
+    }
+
+    @Override
+    protected boolean useShapeForLightOcclusion(BlockState state) {
+        return true;
     }
 
     @Override

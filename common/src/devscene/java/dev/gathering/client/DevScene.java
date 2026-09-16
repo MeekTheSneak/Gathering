@@ -6220,7 +6220,8 @@ public final class DevScene {
     private static boolean collectionShown;
 
     /**
-     * Stands a collection block on the ground in front of the player, drawers towards them, and looks at it.
+     * Stands the furniture on the ground in front of the player - the collection block, the shop counter and the
+     * Scorekeeper's Desk - and looks down the row.
      * <p>Its own block rather than the one the rest of these steps use: that one is sunk into the ground, where
      * a picture of it would be a picture of grass.
      */
@@ -6237,15 +6238,21 @@ public final class DevScene {
             if (player == null) {
                 return;
             }
-            server.overworld().setBlock(where, GatheringContent.COLLECTION.get().defaultBlockState()
+            ServerLevel level = server.overworld();
+            level.setBlock(where, GatheringContent.COLLECTION.get().defaultBlockState()
                     .setValue(dev.gathering.block.CollectionBlock.FACING, net.minecraft.core.Direction.NORTH), 3);
-            // Off its north-west corner, looking down at it: the drawer fronts, the side of the cabinet and the
-            // top all in one picture, and the outline round what the block actually is.
+            // And the other two pieces of furniture beside it, facing the same way: one picture of the set.
+            level.setBlock(where.offset(2, 0, 0), GatheringContent.SHOP_COUNTER.get().defaultBlockState()
+                    .setValue(dev.gathering.block.ShopCounterBlock.FACING, net.minecraft.core.Direction.NORTH), 3);
+            level.setBlock(where.offset(4, 0, 0), GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState()
+                    .setValue(dev.gathering.block.ScorekeepersDeskBlock.FACING, net.minecraft.core.Direction.NORTH), 3);
+            // Off the cabinet's north-west corner, looking down the row: drawer fronts, the counter's tray side
+            // and the desk's ledger, with the outline round what the block a player is aiming at actually is.
             double x = where.getX() - 1.5;
             double y = where.getY() + 1;
-            double z = where.getZ() - 1.5;
-            player.teleportTo(server.overworld(), x, y, z, -45f, 30f);
-            player.connection.teleport(x, y, z, -45f, 30f);
+            double z = where.getZ() - 2.5;
+            player.teleportTo(level, x, y, z, -35f, 25f);
+            player.connection.teleport(x, y, z, -35f, 25f);
         });
     }
 

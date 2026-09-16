@@ -1,6 +1,3 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "gathering:item/deck"
-  }
+  "parent": "gathering:item/deck_box"
 }

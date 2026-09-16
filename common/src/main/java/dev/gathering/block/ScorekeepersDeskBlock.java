@@ -11,7 +11,8 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
-import net.minecraft.world.level.block.LecternBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -69,27 +70,33 @@ public class ScorekeepersDeskBlock extends HorizontalDirectionalBlock implements
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
-    // The lectern's shapes, since it has the lectern's look: its outline, its collision, and the
-    // footprint that hides a neighbor's faces and stops light, so nothing behind its thin parts shows
-    // a hole into the world.
+    private static final VoxelShape BODY = Shapes.or(
+            Block.box(1, 0, 1, 15, 2, 15),
+            Block.box(4, 2, 4, 12, 10.5, 12),
+            Block.box(1, 10.5, 1, 15, 12.125, 15));
+    private static final VoxelShape NORTH = Shapes.or(BODY, Block.box(2, 12, 12, 14, 16, 14));
+    private static final VoxelShape EAST = Shapes.or(BODY, Block.box(2, 12, 2, 4, 16, 14));
+    private static final VoxelShape SOUTH = Shapes.or(BODY, Block.box(2, 12, 2, 14, 16, 4));
+    private static final VoxelShape WEST = Shapes.or(BODY, Block.box(12, 12, 2, 14, 16, 14));
+
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return switch (state.getValue(FACING)) {
-            case NORTH -> LecternBlock.SHAPE_NORTH;
-            case SOUTH -> LecternBlock.SHAPE_SOUTH;
-            case EAST -> LecternBlock.SHAPE_EAST;
-            default -> LecternBlock.SHAPE_WEST;
+            case NORTH -> NORTH;
+            case SOUTH -> SOUTH;
+            case EAST -> EAST;
+            default -> WEST;
         };
     }
 
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return LecternBlock.SHAPE_COLLISION;
+        return getShape(state, level, pos, context);
     }
 
     @Override
     protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
-        return LecternBlock.SHAPE_COMMON;
+        return BODY;
     }
 
     @Override
