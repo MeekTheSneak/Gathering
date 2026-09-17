@@ -7,10 +7,13 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: display metadata for cards this client is entitled to see.
- * <p>The one channel by which a client learns what a card is. Nothing is sent
- * speculatively: the server sends a summary when, and only when, the visibility rules put
+ * <p>The one channel by which a client learns what a card is. Nothing is <em>pushed</em>
+ * speculatively: the server sends a summary unasked when, and only when, the visibility rules put
  * that card in this client's view. That is the whole security property, and it is why a
  * spectating client is incapable of leaking a hand even if modified - it was never told.
+ * <p>A client may also ask about a printing by id and be answered. That discloses nothing: it had
+ * to know the id to ask, and what comes back is public card data rather than anything about
+ * anybody's hidden zone.
  */
 public record CardMetadataPayload(List<CardSummary> cards) implements CustomPacketPayload {
 

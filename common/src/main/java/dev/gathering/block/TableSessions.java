@@ -454,8 +454,6 @@ public final class TableSessions {
             // the server, then the seat, then the table top - the same ladder a held deck
             // comes back down, and for the same reason.
             //
-            // A pot going to a winner is different and stays as it was: the winner is whoever
-            // just won, which is whoever is in that chair now.
             // The person who played this seat - who staked into the pot from it - whether the
             // cards are coming back to them or they won them. Not whoever is in the chair now:
             // somebody who sat down in a vacated chair did not stake anything and did not win.

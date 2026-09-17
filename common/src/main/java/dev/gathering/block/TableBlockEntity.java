@@ -895,6 +895,12 @@ public class TableBlockEntity extends BlockEntity {
         this.formatChosen = false;
         this.forKeeps = false;
         this.practice = false;
+        if (!this.held.isEmpty()) {
+            // The loud loss this method's javadoc promises, which the pot had and this did not. Every
+            // caller today returns the decks first, so this is the backstop for the one that forgets.
+            LOGGER.error("The table at {} ended a game still holding {} deck(s), which are now gone",
+                    worldPosition, this.held.size());
+        }
         this.held.clear();
         setChanged();
         tellClients();

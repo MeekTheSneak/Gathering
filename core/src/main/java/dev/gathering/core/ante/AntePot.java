@@ -112,7 +112,7 @@ public record AntePot(Map<SeatId, List<CardIdentity>> stakes) {
 
     /**
      * The whole pot to one seat.
-     * <p>A winner who is not at this table gets nothing rather than an empty payout that
+     * <p>An empty pot pays out nothing, which is what a game with nothing staked ends as that
      * quietly loses the cards: a pot paid to nobody has to be a pot that stays put, because
      * the alternative is cards leaving the game with no owner.
      */

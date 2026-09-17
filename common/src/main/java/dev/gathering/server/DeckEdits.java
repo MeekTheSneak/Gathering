@@ -151,10 +151,9 @@ public final class DeckEdits {
 
     /**
      * Takes one copy out of the deck and hands it to the player.
-     * <p>The card leaves the deck only if it actually reaches the player: giving a card to a
-     * full inventory drops it at their feet rather than deleting it, and if even that cannot
-     * happen the deck is left alone. A card is a collection item and must never evaporate
-     * because a bag was full.
+     * <p>Handing over cannot fail: a card that will not fit in an inventory is dropped at the
+     * player's feet rather than deleted, which is what {@link dev.gathering.server.Handing} is for.
+     * A card is a collection item and must never evaporate because a bag was full.
      */
     private static Optional<DeckComponent> take(
             Player player, DeckComponent deck, DeckComponent.Section section, CardComponent card) {
