@@ -29,15 +29,18 @@ import org.slf4j.LoggerFactory;
  * leave a remainder - the buy-a-box card, the promo, the long tail of a set whose product is
  * out of print. Those cards are in the catalog and no path reaches them, and a collection
  * that can never be finished is a collection nobody finishes.
- * <p>So the remainder is computed rather than listed. {@link CoverageAudit} already answers
- * "which of this set's cards does nothing reach", which is what the coverage command reports;
- * the same answer, for every set the server has in play, is this pack's sheet. <b>It shrinks
- * as a server adds products</b>, and a server whose faucets cover everything drops no archive
- * packs at all, which is the goal rather than a fault.
+ * <p>So the remainder is computed rather than listed, and across the whole of Magic's history
+ * rather than the sets a server draws from - by the owner's rule, the archive holds every card a
+ * player cannot come by through play. A set the server draws from reaches what its boosters and,
+ * with the shop open, its products hold; a set it does not draw from reaches nothing, and all of it
+ * is here. See {@link dev.gathering.core.booster.ArchiveAudit}. <b>It shrinks as a server draws
+ * from more</b>, and a server whose faucets covered everything would drop no archive packs at all,
+ * which is the goal rather than a fault.
  * <p><b>Never sold.</b> Something you can buy is not a long tail, it is a shelf - so this
  * comes out of the three places worth going to and nowhere else. See {@link ArchiveDrops}.
- * <p>Worked out once when the server starts, like everything else loot has to read: loot is
- * rolled deep inside the game with no time to reach a network.
+ * <p>Worked out in the background when the server starts, one set at a time, and published as it
+ * grows: loot is rolled deep inside the game with no time to reach a network. Each set is read once
+ * and kept on disk ({@link ArchiveFacts}), so only the first start on a machine walks all of it.
  */
 public final class Archive {
 
@@ -46,12 +49,8 @@ public final class Archive {
     /** What an archive pack's set code is. See {@link PackComponent#ARCHIVE}. */
     public static final String SET = PackComponent.ARCHIVE;
 
-    /**
-     * How many sets the remainder is worked out across.
-     * <p>Roughly two years of releases, which is the span whose cards a player would notice
-     * they could not find. See {@link #audited}.
-     */
-    private static final int MOST_SETS_AUDITED = 8;
+    /** How many sets are audited between one publishing of the sheet and the next. */
+    private static final int PUBLISH_EVERY = 25;
 
     /** Decided at start and read on the loot thread. Replaced whole, never edited. */
     private static volatile BoosterSheet sheet = BoosterSheet.EMPTY;
@@ -70,12 +69,12 @@ public final class Archive {
     }
 
     /**
-     * Works out the remainder, one set at a time.
-     * <p>Two reads per set - what it was sold as, and everything printed in it - which is
-     * exactly what the coverage command does for one set, run over the sets the server has in
-     * play. One after another rather than at once, because every set is a file and a search
-     * and a server asking for a dozen of each at the same moment is a server being rude to
-     * somebody else's host.
+     * Works out the remainder across every set there has ever been.
+     * <p>The sets this server draws from first, so the archive is right about the game being played
+     * soonest, then the rest of history newest first. Each set's facts come off disk where they are
+     * still good and off the network where they are not, and the sheet is published every
+     * {@value #PUBLISH_EVERY} sets and at the end - so the archive is findable within a minute of a
+     * first start rather than after the whole walk.
      * <p>Does nothing at all unless collecting is on and something can actually be found: an
      * archive pack on a server where no pack is ever found would be the only card faucet in
      * the world, which is not what this is.
@@ -92,25 +91,191 @@ public final class Archive {
         if (collation == null || cards == null) {
             return;
         }
+        boolean shopOpen = settings.collecting().sealedStoreEnabled();
+        java.nio.file.Path root = dev.gathering.platform.Platform.get().dataDirectory();
+        long run = ServerRun.generation();
         SetsInPlay.wanted(settings)
-                .thenComposeAsync(codes -> remainderOf(collation, cards, audited(codes)),
-                        collation.worker())
-                .whenComplete(ServerRun.stillThisRun((remainder, failure) -> {
+                .thenCombine(cards.allSets(), (inPlay, everySet) -> new Walk(
+                        collation, cards, root, run, java.util.Set.copyOf(inPlay), shopOpen,
+                        order(inPlay, everySet)))
+                .thenCompose(Walk::next)
+                .whenComplete(ServerRun.stillThisRun((walked, failure) -> {
                     if (failure != null) {
-                        LOGGER.warn("Could not work out what this server's faucets miss, so no "
-                                + "archive packs are found", failure);
-                        return;
-                    }
-                    sheet = CoverageAudit.archiveSheet(new CoverageReport(
-                            remainder.size(), remainder, java.util.Map.of()));
-                    if (sheet.isEmpty()) {
-                        LOGGER.info("Every card in this server's sets is reachable, so there is "
-                                + "no archive to find");
-                    } else {
-                        LOGGER.info("Archive packs can be found: {} card(s) nothing else reaches",
-                                sheet.size());
+                        LOGGER.warn("Could not work out what this server's faucets miss, so the archive "
+                                + "holds only what was worked out before it stopped", failure);
                     }
                 }));
+    }
+
+    /**
+     * Every audited set, the ones drawn from first and then the rest of history newest first.
+     */
+    private static List<dev.gathering.core.card.SetRelease> order(
+            List<String> inPlay, java.util.Map<String, dev.gathering.core.card.SetRelease> everySet) {
+        List<dev.gathering.core.card.SetRelease> first = new ArrayList<>();
+        for (String code : inPlay) {
+            dev.gathering.core.card.SetRelease known = everySet.get(code);
+            if (dev.gathering.core.booster.ArchiveAudit.isAudited(known)) {
+                first.add(known);
+            }
+        }
+        List<dev.gathering.core.card.SetRelease> rest = everySet.values().stream()
+                .filter(dev.gathering.core.booster.ArchiveAudit::isAudited)
+                .filter(set -> !inPlay.contains(set.code()))
+                .sorted(java.util.Comparator.comparing(dev.gathering.core.card.SetRelease::releasedOn).reversed())
+                .toList();
+        first.addAll(rest);
+        return List.copyOf(first);
+    }
+
+    /** One walk over history: where it is, and what it has learned. */
+    private static final class Walk {
+
+        private final CollationService collation;
+        private final CardDataService cards;
+        private final java.nio.file.Path root;
+        private final long run;
+        private final java.util.Set<String> inPlay;
+        private final boolean shopOpen;
+        private final List<dev.gathering.core.card.SetRelease> sets;
+        private final List<dev.gathering.core.booster.ArchiveAudit.SetFacts> learned = new ArrayList<>();
+        private int at;
+
+        Walk(CollationService collation, CardDataService cards, java.nio.file.Path root, long run,
+                java.util.Set<String> inPlay, boolean shopOpen, List<dev.gathering.core.card.SetRelease> sets) {
+            this.collation = collation;
+            this.cards = cards;
+            this.root = root;
+            this.run = run;
+            this.inPlay = inPlay;
+            this.shopOpen = shopOpen;
+            this.sets = sets;
+        }
+
+        /**
+         * The next set, and then the one after it, until history or this world runs out.
+         * <p>A loop over everything that can be answered off disk, and a hop onto the card worker
+         * after each set that had to be read. Chaining every set onto the last would recurse once per
+         * set wherever a future was already complete - which, on every start after the first, is
+         * almost all of seven hundred of them, and deep enough to overflow a stack.
+         */
+        CompletableFuture<Walk> next() {
+            while (at < sets.size()) {
+                if (!ServerRun.isStill(run)) {
+                    return CompletableFuture.completedFuture(this);
+                }
+                dev.gathering.core.card.SetRelease set = sets.get(at++);
+                Optional<dev.gathering.core.booster.ArchiveAudit.SetFacts> fromDisk = keptFor(set);
+                if (fromDisk.isPresent()) {
+                    learned(fromDisk);
+                    continue;
+                }
+                return factsFor(set)
+                        .exceptionally(failure -> {
+                            LOGGER.warn("Could not audit {} for the archive: {}", set.code(), failure.toString());
+                            return ArchiveFacts.read(root, set.code()).map(ArchiveFacts.Kept::facts);
+                        })
+                        .thenComposeAsync(facts -> {
+                            learned(facts);
+                            return next();
+                        }, collation.worker());
+            }
+            publish(true);
+            return CompletableFuture.completedFuture(this);
+        }
+
+        private void learned(Optional<dev.gathering.core.booster.ArchiveAudit.SetFacts> facts) {
+            facts.ifPresent(learned::add);
+            if (at % PUBLISH_EVERY == 0) {
+                publish(false);
+            }
+        }
+
+        /** This set's facts off disk, where they still stand for the set as it is listed now. */
+        private Optional<dev.gathering.core.booster.ArchiveAudit.SetFacts> keptFor(
+                dev.gathering.core.card.SetRelease set) {
+            return ArchiveFacts.read(root, set.code())
+                    .filter(kept -> kept.stillGood(set.cardCount(), System.currentTimeMillis(),
+                            inPlay.contains(set.code())))
+                    .map(ArchiveFacts.Kept::facts);
+        }
+
+        /** This set's facts: off disk where they still hold, otherwise read again and kept. */
+        private CompletableFuture<Optional<dev.gathering.core.booster.ArchiveAudit.SetFacts>> factsFor(
+                dev.gathering.core.card.SetRelease set) {
+            boolean drawnFrom = inPlay.contains(set.code());
+            Optional<ArchiveFacts.Kept> kept = ArchiveFacts.read(root, set.code());
+            return cards.everyPrintingToAudit(set.code()).thenCompose(read -> {
+                if (read.isEmpty()) {
+                    // Short or unreadable: whatever was kept stands until it can be read whole.
+                    return CompletableFuture.completedFuture(kept.map(ArchiveFacts.Kept::facts));
+                }
+                List<UUID> catalog = read.get().stream()
+                        .filter(dev.gathering.core.booster.ArchiveAudit::isACard)
+                        .map(dev.gathering.core.card.CardMetadata::scryfallId)
+                        .distinct()
+                        .toList();
+                if (!drawnFrom) {
+                    return CompletableFuture.completedFuture(Optional.of(keep(set,
+                            new dev.gathering.core.booster.ArchiveAudit.SetFacts(
+                                    set.code(), catalog, java.util.Set.of(), java.util.Set.of(), false))));
+                }
+                return collation.collationFor(set.code())
+                        .thenCombine(collation.catalogFor(set.code()), (packs, catalogued) -> Optional.of(keep(set,
+                                new dev.gathering.core.booster.ArchiveAudit.SetFacts(set.code(), catalog,
+                                        inBoosters(packs), inProducts(catalogued), true))));
+            });
+        }
+
+        private dev.gathering.core.booster.ArchiveAudit.SetFacts keep(
+                dev.gathering.core.card.SetRelease set, dev.gathering.core.booster.ArchiveAudit.SetFacts facts) {
+            ArchiveFacts.write(root, new ArchiveFacts.Kept(facts, System.currentTimeMillis(), set.cardCount()));
+            return facts;
+        }
+
+        private void publish(boolean finished) {
+            if (!ServerRun.isStill(run)) {
+                return;
+            }
+            Set<UUID> remainder = dev.gathering.core.booster.ArchiveAudit.unobtainable(learned, inPlay, shopOpen);
+            sheet = CoverageAudit.archiveSheet(new CoverageReport(remainder.size(), remainder, java.util.Map.of()));
+            if (finished) {
+                LOGGER.info("Archive packs can be found: {} card(s) across {} set(s) of Magic's history that "
+                        + "nothing else reaches", sheet.size(), learned.size());
+            }
+        }
+    }
+
+    /** Every printing any of a set's boosters could hold. */
+    private static Set<UUID> inBoosters(dev.gathering.core.booster.MtgjsonCollation.Reading packs) {
+        Set<UUID> reached = new LinkedHashSet<>();
+        for (var faucet : PackCoverage.faucetsFor(packs)) {
+            reached.addAll(faucet.reaches());
+        }
+        return reached;
+    }
+
+    /** Every printing a set's sellable products could hand over, by name or by the decks they hold. */
+    private static Set<UUID> inProducts(CollationService.Catalog catalogued) {
+        Set<UUID> reached = new LinkedHashSet<>();
+        if (catalogued == null) {
+            return reached;
+        }
+        var lookup = catalogued.lookup();
+        for (var product : catalogued.products().products()) {
+            if (!dev.gathering.core.sealed.SealedPrice.isSellable(product)) {
+                continue;
+            }
+            dev.gathering.core.sealed.SealedContents.of(product, lookup).ifPresent(bag -> {
+                bag.cards().forEach(card -> card.printing().ifPresent(reached::add));
+                for (var deck : bag.decks()) {
+                    for (var section : List.of(deck.commanders(), deck.mainboard(), deck.sideboard())) {
+                        section.forEach(card -> card.printing().ifPresent(reached::add));
+                    }
+                }
+            });
+        }
+        return reached;
     }
 
     /** Between servers, so one world's remainder is not the next one's. */
@@ -152,57 +317,6 @@ public final class Archive {
             cards.add(holding.identityOf(holding.at(Math.floorMod(random.nextLong(), total))));
         }
         return List.copyOf(cards);
-    }
-
-    // ------------------------------------------------------------------ bits
-
-    /**
-     * As many sets as are worth auditing, newest first.
-     * <p>Every set audited is that set's file fetched and its whole printing list asked for,
-     * which is a few megabytes and a search each. A server drawing from every set ever
-     * printed would spend a gigabyte and several hundred searches at every start working out
-     * a remainder that is mostly cards nobody was going to miss - so this reaches back over
-     * the sets people are actually opening and stops. The sets in play are newest first
-     * already, which is the order that matters.
-     */
-    private static List<String> audited(List<String> codes) {
-        if (codes.size() <= MOST_SETS_AUDITED) {
-            return codes;
-        }
-        LOGGER.info("Working out what this server's faucets miss across its newest {} set(s), "
-                + "out of the {} it draws from", MOST_SETS_AUDITED, codes.size());
-        return codes.subList(0, MOST_SETS_AUDITED);
-    }
-
-    /** Every printing in these sets that none of their own products reaches. */
-    private static CompletableFuture<Set<UUID>> remainderOf(
-            CollationService collation, CardDataService cards, List<String> codes) {
-        CompletableFuture<Set<UUID>> reading =
-                CompletableFuture.completedFuture(new LinkedHashSet<>());
-        for (String code : codes) {
-            reading = reading.thenCompose(found -> collation.collationFor(code)
-                    .thenCombine(cards.everyPrintingIn(code), (packs, printings) -> {
-                        List<UUID> catalog = PackCoverage.catalogOf(printings);
-                        if (catalog.isEmpty()) {
-                            return found;
-                        }
-                        // A set that was never sold in packs is not a hole in the faucets: it
-                        // is a set the shop stocks or nobody does, and sweeping the whole of
-                        // it into the archive would make the archive the set.
-                        var faucets = PackCoverage.faucetsFor(packs);
-                        if (faucets.isEmpty()) {
-                            return found;
-                        }
-                        found.addAll(CoverageAudit.of(catalog, faucets).uncovered());
-                        return found;
-                    })
-                    .exceptionally(failure -> {
-                        LOGGER.warn("Could not audit {}, so its remainder is not in the archive",
-                                code, failure);
-                        return found;
-                    }));
-        }
-        return reading;
     }
 
 }

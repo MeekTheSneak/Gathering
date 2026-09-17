@@ -240,6 +240,33 @@ public final class CardDataService implements AutoCloseable {
     }
 
     /**
+     * Every printing in a set, read to be counted rather than kept.
+     * <p>For the archive's audit of all of Magic's history, which reads every set there is: the
+     * same search as {@link #everyPrintingIn}, without writing each card's details into the cache.
+     * The audit keeps only which printings exist, and filling the cache with the whole history of
+     * the game to learn that would be tens of thousands of files for a list of ids. A card from
+     * the archive is looked up by id when somebody opens it, as any card is.
+     *
+     * @return empty where the pages ran out before the set did, so a set read short is never
+     *         audited as though it were complete
+     */
+    public CompletableFuture<java.util.Optional<List<CardMetadata>>> everyPrintingToAudit(String setCode) {
+        return supply(() -> {
+            var printings = client.everyPrintingOf(setCode);
+            if (!printings.allOfThem()) {
+                LOGGER.warn("The card list for set {} came back short, so the archive does not audit it "
+                        + "yet.", setCode);
+                return java.util.Optional.<List<CardMetadata>>empty();
+            }
+            List<CardMetadata> found = new java.util.ArrayList<>(printings.cards().size());
+            for (var parsed : printings.cards()) {
+                found.add(parsed.metadata());
+            }
+            return java.util.Optional.of(List.copyOf(found));
+        });
+    }
+
+    /**
      * Every printing in one set, kept in the cache on the way past.
      * <p>What a set nobody has published the collation of is opened from. Stored as it
      * arrives, because the next thing that happens to these cards is a pack being dealt out

@@ -35,6 +35,7 @@ WHERE = [
 MAY_ASK_FOR_THE_GAME_DIRECTORY = {
     "CardDataService",   # downloaded Scryfall printings: identical in every world
     "CollationService",  # published set collation: identical in every world
+    "Archive",           # what each set of Magic's history printed and reaches: identical in every world
     "Platform",          # declares the method
     "NeoForgePlatform",  # answers it
     "FabricPlatform",    # answers it
