@@ -2661,6 +2661,43 @@ request. Three guards, including a stranger failing to write over somebody else'
 Verified: gate green (623/16). The library guard fails without its fix, naming the card a spectator
 was shown.
 
+### Fortieth batch: every Critical the review found (2026-09-16)
+
+All ten are fixed. The full list is `docs/reviews/full-review-2026-09-16.md`; the eight beyond the
+two in the last batch:
+
+- **A seat given up outlived its game.** The records were saved to disk and never retired, and a
+  give-up says "somebody may take this board" - which permits another player being seated at it and
+  sent the hand that goes with it. A seat given up on Monday said yes again on Friday. Retired when a
+  game begins. The second reach into the visibility invariant this review found.
+- **And the same set was emptied wholesale at its ceiling**, which ordinary play reached, stranding
+  every live seat whose player had walked away for the rest of its game with nothing said. The oldest
+  goes now, one at a time - the argument `Owed.MOST_OWED` already makes about its own ceiling.
+- **A tournament that could not start gave up its tables first and refused afterwards**, so the next
+  press of Start found none to pull apart, skipped the check, paired a round and seated nobody. Mine,
+  from the last batch. It decides before it moves anything now, and numbers the tables before any of
+  them go, because the number is a position in the list.
+- **Adding a table still used the weak "free"**, and the next round's `clearTables` ended the game on
+  it, handed back the decks and unwound the ante of players who had nothing to do with the event.
+- **A restart with nobody online destroyed a tournament.** The away-from-board grace ran against the
+  whole field at once, conceded every match, dropped every entrant and recorded the event as
+  finished - rated, prizes paid. Terminal, silent, nobody at fault. The clock is about a player
+  walking away, so it now runs only for players this server has actually seen.
+- **A draft handed its pools out before striking the pod off**, so a crash between the two handed
+  everybody a second pool and every card in the draft existed twice. Struck off first, with the pack
+  record carried past it - which a test caught immediately, because ending a pod also forgets it.
+- **A pasted deck link could take the server down.** The quantity came unbounded off somebody else's
+  server and was built into a list before anything checked its size. Clamped where it is read, and
+  the flattening stops one past what an item can hold.
+- **The client could evict the table you were sitting at**, closing your own game screen mid-turn and
+  again on the next board to arrive. Oldest first now, and never the seated one.
+
+Four new guards, each proven to fail without its fix. Two of them were wrong first and said so: a
+lone table is never "in use" to `TablesApart` because a line of one has no shape to change, and the
+record a test cares about must not be the oldest one in the set.
+
+Verified: gate green (627/16).
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

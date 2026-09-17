@@ -123,9 +123,17 @@ public final class DraftActions {
             // out until everybody can take theirs, and opening the table tries again.
             return;
         }
+        // Struck off before a single card is made, not after the last one. The pod is block-entity
+        // state saved with the world, and "finished, pools still in it" is exactly the state opening
+        // the table re-enters - so a crash, a /stop, or a throw anywhere in the giving below left a
+        // finished pod claimable, and the next right-click handed every drafter a second pool. Every
+        // card in the draft would then exist twice. This is the order Owed and PodSignups both keep:
+        // out of the record first, then handed over.
+        DraftPods.end(level, tableOrigin);
+
         // An event whose cards go to the sponsor or back to whoever put the packs in hands
         // them over here; its drafters' own pools are empty, and the loop below tells them so.
-        PodEvents.handOutFinishedDraft(level, tableOrigin, pod);
+        PodEvents.handOutFinishedDraft(level, tableOrigin, pod, record);
         for (int index = 0; index < pod.drafters().size(); index++) {
             DrafterId place = DrafterId.of(index);
             ServerPlayer drafter = level.getServer().getPlayerList()
@@ -164,7 +172,6 @@ public final class DraftActions {
                     "message.gathering.draft_finished", pool.size()));
             Achievements.award(drafter, Achievements.FIRST_DRAFT);
         }
-        DraftPods.end(level, tableOrigin);
     }
 
     /** Whether every drafter is online to be handed their pool. */

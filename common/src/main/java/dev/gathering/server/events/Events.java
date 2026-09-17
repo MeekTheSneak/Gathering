@@ -39,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
@@ -94,6 +95,20 @@ public final class Events {
     /** When each absent player was first seen gone from an unfinished match, in wall-clock milliseconds. */
     private static final Map<UUID, Long> goneSince = new HashMap<>();
 
+    /**
+     * Everybody this server has actually seen online since it loaded.
+     * <p>The grace period is a rule about a player walking away from a match, and it can only start
+     * running once there is a player to walk away. Without this it started running against everybody
+     * the moment an event loaded: a server restarted overnight would, five minutes later, concede
+     * every unfinished match in a tournament, drop the whole field for being absent, and record the
+     * event as finished - rated, with the prizes paid out on the standings of the last round anybody
+     * played. Nothing was at fault and nobody was told. FINISHED is terminal.
+     * <p>The cost of the other answer is a round that stands open until somebody comes back, which
+     * the host can settle or drop by hand. A tournament that waits is recoverable; one that has
+     * finished itself is not.
+     */
+    private static final Set<UUID> seenOnline = new java.util.LinkedHashSet<>();
+
     /** Where real time comes from, in nanoseconds. Replaced only by the in-world tests. */
     static java.util.function.LongSupplier clock = System::nanoTime;
 
@@ -109,6 +124,7 @@ public final class Events {
     public static void clear() {
         events = null;
         goneSince.clear();
+        seenOnline.clear();
         lastDeskUse.clear();
         deskArrivals.clear();
         lastTickNanos = 0;
@@ -271,7 +287,12 @@ public final class Events {
         }
         int added = 0;
         for (BlockPos table : orderedTables(level, origin)) {
-            if (!state.tables.contains(table) && atTable(level, table).isEmpty()) {
+            // The same question the desk asks when it picks its own tables. Asked only there, this
+            // added a table with a live game, a pot or an unfinished draft on it - and the next round
+            // ran clearTables over it, which ends that game, hands its decks back and unwinds its
+            // ante. Nobody at that table asked for any of it.
+            if (!state.tables.contains(table) && atTable(level, table).isEmpty()
+                    && !somethingOnIt(level, table)) {
                 state.tables.add(table);
                 added++;
             }
@@ -796,15 +817,25 @@ public final class Events {
                     busy.add(table);
                 }
             }
-            for (BlockPos table : busy) {
-                tell(server, state.tournament.host(), Component.translatable(
-                        "message.gathering.event.table_given_up", state.numberOf(table)));
-                state.tables.remove(table);
-            }
-            if (state.tables.isEmpty()) {
+            // Decided before anything moves. Giving the tables up first and refusing afterwards left
+            // the event holding none of them and still in PREPARING - and the next press of Start
+            // skipped this whole block for want of a table, paired a round, and seated nobody
+            // anywhere. Then the first thing to save the event wrote the empty list to disk.
+            if (busy.size() == state.tables.size()) {
                 tell(server, state.tournament.host(),
                         Component.translatable("message.gathering.event.no_tables"));
                 return;
+            }
+            // Numbered before any of them go, because the number is a position in the list: removing
+            // one renumbers every table after it, and the host reads those numbers off the signs.
+            List<Integer> numbers = new ArrayList<>();
+            for (BlockPos table : busy) {
+                numbers.add(state.numberOf(table));
+            }
+            for (int which = 0; which < busy.size(); which++) {
+                tell(server, state.tournament.host(), Component.translatable(
+                        "message.gathering.event.table_given_up", numbers.get(which)));
+                state.tables.remove(busy.get(which));
             }
         }
         try {
@@ -1153,10 +1184,12 @@ public final class Events {
                 continue;
             }
             for (UUID player : new UUID[] {pairing.a(), pairing.b()}) {
-                if (server.getPlayerList().getPlayer(player) == null) {
-                    // Somebody who is not here is counted as gone from when it is first noticed,
-                    // not only from a disconnect this server saw: after a restart, a player who
-                    // never comes back still runs out their grace.
+                if (server.getPlayerList().getPlayer(player) != null) {
+                    seenOnline.add(player);
+                } else if (seenOnline.contains(player)) {
+                    // Counted as gone from when it was first noticed - but only for somebody this
+                    // server has actually seen, or a restart starts the clock on the whole field at
+                    // once. See seenOnline.
                     goneSince.putIfAbsent(player, now);
                 }
                 Long gone = goneSince.get(player);
@@ -1397,6 +1430,8 @@ public final class Events {
     }
 
     public static void arrived(ServerPlayer player) {
+        // From here on their absence means something, because they have been here. See seenOnline.
+        seenOnline.add(player.getUUID());
         goneSince.remove(player.getUUID());
         EventPrizes.arrived(player);
         of(player.getUUID()).ifPresent(state -> EventViews.show(player, state, false));

@@ -193,7 +193,18 @@ public final class PodEvents {
      */
     public static boolean handOutFinishedDraft(ServerLevel level, BlockPos tableOrigin, DraftPod pod) {
         TableBlockEntity table = anchorTable(level, tableOrigin).orElse(null);
-        PodRecord record = table == null ? null : table.podRecord().orElse(null);
+        return handOutFinishedDraft(level, tableOrigin, pod,
+                table == null ? null : table.podRecord().orElse(null));
+    }
+
+    /**
+     * The same, told what the packs were rather than reading it off the table.
+     * <p>Because the caller strikes the pod off before it hands anything out - which is the order
+     * that stops a crash between the two paying every drafter twice - and striking it off is also
+     * what forgets the record. So the record is carried in.
+     */
+    public static boolean handOutFinishedDraft(
+            ServerLevel level, BlockPos tableOrigin, DraftPod pod, PodRecord record) {
         if (record == null || record.cardsGo() == PodSettings.CardsGo.PLAYERS_KEEP) {
             return false;
         }

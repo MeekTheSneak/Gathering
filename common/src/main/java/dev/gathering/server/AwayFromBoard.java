@@ -368,9 +368,35 @@ public final class AwayFromBoard {
         }
     }
 
+    /**
+     * Forgets every seat given up at this table, because the game they were given up in is over.
+     * <p>A give-up says "somebody may take this board", and that is only ever true of the game it was
+     * made in. The records outlived their games and were saved to disk, so a seat given up on Monday
+     * still said yes on Friday - and what it says yes to is another player being seated at somebody
+     * else's board and sent their hand. The one rule this mod will not bend, reached through a record
+     * whose lifetime nobody had defined.
+     */
+    public static void forgetGivenUpAt(ServerLevel level, BlockPos table) {
+        BlockPos origin = table.immutable();
+        String dimension = dimension(level);
+        if (givenUp().removeIf(seat -> seat.seat() >= 0
+                && seat.dimension().equals(dimension) && seat.table().equals(origin))) {
+            save(level.getServer());
+        }
+    }
+
+    /**
+     * Remembers a seat given up, forgetting the oldest if there are too many.
+     * <p>The oldest, not all of them. Emptying the set was the answer here, and because nothing ever
+     * retired a record the cap was reached by ordinary play - at which point every live seat whose
+     * player had walked away became untakeable for the rest of its game, with nothing said. This is
+     * the argument {@code Owed.MOST_OWED} already makes about its own ceiling.
+     */
     private static void remember(GivenUp seat) {
-        if (givenUp().size() >= MOST_REMEMBERED) {
-            givenUp().clear();
+        java.util.Iterator<GivenUp> oldest = givenUp().iterator();
+        while (givenUp().size() >= MOST_REMEMBERED && oldest.hasNext()) {
+            oldest.next();
+            oldest.remove();
         }
         givenUp().add(seat);
     }

@@ -157,6 +157,74 @@ public final class AwayFromBoardGameTest {
         }
     }
 
+    /**
+     * A seat given up belongs to the game it was given up in, and not to the next one.
+     * <p>These records outlived their games and were saved to disk. A give-up says "somebody may take
+     * this board", and what that permits is another player being seated at it and sent the hand that
+     * goes with it - so a seat given up on Monday quietly said yes again on Friday, at the same table,
+     * in a game nobody in it had left. The visibility invariant, reached through a record whose
+     * lifetime nobody had defined.
+     */
+    @GameTest(template = "tables")
+    public static void agiveUpDoesNotOutliveItsGame(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        BlockPos north = chairAt(helper, table.offset(1, 0, -1), Direction.SOUTH);
+        ServerPlayer owner = sit(helper, north);
+        int seat = 0;
+
+        TableSessions.start(helper.getLevel(), table,
+                new dev.gathering.core.match.MatchRules(
+                        dev.gathering.core.format.FormatPresets.MODERN, 1));
+        AwayFromBoard.leftTheSeat(helper.getLevel(), table, owner.getUUID(), seat);
+        if (!AwayFromBoard.wasGivenUp(helper.getLevel(), table, seat, owner.getUUID())) {
+            helper.fail("leaving a seat did not record that it was given up");
+            return;
+        }
+
+        // The game ends and another begins at the same table. Monday is over.
+        TableSessions.end(helper.getLevel(), table, new SeatId(0), "test");
+        TableSessions.start(helper.getLevel(), table,
+                new dev.gathering.core.match.MatchRules(
+                        dev.gathering.core.format.FormatPresets.MODERN, 1));
+
+        if (AwayFromBoard.wasGivenUp(helper.getLevel(), table, seat, owner.getUUID())) {
+            helper.fail("a seat given up in one game still said so in the next, "
+                    + "which seats a stranger at somebody else's board");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Too many give-ups forgets the oldest, not all of them.
+     * <p>Emptying the set was the answer, and because nothing retired a record the cap was reached by
+     * ordinary play - at which point every live seat whose player had walked away became untakeable
+     * for the rest of its game, with nothing said to anybody.
+     */
+    @GameTest(template = "tables")
+    public static void toomanyGiveUpsForgetTheOldestOnly(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        java.util.UUID recent = java.util.UUID.randomUUID();
+
+        // The ceiling reached by old records, and then the one that matters, and then more after
+        // it. The oldest going is right; this one is not the oldest and its game is still on.
+        for (int filler = 0; filler < 1100; filler++) {
+            AwayFromBoard.leftTheSeat(helper.getLevel(), table.offset(0, filler + 4, 0),
+                    java.util.UUID.randomUUID(), 0);
+        }
+        AwayFromBoard.leftTheSeat(helper.getLevel(), table, recent, 1);
+        for (int filler = 0; filler < 50; filler++) {
+            AwayFromBoard.leftTheSeat(helper.getLevel(), table.offset(0, filler + 1200, 0),
+                    java.util.UUID.randomUUID(), 0);
+        }
+
+        if (!AwayFromBoard.wasGivenUp(helper.getLevel(), table, 1, recent)) {
+            helper.fail("filling the set up threw away a live seat's give-up along with the old ones");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** Eight minutes on, the seat is free, and the next player to sit down there may take it with its board. */
     @GameTest(template = "tables")
     public static void aKeptSeatIsFreedWhenTheTimeRunsOut(GameTestHelper helper) {

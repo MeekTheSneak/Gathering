@@ -160,6 +160,13 @@ public final class TableSessions {
         table.beginSession(session, rules.format().startingLife(),
                 continuing == null ? MatchState.beginning(rules) : continuing);
 
+        // A seat given up belongs to the game it was given up in, and this is a different game. Left
+        // standing, one of them says a stranger may sit at somebody else's board and be sent their
+        // hand - see AwayFromBoard#forgetGivenUpAt.
+        if (level instanceof net.minecraft.server.level.ServerLevel server) {
+            dev.gathering.server.AwayFromBoard.forgetGivenUpAt(server, anchor);
+        }
+
         // Decks the table is already holding go back down by themselves. Only ever true for
         // the second game of a set onwards, because nothing is held before the first.
         table.heldDecks().forEach((seat, deck) -> {

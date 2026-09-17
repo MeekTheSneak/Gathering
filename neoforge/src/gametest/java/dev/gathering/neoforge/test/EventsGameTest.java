@@ -789,6 +789,86 @@ public final class EventsGameTest {
         helper.succeed();
     }
 
+    /**
+     * A tournament that cannot use any of its tables refuses without giving them up.
+     * <p>It used to hand every busy table back and then refuse, which left the event holding none of
+     * them and still preparing. The next press of Start found no tables to pull apart, skipped the
+     * whole check, paired a round and seated nobody anywhere - and the first thing to save the event
+     * wrote the empty list to disk. A refusal has to leave the event exactly as it found it.
+     */
+    @GameTest(template = "tables")
+    public static void arefusalToStartLeavesTheTablesAlone(GameTestHelper helper) {
+        // Two tables end to end, because a table on its own is never reported in use - a line of one
+        // has no shape to change. The event holds both, and both are unusable.
+        BlockPos busy = place(helper, 1, 2, 1);
+        BlockPos joined = place(helper, 4, 2, 1);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        ServerPlayer rival = helper.makeMockServerPlayerInLevel();
+
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Blocked", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        tournament = tournament.register(Entrant.registering(host.getUUID(), "Host", 1500))
+                .register(Entrant.registering(rival.getUUID(), "Rival", 1500));
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(busy, joined));
+        Events.putForTesting(state);
+        try {
+            // A pot on the line. A game would not do: the event owns these tables, so clearTables
+            // ends it and they come free - which is right. A pot is one of the things clearing a
+            // table does not touch, which is why the real case that found this was a finished draft.
+            dev.gathering.block.TableBlock.entityAt(helper.getLevel(), busy).orElseThrow()
+                    .stake(new SeatId(0), List.of(dev.gathering.core.card.CardIdentity.ofPrinting(
+                            UUID.randomUUID(), false)));
+
+            Events.begin(host, state.tournament().id());
+
+            if (state.tables().isEmpty()) {
+                helper.fail("a tournament that could not start gave up its tables anyway");
+                return;
+            }
+            if (state.tournament().phase() == Tournament.Phase.SWISS) {
+                helper.fail("a tournament with no usable table started a round regardless");
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
+    /** Adding a table asks the same question the desk asks, so a bystander's game is never claimed. */
+    @GameTest(template = "tables")
+    public static void addingATableDoesNotClaimSomebodyElsesGame(GameTestHelper helper) {
+        BlockPos busy = place(helper, 1, 2, 1);
+        BlockPos free = place(helper, 9, 2, 1);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        ServerPlayer bystander = helper.makeMockServerPlayerInLevel();
+
+        TableSeats.take(helper.getLevel(), busy,
+                dev.gathering.block.TableClusters.at(helper.getLevel(), busy).seats().get(0).cell(),
+                dev.gathering.block.TableClusters.at(helper.getLevel(), busy).seats().get(0).side(), bystander.getUUID());
+        TableSessions.start(helper.getLevel(), busy, new MatchRules(FormatPresets.MODERN, 1));
+
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Greedy", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(free));
+        Events.putForTesting(state);
+        try {
+            Events.addTables(host, state.tournament().id(), busy);
+
+            if (state.tables().contains(busy)) {
+                helper.fail("a host added a table with somebody else's game on it");
+                return;
+            }
+            if (TableSessions.sessionAt(helper.getLevel(), busy).isEmpty()) {
+                helper.fail("the bystanders' game was ended by a tournament that did not own it");
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
         return TestTables.place(helper, x, y, z);
     }

@@ -81,12 +81,18 @@ public final class ClientTableState {
 
     public static void accept(BlockPos table, GameView board, boolean seated) {
         if (BOARDS.size() >= MAX_TABLES && !BOARDS.containsKey(table)) {
-            BOARDS.keySet().stream().findFirst().ifPresent(forgotten -> {
-                BOARDS.remove(forgotten);
-                ClientCardFlights.forget(forgotten);
-                ClientTableNews.forget(forgotten);
-            });
+            // The oldest, and never the one this player is sitting at. A map's first key is whichever
+            // bin it happens to land in, so this threw away an arbitrary table - and when that was
+            // yours, your own game screen closed itself mid-turn and did it again on the next board
+            // to arrive. Forgetting a table you walked away from is the right failure; forgetting the
+            // one you are playing at is not a failure mode anybody chose.
+            oldestFirst.stream()
+                    .filter(forgotten -> !forgotten.equals(seatedAt))
+                    .findFirst()
+                    .ifPresent(ClientTableState::forget);
         }
+        oldestFirst.remove(table.immutable());
+        oldestFirst.add(table.immutable());
         // Before the board is put down, because what is wanted is the difference between the
         // one that was here and the one that has arrived - which is every card that moved.
         long now = ClientCardFlights.now();
@@ -224,8 +230,16 @@ public final class ClientTableState {
         }
     }
 
+    /**
+     * The order boards arrived in, so the one given up when there are too many is the oldest.
+     * <p>Beside the map rather than in it: {@code BOARDS} is read from the render thread and written
+     * from the network thread, and a map that keeps order is not one of the concurrent ones.
+     */
+    private static final java.util.Deque<BlockPos> oldestFirst = new java.util.concurrent.ConcurrentLinkedDeque<>();
+
     /** Stops watching one table, without forgetting the rest of the room. */
     public static void forget(BlockPos table) {
+        oldestFirst.remove(table);
         POTS.remove(table);
         TERMS.remove(table);
         AWAY.remove(table);
@@ -244,6 +258,7 @@ public final class ClientTableState {
 
     /** On disconnect: what one server's tables showed is not true of the next. */
     public static void clear() {
+        oldestFirst.clear();
         POTS.clear();
         TERMS.clear();
         AWAY.clear();

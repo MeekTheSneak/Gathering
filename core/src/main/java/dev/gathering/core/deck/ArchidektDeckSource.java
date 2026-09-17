@@ -98,7 +98,11 @@ public final class ArchidektDeckSource {
                 continue;
             }
 
-            int quantity = Math.max(1, integer(entry, "quantity", 1));
+            // Clamped where it is read, not where it is spent. A pasted link is somebody else's
+        // server answering, and the parser's bound never applies to it: a row saying two
+        // billion was a list this server would build before anything checked its size.
+        int quantity = Math.clamp(integer(entry, "quantity", 1), 1,
+                dev.gathering.core.decklist.DecklistParser.MAX_QUANTITY);
             DeckSection section = sectionFor(entry, categories);
 
             entries.add(new DecklistEntry(

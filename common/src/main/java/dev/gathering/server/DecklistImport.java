@@ -287,12 +287,24 @@ public final class DecklistImport {
                 flatten(deck, DeckSection.SIDEBOARD));
     }
 
+    /**
+     * A section as one card per copy, and never more copies than an item could hold.
+     * <p>The size of a deck is checked afterwards, by {@code fitsInAnItem}. That is the right place to
+     * refuse it and the wrong place to find out: a line asking for two billion of something built the
+     * list first and answered afterwards, which is a server spending its memory to say no. Stopping
+     * one past the limit is enough for the check to still fail, and costs nothing to the decks people
+     * actually import.
+     */
     private static List<CardComponent> flatten(ResolvedDeck deck, DeckSection section) {
+        int most = DeckComponent.MAX_CARDS + 1;
         List<CardComponent> cards = new ArrayList<>();
         for (ResolvedCard card : deck.in(section)) {
             CardComponent component = CardComponent.of(card.identity());
-            for (int copy = 0; copy < card.quantity(); copy++) {
+            for (int copy = 0; copy < card.quantity() && cards.size() < most; copy++) {
                 cards.add(component);
+            }
+            if (cards.size() >= most) {
+                break;
             }
         }
         return cards;
