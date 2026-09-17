@@ -140,6 +140,24 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
     }
 
     /**
+     * Keeps a card in memory without writing a file for it.
+     * <p>For cards answered from the local copy of Scryfall's bulk file, which is already on this
+     * disk: a file per printing beside it would be a second copy of the same hundred thousand
+     * cards. In memory is still needed, because memory is what a game thread may ask.
+     *
+     * @param asOf how current the card is, which is what a freshness check reads
+     */
+    public void remember(CardMetadata card, java.time.Instant asOf) {
+        if (card == null || card.scryfallId() == null) {
+            return;
+        }
+        super.store(card, null);
+        if (asOf != null) {
+            cachedWhen.put(card.scryfallId(), asOf);
+        }
+    }
+
+    /**
      * Reads every cached card into the name and printing indexes.
      * <p>Costs one pass over the cache directory, which is why it is an explicit call rather
      * than something the constructor does: a server that only ever resolves by id never

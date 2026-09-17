@@ -218,6 +218,9 @@ cannot be inferred from reading the code.
 - **Archidekt sends `"categories": null` for an uncategorized card**, not an empty list, and
   its deck entries carry the printing's Scryfall id in `card.uid` - which is why a link
   import resolves exactly where a text export can only guess.
+- **Scryfall's bulk-data list no longer has a `download_uri`.** As of 2026-09 each entry carries only
+  `jsonl_download_uri`: gzipped JSON lines, not a JSON array. `BulkCatalog` takes either and
+  `BulkCardReader` tells the shapes apart by the bytes. Seen in the live reply, not the docs.
 - **Scryfall's collection endpoint refuses combined card names.** `{"name": "Fire // Ice"}`
   comes back not-found; `{"name": "Fire"}` returns the whole card. Same for transform and
   modal double-faced cards - "Delver of Secrets // Insectile Aberration" fails, "Delver of

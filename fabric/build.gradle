@@ -115,6 +115,7 @@ loom.runs {
         name 'Fabric game tests'
         source sourceSets.testmod
         property 'fabric-api.gametest'
+        property 'gathering.bulkcards.off', '1'
         property 'fabric-api.gametest.report-file',
                 "${project.layout.buildDirectory.get()}/test-results/fabric-gametest.xml"
     }

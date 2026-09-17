@@ -137,7 +137,7 @@ public final class DeckCheck {
             // name is "no opinion" - so waiting would be a player standing at a table for a
             // verdict that was already in. A stat call each, which is a microsecond; reading
             // them is what must not happen here.
-            if (cards.store().isOnDisk(printing)) {
+            if (cards.store().isOnDisk(printing) || cards.knownLocally(printing)) {
                 missing.add(printing);
             }
         }

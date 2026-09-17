@@ -316,6 +316,15 @@ class GatheringConfigTest {
     }
 
     @Test
+    @DisplayName("the bulk card file is on unless a server turns it off")
+    void bulkCardDataIsOnByDefault() throws Exception {
+        assertThat(GatheringConfig.defaults().cards().bulkData()).isTrue();
+        GatheringConfig off = read("[cards]\nbulk_data = false\n");
+        assertThat(off.cards().bulkData()).isFalse();
+        assertThat(off.notes()).isEmpty();
+    }
+
+    @Test
     @DisplayName("a file with nothing in it is the defaults")
     void anEmptyFileIsTheDefaults() throws Exception {
         assertThat(read("")).isEqualTo(GatheringConfig.defaults());

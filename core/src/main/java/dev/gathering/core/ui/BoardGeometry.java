@@ -83,6 +83,7 @@ public final class BoardGeometry implements BoardPlacement {
             List<SeatAnchor> anchors, int newWidth, int newHeight,
             int newCoveredAtTheTop, int newCoveredAtTheBottom) {
         int wasVisible = visible();
+        int wasWidth = width;
         this.surface = TableSurface.forSeats(anchors);
         this.width = Math.max(1, newWidth);
         this.height = Math.max(1, newHeight);
@@ -95,13 +96,14 @@ public final class BoardGeometry implements BoardPlacement {
         // adrift in a bigger window with somebody else's board coming into view above it.
         // The point the view is centered on does not move, so nothing slides out from under
         // whoever is mid-turn - which is the thing this method exists not to do.
-        // By the height alone. Scaling by whichever of height and width shrank more looked right for a window
-        // narrowed from the side, and made the seated view frame the whole table a fifth smaller than the
-        // view on the block - which the scripted run measures, and failed on.
-        if (visible() != wasVisible) {
+        // Across as well as down, by whichever shrank more: a board fitted to the width of the window
+        // kept its scale when only the width was narrowed, and ran off both sides.
+        if (visible() != wasVisible || width != wasWidth) {
+            double down = visible() / (double) wasVisible;
+            double across = width / (double) wasWidth;
             camera = new TableCamera(
                     camera.centerX(), camera.centerY(),
-                    camera.scale() * visible() / (double) wasVisible,
+                    camera.scale() * Math.min(down, across),
                     surface.width(), surface.height(), turned);
         }
     }

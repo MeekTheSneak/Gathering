@@ -29,7 +29,19 @@ public record GatheringConfig(
         Tables tables,
         Ante ante,
         Events events,
+        Cards cards,
         List<String> notes) {
+
+    /**
+     * Where card data comes from.
+     *
+     * @param bulkData whether this server keeps a local copy of Scryfall's bulk card file and answers
+     *                 lookups from it, asking the API only for what the copy does not have. About a
+     *                 hundred megabytes of disk and a minute or two on first start, for lookups that
+     *                 no longer wait on Scryfall's rate limit. Read when the server starts.
+     */
+    public record Cards(boolean bulkData) {
+    }
 
     /**
      * Tournaments.
@@ -230,7 +242,8 @@ public record GatheringConfig(
                 "ante.exclusions",
                 "ante.allow_per_table_opt_out",
                 "events.host_cooldown_minutes",
-                "events.rated_min_players"));
+                "events.rated_min_players",
+                "cards.bulk_data"));
     }
 
     /** What a server that has never touched the file runs as. */
@@ -336,12 +349,14 @@ public record GatheringConfig(
                         clamped(toml.number("events.rated_min_players", 6), 2, 64,
                                 "events.rated_min_players", notes), 6, notes));
 
+        Cards cards = new Cards(toml.flag("cards.bulk_data", true));
+
         for (String unknown : toml.unknownKeys(knownKeys())) {
             notes.add("'" + unknown + "' is not a setting this version knows about");
         }
         return new GatheringConfig(
                 new Modes(importEnabled, collectionEnabled, replays),
-                importing, collecting, tables, ante, events,
+                importing, collecting, tables, ante, events, cards,
                 notes);
     }
 
@@ -567,6 +582,14 @@ public record GatheringConfig(
                 # A finished tournament moves ratings only with at least rated_min_players players.
                 host_cooldown_minutes = 0
                 rated_min_players = 6
+
+                [cards]
+                # Keep a copy of Scryfall's card file on this server and look cards up in it, asking
+                # Scryfall itself only for cards newer than the copy. Costs about two hundred megabytes
+                # of disk while it downloads and a hundred and ten after, and a minute or two the
+                # first time the server starts; the copy is checked once a day. false looks every card
+                # up one request at a time. Read at start.
+                bulk_data = true
                 """;
     }
 }

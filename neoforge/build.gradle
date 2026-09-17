@@ -80,6 +80,7 @@ neoForge {
         }
         gameTestServer {
             type = 'gameTestServer'
+            systemProperty 'gathering.bulkcards.off', '1'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
         // Modpack qualification (CL-14): the same client, server and game tests with other mods'
@@ -103,6 +104,7 @@ neoForge {
         }
         packGameTestServer {
             type = 'gameTestServer'
+            systemProperty 'gathering.bulkcards.off', '1'
             gameDirectory = project.file('runs/pack-tests')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }

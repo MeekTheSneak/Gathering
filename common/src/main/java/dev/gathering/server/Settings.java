@@ -86,6 +86,7 @@ public final class Settings {
                     String.valueOf(now.ante().allowPerTableOptOut());
             case "events.host_cooldown_minutes" -> String.valueOf(now.events().hostCooldownMinutes());
             case "events.rated_min_players" -> String.valueOf(now.events().ratedMinPlayers());
+            case "cards.bulk_data" -> String.valueOf(now.cards().bulkData());
             default -> "?";
         };
     }

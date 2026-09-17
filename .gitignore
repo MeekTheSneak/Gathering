@@ -47,3 +47,4 @@ __pycache__/
 build/preview/
 neoforge/run/screenshots/
 .qa/
+.claude/worktrees/

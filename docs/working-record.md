@@ -3052,14 +3052,61 @@ Done here (gate pending at the time of writing):
 - A pack's card art starts downloading as the pack screen opens, six at a time instead of two.
 - A pack whose card names fail to come back is asked once more after two seconds before it is handed back.
 - The card art cache is trimmed to 768 MB, least recently used first, once past 1 GB (`CacheTrim`).
-- Bulk data (Scryfall's daily card file as a local index) is being built separately.
+- Bulk data (Scryfall's daily card file as a local index): see the next section.
 
 Scripted tour on 2026-09-17 (after the playtest batch): reached 387 of 387 with 8 failures. Fixed: the
 tournament steps still pressed the old "2-0" result buttons (now the counts and Record); a gentle pull
 opened a pack, from the second minor batch weakening the seam's diagonals (reverted, guarded by
-`PackClothTest.aShortPullDoesNotOpenIt`, proven failing with the weakened seam); the seated view framed
-the whole table smaller than the block view, from the same batch scaling the camera by width as well as
-height (reverted). Not yet explained: "a card that was pointed at is not ringed", and "the row of tables in
-every wood would have gone down on a table already standing" with "no other tables stood up" - to be
-rechecked on the next run.
+`PackClothTest.aShortPullDoesNotOpenIt`, proven failing with the weakened seam). Not explained, and
+not from this work: a second run with the camera change reverted failed the same four ways, so it was put
+back - "framing the whole table gives a mat 158 by 72 on the block and 131 by 59 on the screen" (the run's
+window was 427x240), "a card that was pointed at is not ringed", "the row of tables in every wood would have
+gone down on a table already standing" and "no other tables stood up". The last two look like a world left
+over from an earlier run.
 
+
+## 2026-09-17: card lookups from Scryfall's bulk file
+
+Owner-approved: a local copy of Scryfall's `default_cards` bulk file per server, so card lookups stop
+waiting on the rate-limited API. About 110 MB of disk once built, a minute or two on first start, new
+printings a day late, the per-request API kept as the fallback. `cards.bulk_data = true` by default;
+false turns it off. This is a copy each server downloads for itself, not card data shipped or relayed.
+
+**How it works.** `core/.../scryfall/bulk/`: `BulkRefresh` asks `GET /bulk-data` once (through
+`HttpFetcher`) and downloads only when `updated_at` differs from the built index and the last build is
+at least 20 hours old. Scryfall's list no longer carries `download_uri`, only `jsonl_download_uri`
+(gzipped JSON lines); both are read, gzip or not, told apart by the bytes. The address must be https on
+`data.scryfall.io` exactly (`BulkCatalog`). The download goes to a temp file, then `BulkIndexBuilder`
+streams it one card at a time into `cards.dat` (each card's whole JSON, deflated against a dictionary of
+field names and URL shapes) and `cards.idx` (id-sorted offsets, prices, dates, flags, set and number, name
+and set lists; CRC and version checked on open), in a directory of its own; a rename and an atomic
+pointer swap make it current. `BulkCardIndex` answers by id, name (split and double-faced halves),
+name in set, set and number, a set's printings, a card's printings, and tokens. In `:common`,
+`BulkCardData` (owned and closed by `CardDataService`) builds on its own thread and answers on two
+more; `CardDataService` asks it first for `card`, `findByName`, `findAll`, `printingsOf`,
+`everyPrintingIn`, `everyPrintingToAudit` and `tokensNamed`, and goes the old way when it is not ready
+or misses. Imports resolve through `BulkFirstStore`. Hits are kept in memory (`DiskCardMetadataStore.remember`,
+dated by the file's `updated_at`) so `peek` works; they are not written out as per-card files.
+`DeckCheck` waits for a card the copy has, as it does for one on disk.
+
+**Verified.** `:core:test` 1920 tests, 0 failures (`BulkCardIndexTest` 11, `BulkRefreshTest` 6, config);
+`coretestcheck`, `langcheck`, `doccheck`, `spellcheck`, `statecheck`, `runcheck`, `savecheck` pass;
+`:neoforge:compileJava :fabric:compileJava :neoforge:compileGametestJava` build. Guards proven failing
+with the fix reverted: host allowlist removed (host test fails); old index deleted before building
+(failed-build and failed-download tests fail); reader parsing the whole array first (streaming test
+fails). A real run of the core refresher on this machine, outside the gate: 118,179 printings,
+download and build 12-14 s, `cards.dat` 103 MB and `cards.idx` 7 MB, open 0.04-0.09 s, about 15 MB of
+heap; a second run said UNCHANGED in 0.3 s. Compared with the live API: set `blb` (398) and `lea` (295)
+identical in order; Fire // Ice printings identical in order; Sol Ring's 136 the same set, not the same
+order; Lightning Bolt 69 against 67; tokens Cat 8 against 8 with 3 different printings chosen.
+
+**Not the same as the API, known.** Name searches hide what Scryfall hides as far as it was measured
+(tokens, emblems, art cards, memorabilia sets, playtest cards); two Arena-only Lightning Bolts Scryfall
+leaves out are still listed, for reasons not found. Ties in price order, and which printing stands for a
+token, are not Scryfall's. A name with no printing named now resolves to the cheapest priced printing
+rather than the collection endpoint's choice - the same rule the in-memory store already applied.
+
+**Unverified.** Nothing in a running server: not the game test server, not a client. The game test
+server will download the file into its own run directory on first start, which the gate has never done.
+The real download is not exercised by any test. Windows file deletion of a replaced index that is still
+open is best-effort and retried at the next start, never seen.

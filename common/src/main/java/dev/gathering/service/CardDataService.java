@@ -55,6 +55,8 @@ public final class CardDataService implements AutoCloseable {
     private final ScryfallClient client;
     private final CachingCardSource source;
     private final DeckImporter importer;
+    private final BulkCardData bulk;
+    private final dev.gathering.core.scryfall.bulk.BulkFirstStore lookups;
 
     private CardDataService(Path cacheRoot, String userAgent) throws IOException {
         // One worker, and a bounded queue in front of it. Unbounded, a queue of lookups could grow
@@ -66,7 +68,13 @@ public final class CardDataService implements AutoCloseable {
                 new java.util.concurrent.PriorityBlockingQueue<>(), ServiceThreads.named("gathering-scryfall"));
         this.store = new DiskCardMetadataStore(cacheRoot);
         this.client = new ScryfallClient(new JdkHttpTransport(), RateLimiter.defaultLimiter(), userAgent);
-        this.source = new CachingCardSource(store, client);
+        // The local copy of Scryfall's bulk file first, on threads of its own; see BulkCardData.
+        // Never in the in-world tests: a copy arriving part way through a run would answer some lookups and
+        // not others, and the gate would download seventy megabytes it has no use for.
+        this.bulk = new BulkCardData(cacheRoot, userAgent, ServerSettings.get().cards().bulkData()
+                && System.getProperty("gathering.bulkcards.off") == null);
+        this.lookups = new dev.gathering.core.scryfall.bulk.BulkFirstStore(store, bulk::ready);
+        this.source = new CachingCardSource(lookups, client);
         this.importer = new DeckImporter(
                 source, new dev.gathering.core.deck.ArchidektDeckSource(new JdkHttpTransport(), userAgent));
     }
@@ -115,10 +123,11 @@ public final class CardDataService implements AutoCloseable {
         if (known.isPresent()) {
             return CompletableFuture.completedFuture(known);
         }
-        return supply(Lane.PLAYER, () -> {
+        return bulk.orElse(index -> lookups.find(CardQuery.byId(scryfallId)).map(Optional::of).orElse(null),
+                () -> supply(Lane.PLAYER, () -> {
             CardQuery query = CardQuery.byId(scryfallId);
             return source.resolve(List.of(query)).get(query);
-        });
+        }));
     }
 
     /**
@@ -127,10 +136,11 @@ public final class CardDataService implements AutoCloseable {
      * collection search resolve against.
      */
     public CompletableFuture<Optional<CardMetadata>> findByName(String cardName) {
-        return supply(Lane.PLAYER, () -> {
+        return bulk.orElse(index -> lookups.find(CardQuery.byName(cardName)).map(Optional::of).orElse(null),
+                () -> supply(Lane.PLAYER, () -> {
             CardQuery query = CardQuery.byName(cardName);
             return source.resolve(List.of(query)).get(query);
-        });
+        }));
     }
 
     /**
@@ -175,10 +185,25 @@ public final class CardDataService implements AutoCloseable {
         if (known != null) {
             return CompletableFuture.completedFuture(List.copyOf(known));
         }
-        return supply(Lane.PLAYER, () -> {
+        return bulk.orElse(index -> allKnown(scryfallIds), () -> supply(Lane.PLAYER, () -> {
             List<CardQuery> queries = scryfallIds.stream().map(CardQuery::byId).toList();
             return List.copyOf(source.resolve(queries).found().values());
-        });
+        }));
+    }
+
+    /** Every one of these without the network, or null when any of them needs it. */
+    private List<CardMetadata> allKnown(List<UUID> scryfallIds) {
+        java.util.Map<UUID, CardMetadata> found = new java.util.LinkedHashMap<>();
+        for (UUID printing : scryfallIds) {
+            if (!found.containsKey(printing)) {
+                CardMetadata card = lookups.find(CardQuery.byId(printing)).orElse(null);
+                if (card == null) {
+                    return null;
+                }
+                found.put(printing, card);
+            }
+        }
+        return List.copyOf(found.values());
     }
 
     /**
@@ -251,14 +276,15 @@ public final class CardDataService implements AutoCloseable {
         return CompletableFuture.runAsync(() -> {
             for (UUID printing : wanted) {
                 // The store indexes what it reads, so asking is what warms it.
-                store.find(CardQuery.byId(printing));
+                lookups.find(CardQuery.byId(printing));
             }
         }, lane(Lane.PLAYER));
     }
 
     /** Every printing of a card, cheapest first - what the import screen's chooser offers. */
     public CompletableFuture<List<CardMetadata>> printingsOf(String cardName) {
-        return supply(Lane.PLAYER, () -> client.printingsOf(cardName));
+        return bulk.orElse(index -> nonEmpty(index.printingsOf(cardName)),
+                () -> supply(Lane.PLAYER, () -> client.printingsOf(cardName)));
     }
 
     /**
@@ -273,7 +299,8 @@ public final class CardDataService implements AutoCloseable {
      *         audited as though it were complete
      */
     public CompletableFuture<java.util.Optional<List<CardMetadata>>> everyPrintingToAudit(String setCode) {
-        return supply(Lane.BACKGROUND, () -> {
+        return bulk.orElse(index -> index.printingsIn(setCode).map(java.util.Optional::of).orElse(null),
+                () -> supply(Lane.BACKGROUND, () -> {
             var printings = client.everyPrintingOf(setCode);
             if (!printings.allOfThem()) {
                 LOGGER.warn("The card list for set {} came back short, so the archive does not audit it "
@@ -285,7 +312,7 @@ public final class CardDataService implements AutoCloseable {
                 found.add(parsed.metadata());
             }
             return java.util.Optional.of(List.copyOf(found));
-        });
+        }));
     }
 
     /**
@@ -321,7 +348,10 @@ public final class CardDataService implements AutoCloseable {
             new java.util.concurrent.ConcurrentHashMap<>();
 
     private CompletableFuture<List<CardMetadata>> readEveryPrintingIn(String setCode) {
-        return supply(Lane.PLAYER, () -> {
+        return bulk.orElse(index -> index.printingsIn(setCode).map(cards -> {
+            lookups.remember(cards, index);
+            return List.copyOf(cards);
+        }).orElse(null), () -> supply(Lane.PLAYER, () -> {
             List<CardMetadata> found = new java.util.ArrayList<>();
             var printings = client.everyPrintingOf(setCode);
             for (var parsed : printings.cards()) {
@@ -345,7 +375,7 @@ public final class CardDataService implements AutoCloseable {
                         + "obtainable in it cannot be audited properly.", setCode, found.size());
             }
             return List.copyOf(found);
-        });
+        }));
     }
 
     /**
@@ -391,7 +421,21 @@ public final class CardDataService implements AutoCloseable {
 
     /** Tokens matching a name, for the "make a token" screen. */
     public CompletableFuture<List<CardMetadata>> tokensNamed(String name) {
-        return supply(Lane.PLAYER, () -> client.tokensNamed(name));
+        return bulk.orElse(index -> nonEmpty(index.tokensNamed(name)),
+                () -> supply(Lane.PLAYER, () -> client.tokensNamed(name)));
+    }
+
+    /** A list, or null for an empty one, so an empty answer from the bulk copy still asks Scryfall. */
+    private static <T> List<T> nonEmpty(List<T> list) {
+        return list.isEmpty() ? null : list;
+    }
+
+    /**
+     * Whether the local copy of Scryfall's bulk file has this printing, without reading it.
+     * <p>Memory only, so a game thread may ask: a card it has is worth waiting a moment for.
+     */
+    public boolean knownLocally(UUID printing) {
+        return bulk.contains(printing);
     }
 
     /**
@@ -412,6 +456,7 @@ public final class CardDataService implements AutoCloseable {
         if (active == this) {
             active = null;
         }
+        bulk.close();
         executor.shutdown();
         try {
             if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
