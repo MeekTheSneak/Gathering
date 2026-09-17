@@ -8,7 +8,7 @@ import dev.gathering.core.game.event.GameEvent;
  * down, the session ending - and every honest constructor of them is on the server. Others
  * carry a result the server rolled: a die, a coin, the planar die. Both kinds arrive at the
  * server through the same generic event packet as an ordinary move, and attribution is no
- * defence against either, because a client forging one signs it with its own seat.
+ * defense against either, because a client forging one signs it with its own seat.
  * <p>An audit put it plainly: those events "already contain their results", and a handler
  * that rolls honestly does not protect a second route that accepts a finished number. A
  * player who could send {@code DiceRolled(mySeat, 20, 20)} rolls twenty every time, and the

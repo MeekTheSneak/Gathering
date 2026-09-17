@@ -77,7 +77,7 @@ public final class CardArtPush {
      * <p>Separate from what was sent, because they are different facts. "You have been told
      * about this card" is permanent for the life of a connection; "this card could not be
      * looked up just now" is not, and treating the second as the first is how a card that
-     * arrived in the cache a minute later stayed a grey rectangle until the player relogged.
+     * arrived in the cache a minute later stayed a gray rectangle until the player relogged.
      */
     private static final Map<UUID, Map<UUID, Long>> MISSED = new ConcurrentHashMap<>();
 

@@ -453,7 +453,7 @@ public final class TutorialDemoGameTest {
             // The seat as a child screen resolves it: off the board's own viewer, which is
             // what ClientTableState.seatAt returns. Asked of the board directly because that
             // class cannot be loaded here - it reaches Screen - so the lookup itself is
-            // checked by the audit's client probe and the behaviour it decides is checked here.
+            // checked by the audit's client probe and the behavior it decides is checked here.
             SeatId seat = TutorialDemo.board()
                     .map(GameView::viewer)
                     .filter(dev.gathering.core.game.visibility.Viewer.Seated.class::isInstance)

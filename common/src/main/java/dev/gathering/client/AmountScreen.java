@@ -39,6 +39,9 @@ public final class AmountScreen extends ChildScreen {
     private Rect panel = Rect.NONE;
     private EditBox amount;
 
+    /** Held so a typed zero can gray it, since answering with one would change nothing. */
+    private net.minecraft.client.gui.components.Button ok;
+
     public AmountScreen(Component question, int suggested, IntConsumer answer, Screen back) {
         super(question, back);
         this.question = question;
@@ -83,9 +86,22 @@ public final class AmountScreen extends ChildScreen {
         addRenderableWidget(GatheringButtons.of(
                 panel.x() + MARGIN, decideTop, half, ROW,
                 Component.translatable("gui.cancel"), this::onClose));
-        addRenderableWidget(GatheringButtons.of(
+        ok = addRenderableWidget(GatheringButtons.of(
                 panel.right() - MARGIN - half, decideTop, half, ROW,
                 Component.translatable("gui.ok"), this::confirmTyped));
+        amount.setResponder(typed -> sayWhetherOkWouldWork());
+        sayWhetherOkWouldWork();
+    }
+
+    /**
+     * Grays Ok on a value that would do nothing.
+     * <p>Zero used to close the panel and change nothing, which reads as the press being lost.
+     * A part-typed or empty field falls back to the suggestion, so only a typed zero grays it.
+     */
+    private void sayWhetherOkWouldWork() {
+        if (ok != null) {
+            ok.active = parsed() > 0;
+        }
     }
 
     /**

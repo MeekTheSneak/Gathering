@@ -19,7 +19,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * Which tournament a Scorekeeper's Desk is the desk of, and the label floating over it.
  * <p>Only the tournament is saved: the event keeps the rest. The label - the tournament's name
  * and where it has got to - is worked out again from the event once a second and sent to clients
- * when it changes, so a desk whose tournament finished, was cancelled or was deleted while its
+ * when it changes, so a desk whose tournament finished, was canceled or was deleted while its
  * chunk was unloaded says so the moment anybody is near it.
  */
 public class ScorekeepersDeskBlockEntity extends BlockEntity {

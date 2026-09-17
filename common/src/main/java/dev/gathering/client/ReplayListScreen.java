@@ -110,7 +110,7 @@ public final class ReplayListScreen extends Screen {
      * <p>Asked of the replay controller rather than of {@code Minecraft.screen}, which was
      * the first attempt and cannot work: {@code setScreen} calls this method before it
      * assigns the new screen, so the field still held this list every time, the guard never
-     * fired, and every normal opening cancelled itself. The controller knows whether it is
+     * fired, and every normal opening canceled itself. The controller knows whether it is
      * the one doing the removing; the screen field only knows what has already happened.
      */
     @Override

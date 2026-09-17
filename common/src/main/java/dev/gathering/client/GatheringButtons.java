@@ -22,7 +22,7 @@ import net.minecraft.util.Mth;
  * the keyboard. Losing any of those makes a screen feel broken even when it works, because you
  * cannot tell whether anything happened.
  * <p>So these are vanilla {@link Button}s: vanilla's states, vanilla's focus, vanilla's click.
- * Only the face is the mod's own, and only because the mod now has looks - a grey vanilla
+ * Only the face is the mod's own, and only because the mod now has looks - a gray vanilla
  * button sitting inside a brown Retro panel is exactly the "nearly like the others" problem
  * this used to avoid by not skinning them at all. Everything a player already knows about
  * these still holds; they are only painted in the look they are sitting in.
@@ -80,7 +80,7 @@ public final class GatheringButtons {
         /**
          * Remembers that the button is being held, so the face can dip.
          * <p>Through {@code mouseClicked} and {@code mouseReleased} rather than through
-         * {@code onClick}, which NeoForge has deprecated in favour of a three-argument form
+         * {@code onClick}, which NeoForge has deprecated in favor of a three-argument form
          * it patched in. These two are vanilla, are not deprecated, and are the same on both
          * loaders - and {@code common} may not name a Forge addition at all.
          */
@@ -201,7 +201,7 @@ public final class GatheringButtons {
     /**
      * A button whose label is a direction rather than a word.
      * <p>Page turns were the characters "&lt;" and "&gt;" set in the game's font. That is a
-     * button labelled with punctuation: at a glance it reads as text somebody forgot to
+     * button labeled with punctuation: at a glance it reads as text somebody forgot to
      * finish rather than as a control, and it says nothing to a screen reader either. This
      * draws the arrow and keeps a real sentence as the message, so the narration and the
      * tooltip both say what pressing it does while the face says which way it goes.
@@ -345,7 +345,7 @@ public final class GatheringButtons {
 
         /**
          * The arrow instead of the words, dimmed when the button will not do anything.
-         * <p>Dimming matters more here than on a worded button: a label greys out on its own
+         * <p>Dimming matters more here than on a worded button: a label grays out on its own
          * because the text is drawn in a second color, and an arrow blitted at full strength
          * onto a dead button is the one part of it still claiming to work.
          */

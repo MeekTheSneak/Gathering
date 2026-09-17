@@ -81,7 +81,7 @@ public final class SettingsCommandGameTest {
      * A value of the wrong shape is refused, not written.
      * <p>The setting command checked that the path had a dot in it and that the value was not
      * blank, and nothing else - it has no idea what any key is meant to hold. The written file
-     * is always valid TOML, because ConfigEdit quotes anything it does not recognise; the
+     * is always valid TOML, because ConfigEdit quotes anything it does not recognize; the
      * damage happens one layer further in. GatheringConfig.read asks {@code toml.flag} for a
      * boolean key, and flag throws when it finds a string - so the reload fails and the server
      * drops <em>every</em> setting it has back to the defaults. Import mode, collection mode,

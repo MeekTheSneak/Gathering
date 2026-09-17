@@ -255,7 +255,7 @@ public final class ClientCardImages {
             dev.gathering.core.image.RoundedCorners.apply(decoded);
             NativeImage image = toNativeImage(decoded);
             long size = (long) decoded.width() * decoded.height() * 4L;
-            // Recognised by its size rather than by what was asked for: what comes back is
+            // Recognized by its size rather than by what was asked for: what comes back is
             // what counts against the budget.
             boolean crisp = decoded.height() >= dev.gathering.core.card.TextureBudget.Tier.CRISP.height();
             Minecraft.getInstance().execute(() -> upload(url, image, size, crisp));

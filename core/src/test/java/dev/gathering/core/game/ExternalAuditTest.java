@@ -31,7 +31,7 @@ class ExternalAuditTest {
          * opponent's library by counting. Writing a note on it was accepted, and the note
          * came back out on that card's anonymous view once it was played face down - so the
          * note followed the card, and an opponent who could not read the card could still
-         * recognise it wherever it went.
+         * recognize it wherever it went.
          */
         @Test
         @DisplayName("cannot be written on by anybody else")

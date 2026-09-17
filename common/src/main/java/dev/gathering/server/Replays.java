@@ -5,6 +5,7 @@ import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.SessionRecord;
 import dev.gathering.core.game.SessionSeed;
 import dev.gathering.core.game.UndoMode;
+import dev.gathering.core.game.persistence.SessionCipher;
 import dev.gathering.core.game.persistence.SessionCodec;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.VisibilityRules;
@@ -49,7 +50,7 @@ public final class Replays {
     public static final int KEPT = 64;
 
     /** The byte layout's own version, so a later change can refuse an older file plainly. */
-    private static final int VERSION = 2;
+    private static final int VERSION = 3;
 
     private Replays() {
     }
@@ -89,17 +90,27 @@ public final class Replays {
 
     /**
      * Writes a finished game down.
-     * <p>Called as the session ends and before it is forgotten. The records are written in
-     * their plain form rather than the sealed one: the sealed stream exists to keep hidden
-     * events from a live table, and this file is only ever read to show somebody a game that
-     * is over. It lives in the server's own directory, which is not the world folder - copying
-     * a save does not carry the replays with it.
+     * <p>Called as the session ends and before it is forgotten. The file lives inside the
+     * world save, so its secret half is sealed with the server's session key exactly as a
+     * live game's is: a copied world folder carries the ciphertext and leaves the key behind,
+     * which is what the key living in the server's configuration directory is for.
+     * Two comments here used to say the opposite - that replays sat in the server's own
+     * directory - and on the strength of them the shuffle seed and every library in decklist
+     * order were written in plain. They were not: {@link #folder()} has always been inside
+     * the save, and says so.
      *
      * @return whether a file was actually written, so nobody is told a game was kept when the
      *         server has replays switched off or the disk refused it
      */
     public static boolean keep(GameSession session, int startingLife, List<Played> players) {
         if (session == null || !session.state().ended() || !ReplayWatch.keeping()) {
+            return false;
+        }
+        javax.crypto.SecretKey key = SessionKeyring.key().orElse(null);
+        if (key == null) {
+            // Without the key the secret half would have to go down in plain or be dropped, and
+            // a replay without it cannot reproduce a shuffle. Keeping nothing is the honest one.
+            LOGGER.warn("No session key, so this game was not kept");
             return false;
         }
         try {
@@ -115,14 +126,23 @@ public final class Replays {
                 out.writeInt(startingLife);
                 out.writeInt(records.size());
                 out.writeUTF(session.undoMode().name());
-                // The seed in plain. It is the one thing the live game guards hardest and the
-                // one thing a replay cannot do without - a shuffle is only reproducible from
-                // it. Safe here for the same reason the hands are: the game is over. The file
-                // sits in the server's own directory rather than the world folder, so copying
-                // a save does not carry it.
-                byte[] seed = session.seed().toBytes();
-                out.writeInt(seed.length);
-                out.write(seed);
+                // The seed and the secret log, sealed together and bound to what stands in
+                // front of them. A replay cannot do without the seed - a shuffle is only
+                // reproducible from it - and seed plus decklist is every card anybody drew,
+                // which is the pair the live game guards hardest. The game being over makes
+                // it safe to show somebody through the mod; it does not make it safe to leave
+                // readable in a world folder anybody may copy.
+                ByteArrayOutputStream secret = new ByteArrayOutputStream();
+                try (DataOutputStream into = new DataOutputStream(secret)) {
+                    byte[] seed = session.seed().toBytes();
+                    into.writeInt(seed.length);
+                    into.write(seed);
+                    into.writeInt(streams.secretLog().length);
+                    into.write(streams.secretLog());
+                }
+                byte[] sealed = SessionCipher.seal(key, secret.toByteArray());
+                out.writeInt(sealed.length);
+                out.write(sealed);
                 out.writeInt(players.size());
                 for (Played player : players) {
                     out.writeUTF(player.name());
@@ -131,8 +151,6 @@ public final class Replays {
                 }
                 out.writeInt(streams.publicLog().length);
                 out.write(streams.publicLog());
-                out.writeInt(streams.secretLog().length);
-                out.write(streams.secretLog());
             }
             Path folder = folder();
             Files.createDirectories(folder);
@@ -366,7 +384,20 @@ public final class Replays {
             int startingLife = in.readInt();
             in.readInt();
             UndoMode undoMode = UndoMode.valueOf(in.readUTF());
-            SessionSeed seed = SessionSeed.fromBytes(in.readNBytes(in.readInt()));
+            javax.crypto.SecretKey key = SessionKeyring.key().orElse(null);
+            if (key == null) {
+                LOGGER.warn("A replay cannot be opened without this server's session key");
+                return java.util.Optional.empty();
+            }
+            byte[] sealed = new byte[in.readInt()];
+            in.readFully(sealed);
+            SessionSeed seed;
+            byte[] secretLog;
+            try (DataInputStream secret = new DataInputStream(new ByteArrayInputStream(
+                    SessionCipher.open(key, sealed)))) {
+                seed = SessionSeed.fromBytes(secret.readNBytes(secret.readInt()));
+                secretLog = secret.readNBytes(secret.readInt());
+            }
             int players = in.readInt();
             for (int index = 0; index < players; index++) {
                 in.readUTF();
@@ -375,13 +406,11 @@ public final class Replays {
             }
             byte[] publicLog = new byte[in.readInt()];
             in.readFully(publicLog);
-            byte[] secretLog = new byte[in.readInt()];
-            in.readFully(secretLog);
 
             return java.util.Optional.of(new Game(
                     seatsOf(seats), startingLife, seed, undoMode,
                     SessionCodec.read(publicLog, secretLog)));
-        } catch (IOException | RuntimeException unreadable) {
+        } catch (IOException | RuntimeException | SessionCipher.SealedStreamException unreadable) {
             LOGGER.warn("A replay would not open: {}", unreadable.toString());
             return java.util.Optional.empty();
         }

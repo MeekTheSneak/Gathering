@@ -1877,7 +1877,7 @@ public final class DevScene {
                 // Photographed a step after the clicks, which is the convention: a shot asked
                 // for in the same step catches the frame that was already drawn.
                 shoot(client, "44a-a-deck-taking-shape");
-                cancellingGoesBack(client, "the collection it was opened from",
+                cancelingGoesBack(client, "the collection it was opened from",
                         CollectionScreen.class);
                 client.setScreen(null);
                 cardsInHandToTradeWith(client);
@@ -3302,7 +3302,7 @@ public final class DevScene {
                 // the inventory - which is what the next two steps are about. The deck goes
                 // away with it, because a hand holding one cannot crouch at a collection at
                 // all and the screen rightly offers that gesture instead.
-                cancellingGoesBack(client, "the deck it was opened from",
+                cancelingGoesBack(client, "the deck it was opened from",
                         DeckContentsScreen.class);
                 client.setScreen(null);
                 putTheDeckAway(client);
@@ -3661,7 +3661,7 @@ public final class DevScene {
             case 327 -> {
                 // A board of their own with the deck in hand, while registered: a drafted pool,
                 // all sideboard, which is the deck a limited player is holding while they build.
-                handAPoolToPractiseWith(client);
+                handAPoolToPracticeWith(client);
                 advance(SETTLE / 2);
             }
             case 328 -> {
@@ -3674,10 +3674,10 @@ public final class DevScene {
                         .map(board -> board.seat(dev.gathering.core.game.SeatId.of(0)).zones()
                                 .get(dev.gathering.core.game.Zone.LIBRARY))
                         .map(zone -> zone.count()).orElse(-1);
-                if (!TutorialDemo.practising() || library != PRACTICE_POOL) {
+                if (!TutorialDemo.practicing() || library != PRACTICE_POOL) {
                     fail("the practice board was not dealt the pool in hand: library " + library);
                 }
-                shoot(client, "102a-practising-a-deck");
+                shoot(client, "102a-practicing-a-deck");
                 TutorialDemo.clear();
                 client.setScreen(null);
                 if (client.player != null && client.player.connection != null) {
@@ -8050,7 +8050,7 @@ public final class DevScene {
     private static final int PRACTICE_POOL = 23;
 
     /** Puts a drafted-pool shaped deck, every card in the sideboard, in this player's hand. */
-    private static void handAPoolToPractiseWith(Minecraft client) {
+    private static void handAPoolToPracticeWith(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
         if (server == null || client.player == null) {
             fail("there was no server to hand a pool on");
@@ -12003,7 +12003,7 @@ public final class DevScene {
     }
 
     /**
-     * Cancelling out of this screen goes back to whatever opened it.
+     * Canceling out of this screen goes back to whatever opened it.
      * <p>Reported from a real session: "when you hit cancel from the deck creation menu, it
      * doesn't take you back to the last menu, it just kicks you out entirely". The builder
      * was an ordinary screen rather than one of the detours, so closing it closed to the
@@ -12012,7 +12012,7 @@ public final class DevScene {
      * <p>Pressed and checked in the one step, because a button's handler runs while it is
      * being pressed and going back waits on nobody.
      */
-    private static void cancellingGoesBack(
+    private static void cancelingGoesBack(
             Minecraft client, String where, Class<?> expected) {
         String was = client.screen == null
                 ? "nothing" : client.screen.getClass().getSimpleName();
@@ -12098,8 +12098,8 @@ public final class DevScene {
     }
 
     /**
-     * No control on this screen is labelled with a piece of punctuation.
-     * <p>The page turns were "&lt;" and "&gt;". A button labelled that way reads at a glance
+     * No control on this screen is labeled with a piece of punctuation.
+     * <p>The page turns were "&lt;" and "&gt;". A button labeled that way reads at a glance
      * as text somebody forgot to finish, and it is what a screen reader is handed too - so
      * they are arrows now, with a real sentence behind them for the tooltip and the narrator.
      * This is what stops one being written back: a message that is one or two characters of

@@ -111,7 +111,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
                 GatheringContent.DISPLAY_CASE_ENTITY.get(),
                 dev.gathering.client.DisplayCaseRenderer::new);
         // The same thing the model's render_type says on NeoForge, said the way Fabric asks for it: the
-        // case is glass, and glass drawn in the solid layer is a grey panel with a card hidden behind it.
+        // case is glass, and glass drawn in the solid layer is a gray panel with a card hidden behind it.
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(
                 GatheringContent.DISPLAY_CASE.get(), net.minecraft.client.renderer.RenderType.cutout());
         // A chair's seat is never drawn: the chair is the block, and the seat is only what is sat on.

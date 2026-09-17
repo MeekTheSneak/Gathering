@@ -237,7 +237,7 @@ public final class GatheringSprites {
         RARITY_RING("rarity_ring", WhenCramped.LEFT_OFF),
 
         /**
-         * Five frames of a dashed ring with the lit dash travelling round it, cut off
+         * Five frames of a dashed ring with the lit dash traveling round it, cut off
          * BDragon1727's sheet, for a card whose art has not arrived.
          * <p>Frames rather than one sprite turned by the renderer: rotating pixel art by
          * anything but a right angle resamples it. Pick one with {@link #spinner}.

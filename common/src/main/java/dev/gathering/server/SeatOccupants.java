@@ -9,7 +9,7 @@ import net.minecraft.world.level.Level;
  * What to call whoever is in a seat.
  * <p>One place, because there are three answers and only one of them was being given. A seat's
  * occupant is a player who is here, a player who is not here right now, or the practice
- * table's demonstration - which is not a player at all and must never be labelled as one.
+ * table's demonstration - which is not a player at all and must never be labeled as one.
  * <p>The old line was {@code player == null ? "Player" : name}, which called an offline
  * player "Player" and would have called the demonstration seat "Player" too. A board that
  * says "Player" where a name goes is a board somebody has to ask a question about.

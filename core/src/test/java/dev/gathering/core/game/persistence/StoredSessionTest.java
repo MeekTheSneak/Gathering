@@ -115,6 +115,22 @@ class StoredSessionTest {
     }
 
     @Test
+    @DisplayName("an edited readable half stops the sealed half opening at all")
+    void theOpenHalfCannotBeEditedOnItsOwn() throws Exception {
+        SecretKey key = SessionCipher.newKey();
+        GameSession session = playALittle();
+        StoredSession stored = StoredSession.of(session, 40, key);
+
+        // The readable half carries every event that grants sight, so editing it is worth as
+        // much to somebody with a save file as reading the sealed half would be. One byte.
+        byte[] edited = stored.openPart().clone();
+        edited[edited.length - 1] ^= 0x01;
+
+        assertThatThrownBy(() -> new StoredSession(edited, stored.sealedPart()).restore(key))
+                .isInstanceOf(SessionCipher.SealedStreamException.class);
+    }
+
+    @Test
     @DisplayName("somebody else's key does not open it")
     void theWrongKeyIsRefused() throws Exception {
         GameSession session = playALittle();

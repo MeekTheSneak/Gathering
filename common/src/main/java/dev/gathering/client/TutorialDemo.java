@@ -130,7 +130,7 @@ public final class TutorialDemo {
     }
 
     /** Whether the board is a deck practice rather than the lesson. */
-    public static boolean practising() {
+    public static boolean practicing() {
         return session != null && practiceDeck != null;
     }
 

@@ -940,15 +940,23 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         return ClientCardCache.get().summary(CardComponent.of(visible.identity()));
     }
 
+    /**
+     * Shuts the library again, whichever way this screen went away.
+     * <p>On {@code removed} rather than {@code onClose}, because the game calls {@code onClose}
+     * only when the player closes a screen: dying, disconnecting, and every screen the server
+     * pushes over the top of this one replace it instead, and each of those left the peek open.
+     * A whole-library search is the one look the fold deliberately never closes on its own, so
+     * the server went on building this client a view with their whole library in it for the
+     * rest of the game, with nothing on screen saying so.
+     * <p>Deciding already ended the look - the same event drops the peek - so a close after a
+     * decision must not send a second one, and the flag makes this safe to run twice.
+     */
     @Override
-    public void onClose() {
-        // The library was opened by an event and has to be closed by one. A screen that just
-        // went away would leave the server sending this client a library nobody is reading.
-        // Deciding already ended the look - the same event drops the peek - so closing after
-        // a decision must not send a second one.
+    public void removed() {
         if (opensALibrary && !decided) {
+            decided = true;
             mySeat().ifPresent(me -> ClientTableActions.send(table, new GameEvent.LibraryClosed(me)));
         }
-        super.onClose();
+        super.removed();
     }
 }

@@ -1230,7 +1230,7 @@
   "display.gathering.round.cut": "Top cut %s",
   "display.gathering.round.finished": "Finished",
   "display.gathering.round.won_by": "Won by %s",
-  "display.gathering.round.cancelled": "Cancelled",
+  "display.gathering.round.cancelled": "Called off",
   "display.gathering.life_with_poison": "%s (%s poison) ",
   "message.gathering.hand_over_maximum": "Over seven in hand: discard %s at end of turn",
   "screen.gathering.table.your_turn": "Your turn",

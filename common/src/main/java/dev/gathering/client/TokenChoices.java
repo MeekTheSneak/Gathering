@@ -31,11 +31,12 @@ public final class TokenChoices {
         for (CardSummary choice : payload.choices()) {
             rows.add(new ChoiceScreen.Option(
                     Component.literal(labelFor(choice)),
-                    () -> {
-                        make(payload.table(), choice.front().name(), choice.scryfallId(),
-                                payload.count());
-                        client.setScreen(back);
-                    }));
+                    // No setScreen here: choosing closes this screen first, which puts the one
+                    // behind it back. Setting it again removed and re-built that screen, and a
+                    // table screen rebuilt mid-game drops the selection, the pointer and the
+                    // rolls it was showing.
+                    () -> make(payload.table(), choice.front().name(), choice.scryfallId(),
+                            payload.count())));
         }
         client.setScreen(new ChoiceScreen(
                 Component.translatable("screen.gathering.token.which", payload.asked()), rows, back));

@@ -424,7 +424,7 @@ public final class FoilSheen {
     /**
      * The same color, as much of it as this player asked for.
      * <p>Only the alpha moves. Taking the strength out of the color channels would make a dim
-     * sheen grey rather than faint, and a faint sheen is what "less of this effect" means.
+     * sheen gray rather than faint, and a faint sheen is what "less of this effect" means.
      */
     private static int fade(float strength, int color) {
         if (strength >= 1f) {

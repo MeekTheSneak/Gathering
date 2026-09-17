@@ -391,7 +391,7 @@ public final class CollectionScreen extends Screen {
 
     /**
      * Which way the list runs, said rather than drawn.
-     * <p>This used to be the character for a triangle, which is a control labelled with a
+     * <p>This used to be the character for a triangle, which is a control labeled with a
      * symbol the font may or may not have and which a screen reader can make nothing of. The
      * triangle is the mod's own arrow now, and this is the sentence behind it - the tooltip
      * and the narration both read it, and it names the order rather than the press.

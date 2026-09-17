@@ -641,7 +641,7 @@ public final class PayloadGameTest {
      * import builds the whole list at once, and that was the one way past it.
      */
     @GameTest(template = "empty")
-    public static void aDeckTooBigToSendIsRecognisedAsSuch(GameTestHelper helper) {
+    public static void aDeckTooBigToSendIsRecognizedAsSuch(GameTestHelper helper) {
         List<dev.gathering.item.CardComponent> far = new java.util.ArrayList<>();
         for (int copy = 0; copy < DeckComponent.MAX_CARDS + 200; copy++) {
             far.add(dev.gathering.item.CardComponent.of(

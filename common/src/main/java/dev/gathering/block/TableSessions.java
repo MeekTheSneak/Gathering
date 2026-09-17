@@ -152,7 +152,7 @@ public final class TableSessions {
             }
             // Named through one place, because there are three answers and this used to give
             // one: somebody here, somebody who has gone home, and the practice table's
-            // demonstration - which is not a player and must not be labelled as one.
+            // demonstration - which is not a player and must not be labeled as one.
             session.submit(new GameEvent.SeatTaken(new SeatId(index),
                     dev.gathering.server.SeatOccupants.of(level, occupant.get())));
         }

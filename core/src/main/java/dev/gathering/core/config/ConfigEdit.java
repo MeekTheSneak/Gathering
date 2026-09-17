@@ -75,7 +75,7 @@ public final class ConfigEdit {
             }
             // Against the whole path rather than the key alone, because TOML lets a setting
             // be written either way - under a [modes] heading, or as "modes.collection_enabled"
-            // with no heading at all. Only the first was recognised, so setting one already
+            // with no heading at all. Only the first was recognized, so setting one already
             // written the second way appended a second copy under a heading of its own and
             // left the one the owner could see doing nothing.
             String named = bare.substring(0, equals).strip();

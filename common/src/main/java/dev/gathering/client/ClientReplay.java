@@ -118,7 +118,7 @@ public final class ClientReplay {
         // Only from the list this replay was picked in. A frame that arrives after the
         // player has walked away used to open the replay over whatever they were doing -
         // the world, a deck box, another table - because the first frame of a long game can
-        // take a moment to fold and nothing cancelled the watch.
+        // take a moment to fold and nothing canceled the watch.
         if (client.screen instanceof ReplayListScreen) {
             opening = true;
             try {
@@ -135,7 +135,7 @@ public final class ClientReplay {
      * {@code Minecraft.screen} whether a replay was already open, and
      * {@code Minecraft.setScreen} calls the outgoing screen's {@code removed()} <em>before</em>
      * it assigns the new one - so during the one transition that matters the field still held
-     * the list, the guard read "no replay is opening", and picking a game cancelled the very
+     * the list, the guard read "no replay is opening", and picking a game canceled the very
      * watch that was opening it. The frame that had just arrived was thrown away with it.
      * <p>So the controller says so itself, because the controller is the thing that knows.
      */

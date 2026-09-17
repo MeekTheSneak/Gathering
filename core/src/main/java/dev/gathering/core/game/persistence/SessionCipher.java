@@ -65,11 +65,29 @@ public final class SessionCipher {
      * wrong: reusing a nonce under the same key does not weaken the encryption, it breaks it.
      */
     public static byte[] seal(SecretKey key, byte[] plaintext) {
+        return seal(key, plaintext, null);
+    }
+
+    /**
+     * Seals a stream, binding it to a second one that travels beside it in the open.
+     * <p>GCM authenticates what it does not encrypt, and that is the point here: the readable
+     * half of a stored session is as worth protecting as the sealed half, because it carries
+     * every event that <em>grants</em> sight - a library searched, a hand shown. Unbound, that
+     * half could be edited in a save file and the sealed half would still open, so an editor
+     * could hand themselves a permanent look at an opponent's library that the running server
+     * would refuse outright. Bound, editing either half makes the other refuse to open.
+     *
+     * @param aad the open half, byte for byte, or null for a stream that stands alone
+     */
+    public static byte[] seal(SecretKey key, byte[] plaintext, byte[] aad) {
         byte[] nonce = new byte[NONCE_BYTES];
         RANDOM.nextBytes(nonce);
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, nonce));
+            if (aad != null) {
+                cipher.updateAAD(aad);
+            }
             byte[] ciphertext = cipher.doFinal(plaintext);
 
             byte[] sealed = new byte[nonce.length + ciphertext.length];
@@ -88,6 +106,17 @@ public final class SessionCipher {
      *                               two are deliberately indistinguishable from out here
      */
     public static byte[] open(SecretKey key, byte[] sealed) throws SealedStreamException {
+        return open(key, sealed, null);
+    }
+
+    /**
+     * Opens a sealed stream that was bound to a second one traveling in the open.
+     *
+     * @param aad the open half as it is now; a stream whose open half has been edited since it
+     *            was sealed will not open, exactly as an edited ciphertext does not
+     * @throws SealedStreamException if the key is wrong, or either half has been altered
+     */
+    public static byte[] open(SecretKey key, byte[] sealed, byte[] aad) throws SealedStreamException {
         if (sealed == null || sealed.length <= NONCE_BYTES) {
             throw new SealedStreamException("The sealed part of this session is missing or truncated");
         }
@@ -96,6 +125,9 @@ public final class SessionCipher {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, nonce));
+            if (aad != null) {
+                cipher.updateAAD(aad);
+            }
             return cipher.doFinal(ciphertext);
         } catch (GeneralSecurityException e) {
             // Deliberately without the cause: which of "wrong key" and "edited file" it was

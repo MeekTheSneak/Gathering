@@ -48,7 +48,7 @@ public final class TournamentAuditGameTest {
         Events.removeForTesting(f.state);
     }
     @GameTest(template="tables")
-    public static void cancellingAnOldEventMustNotEndANewMatch(GameTestHelper h) {
+    public static void cancelingAnOldEventMustNotEndANewMatch(GameTestHelper h) {
         Fixture f=fixture(h,EventSettings.Kind.CONSTRUCTED,true);
         EventState old=Events.stateForTesting(Tournament.create(UUID.randomUUID(),"Old",f.host.getUUID(),
                 f.state.tournament.settings()).cancel(),h.getLevel(),List.of(f.table));

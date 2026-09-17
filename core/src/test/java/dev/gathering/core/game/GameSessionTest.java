@@ -389,6 +389,51 @@ class GameSessionTest {
         }
 
         @Test
+        @DisplayName("handing a card out of your hand into somebody else's shows it to them, so that is a boundary")
+        void aCardPushedIntoAnotherSeatsHandIsAReveal() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 1));
+            CardInstanceId held = GameFixtures.firstInHand(session, GameFixtures.ALICE);
+
+            assertThat(session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, held,
+                    ZoneRef.of(GameFixtures.BOB, Zone.HAND), Placement.TOP)).isAccepted()).isTrue();
+
+            assertThat(session.evaluateUndo(GameFixtures.ALICE, 1))
+                    .isInstanceOfSatisfying(UndoDecision.NeedsUnanimousConsent.class, needed ->
+                            assertThat(needed.reason()).contains("revealed information"));
+            assertThat(session.undo(GameFixtures.ALICE, 1, List.of()).isAccepted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("a whole hand emptied into somebody else's is the same boundary, in one event")
+        void aHandEmptiedIntoAnotherSeatsHandIsAReveal() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 5));
+
+            assertThat(session.submit(new GameEvent.ZoneMoved(GameFixtures.ALICE, GameFixtures.ALICE,
+                    Zone.HAND, ZoneRef.of(GameFixtures.BOB, Zone.HAND), Placement.TOP))
+                    .isAccepted()).isTrue();
+
+            assertThat(session.evaluateUndo(GameFixtures.ALICE, 1))
+                    .isInstanceOfSatisfying(UndoDecision.NeedsUnanimousConsent.class, needed ->
+                            assertThat(needed.reason()).contains("revealed information"));
+            assertThat(session.undo(GameFixtures.ALICE, 1, List.of()).isAccepted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("moving a card about within your own hand shows nobody anything, so it stays freely undoable")
+        void aCardMovedWithinYourOwnHandIsNoBoundary() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 2));
+            CardInstanceId held = GameFixtures.firstInHand(session, GameFixtures.ALICE);
+
+            session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, held,
+                    ZoneRef.of(GameFixtures.ALICE, Zone.HAND), Placement.BOTTOM));
+
+            assertThat(session.undo(GameFixtures.ALICE, 1, List.of()).isAccepted()).isTrue();
+        }
+
+        @Test
         @DisplayName("with everyone's consent a rewind may cross an information boundary")
         void unanimousConsentCrossesTheBoundary() {
             GameSession session = GameFixtures.twoPlayerTable(40);

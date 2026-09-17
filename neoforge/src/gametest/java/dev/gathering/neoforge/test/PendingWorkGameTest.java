@@ -124,7 +124,7 @@ public final class PendingWorkGameTest {
 
     /** Forgetting a request is a screen closing, and says nothing about the work itself. */
     @GameTest(template = "empty")
-    public static void forgettingarequestisnotcancelling(GameTestHelper helper) {
+    public static void forgettingarequestisnotcanceling(GameTestHelper helper) {
         PendingWork.clear();
         try {
             UUID id = PendingWork.sent();

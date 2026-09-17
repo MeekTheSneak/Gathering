@@ -130,7 +130,7 @@ public final class PracticeTable {
     }
 
     /**
-     * Answers a client asking to start or stop practising.
+     * Answers a client asking to start or stop practicing.
      * <p>The reach check is the same one every other position a client names goes through.
      * Everything else about a practice game is decided here rather than sent: which cards,
      * which seat and how many are the server's answers, so a client that skipped the button

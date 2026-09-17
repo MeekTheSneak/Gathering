@@ -114,7 +114,7 @@ public final class CollectionDecks {
     /**
      * Says no, to the player and to the screen that is waiting.
      * <p>Both, not one: the chat line is what a player standing at a box reads, and the
-     * result is what unsticks a screen that has its button greyed out waiting for an answer.
+     * result is what unsticks a screen that has its button grayed out waiting for an answer.
      * A refusal that only wrote to chat left the import screen saying "working" for as long
      * as it stayed open, which is the dead end this whole path exists to avoid.
      */

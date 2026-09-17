@@ -145,7 +145,7 @@ public final class ActionPalette {
     /**
      * Builds a palette out of the menu rows a player could reach right now.
      * <p>Rows with no catalogue id are dropped, and so are rules and rows the menu itself
-     * shows greyed out. A verb offered by two menus - draw is on the library's and on the
+     * shows grayed out. A verb offered by two menus - draw is on the library's and on the
      * felt's - is kept once, from whichever offered it first.
      *
      * @param acting what the card verbs here will act on, said in words. Null when nothing is
@@ -381,7 +381,7 @@ public final class ActionPalette {
         int y = where.y() + PADDING;
 
         // What has been typed, or what to do about that. A blank box with a cursor in it says
-        // nothing; a line of grey saying what it wants says everything it needs to.
+        // nothing; a line of gray saying what it wants says everything it needs to.
         if (typed.isEmpty()) {
             GuiText.draw(graphics, font,
                     Component.translatable("screen.gathering.palette.hint"), left, y, room, HINT);

@@ -51,7 +51,7 @@ public final class TextureBudget {
             return (long) width * height * BYTES_PER_PIXEL;
         }
 
-        /** How tall a scan of this tier is, which is how one is recognised once decoded. */
+        /** How tall a scan of this tier is, which is how one is recognized once decoded. */
         public int height() {
             return height;
         }

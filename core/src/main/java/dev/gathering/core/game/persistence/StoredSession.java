@@ -27,7 +27,14 @@ import javax.crypto.SecretKey;
  */
 public record StoredSession(byte[] openPart, byte[] sealedPart) {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
+
+    /**
+     * The first format, whose sealed half was not bound to its readable half.
+     * <p>Still read, because refusing would set aside every game in progress in an existing
+     * world. Written no more.
+     */
+    private static final int UNBOUND_VERSION = 1;
 
     /** Well past any real table; a bound so a corrupt file cannot ask for an allocation. */
     private static final int MAX_SEATS = 64;
@@ -68,7 +75,12 @@ public record StoredSession(byte[] openPart, byte[] sealedPart) {
             out.write(streams.secretLog());
         }
 
-        return new StoredSession(open.toByteArray(), SessionCipher.seal(key, sealed.toByteArray()));
+        // Sealed over the readable half as well as the secret one. The readable half carries
+        // every event that grants sight - a library searched, a hand shown - and unbound it
+        // could be edited in the save file while the sealed half still opened, handing an
+        // editor a permanent look at an opponent's library the running server would refuse.
+        byte[] openBytes = open.toByteArray();
+        return new StoredSession(openBytes, SessionCipher.seal(key, sealed.toByteArray(), openBytes));
     }
 
     /**
@@ -78,18 +90,23 @@ public record StoredSession(byte[] openPart, byte[] sealedPart) {
      *                                             the key is not the one it was sealed with
      */
     public GameSession restore(SecretKey key) throws IOException, SessionCipher.SealedStreamException {
-        byte[] unsealed = SessionCipher.open(key, sealedPart);
-
-        SessionSeed seed;
-        byte[] secretLog;
-        try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(unsealed))) {
-            expectVersion(in.readInt());
-            seed = SessionSeed.fromBytes(readBlob(in));
-            secretLog = readBlob(in);
-        }
-
+        // The readable half first, because its version says whether the sealed half was bound
+        // to it, and an unbound one opens only when nothing is passed alongside.
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(openPart))) {
-            expectVersion(in.readInt());
+            int version = in.readInt();
+            expectVersion(version);
+            byte[] unsealed = version == UNBOUND_VERSION
+                    ? SessionCipher.open(key, sealedPart)
+                    : SessionCipher.open(key, sealedPart, openPart);
+
+            SessionSeed seed;
+            byte[] secretLog;
+            try (DataInputStream sealedIn = new DataInputStream(new ByteArrayInputStream(unsealed))) {
+                expectVersion(sealedIn.readInt());
+                seed = SessionSeed.fromBytes(readBlob(sealedIn));
+                secretLog = readBlob(sealedIn);
+            }
+
             int seatCount = in.readInt();
             if (seatCount < 0 || seatCount > MAX_SEATS) {
                 throw new IOException("Implausible seat count in a stored session: " + seatCount);
@@ -108,7 +125,7 @@ public record StoredSession(byte[] openPart, byte[] sealedPart) {
     }
 
     private static void expectVersion(int version) throws IOException {
-        if (version != VERSION) {
+        if (version != VERSION && version != UNBOUND_VERSION) {
             throw new IOException("Stored session is version " + version + ", this reads " + VERSION);
         }
     }

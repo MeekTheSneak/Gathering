@@ -421,13 +421,13 @@ public final class DeckBuilderScreen extends ChildScreen {
     }
 
     /**
-     * Drops this screen's outstanding request, which is not the same as cancelling it.
+     * Drops this screen's outstanding request, which is not the same as canceling it.
      * <p>Whatever was asked for is still being done; there is simply nowhere left to show the
      * answer once this screen has gone.
      * <p>On {@code onClose} rather than on {@code removed}, because {@code removed} also fires for a
      * detour: opening Sleeves or From a list puts another screen in front of this one and comes back
      * to this same instance. Forgetting there threw away the answer to a Finish that was already in
-     * flight, and the builder came back with Finish greyed out for ever, a full selection, and
+     * flight, and the builder came back with Finish grayed out for ever, a full selection, and
      * nothing said - the deck having in fact been built. The only way out was Cancel.
      */
     @Override
@@ -633,7 +633,7 @@ public final class DeckBuilderScreen extends ChildScreen {
     /** Which press is outstanding, so an answer to an older one is not acted on. */
     private java.util.UUID pressed;
 
-    /** Kept so it can be greyed out while a press is outstanding. */
+    /** Kept so it can be grayed out while a press is outstanding. */
     private net.minecraft.client.gui.components.AbstractWidget finishButton;
 
     /** What the server said the last thing this screen asked for came to. */

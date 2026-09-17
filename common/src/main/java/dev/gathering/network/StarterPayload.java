@@ -18,14 +18,14 @@ import java.util.List;
 public record StarterPayload(List<String> colors) implements CustomPacketPayload {
 
     /** Two, which is how many the screen asks for. */
-    public static final int MOST_COLOURS = 2;
+    public static final int MOST_COLORS = 2;
 
     public static final CustomPacketPayload.Type<StarterPayload> TYPE =
             GatheringPayloads.type("starter");
 
     public static final StreamCodec<RegistryFriendlyByteBuf, StarterPayload> STREAM_CODEC =
             StreamCodec.composite(
-                    ByteBufCodecs.stringUtf8(1).apply(ByteBufCodecs.list(MOST_COLOURS)),
+                    ByteBufCodecs.stringUtf8(1).apply(ByteBufCodecs.list(MOST_COLORS)),
                     StarterPayload::colors,
                     StarterPayload::new);
 

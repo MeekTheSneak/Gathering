@@ -204,7 +204,7 @@ public final class DecklistImportScreen extends Screen {
     }
 
     /**
-     * Drops this screen's outstanding request, which is not the same as cancelling it.
+     * Drops this screen's outstanding request, which is not the same as canceling it.
      * <p>The server goes on doing whatever it was asked; there is simply nowhere left to show
      * the answer, and an entry nobody will ever read is only a map that grows.
      */

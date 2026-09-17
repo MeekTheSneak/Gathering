@@ -50,6 +50,9 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /** How wide the two buttons under the cards are. */
     private static final int TAKE_BUTTON = 70;
+
+    /** Held so the count of chosen cards can turn it on and off; null while the pool is up. */
+    private net.minecraft.client.gui.components.Button takeButton;
     private static final int POOL_BUTTON = 78;
 
     private final BlockPos pod;
@@ -206,10 +209,13 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
                 panel.width() - MARGIN, 14);
         int right = footerRow.right();
         if (canPick() && !showingPool) {
-            addRenderableWidget(GatheringButtons.of(
+            takeButton = addRenderableWidget(GatheringButtons.of(
                     right - TAKE_BUTTON, footerRow.y(), TAKE_BUTTON, footerRow.height(),
                     Component.translatable("screen.gathering.draft.take"), this::take));
+            sayWhetherTakeWouldWork();
             right -= TAKE_BUTTON + 4;
+        } else {
+            takeButton = null;
         }
         // Always offered, even with nothing in the pool yet, because a button that appears
         // after the first pick is a button nobody knows was coming.
@@ -407,6 +413,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
     private void choose(int index) {
         if (chosen.remove(Integer.valueOf(index))) {
             GatheringButtons.clickSound();
+            sayWhetherTakeWouldWork();
             return;
         }
         chosen.add(index);
@@ -414,6 +421,19 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
             chosen.remove(0);
         }
         GatheringButtons.clickSound();
+        sayWhetherTakeWouldWork();
+    }
+
+    /**
+     * Grays Take until the right number of cards is chosen.
+     * <p>It used to be pressable at any count and return without a sound or a word, which is
+     * the shape of a click being lost. The footer already says how many are due; the button
+     * now agrees with it.
+     */
+    private void sayWhetherTakeWouldWork() {
+        if (takeButton != null) {
+            takeButton.active = view != null && chosen.size() == view.picksDueFromMe();
+        }
     }
 
     private int cardUnder(int x, int y) {

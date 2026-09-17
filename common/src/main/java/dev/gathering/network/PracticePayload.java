@@ -7,7 +7,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
- * Client to server: "let me practise at that table", or "I am done practising".
+ * Client to server: "let me practice at that table", or "I am done practicing".
  * <p>Two words rather than a decklist or a seat number, because everything else about a
  * practice game is the server's to decide - which cards, which seat, how many. A client that
  * skipped the screen entirely can send this and gets exactly what the button would have got.

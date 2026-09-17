@@ -60,6 +60,19 @@ public sealed interface GameEvent {
         return false;
     }
 
+    /**
+     * Whether a card leaving {@code from} for {@code to} is seen by somebody who had not seen it.
+     * <p>Public is the obvious half. The other half is a hidden zone belonging to a different
+     * seat: a hand is hidden from the table and open to the one person holding it, so a card
+     * pushed from one hand into another is read by somebody it was secret from a moment ago.
+     * A library is count-only even to its owner, but a card put into one is drawn from it, and
+     * the seat it went to is the seat that will draw it - so that counts here too rather than
+     * turning on whether a peek happens to be open at the time.
+     */
+    static boolean intoTheOpen(ZoneRef from, ZoneRef to) {
+        return to.zone().isPublic() || !to.seat().equals(from.seat());
+    }
+
     // ------------------------------------------------------------- lifecycle
 
     /** Sitting down. A registration, not a chair lock. */
@@ -153,9 +166,14 @@ public sealed interface GameEvent {
 
         @Override
         public boolean revealsInformation(GameState before) {
-            // Out of a hand or library into the open is a reveal; anything else is not.
+            // Where it went is only half of it. The question a rewind has to answer is whether
+            // somebody who could not see this card now can, and a hand is hidden without being
+            // secret from the person holding it: handing a card out of your hand into somebody
+            // else's is the one move that shows it to exactly one person, and this used to call
+            // that no reveal at all. A whole hand could go across and come back, taken back by
+            // one player alone and silently, after the other had read every card in it.
             return before.locationOf(card)
-                    .map(from -> from.zone().isHidden() && to.zone().isPublic())
+                    .map(from -> from.zone().isHidden() && intoTheOpen(from, to))
                     .orElse(false);
         }
     }
@@ -203,8 +221,9 @@ public sealed interface GameEvent {
 
         @Override
         public boolean revealsInformation(GameState before) {
-            // Out of somewhere secret into the open is a reveal, exactly as it is for one card.
-            return fromRef().isHidden() && to.zone().isPublic() && !before.contents(seat, from).isEmpty();
+            // Out of somewhere secret into the open is a reveal, exactly as it is for one card,
+            // and so is out of one seat's hidden zone into another's.
+            return fromRef().isHidden() && intoTheOpen(fromRef(), to) && !before.contents(seat, from).isEmpty();
         }
     }
 

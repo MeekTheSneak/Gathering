@@ -103,8 +103,8 @@ public final class TableScreen extends Screen {
     private static final int LIFE_AT_A_LOSS = 0xFFE06C6C;
 
     /**
-     * The same quiet grey as {@link #DIM}, lifted for writing that sits on the board.
-     * <p>A mid grey reads as quiet on a painted panel and reads as barely there on felt with
+     * The same quiet gray as {@link #DIM}, lifted for writing that sits on the board.
+     * <p>A mid gray reads as quiet on a painted panel and reads as barely there on felt with
      * card art behind it. This is the off-turn label's color now that the strip along the
      * top has no panel: still plainly the quieter of the two, still not competing with the
      * seat colors, and light enough that its shadow does the work.
@@ -376,7 +376,7 @@ public final class TableScreen extends Screen {
      * <p>The lesson's board without the lesson: local, sent nowhere, and closed back to wherever
      * the player was.
      */
-    public static TableScreen practising(BlockPos afterwards, java.util.List<dev.gathering.core.card.CardIdentity> deck,
+    public static TableScreen practicing(BlockPos afterwards, java.util.List<dev.gathering.core.card.CardIdentity> deck,
             java.util.List<dev.gathering.core.card.CardIdentity> commanders) {
         var player = net.minecraft.client.Minecraft.getInstance().player;
         TutorialDemo.practice(player == null ? null : new dev.gathering.core.game.PlayerRef(
@@ -2934,7 +2934,7 @@ public final class TableScreen extends Screen {
             // a chair. The chair genuinely is free, so the offer is not wrong; it is just not
             // the whole of what is there, and the name is the part that was missing.
             // The seat's own mark in front of its name, so the mark an owner badge shows is
-            // a thing the board says somewhere else too. Colour and mark together, for the
+            // a thing the board says somewhere else too. Color and mark together, for the
             // same reason the badge carries both.
             // The player's face first, from the skin the game already has for them: a name is
             // something to read and a face is somebody sitting there. Only where there is a board
@@ -3106,7 +3106,7 @@ public final class TableScreen extends Screen {
     /**
      * One seat's column in the strip along the top, said as fully as the column has room for.
      * <p>Longest first: name, life, hand, library, counters. Then name and life. Then life alone
-     * beside the seat's mark (a free chair has a short form too), which the colour and the mark already tie to a mat. A four-seat
+     * beside the seat's mark (a free chair has a short form too), which the color and the mark already tie to a mat. A four-seat
      * table on a small window has columns about sixty pixels wide, and the full line cut to
      * fit there read "Dev - 40 li..." - a label that has stopped saying what it was written to
      * say, which the scripted run counts as a failure and a player counts as noise. Choosing a
@@ -5232,7 +5232,7 @@ public final class TableScreen extends Screen {
         // Reachable for as long as anybody wants it, not only the first time. Somebody who
         // said no thanks a month ago and now wants to know which key taps a card has no other
         // way back to it, and "start a new world" is not an answer.
-        if (Tutorial.runningAt(table) || (mode.isLearning() && TutorialDemo.practising())) {
+        if (Tutorial.runningAt(table) || (mode.isLearning() && TutorialDemo.practicing())) {
             entries.add(ContextMenu.Entry.of(
                     Component.translatable("menu.gathering.table.leave_practice"),
                     this::leaveTheTutorial));

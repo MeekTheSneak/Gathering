@@ -84,6 +84,90 @@ public final class ReplayGameTest {
     }
 
     /**
+     * The file on the shelf does not carry the seed or the libraries in the clear.
+     * <p>A replay lives inside the world save, and a save file is a file: it can be copied and
+     * opened with a hex editor by somebody who was never at the table. Seed plus decklist is
+     * every card anybody drew, which is the pair a live game guards hardest - and for a while
+     * two comments in {@code Replays.keep} said replays sat in the server's own directory
+     * instead, and on the strength of them both went down in plain.
+     */
+    @GameTest(template = "empty")
+    public static void whatIsOnTheShelfIsSealed(GameTestHelper helper) {
+        withReplaysOn(helper, () -> {
+            if (!Replays.keep(aFinishedGame(), 40, twoPlayers())) {
+                helper.fail("fixture: a finished game was not kept");
+                return;
+            }
+            java.nio.file.Path folder = dev.gathering.server.ServerRun.inSave("replays").orElse(null);
+            if (folder == null) {
+                helper.fail("fixture: no save to look in");
+                return;
+            }
+            byte[] onDisk;
+            try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(folder)) {
+                java.nio.file.Path newest = files.filter(java.nio.file.Files::isRegularFile)
+                        .max(java.util.Comparator.comparing(java.nio.file.Path::toString)).orElse(null);
+                if (newest == null) {
+                    helper.fail("fixture: nothing on the shelf right after a game was put on it");
+                    return;
+                }
+                onDisk = java.nio.file.Files.readAllBytes(newest);
+            } catch (java.io.IOException couldNotRead) {
+                helper.fail("the replay on the shelf could not be read back: " + couldNotRead);
+                return;
+            }
+            if (indexOf(onDisk, seed().toBytes()) >= 0) {
+                helper.fail("the shuffle seed is on the shelf in plain");
+                return;
+            }
+            // One card of a library, as DeckLoaded wrote it. That record is secret, so its
+            // identity has no business being readable beside the public log.
+            byte[] card = new byte[16];
+            java.nio.ByteBuffer.wrap(card)
+                    .putLong(UUID.fromString("00000000-0000-4000-8000-000000000007").getMostSignificantBits())
+                    .putLong(UUID.fromString("00000000-0000-4000-8000-000000000007").getLeastSignificantBits());
+            if (indexOf(onDisk, card) >= 0) {
+                helper.fail("a library card is on the shelf in plain");
+                return;
+            }
+            // And it still opens, so this is a seal rather than a loss. A frame off the end
+            // goes through the whole read, sealed half and all, and a historian's frame is the
+            // one that needs the secret log: an empty hand here would mean it was lost.
+            Replays.Record kept = newest().orElse(null);
+            if (kept == null) {
+                helper.fail("fixture: nothing on the shelf");
+                return;
+            }
+            dev.gathering.core.game.visibility.GameView frame =
+                    Replays.frameOf(kept.id(), kept.steps()).orElse(null);
+            if (frame == null) {
+                helper.fail("the sealed replay does not open again");
+                return;
+            }
+            int inHand = frame.seat(ALICE).zone(dev.gathering.core.game.Zone.HAND).cards().size();
+            if (inHand != DRAWN) {
+                helper.fail("the sealed replay opened but lost the hand: " + inHand + " cards");
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    /** Where one run of bytes sits inside another, or -1. */
+    private static int indexOf(byte[] haystack, byte[] needle) {
+        outer:
+        for (int start = 0; start + needle.length <= haystack.length; start++) {
+            for (int index = 0; index < needle.length; index++) {
+                if (haystack[start + index] != needle[index]) {
+                    continue outer;
+                }
+            }
+            return start;
+        }
+        return -1;
+    }
+
+    /**
      * The disclosure the whole feature turns on: a replay shows the hands.
      * <p>And shows them <em>only</em> here. The same board asked for during play sends a count
      * and no cards, which is what {@code HistorianTest} pins in the core; what this adds is

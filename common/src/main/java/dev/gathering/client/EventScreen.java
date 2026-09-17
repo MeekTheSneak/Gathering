@@ -346,7 +346,7 @@ public final class EventScreen extends Screen {
                 .map(dev.gathering.item.CardComponent::toIdentity).toList();
         java.util.List<dev.gathering.core.card.CardIdentity> commanders = deck.commanders().stream()
                 .map(dev.gathering.item.CardComponent::toIdentity).toList();
-        Minecraft.getInstance().setScreen(TableScreen.practising(player.blockPosition(), cards, commanders));
+        Minecraft.getInstance().setScreen(TableScreen.practicing(player.blockPosition(), cards, commanders));
     }
 
     // ------------------------------------------------------------------ standings and pairings
@@ -663,7 +663,7 @@ public final class EventScreen extends Screen {
      * What the host should do next, for the phase the event is in.
      * <p>Matched against the phases this screen knows rather than concatenated into a key. It was
      * built by joining a string that came off the wire, per frame - so a phase this build does not
-     * recognise drew the raw translation key as the panel's text, and every frame of the host tab
+     * recognize drew the raw translation key as the panel's text, and every frame of the host tab
      * allocated a key and a component to say the same sentence again.
      */
     private java.util.Optional<Component> hostHelp() {

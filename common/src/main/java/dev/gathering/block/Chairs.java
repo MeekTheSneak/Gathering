@@ -80,7 +80,7 @@ public final class Chairs {
         }
         // Into the chair first, and only then the table's seat, undone if the table says no. The seat was
         // claimed first once, and the mount's own answer ignored: a mount something refused - another mod,
-        // a cancelled spawn - left a player standing beside the table holding its seat.
+        // a canceled spawn - left a player standing beside the table holding its seat.
         ChairSeat seat = ChairSeat.in(level, chair, null);
         if (!level.addFreshEntity(seat)) {
             return;

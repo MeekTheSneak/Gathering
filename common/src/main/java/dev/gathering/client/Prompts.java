@@ -48,7 +48,7 @@ final class Prompts {
         GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
     }
 
-    /** The question, centred across the top of the panel and fitted to its width. */
+    /** The question, centered across the top of the panel and fitted to its width. */
     static void question(GuiGraphics graphics, Font font, Component question, Rect panel,
             int margin, int color) {
         GuiText.drawCentered(graphics, font, question,
@@ -56,7 +56,7 @@ final class Prompts {
                 panel.width() - margin * 2, color);
     }
 
-    /** A line of guidance, centred across the panel at the height the caller chose. */
+    /** A line of guidance, centered across the panel at the height the caller chose. */
     static void hint(GuiGraphics graphics, Font font, Component hint, Rect panel, int y,
             int margin, int color) {
         GuiText.drawCentered(graphics, font, hint,
