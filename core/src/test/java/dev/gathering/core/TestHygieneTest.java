@@ -101,6 +101,79 @@ class TestHygieneTest {
         return found;
     }
 
+    /**
+     * A property inside an inner class runs only if every class around it is a jqwik group.
+     * <p>jqwik finds inner classes by {@code @Group}; JUnit's {@code @Nested} is invisible to it.
+     * Fourteen properties sat in {@code @Nested} classes and had never run - including the one
+     * guarding clicks on the risen hand card, and a round-trip check that had gone wrong the
+     * day the board started measuring cards from their middle. Everything else in those
+     * classes ran, so the file looked covered.
+     */
+    @Test
+    @DisplayName("no property sits in an inner class jqwik cannot see")
+    void everyPropertyIsInAClassJqwikFinds() throws IOException {
+        List<String> hidden = new ArrayList<>();
+        for (Path file : testSources()) {
+            for (String line : propertiesJqwikCannotSee(Files.readString(file))) {
+                hidden.add(file.getFileName() + ": " + line);
+            }
+        }
+        assertThat(hidden)
+                .as("a @Property inside an inner class without @Group is skipped: add @net.jqwik.api.Group")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("the inner-class check sees a property jqwik would skip")
+    void theInnerClassCheckSeesTheShape() {
+        String hidden = "class A {\n    @Nested\n    class B {\n        @Property(tries = 5)\n        void p() {\n        }\n    }\n}\n";
+        String seen = "class A {\n    @Nested\n    @net.jqwik.api.Group\n    class B {\n        @Property\n        void p() {\n        }\n    }\n}\n";
+        String topLevel = "class A {\n    @Property\n    void p() {\n    }\n}\n";
+        assertThat(propertiesJqwikCannotSee(hidden)).hasSize(1);
+        assertThat(propertiesJqwikCannotSee(seen)).isEmpty();
+        assertThat(propertiesJqwikCannotSee(topLevel)).isEmpty();
+    }
+
+    /**
+     * Every {@code @Property} line with an enclosing inner class that is not a {@code @Group}.
+     * <p>Tracks braces to know which classes are open, and the annotations directly above each
+     * class declaration to know whether it is a group. The outermost class needs nothing.
+     */
+    private static List<String> propertiesJqwikCannotSee(String source) {
+        List<String> found = new ArrayList<>();
+        java.util.Deque<int[]> open = new java.util.ArrayDeque<>();
+        int depth = 0;
+        boolean group = false;
+        for (String raw : source.split("\n", -1)) {
+            String line = raw.strip();
+            if (line.startsWith("@")) {
+                if (line.matches("@(?:net\\.jqwik\\.api\\.)?Group\\b.*")) {
+                    group = true;
+                }
+                if (PROPERTY.matcher(line).find()
+                        && open.stream().skip(0).anyMatch(each -> each[1] == 0 && each != open.peekLast())) {
+                    found.add(line);
+                }
+            } else if (line.matches("(?:[a-z]+\\s+)*(?:class|record|interface)\\s+\\w+.*\\{.*")) {
+                open.push(new int[] {depth, group ? 1 : 0});
+                group = false;
+            } else if (!line.isEmpty() && !line.startsWith("*") && !line.startsWith("/")) {
+                group = false;
+            }
+            for (char each : raw.toCharArray()) {
+                if (each == '{') {
+                    depth++;
+                } else if (each == '}') {
+                    depth--;
+                    while (!open.isEmpty() && depth <= open.peek()[0]) {
+                        open.pop();
+                    }
+                }
+            }
+        }
+        return found;
+    }
+
     @Test
     @DisplayName("every named generator a property asks for exists in its own file")
     void everyNamedGeneratorExists() throws IOException {

@@ -21,6 +21,7 @@ class HandFanTest {
     private static final Rect AREA = new Rect(0, 400, 854, 80);
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("however many cards there are")
     class WhateverTheSize {
 
@@ -35,6 +36,41 @@ class HandFanTest {
                         .describedAs("card %s of %s runs off the right", index, count)
                         .isLessThanOrEqualTo(AREA.right() + 4);
             }
+        }
+
+        /**
+         * The risen card is clickable across its whole top, not just where no neighbor's
+         * imaginary risen shape reaches.
+         */
+        @Property(tries = 400)
+        void theRisenCardAnswersAcrossItsTop(
+                @ForAll @IntRange(min = 2, max = 30) int count,
+                @ForAll @IntRange(min = 0, max = 29) int wanted) {
+            int lifted = wanted % count;
+            HandFan.Slot up = HandFan.slot(AREA, count, lifted, lifted);
+            Rect where = up.where();
+            // Every point of the risen shape above the strip, where only that shape can be
+            // what the cursor is on. The neighbors' imaginary risen shapes overlap its edges,
+            // which is where the old answer went wrong, so the edges are what has to be read.
+            int middle = (int) where.centerX();
+            int checked = 0;
+            for (int y = where.y() + 1; y < AREA.y(); y += 2) {
+                for (int x = where.x(); x <= where.right(); x++) {
+                    if (!where.containsTurned(up.angle(), x, y)) {
+                        continue;
+                    }
+                    checked++;
+                    assertThat(HandFan.onLifted(AREA, count, lifted, x, y))
+                            .describedAs("card %s of %s is up and a click on it at %s,%s went through",
+                                    lifted, count, x, y)
+                            .isTrue();
+                }
+            }
+            assertThat(checked)
+                    .describedAs("card %s of %s never rose above the strip, so nothing was checked",
+                            lifted, count)
+                    .isPositive();
+            assertThat(HandFan.onLifted(AREA, count, -1, middle, where.y() + 2)).isFalse();
         }
 
         @Property(tries = 600)
@@ -103,6 +139,7 @@ class HandFanTest {
     }
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("picking one out")
     class Picking {
 
@@ -156,6 +193,7 @@ class HandFanTest {
     }
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("the card under the cursor")
     class Lifted {
 
@@ -202,6 +240,7 @@ class HandFanTest {
         assertThat(only.centerX()).isCloseTo(AREA.centerX(), org.assertj.core.data.Offset.offset(2.0));
     }
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("dragging a card to another place in the hand")
     class Reordering {
 

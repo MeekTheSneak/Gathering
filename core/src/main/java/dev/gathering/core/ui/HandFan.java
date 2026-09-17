@@ -104,23 +104,22 @@ public final class HandFan {
     }
 
     /**
-     * Which card's <em>risen</em> shape the cursor is on, or -1. For points the strip test
-     * has already said no to.
-     * <p>The hovered card grows above the strip, over the table - and the top of it was a
-     * card the player was looking straight at that could not be clicked: the strip test said
-     * "not the hand", and the click fell through to whatever the felt had behind it. Asked
-     * only outside the strip, where the unlifted fan has nothing, so the no-flicker argument
-     * on {@link #at} still holds: inside the strip the resting shapes decide, above it the
-     * risen ones do, and neither test moves anything the other is standing on.
+     * Whether the cursor is on this one card's risen shape.
+     * <p>For points the strip test has already said no to: the hovered card grows above the
+     * strip, over the table, and the top of it is a card the player is looking straight at.
+     * Only the card that is up is asked about. This used to test every card as if it were the
+     * one risen, rightmost first, and a risen card is half as wide again as a resting one - so
+     * the imaginary risen shapes of the cards to its right covered most of the real one, and
+     * the answer was a neighbor. The caller then refused it for not being the card that is up,
+     * and a click on the top of the card the player was looking at fell through to the felt:
+     * 55 of its 72 pixels across, in a hand of fifteen.
      */
-    public static int atLifted(Rect area, int count, int x, int y) {
-        for (int index = count - 1; index >= 0; index--) {
-            Slot slot = slot(area, count, index, index);
-            if (slot.where().containsTurned(slot.angle(), x, y)) {
-                return index;
-            }
+    public static boolean onLifted(Rect area, int count, int lifted, int x, int y) {
+        if (lifted < 0 || lifted >= count) {
+            return false;
         }
-        return -1;
+        Slot slot = slot(area, count, lifted, lifted);
+        return slot.where().containsTurned(slot.angle(), x, y);
     }
 
     /**

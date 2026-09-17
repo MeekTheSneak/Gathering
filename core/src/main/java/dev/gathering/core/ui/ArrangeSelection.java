@@ -4,7 +4,9 @@ import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.TablePosition;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Tidying a handful of cards into rows, worked out before anything moves.
@@ -99,6 +101,13 @@ public final class ArrangeSelection {
      *
      * @return the plan, in reading order; empty when there is nothing worth tidying
      */
+    /**
+     * How far down from the first card in a row another may sit and still be in it.
+     * <p>A tenth of a mat, which is well under half a card on any board: close enough that
+     * nobody looking would call them two rows, far enough apart that a second row never is.
+     */
+    private static final int ONE_ROW = TablePosition.SPAN / 10;
+
     public static List<Spot> plan(List<Card> cards) {
         if (cards == null || cards.isEmpty()) {
             return List.of();
@@ -120,6 +129,23 @@ public final class ArrangeSelection {
         // than whichever order the caller's list happened to be in.
         placeable.sort(Comparator
                 .comparingInt((Card card) -> card.at().y())
+                .thenComparingInt(card -> card.at().x())
+                .thenComparing(card -> card.id().toString()));
+        // Then into the rows a person sees. Cards are dropped by hand, so two in one visual row
+        // almost never share a y, and sorting on exact y read a card one unit lower as a whole
+        // row further down: (8000, 200) came out before (100, 201), and tidying swapped them.
+        Map<CardInstanceId, Integer> rowOf = new HashMap<>();
+        int readingRow = -1;
+        int rowTop = Integer.MIN_VALUE;
+        for (Card card : placeable) {
+            if (readingRow < 0 || card.at().y() - rowTop > ONE_ROW) {
+                readingRow++;
+                rowTop = card.at().y();
+            }
+            rowOf.put(card.id(), readingRow);
+        }
+        placeable.sort(Comparator
+                .comparingInt((Card card) -> rowOf.get(card.id()))
                 .thenComparingInt(card -> card.at().x())
                 .thenComparing(card -> card.id().toString()));
 

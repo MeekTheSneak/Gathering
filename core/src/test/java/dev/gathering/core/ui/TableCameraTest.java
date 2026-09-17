@@ -118,7 +118,16 @@ class TableCameraTest {
                 camera = camera.zoomedAt(0.6, WIDTH / 2.0, HEIGHT / 2.0, WIDTH, HEIGHT);
             }
             assertThat(camera.isAtFurthest()).isTrue();
-            assertThat(camera.referenceCardPixels()).isGreaterThanOrEqualTo(20);
+            // Out as far as a card stays readable, or as far as the whole table takes to fit a
+            // small window, whichever is further - and never so far the table is lost. This
+            // was a flat twenty-pixel card, which is the floor that stopped "show everything"
+            // fitting a table at GUI scale 3 and 4.
+            assertThat((double) camera.referenceCardPixels()).isGreaterThanOrEqualTo(
+                    Math.min(TableCamera.smallestCardPixels(),
+                            TableCamera.smallestSurfacePixels() * TableSurface.CARD_HEIGHT_UNITS
+                                    / TablePosition.SPAN) - 0.5);
+            assertThat(camera.scale() * TablePosition.SPAN)
+                    .isGreaterThanOrEqualTo(TableCamera.smallestSurfacePixels() - 0.5);
         }
     }
 

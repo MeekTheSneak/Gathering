@@ -32,6 +32,7 @@ class BoardGeometryTest {
     private static final int HEIGHT = 480;
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("drawing and dropping agree")
     class TheRoundTrip {
 
@@ -48,14 +49,24 @@ class BoardGeometryTest {
             SeatId seat = new SeatId(seatIndex);
             TablePosition position = TablePosition.of(across, down);
 
+            // From the middle of what was drawn, because a card is measured from its middle and
+            // a drag holds it by its middle (see BoardPlacement and TableScreen.grab). This read
+            // the top-left corner - written before rectOf moved to the middle - and nothing
+            // noticed, because the property sat in a JUnit @Nested class that jqwik never runs.
             Rect drawn = geometry.rectOf(seat, position);
-            TablePosition back = geometry.positionOn(seat, drawn.x(), drawn.y());
+            TablePosition back = geometry.positionOn(seat, drawn.centerX(), drawn.centerY());
 
             // The tolerance has to come from how many table units a pixel is worth at this
             // zoom, not from a fixed number: zoomed out, one pixel is a large slice of a mat.
-            double unitsPerPixel = TableSurface.SPAN / (geometry.camera().scale() * TableSurface.SPAN)
-                    * (TableSurface.SPAN / (double) geometry.surface().matOf(seatIndex).width());
-            double tolerance = 1.0 + 2.0 * unitsPerPixel;
+            // Per axis: a mat is about twice as wide as it is deep, so a pixel down it is worth
+            // twice as many position units as a pixel across it. One figure from the width was
+            // too tight down the mat by exactly that factor. Two pixels either way - one for
+            // the rounding to a whole pixel, one for halving an odd card size.
+            Rect mat = geometry.surface().matOf(seatIndex);
+            double acrossPerPixel = TableSurface.SPAN / (geometry.camera().scale() * mat.width());
+            double downPerPixel = TableSurface.SPAN / (geometry.camera().scale() * mat.height());
+            double tolerance = 1.0 + 2.0 * acrossPerPixel;
+            double downTolerance = 1.0 + 2.0 * downPerPixel;
             assertThat((double) back.x())
                     .describedAs("across, at scale %s", geometry.camera().scale())
                     .satisfiesAnyOf(
@@ -64,7 +75,7 @@ class BoardGeometryTest {
             assertThat((double) back.y())
                     .describedAs("down, at scale %s", geometry.camera().scale())
                     .satisfiesAnyOf(
-                            value -> assertThat(value).isCloseTo(down, org.assertj.core.data.Offset.offset(tolerance)),
+                            value -> assertThat(value).isCloseTo(down, org.assertj.core.data.Offset.offset(downTolerance)),
                             value -> assertThat(value).isIn(0.0, (double) TablePosition.SPAN));
         }
 
@@ -109,6 +120,7 @@ class BoardGeometryTest {
     }
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("whose board is it")
     class Seating {
 
@@ -142,6 +154,7 @@ class BoardGeometryTest {
     }
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("card size")
     class CardSize {
 
@@ -175,6 +188,7 @@ class BoardGeometryTest {
     }
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("someone sitting down")
     class Reshaping {
 
@@ -213,8 +227,48 @@ class BoardGeometryTest {
     }
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("framing")
     class Framing {
+
+        /**
+         * Every mat inside the space above the hand, for one table and for eight seats, down to
+         * the smallest interface Minecraft draws.
+         * <p>The camera's card-size floor used to override the fit: at 427 by 240 with a hand
+         * strip of 76 one table needs a card under twenty-four pixels, and at 854 by 480 an
+         * eight-seat cluster does, so both were clamped back up and drawn taller than the band.
+         * The one test of this used two seats at 854 by 480.
+         */
+        @Test
+        @DisplayName("showing everything fits every mat in small windows and large clusters")
+        void showEverythingFitsSmallWindowsAndLargeClusters() {
+            int[][] windows = {{427, 240, 76, 16}, {320, 240, 76, 16}, {854, 480, 134, 16}};
+            TableCell[][] tables = {
+                    {new TableCell(0, 0)},
+                    {new TableCell(0, 0), new TableCell(1, 0), new TableCell(0, 1), new TableCell(1, 1)}};
+            for (int[] window : windows) {
+                for (TableCell[] cells : tables) {
+                    BoardGeometry geometry = new BoardGeometry(
+                            seatsOf(cells), window[0], window[1], window[3], window[2]);
+                    geometry.showEverything();
+                    int top = window[3];
+                    int bottom = window[1] - window[2];
+                    for (int index = 0; index < geometry.surface().seatCount(); index++) {
+                        Rect mat = geometry.matRect(new SeatId(index));
+                        assertThat(mat.y())
+                                .describedAs("seat %s of %s at %sx%s runs above the view", index, cells.length,
+                                        window[0], window[1])
+                                .isGreaterThanOrEqualTo(top);
+                        assertThat(mat.bottom())
+                                .describedAs("seat %s of %s at %sx%s runs under the hand", index, cells.length,
+                                        window[0], window[1])
+                                .isLessThanOrEqualTo(bottom);
+                        assertThat(mat.x()).isGreaterThanOrEqualTo(0);
+                        assertThat(mat.right()).isLessThanOrEqualTo(window[0]);
+                    }
+                }
+            }
+        }
 
         @Test
         @DisplayName("the whole table fits, and above the hand rather than behind it")

@@ -26,6 +26,7 @@ class TableTopTest {
     private static final TableTop TABLE = new TableTop(10.0, 15.94, 20.0, 1.76, 1, 1);
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("hitting the surface")
     class Hitting {
 
@@ -119,6 +120,7 @@ class TableTopTest {
     }
 
     @Nested
+    @net.jqwik.api.Group
     @DisplayName("surface and world agree")
     class TheRoundTrip {
 

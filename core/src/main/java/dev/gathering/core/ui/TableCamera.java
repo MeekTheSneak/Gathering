@@ -69,7 +69,7 @@ public record TableCamera(
         spanY = Math.max(1, spanY);
         centerX = Math.max(0, Math.min(spanX, centerX));
         centerY = Math.max(0, Math.min(spanY, centerY));
-        scale = clampScale(scale);
+        scale = clampScale(scale, spanX, spanY);
     }
 
     /**
@@ -198,7 +198,7 @@ public record TableCamera(
     public TableCamera zoomedAt(double factor, double screenX, double screenY, int width, int height) {
         double anchorX = toTableX(screenX, width);
         double anchorY = toTableY(screenY, height);
-        double zoomed = clampScale(scale * factor);
+        double zoomed = clampScale(scale * factor, spanX, spanY);
         if (zoomed == scale) {
             return this;
         }
@@ -214,11 +214,39 @@ public record TableCamera(
     }
 
     public boolean isAtFurthest() {
-        return scale <= MIN_CARD_PIXELS / REFERENCE_CARD_HEIGHT;
+        return scale <= lowestScale(spanX, spanY);
     }
 
-    private static double clampScale(double wanted) {
-        double lowest = MIN_CARD_PIXELS / REFERENCE_CARD_HEIGHT;
+    /**
+     * How far out this surface may be drawn.
+     * <p>Where a card stops being identifiable, unless the whole surface would still not fit in
+     * a small window at that size - in which case far enough to show it. The card floor alone
+     * overrode "show everything": at GUI scale 3 or 4 a single table needs a card smaller than
+     * twenty-four pixels to fit, and an eight-seat cluster needs one at 854 by 480, so the
+     * camera clamped the fit back up and drew the table taller than the space it was fitted
+     * to. Showing the whole table is worth more there than the cards being readable, and
+     * zooming in reads them.
+     */
+    private static double lowestScale(int spanX, int spanY) {
+        return Math.min(MIN_CARD_PIXELS / REFERENCE_CARD_HEIGHT,
+                SMALLEST_SURFACE_PIXELS / Math.max(1, Math.max(spanX, spanY)));
+    }
+
+    /**
+     * The fewest pixels the long side of a whole surface is ever drawn across.
+     * <p>Sized to the smallest window: 320 by 240 leaves a band of about 148 above the hand,
+     * and a table fitted into that is 142 across. Any smaller and zooming out stops being about
+     * fitting the table and starts being about losing it.
+     */
+    private static final double SMALLEST_SURFACE_PIXELS = 140.0;
+
+    /** How far out the surface may go, as the pixels its long side is drawn across. */
+    public static double smallestSurfacePixels() {
+        return SMALLEST_SURFACE_PIXELS;
+    }
+
+    private static double clampScale(double wanted, int spanX, int spanY) {
+        double lowest = lowestScale(spanX, spanY);
         double highest = MAX_CARD_PIXELS / REFERENCE_CARD_HEIGHT;
         return Math.max(lowest, Math.min(highest, wanted));
     }

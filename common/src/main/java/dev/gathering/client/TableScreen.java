@@ -2851,8 +2851,7 @@ public final class TableScreen extends Screen {
             // battlefield behind it. Only the card already drawn risen counts: the band
             // above the strip is board - the block's own life buttons live there - and a
             // card must not spring up under a cursor that was never on the hand.
-            int risen = HandFan.atLifted(layout().hand(), count, x, y);
-            return risen >= 0 && risen == liftedNow ? risen : -1;
+            return HandFan.onLifted(layout().hand(), count, liftedNow, x, y) ? liftedNow : -1;
         }
         return HandFan.at(layout().hand(), count, x, y);
     }

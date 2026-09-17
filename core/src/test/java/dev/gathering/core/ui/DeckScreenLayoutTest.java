@@ -22,6 +22,29 @@ class DeckScreenLayoutTest {
 
     private static final int LINE_HEIGHT = 9;
 
+    /**
+     * Where the card is drawn without a text box beside it, it fills its room.
+     * <p>Between about 244 and 274 pixels of room the card was sized for a text box that was
+     * then dropped, so at 410 by 240 it was 112 wide with 132 pixels of nothing beside it - and
+     * a player widening the window from 400 watched the card shrink.
+     */
+    @Property(tries = 3000)
+    void aCardWithNoTextBesideItIsNotSizedForSome(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height) {
+        DeckScreenLayout layout = DeckScreenLayout.of(width, height, LINE_HEIGHT);
+        if (layout.card().isEmpty() || !layout.info().isEmpty()) {
+            return;
+        }
+        DeckScreenLayout narrower = DeckScreenLayout.of(width - 1, height, LINE_HEIGHT);
+        if (narrower.card().isEmpty()) {
+            return;
+        }
+        assertThat(layout.card().width())
+                .describedAs("at %sx%s the card is narrower than one pixel less of window gave it", width, height)
+                .isGreaterThanOrEqualTo(narrower.card().width());
+    }
+
     @Property(tries = 3000)
     void nothingEverLeavesTheScreen(
             @ForAll @IntRange(min = 320, max = 3840) int width,

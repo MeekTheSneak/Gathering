@@ -174,9 +174,23 @@ public record DeckScreenLayout(
             return Rect.NONE;
         }
 
-        // Half the space when the text box is coming too, all of it when it is not.
-        boolean withInfo = available >= CARD_MIN + GAP + INFO_MIN;
-        int wanted = clamp(withInfo ? Math.round(available * 0.46f) : available, CARD_MIN, CARD_MAX);
+        // Half the space when the text box is coming too, all of it when it is not - and the
+        // text box is coming only if it still fits beside the card as actually sized. This
+        // used to decide from a rougher sum than infoOf's, so between about 244 and 274 of
+        // room the card was cut to half for a text box that was then dropped: widening the
+        // window shrank the card from 164 pixels wide to 112 and left the rest empty.
+        if (available >= CARD_MIN + GAP + INFO_MIN) {
+            Rect beside = sized(left, height, tall, available, Math.round(available * 0.46f));
+            if (!beside.isEmpty() && available - beside.width() - GAP >= INFO_MIN) {
+                return beside;
+            }
+        }
+        return sized(left, height, tall, available, available);
+    }
+
+    /** A card as close to this wide as fits, at its own proportions. */
+    private static Rect sized(int left, int height, int tall, int available, int asked) {
+        int wanted = clamp(asked, CARD_MIN, CARD_MAX);
 
         // Fix the height to the card's own proportions, then take the width back from it, so
         // the art inside is never stretched whichever dimension ran out first.

@@ -101,6 +101,21 @@ class ArrangeSelectionTest {
         }
 
         @Test
+        @DisplayName("keeps left to right within a row whose cards were dropped a little unevenly")
+        void aRowDroppedByHandStaysInOrder() {
+            // Nobody drops two cards at exactly the same height. One unit lower used to make a
+            // card a row of its own, and the tidy swapped two cards that sat side by side.
+            List<ArrangeSelection.Spot> plan = ArrangeSelection.plan(List.of(
+                    at(7, 8000, 200),
+                    at(3, 100, 201),
+                    at(5, 4000, 340),
+                    at(9, 400, 9000)));
+            assertThat(plan.stream().map(ArrangeSelection.Spot::id))
+                    .containsExactly(CardInstanceId.of(3), CardInstanceId.of(5),
+                            CardInstanceId.of(7), CardInstanceId.of(9));
+        }
+
+        @Test
         @DisplayName("is the same plan twice")
         void deterministic() {
             // What lets a preview be trusted: the board drawn as a promise is the board that
