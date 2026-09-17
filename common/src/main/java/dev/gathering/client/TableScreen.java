@@ -6707,6 +6707,23 @@ public final class TableScreen extends Screen {
         mySeat().ifPresent(me -> send(new GameEvent.CardPinged(me, card)));
     }
 
+    /** The last few log lines, as key and arguments, for the scripted run. */
+    java.util.List<String> lastLogKeysForTesting(int howMany) {
+        var board = view().orElse(null);
+        java.util.List<String> said = new java.util.ArrayList<>();
+        if (board == null) {
+            return said;
+        }
+        var log = board.log();
+        for (int at = Math.max(0, log.size() - howMany); at < log.size(); at++) {
+            var entry = log.get(at);
+            said.add(entry.key() + entry.args().stream()
+                    .map(arg -> arg.getClass().getSimpleName())
+                    .collect(java.util.stream.Collectors.joining(",", "(", ")")));
+        }
+        return said;
+    }
+
     /** Whether that card is ringed right now, for the scripted run. */
     boolean aCardIsBeingPointedAt(CardInstanceId card) {
         return ClientTableNews.pointedAtFor(

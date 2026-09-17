@@ -3061,8 +3061,22 @@ opened a pack, from the second minor batch weakening the seam's diagonals (rever
 not from this work: a second run with the camera change reverted failed the same four ways, so it was put
 back - "framing the whole table gives a mat 158 by 72 on the block and 131 by 59 on the screen" (the run's
 window was 427x240), "a card that was pointed at is not ringed", "the row of tables in every wood would have
-gone down on a table already standing" and "no other tables stood up". The last two look like a world left
-over from an earlier run.
+gone down on a table already standing" and "no other tables stood up".
+
+Chased on 2026-09-17, after the bulk-data work:
+- **The tables were a world left over from the last run.** The run makes a world of its own with a fixed
+  name and Minecraft kept it between runs, so last run's tables were still standing and the scenes that
+  check for room refused. The run now throws that world away before making it.
+- **Two views, two sizes** (block 158x72, screen 131x59, at a window of 427x240): not a regression. The
+  seated view fits the whole table into what is left after the life totals (16 px) and the hand (76 px) -
+  148 px of 240 - while the view on the block uses the whole window, so at a small window the seated one
+  cannot be within a tenth of it without cropping. It needs the owner's call: let the board run under the
+  hand when framing everything, or accept the difference at small windows.
+- **The ring when pointing** is still unexplained; the run now prints the log's last lines and the shape of
+  their arguments at that step. A card face down in a public zone is logged by marker rather than by id,
+  and `ClientTableNews.cardOf` only reads ids, which would explain it - to be confirmed from that line.
+- A run where the machine's real mouse is used at the same time fails wholesale (114 failures, cascading
+  from a hover that landed nowhere): the run parks the real cursor. Runs must be left alone.
 
 
 ## 2026-09-17: card lookups from Scryfall's bulk file

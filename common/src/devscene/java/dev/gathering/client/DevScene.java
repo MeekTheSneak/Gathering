@@ -1709,6 +1709,11 @@ public final class DevScene {
                 advance(SETTLE / 4);
             }
             case 101 -> {
+                // What the table actually said about the ping, so a failure here says which half is
+                // missing: the log line, the reference in it, or the ring.
+                if (client.screen instanceof TableScreen said) {
+                    System.out.println("[devscene] the log's last lines after pointing: " + said.lastLogKeysForTesting(4));
+                }
                 if (!(client.screen instanceof TableScreen ringed)
                         || !ringed.aCardIsBeingPointedAt(pointedAt)) {
                     fail("a card that was pointed at is not ringed, so pointing at the table"
@@ -9490,6 +9495,18 @@ public final class DevScene {
 
     /** A flat, bright, empty world in creative: nothing to look at but the table. */
     private static void makeAWorld(Minecraft client) {
+        // The run's own world from last time, thrown away first. Minecraft keeps a world of this name
+        // between runs, so every table the last run stood up was still standing - and the scenes that
+        // check for room before putting one down refused, which is what "would have gone down on a table
+        // already standing there" was. Only this world, and only the one the run makes for itself.
+        if (client.getLevelSource().levelExists(LEVEL)) {
+            try (var last = client.getLevelSource().createAccess(LEVEL)) {
+                last.deleteLevel();
+                System.out.println("[devscene] threw away the last run's world");
+            } catch (java.io.IOException couldNotDelete) {
+                System.out.println("[devscene] the last run's world could not be thrown away: " + couldNotDelete);
+            }
+        }
         LevelSettings settings = new LevelSettings(
                 LEVEL, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
                 new GameRules(), WorldDataConfiguration.DEFAULT);
