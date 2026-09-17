@@ -50,7 +50,42 @@ public record CardMetadata(
         Map<String, String> prices,
         String scryfallUri,
         List<RelatedCard> related,
-        boolean specialTreatment) {
+        boolean specialTreatment,
+        String language,
+        String illustrationId) {
+
+    /** What Scryfall calls English, and what a printing read before its language was kept is. */
+    public static final String ENGLISH = "en";
+
+    /**
+     * The same printing, read before its language was kept.
+     * <p>Every printing built by hand is English, and so was every one cached before the field was
+     * read - which is right for all but a few sets, and those are read again from their raw reply.
+     */
+    public CardMetadata(
+            UUID scryfallId, UUID oracleId, String name, String manaCost, double cmc,
+            String typeLine, String oracleText, Set<String> colors, Set<String> colorIdentity,
+            List<CardFace> faces, String layout, String setCode, String setName,
+            String collectorNumber, Rarity rarity, boolean reserved, boolean foilAvailable,
+            boolean nonfoilAvailable, boolean digitalOnly, boolean oversized, List<String> games,
+            Map<String, Legality> legalities, Map<String, String> prices, String scryfallUri,
+            List<RelatedCard> related, boolean specialTreatment) {
+        this(scryfallId, oracleId, name, manaCost, cmc, typeLine, oracleText, colors,
+                colorIdentity, faces, layout, setCode, setName, collectorNumber, rarity,
+                reserved, foilAvailable, nonfoilAvailable, digitalOnly, oversized, games,
+                legalities, prices, scryfallUri, related, specialTreatment, ENGLISH, "");
+    }
+
+    /**
+     * Whether this printing is in English.
+     * <p>Most are. The ones that are not are either printings that only ever existed in another
+     * language - a Japanese bonus sheet, a promo handed out in Japan - which are cards in their own
+     * right, or another language's copy of an English card, which is what {@link ForeignPrintings}
+     * keeps out of packs and the printing chooser.
+     */
+    public boolean isEnglish() {
+        return ENGLISH.equals(language);
+    }
 
     /**
      * The same printing, read before its frame treatment was kept.
@@ -102,6 +137,8 @@ public record CardMetadata(
                 .filter(entry -> entry.getKey() != null && entry.getValue() != null)
                 .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         related = related == null ? List.of() : List.copyOf(related);
+        language = language == null || language.isBlank() ? ENGLISH : language.trim().toLowerCase(java.util.Locale.ROOT);
+        illustrationId = illustrationId == null ? "" : illustrationId.trim();
     }
 
     /**

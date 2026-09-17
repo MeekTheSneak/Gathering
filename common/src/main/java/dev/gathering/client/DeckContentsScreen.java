@@ -481,6 +481,18 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
                 hint.x(), hint.y() + this.font.lineHeight, hint.width(), PENDING_COLOR);
     }
 
+    /** Whether the frames beside the list are showing the card's words, at this window size. */
+    @Override
+    public boolean previewsTheText() {
+        return !layout().card().isEmpty() && !layout().info().isEmpty();
+    }
+
+    /** And its picture. */
+    @Override
+    public boolean previewsTheArt() {
+        return !layout().card().isEmpty();
+    }
+
     /**
      * The hovered card and what it says, in the two frames beside the list.
      * <p>No key to hold. Reading down a decklist is the whole purpose of this screen, and a
@@ -490,6 +502,11 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
      * than one that is sometimes empty.
      */
     private void renderPreview(GuiGraphics graphics, Row row) {
+        // Handed to the read key as well, for a window too narrow for the frames. There it had
+        // nowhere to show the card at all.
+        if (row != null && row.card() != null) {
+            ClientHoverState.setHovered(dev.gathering.item.CardItem.of(row.card()));
+        }
         DeckScreenLayout current = layout();
         Rect card = current.card();
         Rect info = current.info();

@@ -33,7 +33,7 @@ import net.minecraft.world.item.ItemStack;
  * see not happening.
  * <p>Client-only.
  */
-public final class TradeScreen extends Screen implements CardPreviewHost {
+public final class TradeScreen extends Screen {
 
     private static final int MARGIN = 16;
 

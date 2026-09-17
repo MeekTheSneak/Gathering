@@ -28,7 +28,18 @@ public record SetRelease(
         String releasedOn,
         boolean digital,
         int cardCount,
-        int printedSize) {
+        int printedSize,
+        String parent) {
+
+    /**
+     * A set with no parent: read before the parent was kept, or built by hand.
+     * <p>The parent is the set a promo, token or Commander set was released beside - {@code psos}
+     * and {@code soc} are both {@code sos}'s - and most sets have none.
+     */
+    public SetRelease(String code, String name, String type, String releasedOn, boolean digital,
+            int cardCount, int printedSize) {
+        this(code, name, type, releasedOn, digital, cardCount, printedSize, "");
+    }
 
     /** The set types a booster is printed for. */
     private static final List<String> PREMIER_TYPES = List.of("expansion", "core");
@@ -45,6 +56,7 @@ public record SetRelease(
         releasedOn = releasedOn == null ? "" : releasedOn.trim();
         cardCount = Math.max(0, cardCount);
         printedSize = Math.max(0, printedSize);
+        parent = parent == null ? "" : parent.trim().toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -116,6 +128,32 @@ public record SetRelease(
      */
     public static Optional<SetRelease> current(List<SetRelease> sets, String today) {
         return recent(sets, today, 1).stream().findFirst();
+    }
+
+    /**
+     * Every set a server drawing from "all" draws from: every paper set that has come out and had
+     * something sold for it, newest first - with the premier sets ahead of the rest, so the first
+     * is still the current set.
+     * <p>Not only the premier sets. "All" meant expansions and core sets alone, so a Commander
+     * precon, a Masters set or a Jumpstart release was never in play: nothing sold it and nothing
+     * dropped it, and every card only those products hold landed in the archive instead - which
+     * is how a card out of a Secrets of Strixhaven precon came out of an archive pack.
+     *
+     * @param sold the sets anything was ever sold for, by code
+     */
+    public static List<SetRelease> everySold(List<SetRelease> sets, String today, java.util.Set<String> sold) {
+        if (sets == null) {
+            return List.of();
+        }
+        List<SetRelease> premier = recent(sets, today, Integer.MAX_VALUE);
+        List<SetRelease> every = new java.util.ArrayList<>(premier);
+        sets.stream()
+                .filter(set -> !set.digital() && SetCode.isOne(set.code()) && set.wasOutBy(today))
+                .filter(set -> sold != null && sold.contains(set.code()))
+                .filter(set -> !premier.contains(set))
+                .sorted(NEWEST_FIRST)
+                .forEach(every::add);
+        return List.copyOf(every);
     }
 
     /**

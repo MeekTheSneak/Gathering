@@ -116,7 +116,9 @@ public final class ScryfallCardCodec {
                 parsePrices(json),
                 string(json, "scryfall_uri"),
                 parseRelated(json),
-                specialTreatment(json)));
+                specialTreatment(json),
+                string(json, "lang"),
+                illustrationOf(json)));
     }
 
     /**
@@ -275,6 +277,24 @@ public final class ScryfallCardCodec {
             }
         }
         return out;
+    }
+
+    /**
+     * The artwork a printing carries, by Scryfall's id for it: at the top for a single face, on the
+     * first face for a card with two. Two printings sharing it are the same picture - which is how a
+     * French copy of an English card is told from a card only ever printed in French.
+     */
+    private static String illustrationOf(JsonObject json) {
+        String top = string(json, "illustration_id");
+        if (top != null) {
+            return top;
+        }
+        JsonElement faces = json.get("card_faces");
+        if (faces != null && faces.isJsonArray() && !faces.getAsJsonArray().isEmpty()
+                && faces.getAsJsonArray().get(0).isJsonObject()) {
+            return string(faces.getAsJsonArray().get(0).getAsJsonObject(), "illustration_id");
+        }
+        return null;
     }
 
     private static String string(JsonObject json, String key) {

@@ -99,7 +99,10 @@ public class PackItem extends Item {
             // The archive is not a set and naming it as one would print "ARCHIVE" where a set
             // code goes, which reads as a set nobody has heard of rather than as what it is.
             if (pack.isArchive()) {
-                lines.add(Component.translatable("tooltip.gathering.archive")
+                lines.add((pack.kind().isEmpty()
+                        ? Component.translatable("tooltip.gathering.archive")
+                        : Component.translatable("tooltip.gathering.archive_of",
+                                pack.kind().toUpperCase(java.util.Locale.ROOT)))
                         .withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE));
                 lines.add(Component.translatable("tooltip.gathering.archive_what")
                         .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));

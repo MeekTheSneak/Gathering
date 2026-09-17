@@ -223,6 +223,26 @@ class ScryfallClientTest {
     }
 
     @Test
+    @DisplayName("the printing chooser leaves out another language's copy of an English printing")
+    void printingsLeaveOutForeignCopies() throws Exception {
+        JsonObject english = Fixtures.json("sol_ring");
+        english.addProperty("illustration_id", "0d6e2b8c-0000-4000-8000-000000000001");
+        JsonObject japanese = english.deepCopy();
+        japanese.addProperty("id", "11111111-2222-3333-4444-555555555555");
+        japanese.addProperty("lang", "ja");
+        com.google.gson.JsonArray data = new com.google.gson.JsonArray();
+        data.add(japanese);
+        data.add(english);
+        JsonObject reply = new JsonObject();
+        reply.addProperty("object", "list");
+        reply.add("data", data);
+        FakeHttpTransport transport = new FakeHttpTransport().reply(200, reply.toString());
+
+        assertThat(client(transport).printingsOf("Sol Ring")).extracting(CardMetadata::scryfallId)
+                .containsExactly(SOL_RING);
+    }
+
+    @Test
     @DisplayName("split and double-faced cards are asked for by one face, because the API insists")
     void combinedNamesAreSplitBeforeTheyGoOnTheWire() throws Exception {
         FakeHttpTransport transport = new FakeHttpTransport()

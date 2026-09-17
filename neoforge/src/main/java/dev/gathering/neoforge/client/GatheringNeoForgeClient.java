@@ -177,6 +177,11 @@ public final class GatheringNeoForgeClient {
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onScreenInit);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onRenderScreen);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onClientTick);
+            // First of every listener, so a sweep has the drag before Mouse Tweaks' own right-drag
+            // sees it and drops the deck into an empty slot the sweep passes.
+            NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGHEST, GatheringNeoForgeClient::onMousePressed);
+            NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGHEST, GatheringNeoForgeClient::onMouseDragged);
+            NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGHEST, GatheringNeoForgeClient::onMouseReleased);
             NeoForge.EVENT_BUS.addListener(
                     (net.neoforged.neoforge.event.GameShuttingDownEvent closing) -> dev.gathering.client.ClientTicks.stopping());
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onRenderTooltip);
@@ -228,6 +233,24 @@ public final class GatheringNeoForgeClient {
      */
     private static void onScreenInit(ScreenEvent.Init.Post event) {
         dev.gathering.client.GuiThemeOption.addTo(event.getScreen());
+    }
+
+    /** A deck swept over cards with the right button held. See {@link dev.gathering.client.DeckSweep}. */
+    private static void onMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
+        if (event.getScreen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen) {
+            dev.gathering.client.DeckSweep.pressed(screen, event.getButton());
+        }
+    }
+
+    private static void onMouseDragged(ScreenEvent.MouseDragged.Pre event) {
+        if (event.getScreen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen
+                && dev.gathering.client.DeckSweep.dragged(screen, event.getMouseButton())) {
+            event.setCanceled(true);
+        }
+    }
+
+    private static void onMouseReleased(ScreenEvent.MouseButtonReleased.Pre event) {
+        dev.gathering.client.DeckSweep.released(event.getButton());
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {

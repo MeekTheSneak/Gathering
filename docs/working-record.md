@@ -2985,9 +2985,42 @@ Found in the owner's playtest log (client closed normally after about 28 minutes
 audit walk trips Scryfall's rate limit (32 "Could not audit <set> for the archive ... HTTP 429")
 and MTGJSON's collation fetch for CON answers HTTP 301.
 
-The owner's playtest list, being worked now: (1) report results the way the Companion app does,
-not a grid of every outcome; (2) archive packs hold precon cards; (3) display case glass stretched;
-(4) a detailed card view with its history in the collection block; (5) display case cards too close;
-(6) non-English printings appearing, maybe a default-language setting; (7) the Alt card view cuts
-text off; (8) Mouse Tweaks support; (9) collecting on with every set by default; (10) an archive
-pack per set.
+The owner's playtest list, worked on 2026-09-17 (not yet through the gate at the time of writing):
+
+1. **Results like the Companion app.** The grid of every outcome (sixteen buttons for a best of three) is
+   replaced by three rows of counts - You, the opponent, Draws - and one Submit, which reads Confirm when
+   the counts match what the opponent reported and is grayed with the reason when they are not a result
+   or were already sent. The host's settle grid is the same counts with Record. Pure rules in
+   `ResultTally` (core tests); `AccessibilityProbe` stages 12-13 rewritten for the counts (not run).
+2. **Archive packs held precon cards.** Cause: "all" loot sets meant expansion and core sets only, so no
+   Commander, Masters or Jumpstart set was ever in play and their cards were all archive. "All" is now
+   every paper set anything was sold for (`SetRelease.everySold`, test).
+3. **Display case glass stretched.** All 44 case models sampled 14x14 texels of glass over faces 5.5 tall.
+   UVs now one texel per pixel; `texturecheck` fails any face drawing glass at another density (330 faces
+   before the fix).
+4. **A detailed card view with history in the collection block.** Not started at the time of writing.
+5. **Display case cards overlapped.** 0.218 wide at 0.21 apart. Now `DisplayCaseRow` (0.31 tall, 0.215
+   apart), tested to leave a gap and stay inside the glass; guard proven with the old numbers.
+6. **Languages.** Owner's rule: foreign-only printings (a Japanese bonus sheet, a Japan-only promo) stay;
+   another language's copy of an English card does not. `CardMetadata` keeps `lang` and
+   `illustration_id`; `ForeignPrintings` drops copies from the printing chooser (by shared artwork) and
+   from a set's archive (a set wholly in another language that is not a promo set); a booster that names
+   no kind no longer falls back to a Japanese product. Guards proven. A default-language setting was not
+   built: the owner said to skip it if it was not easy, and it is not (translations have their own ids).
+7. **Alt card view cut text off.** `CardTextFit` (pure, property-tested; guard proven) fits every face's
+   text: more room first, then smaller text to a floor, then columns; history goes before rules text
+   shrinks. Draft, Pile and Trade no longer suppress the view; Sideboard adds a text-only panel. Not seen on
+   screen.
+8. **Mouse Tweaks.** A deck on the cursor swept over cards with right-click held puts each in, with or
+   without Mouse Tweaks: `DragSweep` (pure, tested) decides the clicks, `DeckSweep` makes them as ordinary
+   right-clicks, a mixin on both loaders reaches the screen's slot click, and NeoForge's listeners run at
+   HIGHEST so Mouse Tweaks never drops the deck into an empty slot mid-sweep. Not run with Mouse Tweaks
+   installed.
+9. **Collection mode with every set by default.** Collecting was already on by default with loot_sets
+   ["all"]; "all" now really means every set, per 2.
+10. **An archive pack per set.** Built: a pack names a set family (`PackComponent` kind), loot picks one of
+    every family at random, and only that family is audited when opened - no walk over history at start,
+    which is what Scryfall rate-limited. An empty family opens as another (up to four), then the pack is
+    handed back. Pack shows the family's set symbol and "Archive Pack: SOS". Old archive packs open as a
+    random family. Facts files bumped to version 2.
+

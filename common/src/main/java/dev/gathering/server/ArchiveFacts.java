@@ -20,8 +20,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * What the archive's audit learned about each set, kept on disk.
- * <p>The audit reads every set Magic has ever had, and that is a search per set on somebody else's
- * server. Done once, it does not need doing again at every start: a set's printings change rarely,
+ * <p>Auditing a set is a search on somebody else's server. Done once, it does not need doing again
+ * each time one of its archive packs is opened: a set's printings change rarely,
  * and when they do Scryfall's count for the set changes with them. So each set's facts are kept
  * beside the card cache with the count they were read at, and read again only when the count has
  * moved, a month has passed, or a set is now drawn from whose products were never read.
@@ -33,7 +33,8 @@ public final class ArchiveFacts {
     private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
 
     private static final String FOLDER = "archive-audit";
-    private static final int VERSION = 1;
+    // Two: a set's catalog leaves out printings in another language.
+    private static final int VERSION = 2;
 
     /** How long a set's facts are trusted before they are read again anyway. */
     static final long FRESH_FOR_MILLIS = java.time.Duration.ofDays(30).toMillis();

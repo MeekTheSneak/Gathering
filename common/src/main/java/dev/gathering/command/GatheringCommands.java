@@ -536,10 +536,9 @@ public final class GatheringCommands {
     }
 
     /**
-     * How much of this server's own catalog nothing but the archive reaches.
-     * <p>Read off what the server worked out at start rather than audited again here: the
-     * audit is a file and a search per set, and a command that ran it would take a minute and
-     * report a different number from the one the loot tables are using.
+     * How many sets an archive pack can be found for.
+     * <p>Read off what the server worked out at start rather than audited here: what one set's
+     * archive holds is worked out when one of its packs is opened, a search per set in its family.
      */
     private static int reportTheArchive(CommandSourceStack source) {
         int size = dev.gathering.server.Archive.size();

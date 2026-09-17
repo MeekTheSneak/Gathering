@@ -166,6 +166,43 @@ def modelsMissingTheirTint():
     return missing
 
 
+#: Textures drawn at one texel to a pixel of model, wherever a face uses them. Glass is a grid of
+#: panes with a frame line round its edge; squeezed into a face of another shape the lines thicken
+#: on one axis, which is how the display case's sides came to look stretched.
+UNSTRETCHED = ("minecraft:block/glass",)
+
+#: Which two axes of an element a face of each direction spans, as indexes into from and to.
+FACE_AXES = {"north": (0, 1), "south": (0, 1), "east": (2, 1), "west": (2, 1), "up": (0, 2), "down": (0, 2)}
+
+
+def stretchedFaces():
+    """Faces drawing an unstretched texture with a uv of a different size from the face."""
+    stretched = []
+    for root in MODEL_ROOTS:
+        base = os.path.join(ROOT, root)
+        for folder, _, files in os.walk(base):
+            for name in sorted(files):
+                if not name.endswith(".json"):
+                    continue
+                path = os.path.join(folder, name)
+                model = json.load(open(path, encoding="utf-8"))
+                textures = model.get("textures", {})
+                for element in model.get("elements", []):
+                    for direction, face in element.get("faces", {}).items():
+                        texture = face.get("texture", "")
+                        resolved = textures.get(texture[1:], texture) if texture.startswith("#") else texture
+                        uv = face.get("uv")
+                        if resolved not in UNSTRETCHED or uv is None or direction not in FACE_AXES:
+                            continue
+                        across, down = FACE_AXES[direction]
+                        wide = abs(element["to"][across] - element["from"][across])
+                        tall = abs(element["to"][down] - element["from"][down])
+                        if abs(abs(uv[2] - uv[0]) - wide) > 0.01 or abs(abs(uv[3] - uv[1]) - tall) > 0.01:
+                            stretched.append(f"{os.path.relpath(path, ROOT)}: {element.get('name', 'an element')} "
+                                             f"{direction} draws {resolved} {uv} over a face {wide}x{tall}")
+    return stretched
+
+
 def main():
     named = texturesNamedByModels()
     onDisk = texturesOnDisk()
@@ -190,6 +227,7 @@ def main():
             problems.append(f"{texture} is on disk and nothing names it")
 
     problems.extend(modelsMissingTheirTint())
+    problems.extend(stretchedFaces())
 
     vanillaMissing, vanillaRead = vanillaTexturesThatAreNotThere()
     problems.extend(vanillaMissing)

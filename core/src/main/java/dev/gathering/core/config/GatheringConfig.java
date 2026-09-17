@@ -500,8 +500,8 @@ public record GatheringConfig(
                 # Where sealed product turns up: any of "fishing", "structures", "archaeology".
                 # Needs collection_enabled.
                 pack_loot_sources = ["fishing", "structures", "archaeology"]
-                # Which sets those packs are from. "all" is everything ever sold in a booster
-                # and is the default, "current" is whatever is out now, "recent" is the last few
+                # Which sets those packs are from. "all" is every set anything was ever sold
+                # for - expansions, Masters sets, Commander decks, Jumpstart - and is the default, "current" is whatever is out now, "recent" is the last few
                 # releases, and a set code is exactly that set - so a seasonal server names its
                 # set and an era server names its block. They combine: ["mh3", "current"] is one
                 # set plus whatever is new. Drawing from every set costs one list of every set

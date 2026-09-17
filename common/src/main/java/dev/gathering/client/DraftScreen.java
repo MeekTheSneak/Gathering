@@ -29,7 +29,7 @@ import net.minecraft.network.chat.Component;
  * <p>Nothing here knows what is in anybody else's pack, because nothing here was sent it.
  * <p>Client-only.
  */
-public final class DraftScreen extends ChildScreen implements CardPreviewHost {
+public final class DraftScreen extends ChildScreen {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;

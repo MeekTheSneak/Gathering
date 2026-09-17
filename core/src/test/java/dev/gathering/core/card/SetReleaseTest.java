@@ -163,4 +163,24 @@ class SetReleaseTest {
         assertThat(SetRelease.current(sets, "2026-08-25"))
                 .map(SetRelease::code).contains("hob");
     }
+
+    @Test
+    @DisplayName("every set is every set anything was sold for, not only the expansions")
+    void everySetIncludesPreconsAndMasters() {
+        List<SetRelease> sets = List.of(
+                set("sos", "expansion", "2026-04-24"),
+                set("soc", "commander", "2026-04-24"),
+                set("mh3", "draft_innovation", "2024-06-14"),
+                set("2x2", "masters", "2022-07-08"),
+                set("psos", "promo", "2026-04-24"),
+                set("fut", "expansion", "2027-01-01"),
+                new SetRelease("y26", "Alchemy", "alchemy", "2026-05-01", true, 30, 30));
+
+        List<String> every = SetRelease.everySold(sets, "2026-09-17", java.util.Set.of("sos", "soc", "mh3", "2x2", "y26", "fut"))
+                .stream().map(SetRelease::code).toList();
+
+        // The current set first, then the rest newest first; a promo set nothing was sold for, a
+        // set not out yet and a digital one are not in it.
+        assertThat(every).containsExactly("sos", "soc", "mh3", "2x2");
+    }
 }

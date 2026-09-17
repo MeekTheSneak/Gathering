@@ -6,19 +6,23 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Which printings, across the whole of Magic's history, no ordinary way into a collection reaches.
- * <p>The Archive Pack's contents, by the owner's rule: everything a player cannot come by through
- * play, from every set there has ever been, not only the sets a server happens to draw from. A set a
- * server draws from reaches what its boosters hold and, with the shop open, what its sealed products
- * hold. A set a server does not draw from reaches nothing, so all of it belongs in the archive -
- * which is how a server playing only the newest set still has a way to the rest of the game.
- * <p>Worked out one set at a time from facts that do not depend on the server's settings - what the
- * set printed, and what its boosters and products could ever hold - so a change of settings is a
- * new sum over facts already known rather than another trip round every set.
+ * Which printings of one set's family no ordinary way into a collection reaches.
+ * <p>An Archive Pack is for one set: the cards out of that set, and the promo, Commander and other
+ * sets released beside it, that a player cannot come by through play. A set a server draws from
+ * reaches what its boosters hold and, with the shop open, what its sealed products hold; a set it
+ * does not draw from reaches nothing, so all of that set belongs in its archive.
+ * <p>Per family rather than across all of history at once. Working out every set there has ever been
+ * at every start was a search per set on Scryfall's servers, several hundred of them, which Scryfall
+ * answered by turning the server away. One family is a handful of searches, asked when somebody
+ * opens its pack.
+ * <p>Worked out from facts that do not depend on the server's settings - what each set printed, and
+ * what its boosters and products could ever hold - so a change of settings is a new sum over facts
+ * already known rather than another trip to the network.
  * <p>Pure.
  */
 public final class ArchiveAudit {
@@ -64,7 +68,10 @@ public final class ArchiveAudit {
         return set != null && !set.digital() && !NOT_COLLECTED.contains(set.type()) && !set.code().isBlank();
     }
 
-    /** Whether a printing is a card that could go in a collection, rather than a token or an art card. */
+    /**
+     * Whether a printing is a card that could go in a collection, rather than a token or an art card.
+     * Which of a set's printings in another language count is {@link dev.gathering.core.card.ForeignPrintings}'s.
+     */
     public static boolean isACard(CardMetadata card) {
         return card != null
                 && card.scryfallId() != null
@@ -74,29 +81,95 @@ public final class ArchiveAudit {
                 && !NOT_A_CARD.contains(card.layout() == null ? "" : card.layout().toLowerCase(Locale.ROOT));
     }
 
+    /** The most parents followed up from a set, so a list naming a set its own grandparent still ends. */
+    private static final int MOST_PARENTS = 8;
+
     /**
-     * Every printing nothing reaches.
+     * The family a set belongs to: the set at the top of its parents, or itself when it has none.
+     * <p>{@code psos} and {@code soc} are both {@code sos}'s.
+     */
+    public static String familyOf(String code, Map<String, SetRelease> sets) {
+        String at = code == null ? "" : code.trim().toLowerCase(Locale.ROOT);
+        for (int step = 0; step < MOST_PARENTS && sets != null; step++) {
+            SetRelease set = sets.get(at);
+            if (set == null || set.parent().isEmpty() || set.parent().equals(at)) {
+                break;
+            }
+            at = set.parent();
+        }
+        return at;
+    }
+
+    /**
+     * Every family an archive pack can be for, and the sets in each worth auditing, newest family
+     * first. A family is named by the set at its top; one with nothing released or nothing
+     * audited in it is not one.
      *
+     * @param today the day to judge releases against, as Scryfall writes a date
+     */
+    public static Map<String, List<SetRelease>> families(Collection<SetRelease> sets, String today) {
+        Map<String, SetRelease> byCode = new java.util.HashMap<>();
+        if (sets != null) {
+            for (SetRelease set : sets) {
+                if (set != null) {
+                    byCode.putIfAbsent(set.code(), set);
+                }
+            }
+        }
+        Map<String, List<SetRelease>> families = new java.util.HashMap<>();
+        for (SetRelease set : byCode.values()) {
+            if (isAudited(set) && today != null && set.wasOutBy(today)) {
+                families.computeIfAbsent(familyOf(set.code(), byCode), ignored -> new java.util.ArrayList<>()).add(set);
+            }
+        }
+        java.util.Comparator<SetRelease> newestFirst = java.util.Comparator.comparing(SetRelease::releasedOn)
+                .reversed().thenComparing(SetRelease::code);
+        Map<String, List<SetRelease>> ordered = new java.util.LinkedHashMap<>();
+        families.entrySet().stream()
+                .sorted(java.util.Comparator.comparing(
+                        (Map.Entry<String, List<SetRelease>> family) -> newestOf(family.getValue())).reversed()
+                        .thenComparing(Map.Entry::getKey))
+                .forEach(family -> ordered.put(family.getKey(),
+                        family.getValue().stream().sorted(newestFirst).toList()));
+        return java.util.Collections.unmodifiableMap(ordered);
+    }
+
+    private static String newestOf(List<SetRelease> members) {
+        return members.stream().map(SetRelease::releasedOn).max(String::compareTo).orElse("");
+    }
+
+    /**
+     * Every printing of a family nothing reaches.
+     * <p>What any set of the family reaches counts for all of it: a promo printing handed out in the
+     * main set's collector boosters is reached however its code is written.
+     *
+     * @param members  what each set of the family is known to contain
      * @param inPlay   the sets this server draws its boosters and its shop from
      * @param shopOpen whether a shop sells, which is what makes a set's products a way in
      */
-    public static Set<UUID> unobtainable(Collection<SetFacts> sets, Set<String> inPlay, boolean shopOpen) {
+    public static Set<UUID> unobtainable(Collection<SetFacts> members, Set<String> inPlay, boolean shopOpen) {
         Set<UUID> remainder = new LinkedHashSet<>();
-        if (sets == null) {
+        if (members == null) {
             return remainder;
         }
-        for (SetFacts set : sets) {
+        Set<UUID> reached = new java.util.HashSet<>();
+        for (SetFacts set : members) {
+            // A set drawn from whose reach was never read is taken as reaching nothing. The
+            // archive then holds a card that could have been found - the wrong way round in
+            // the harmless direction, and only until the set's products are read.
+            if (set != null && inPlay != null && inPlay.contains(set.code()) && set.reachKnown()) {
+                reached.addAll(set.inBoosters());
+                if (shopOpen) {
+                    reached.addAll(set.inProducts());
+                }
+            }
+        }
+        for (SetFacts set : members) {
             if (set == null) {
                 continue;
             }
-            boolean drawnFrom = inPlay != null && inPlay.contains(set.code());
             for (UUID printing : set.catalog()) {
-                // A set drawn from whose reach was never read is taken as reaching nothing. The
-                // archive then holds a card that could have been found - the wrong way round in
-                // the harmless direction, and only until the set's products are read.
-                boolean reached = drawnFrom && set.reachKnown()
-                        && (set.inBoosters().contains(printing) || (shopOpen && set.inProducts().contains(printing)));
-                if (!reached) {
+                if (!reached.contains(printing)) {
                     remainder.add(printing);
                 }
             }

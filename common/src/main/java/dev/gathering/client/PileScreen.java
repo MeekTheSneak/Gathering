@@ -35,7 +35,7 @@ import net.minecraft.network.chat.Component;
  * server's business, and a client that merely stopped drawing one would still be sent it.
  * <p>Client-only.
  */
-public final class PileScreen extends ChildScreen implements CardPreviewHost {
+public final class PileScreen extends ChildScreen {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;

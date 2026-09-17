@@ -77,8 +77,49 @@ public final class ArchivePackGameTest {
                 }
             }
         }
-        if (!Archive.open(helper.getLevel().getRandom()).isEmpty()) {
+        if (!Archive.candidates("", helper.getLevel().getRandom()).isEmpty()
+                || Archive.firstWithCards(Archive.candidates("sos", helper.getLevel().getRandom())).join().isPresent()) {
             helper.fail("an empty archive opened into cards");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * An archive pack found in the world is for one set, and opens as that set's archive.
+     * <p>The owner's rule: one set to a pack, so opening one looks up that set's family alone rather
+     * than every set there has ever been.
+     */
+    @GameTest(template = "empty")
+    public static void aFoundArchivePackIsForOneSet(GameTestHelper helper) {
+        java.util.UUID card = java.util.UUID.randomUUID();
+        Archive.holdForTesting(java.util.Set.of(card));
+        String wrong = null;
+        try {
+            ItemStack found = null;
+            for (int roll = 0; roll < 500 && found == null; roll++) {
+                found = Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom()).orElse(null);
+            }
+            PackComponent pack = found == null ? null : PackItem.packOf(found).orElse(null);
+            if (pack == null) {
+                wrong = "fixture: a full archive dropped nothing from five hundred withers";
+            } else if (!pack.isArchive() || !"tst".equals(pack.kind())) {
+                wrong = "a found archive pack is for '" + pack.kind() + "' rather than the one set there is";
+            } else {
+                var opened = Archive.firstWithCards(Archive.candidates(pack.kind(), helper.getLevel().getRandom())).join();
+                if (opened.isEmpty() || !opened.get().family().equals("tst")
+                        || !opened.get().printings().equals(java.util.List.of(card))) {
+                    wrong = "an archive pack for one set opened as " + opened;
+                } else if (Archive.draw(opened.get().printings(), helper.getLevel().getRandom()).size()
+                        != dev.gathering.core.sealed.ArchiveDrops.CARDS) {
+                    wrong = "an archive pack drew the wrong number of cards";
+                }
+            }
+        } finally {
+            Archive.clear();
+        }
+        if (wrong != null) {
+            helper.fail(wrong);
             return;
         }
         helper.succeed();

@@ -172,7 +172,7 @@ public final class CurrentSet {
      * a moment, and a server in Auckland and one in Los Angeles should agree about which set
      * is current rather than disagreeing for most of a day around every release.
      */
-    private static String today() {
+    static String today() {
         return LocalDate.now(ZoneOffset.UTC).toString();
     }
 }

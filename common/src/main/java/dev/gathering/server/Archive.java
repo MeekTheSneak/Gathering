@@ -1,9 +1,7 @@
 package dev.gathering.server;
 
-import dev.gathering.core.booster.BoosterSheet;
-import dev.gathering.core.booster.CoverageAudit;
-import dev.gathering.core.booster.CoverageReport;
-import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.booster.ArchiveAudit;
+import dev.gathering.core.card.SetRelease;
 import dev.gathering.core.sealed.ArchiveDrops;
 import dev.gathering.item.PackComponent;
 import dev.gathering.item.PackItem;
@@ -13,34 +11,35 @@ import dev.gathering.service.ServerSettings;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The Archive Pack: everything this server's own faucets cannot reach.
- * <p>The closing move on completeness, and the last piece of the brief's acquisition story. A
- * booster is cut from a print sheet and a shop sells what was really sold, which between them
- * leave a remainder - the buy-a-box card, the promo, the long tail of a set whose product is
- * out of print. Those cards are in the catalog and no path reaches them, and a collection
- * that can never be finished is a collection nobody finishes.
- * <p>So the remainder is computed rather than listed, and across the whole of Magic's history
- * rather than the sets a server draws from - by the owner's rule, the archive holds every card a
- * player cannot come by through play. A set the server draws from reaches what its boosters and,
- * with the shop open, its products hold; a set it does not draw from reaches nothing, and all of it
- * is here. See {@link dev.gathering.core.booster.ArchiveAudit}. <b>It shrinks as a server draws
- * from more</b>, and a server whose faucets covered everything would drop no archive packs at all,
- * which is the goal rather than a fault.
- * <p><b>Never sold.</b> Something you can buy is not a long tail, it is a shelf - so this
- * comes out of the three places worth going to and nowhere else. See {@link ArchiveDrops}.
- * <p>Worked out in the background when the server starts, one set at a time, and published as it
- * grows: loot is rolled deep inside the game with no time to reach a network. Each set is read once
- * and kept on disk ({@link ArchiveFacts}), so only the first start on a machine walks all of it.
+ * The Archive Pack: the cards of one set that this server's own faucets cannot reach.
+ * <p>The closing move on completeness. A booster is cut from a print sheet and a shop sells what
+ * was really sold, which between them leave a remainder - the buy-a-box card, the promo, a set
+ * nobody on this server draws from. Those cards are in the catalog and no path reaches them, and a
+ * collection that can never be finished is a collection nobody finishes.
+ * <p><b>One set to a pack</b>, by the owner's rule: a pack names a set, and holds what is out of
+ * reach among that set and the promo and Commander sets released beside it (its family, see
+ * {@link ArchiveAudit#familyOf}). Any set in Magic's history can come up, so the whole of it is
+ * still findable - but only the family of a pack somebody opens is ever looked up. The archive used
+ * to walk every set there has ever been at every start, a search per set, and Scryfall turned the
+ * server away partway through.
+ * <p>The remainder is computed rather than listed. A set the server draws from reaches what its
+ * boosters and, with the shop open, its products hold; a set it does not draw from reaches nothing.
+ * A family where everything is reachable has no archive, and a pack for it opens as another's.
+ * <p><b>Never sold.</b> Something you can buy is not a long tail, it is a shelf - so this comes out
+ * of the three places worth going to and nowhere else. See {@link ArchiveDrops}.
  */
 public final class Archive {
 
@@ -49,212 +48,304 @@ public final class Archive {
     /** What an archive pack's set code is. See {@link PackComponent#ARCHIVE}. */
     public static final String SET = PackComponent.ARCHIVE;
 
-    /** How many sets are audited between one publishing of the sheet and the next. */
-    private static final int PUBLISH_EVERY = 25;
+    /** How many families one opening tries before handing the pack back. */
+    static final int ATTEMPTS = 4;
 
-    /** Decided at start and read on the loot thread. Replaced whole, never edited. */
-    private static volatile BoosterSheet sheet = BoosterSheet.EMPTY;
+    /** The families a pack can be for, newest first. Decided at start, read on the loot thread, replaced whole. */
+    private static volatile List<String> families = List.of();
+
+    /** The sets of each family worth auditing. Replaced whole, with {@link #families}. */
+    private static volatile Map<String, List<SetRelease>> members = Map.of();
+
+    /** What each family's archive holds, for this run, once somebody has opened one of its packs. */
+    private static final Map<String, CompletableFuture<List<UUID>>> REMAINDERS = new ConcurrentHashMap<>();
+
+    /** Which start of the archive is the current one; the work of any other has been superseded. */
+    private static final AtomicLong STARTS = new AtomicLong();
 
     private Archive() {
     }
 
-    /** An archive pack, as the item a player finds. */
+    /** An archive pack for no set in particular, which opens as whichever set comes up. */
     public static ItemStack pack() {
-        return PackItem.of(new PackComponent(SET, ""));
+        return pack("");
     }
 
-    /** How many cards a server's faucets are not reaching. Zero is the goal. */
+    /** An archive pack for one set's family. */
+    public static ItemStack pack(String family) {
+        return PackItem.of(new PackComponent(SET, family == null ? "" : family.trim().toLowerCase(java.util.Locale.ROOT)));
+    }
+
+    /** How many sets an archive pack can currently be for. */
     public static int size() {
-        return sheet.size();
+        return families.size();
     }
 
     /**
-     * Works out the remainder across every set there has ever been.
-     * <p>The sets this server draws from first, so the archive is right about the game being played
-     * soonest, then the rest of history newest first. Each set's facts come off disk where they are
-     * still good and off the network where they are not, and the sheet is published every
-     * {@value #PUBLISH_EVERY} sets and at the end - so the archive is findable within a minute of a
-     * first start rather than after the whole walk.
-     * <p>Does nothing at all unless collecting is on and something can actually be found: an
-     * archive pack on a server where no pack is ever found would be the only card faucet in
-     * the world, which is not what this is.
+     * Works out which sets an archive pack can be for.
+     * <p>Scryfall's one list of every set, already asked for at start, and the facts about each set
+     * kept on disk from earlier openings - no search at all. A family whose kept facts already show
+     * everything in it reachable is left out, so a pack is not found for a set with nothing to give.
+     * <p>Does nothing at all unless collecting is on and something can actually be found: an archive
+     * pack on a server where no pack is ever found would be the only card faucet in the world.
      */
     public static void warm() {
-        sheet = BoosterSheet.EMPTY;
-        // A new walk makes every older one stale, whatever it is still reading. A settings change
-        // starts one: without this a walk begun before collecting was switched off could publish
-        // its sheet after the switch had emptied it, and archive packs went on dropping.
-        long walk = WALKS.incrementAndGet();
+        long start = STARTS.incrementAndGet();
+        families = List.of();
+        members = Map.of();
+        REMAINDERS.clear();
         var settings = ServerSettings.get();
-        if (!settings.modes().collectionEnabled()
-                || settings.collecting().packLootSources().isEmpty()) {
+        if (!settings.modes().collectionEnabled() || settings.collecting().packLootSources().isEmpty()) {
             return;
         }
-        CollationService collation = CollationService.active().orElse(null);
         CardDataService cards = CardDataService.active().orElse(null);
-        if (collation == null || cards == null) {
+        CollationService collation = CollationService.active().orElse(null);
+        if (cards == null || collation == null) {
             return;
         }
         boolean shopOpen = settings.collecting().sealedStoreEnabled();
         java.nio.file.Path root = dev.gathering.platform.Platform.get().dataDirectory();
-        long run = ServerRun.generation();
-        SetsInPlay.wanted(settings)
-                .thenCombine(cards.allSets(), (inPlay, everySet) -> new Walk(
-                        collation, cards, root, run, walk, java.util.Set.copyOf(inPlay), shopOpen,
-                        order(inPlay, everySet)))
-                .thenCompose(Walk::next)
-                .whenComplete(ServerRun.stillThisRun((walked, failure) -> {
-                    if (failure != null) {
-                        LOGGER.warn("Could not work out what this server's faucets miss, so the archive "
-                                + "holds only what was worked out before it stopped", failure);
+        cards.allSets()
+                .thenCombine(SetsInPlay.wanted(settings), (everySet, inPlay) -> {
+                    Map<String, List<SetRelease>> found = ArchiveAudit.families(everySet.values(), CurrentSet.today());
+                    List<String> worthFinding = new ArrayList<>();
+                    for (var family : found.entrySet()) {
+                        if (!knownToHoldNothing(root, family.getValue(), Set.copyOf(inPlay), shopOpen)) {
+                            worthFinding.add(family.getKey());
+                        }
                     }
+                    return Map.entry(found, List.copyOf(worthFinding));
+                })
+                .whenComplete(ServerRun.stillThisRun((found, failure) -> {
+                    if (failure != null) {
+                        LOGGER.warn("Could not list the sets an archive pack can be for, so none are found", failure);
+                        return;
+                    }
+                    if (STARTS.get() != start) {
+                        return;
+                    }
+                    members = found.getKey();
+                    families = found.getValue();
+                    LOGGER.info("Archive packs can be found for {} set(s) of Magic's history", families.size());
                 }));
     }
 
-    /**
-     * Every audited set, the ones drawn from first and then the rest of history newest first.
-     */
-    private static List<dev.gathering.core.card.SetRelease> order(
-            List<String> inPlay, java.util.Map<String, dev.gathering.core.card.SetRelease> everySet) {
-        List<dev.gathering.core.card.SetRelease> first = new ArrayList<>();
-        for (String code : inPlay) {
-            dev.gathering.core.card.SetRelease known = everySet.get(code);
-            if (dev.gathering.core.booster.ArchiveAudit.isAudited(known)) {
-                first.add(known);
+    /** Whether the facts kept on disk for every set of a family already say none of it is out of reach. */
+    private static boolean knownToHoldNothing(java.nio.file.Path root, List<SetRelease> sets, Set<String> inPlay,
+            boolean shopOpen) {
+        List<ArchiveAudit.SetFacts> kept = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        for (SetRelease set : sets) {
+            Optional<ArchiveAudit.SetFacts> facts = ArchiveFacts.read(root, set.code())
+                    .filter(each -> each.stillGood(set.cardCount(), now, inPlay.contains(set.code())))
+                    .map(ArchiveFacts.Kept::facts);
+            if (facts.isEmpty()) {
+                return false;
             }
+            kept.add(facts.get());
         }
-        List<dev.gathering.core.card.SetRelease> rest = everySet.values().stream()
-                .filter(dev.gathering.core.booster.ArchiveAudit::isAudited)
-                .filter(set -> !inPlay.contains(set.code()))
-                .sorted(java.util.Comparator.comparing(dev.gathering.core.card.SetRelease::releasedOn).reversed())
-                .toList();
-        first.addAll(rest);
-        return List.copyOf(first);
+        return ArchiveAudit.unobtainable(kept, inPlay, shopOpen).isEmpty();
     }
 
-    /** One walk over history: where it is, and what it has learned. */
-    private static final class Walk {
+    /** Between servers, so one world's archive is not the next one's. */
+    public static void clear() {
+        STARTS.incrementAndGet();
+        families = List.of();
+        members = Map.of();
+        REMAINDERS.clear();
+    }
 
-        private final CollationService collation;
-        private final CardDataService cards;
-        private final java.nio.file.Path root;
-        private final long run;
-        private final long walk;
-        private final java.util.Set<String> inPlay;
-        private final boolean shopOpen;
-        private final List<dev.gathering.core.card.SetRelease> sets;
-        private final List<dev.gathering.core.booster.ArchiveAudit.SetFacts> learned = new ArrayList<>();
-        private int at;
+    /** For the in-world tests, which have no network: archive packs are for one set holding these. */
+    public static void holdForTesting(Set<UUID> printings) {
+        STARTS.incrementAndGet();
+        REMAINDERS.clear();
+        members = Map.of("tst", List.of());
+        families = List.of("tst");
+        REMAINDERS.put("tst", CompletableFuture.completedFuture(List.copyOf(printings)));
+    }
 
-        Walk(CollationService collation, CardDataService cards, java.nio.file.Path root, long run, long walk,
-                java.util.Set<String> inPlay, boolean shopOpen, List<dev.gathering.core.card.SetRelease> sets) {
-            this.collation = collation;
-            this.cards = cards;
-            this.root = root;
-            this.run = run;
-            this.walk = walk;
-            this.inPlay = inPlay;
-            this.shopOpen = shopOpen;
-            this.sets = sets;
+    /**
+     * An archive pack for this loot table, if one comes up.
+     * <p>Called while loot is being rolled, so it does nothing that can block and nothing that can
+     * throw. Asked before the ordinary pack, and answering means the ordinary one is not asked at
+     * all: two packs out of one chest reads as a fault rather than as luck.
+     */
+    public static Optional<ItemStack> rollFor(String tableId, RandomSource random) {
+        // Before the string is touched. This runs for every loot table the game rolls.
+        List<String> findable = families;
+        if (findable.isEmpty() || random == null) {
+            return Optional.empty();
         }
+        // And asked here as well as at the warm. The list is emptied when collecting goes off, but a
+        // read of the switch costs nothing beside a loot roll, and it is the one answer that cannot
+        // be stale.
+        if (!ServerSettings.get().modes().collectionEnabled()) {
+            return Optional.empty();
+        }
+        ArchiveDrops where = ArchiveDrops.of(tableId).orElse(null);
+        if (where == null || random.nextInt(where.oneIn()) != 0) {
+            return Optional.empty();
+        }
+        return Optional.of(pack(findable.get(random.nextInt(findable.size()))));
+    }
 
-        /**
-         * The next set, and then the one after it, until history or this world runs out.
-         * <p>A loop over everything that can be answered off disk, and a hop onto the card worker
-         * after each set that had to be read. Chaining every set onto the last would recurse once per
-         * set wherever a future was already complete - which, on every start after the first, is
-         * almost all of seven hundred of them, and deep enough to overflow a stack.
-         */
-        CompletableFuture<Walk> next() {
-            while (at < sets.size()) {
-                if (!isCurrent()) {
-                    return CompletableFuture.completedFuture(this);
-                }
-                dev.gathering.core.card.SetRelease set = sets.get(at++);
-                Optional<dev.gathering.core.booster.ArchiveAudit.SetFacts> fromDisk = keptFor(set);
-                if (fromDisk.isPresent()) {
-                    learned(fromDisk);
-                    continue;
-                }
-                return factsFor(set)
-                        .exceptionally(failure -> {
-                            LOGGER.warn("Could not audit {} for the archive: {}", set.code(), failure.toString());
-                            return ArchiveFacts.read(root, set.code()).map(ArchiveFacts.Kept::facts);
-                        })
-                        .thenComposeAsync(facts -> {
-                            learned(facts);
-                            return next();
-                        }, collation.worker());
+    /**
+     * The families to try opening a pack as, in order: the one it names, then others at random.
+     * <p>On the server thread, with the level's random, so which set a pack for no set in particular
+     * opens as is decided the way every other roll is.
+     */
+    public static List<String> candidates(String asked, RandomSource random) {
+        Set<String> trying = new LinkedHashSet<>();
+        String named = asked == null ? "" : asked.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!named.isEmpty()) {
+            trying.add(named);
+        }
+        List<String> findable = families;
+        for (int roll = 0; roll < ATTEMPTS * 3 && trying.size() < ATTEMPTS && !findable.isEmpty() && random != null; roll++) {
+            trying.add(findable.get(random.nextInt(findable.size())));
+        }
+        return List.copyOf(trying);
+    }
+
+    /** One family's archive, when it holds anything. */
+    public record Found(String family, List<UUID> printings) {
+    }
+
+    /**
+     * The first of these families whose archive holds anything, worked out a family at a time.
+     * <p>A family found to hold nothing is struck off what packs can be found for, so the next pack
+     * is not for it.
+     */
+    public static CompletableFuture<Optional<Found>> firstWithCards(List<String> candidates) {
+        return tryFrom(candidates == null ? List.of() : List.copyOf(candidates), 0);
+    }
+
+    private static CompletableFuture<Optional<Found>> tryFrom(List<String> candidates, int at) {
+        if (at >= candidates.size()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        String family = candidates.get(at);
+        return remainderOf(family).thenCompose(printings -> {
+            if (!printings.isEmpty()) {
+                return CompletableFuture.completedFuture(Optional.of(new Found(family, printings)));
             }
-            publish(true);
-            return CompletableFuture.completedFuture(this);
-        }
-
-        private void learned(Optional<dev.gathering.core.booster.ArchiveAudit.SetFacts> facts) {
-            facts.ifPresent(learned::add);
-            if (at % PUBLISH_EVERY == 0) {
-                publish(false);
-            }
-        }
-
-        /** This set's facts off disk, where they still stand for the set as it is listed now. */
-        private Optional<dev.gathering.core.booster.ArchiveAudit.SetFacts> keptFor(
-                dev.gathering.core.card.SetRelease set) {
-            return ArchiveFacts.read(root, set.code())
-                    .filter(kept -> kept.stillGood(set.cardCount(), System.currentTimeMillis(),
-                            inPlay.contains(set.code())))
-                    .map(ArchiveFacts.Kept::facts);
-        }
-
-        /** This set's facts: off disk where they still hold, otherwise read again and kept. */
-        private CompletableFuture<Optional<dev.gathering.core.booster.ArchiveAudit.SetFacts>> factsFor(
-                dev.gathering.core.card.SetRelease set) {
-            boolean drawnFrom = inPlay.contains(set.code());
-            Optional<ArchiveFacts.Kept> kept = ArchiveFacts.read(root, set.code());
-            return cards.everyPrintingToAudit(set.code()).thenCompose(read -> {
-                if (read.isEmpty()) {
-                    // Short or unreadable: whatever was kept stands until it can be read whole.
-                    return CompletableFuture.completedFuture(kept.map(ArchiveFacts.Kept::facts));
+            if (members.containsKey(family)) {
+                List<String> left = new ArrayList<>(families);
+                if (left.remove(family)) {
+                    families = List.copyOf(left);
                 }
-                List<UUID> catalog = read.get().stream()
-                        .filter(dev.gathering.core.booster.ArchiveAudit::isACard)
-                        .map(dev.gathering.core.card.CardMetadata::scryfallId)
-                        .distinct()
-                        .toList();
-                if (!drawnFrom) {
-                    return CompletableFuture.completedFuture(Optional.of(keep(set,
-                            new dev.gathering.core.booster.ArchiveAudit.SetFacts(
-                                    set.code(), catalog, java.util.Set.of(), java.util.Set.of(), false))));
-                }
-                return collation.collationFor(set.code())
-                        .thenCombine(collation.catalogFor(set.code()), (packs, catalogued) -> Optional.of(keep(set,
-                                new dev.gathering.core.booster.ArchiveAudit.SetFacts(set.code(), catalog,
-                                        inBoosters(packs), inProducts(catalogued), true))));
-            });
-        }
-
-        private dev.gathering.core.booster.ArchiveAudit.SetFacts keep(
-                dev.gathering.core.card.SetRelease set, dev.gathering.core.booster.ArchiveAudit.SetFacts facts) {
-            ArchiveFacts.write(root, new ArchiveFacts.Kept(facts, System.currentTimeMillis(), set.cardCount()));
-            return facts;
-        }
-
-        /** Whether this walk is still the one this world is waiting for. */
-        private boolean isCurrent() {
-            return ServerRun.isStill(run) && WALKS.get() == walk;
-        }
-
-        private void publish(boolean finished) {
-            if (!isCurrent()) {
-                return;
             }
-            Set<UUID> remainder = dev.gathering.core.booster.ArchiveAudit.unobtainable(learned, inPlay, shopOpen);
-            sheet = CoverageAudit.archiveSheet(new CoverageReport(remainder.size(), remainder, java.util.Map.of()));
-            if (finished) {
-                LOGGER.info("Archive packs can be found: {} card(s) across {} set(s) of Magic's history that "
-                        + "nothing else reaches", sheet.size(), learned.size());
-            }
+            return tryFrom(candidates, at + 1);
+        });
+    }
+
+    /** What one family's archive holds, worked out the first time it is asked for in a run. */
+    static CompletableFuture<List<UUID>> remainderOf(String family) {
+        CompletableFuture<List<UUID>> known = REMAINDERS.get(family);
+        if (known != null) {
+            return known;
         }
+        List<SetRelease> sets = members.get(family);
+        if (sets == null) {
+            // Not a family this run knows - a pack from before, for a set since left out, or the list
+            // has not arrived yet. Nothing is remembered, so it is asked again once it can be answered.
+            return CompletableFuture.completedFuture(List.of());
+        }
+        CompletableFuture<List<UUID>> working = new CompletableFuture<>();
+        CompletableFuture<List<UUID>> raced = REMAINDERS.putIfAbsent(family, working);
+        if (raced != null) {
+            return raced;
+        }
+        long start = STARTS.get();
+        audit(sets).whenComplete((audited, failure) -> {
+            // runcheck: the answer is kept only while this start of the archive is still the current
+            // one, checked below, and handed to whoever opened the pack through the fence they put
+            // round it - PackOpening waits for it with ServerRun.onServerThread.
+            if (failure != null || !audited.whole() || STARTS.get() != start) {
+                // Something could not be read: answered for this opening, and asked again next time.
+                REMAINDERS.remove(family, working);
+            }
+            if (failure != null) {
+                LOGGER.warn("Could not work out the archive of {}", family, failure);
+                working.complete(List.of());
+            } else {
+                working.complete(audited.printings());
+            }
+        });
+        return working;
+    }
+
+    /** A family's remainder, and whether every one of its sets could be read to work it out. */
+    private record Audited(List<UUID> printings, boolean whole) {
+    }
+
+    /** Works out one family's remainder, one set at a time so the searches never pile up. */
+    private static CompletableFuture<Audited> audit(List<SetRelease> sets) {
+        var settings = ServerSettings.get();
+        CollationService collation = CollationService.active().orElse(null);
+        CardDataService cards = CardDataService.active().orElse(null);
+        if (collation == null || cards == null) {
+            return CompletableFuture.completedFuture(new Audited(List.of(), false));
+        }
+        boolean shopOpen = settings.collecting().sealedStoreEnabled();
+        java.nio.file.Path root = dev.gathering.platform.Platform.get().dataDirectory();
+        return SetsInPlay.wanted(settings).thenCompose(wanted -> {
+            Set<String> inPlay = Set.copyOf(wanted);
+            List<ArchiveAudit.SetFacts> learned = new ArrayList<>();
+            boolean[] whole = {true};
+            CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
+            for (SetRelease set : sets) {
+                chain = chain.thenCompose(ignored -> factsFor(collation, cards, root, set, inPlay.contains(set.code()))
+                        .thenAccept(facts -> {
+                            // runcheck: gathered into this audit's own list, which nothing outside it reads.
+                            if (facts.isPresent()) {
+                                learned.add(facts.get());
+                            } else {
+                                whole[0] = false;
+                            }
+                        }));
+            }
+            return chain.thenApply(ignored -> new Audited(
+                    List.copyOf(ArchiveAudit.unobtainable(learned, inPlay, shopOpen)), whole[0]));
+        });
+    }
+
+    /** One set's facts: off disk where they still hold, otherwise read again and kept. */
+    private static CompletableFuture<Optional<ArchiveAudit.SetFacts>> factsFor(CollationService collation,
+            CardDataService cards, java.nio.file.Path root, SetRelease set, boolean drawnFrom) {
+        Optional<ArchiveFacts.Kept> kept = ArchiveFacts.read(root, set.code());
+        if (kept.isPresent() && kept.get().stillGood(set.cardCount(), System.currentTimeMillis(), drawnFrom)) {
+            return CompletableFuture.completedFuture(kept.map(ArchiveFacts.Kept::facts));
+        }
+        return cards.everyPrintingToAudit(set.code()).thenCompose(read -> {
+            if (read.isEmpty()) {
+                // Short or unreadable: whatever was kept stands until it can be read whole.
+                return CompletableFuture.completedFuture(kept.map(ArchiveFacts.Kept::facts));
+            }
+            // Another language's copies of English cards left out; a set's own printings in another
+            // language - a Japanese bonus sheet, a promo only given out in Japan - kept.
+            List<UUID> catalog = dev.gathering.core.card.ForeignPrintings.keptIn(read.get(), set.type()).stream()
+                    .filter(ArchiveAudit::isACard)
+                    .map(dev.gathering.core.card.CardMetadata::scryfallId)
+                    .distinct()
+                    .toList();
+            if (!drawnFrom) {
+                return CompletableFuture.completedFuture(Optional.of(keep(root, set,
+                        new ArchiveAudit.SetFacts(set.code(), catalog, Set.of(), Set.of(), false))));
+            }
+            return collation.collationFor(set.code())
+                    .thenCombine(collation.catalogFor(set.code()), (packs, catalogued) -> Optional.of(keep(root, set,
+                            new ArchiveAudit.SetFacts(set.code(), catalog, inBoosters(packs), inProducts(catalogued),
+                                    true))));
+        }).exceptionally(failure -> {
+            LOGGER.warn("Could not audit {} for the archive: {}", set.code(), failure.toString());
+            return kept.map(ArchiveFacts.Kept::facts);
+        });
+    }
+
+    private static ArchiveAudit.SetFacts keep(java.nio.file.Path root, SetRelease set, ArchiveAudit.SetFacts facts) {
+        ArchiveFacts.write(root, new ArchiveFacts.Kept(facts, System.currentTimeMillis(), set.cardCount()));
+        return facts;
     }
 
     /** Every printing any of a set's boosters could hold. */
@@ -289,60 +380,20 @@ public final class Archive {
         return reached;
     }
 
-    /** Between servers, so one world's remainder is not the next one's. */
-    public static void clear() {
-        WALKS.incrementAndGet();
-        sheet = BoosterSheet.EMPTY;
-    }
-
-    /** For the in-world tests, which have no network to walk history over: the archive holds these. */
-    public static void holdForTesting(Set<UUID> printings) {
-        sheet = CoverageAudit.archiveSheet(new CoverageReport(printings.size(), printings, java.util.Map.of()));
-    }
-
-    /** Which walk over history is the current one; any other has been superseded. */
-    private static final java.util.concurrent.atomic.AtomicLong WALKS = new java.util.concurrent.atomic.AtomicLong();
-
     /**
-     * An archive pack for this loot table, if one comes up.
-     * <p>Called while loot is being rolled, so it does nothing that can block and nothing
-     * that can throw. Asked before the ordinary pack, and answering means the ordinary one is
-     * not asked at all: two packs out of one chest reads as a fault rather than as luck.
-     */
-    public static Optional<ItemStack> rollFor(String tableId, RandomSource random) {
-        // Before the string is touched. This runs for every loot table the game rolls.
-        if (sheet.isEmpty() || random == null) {
-            return Optional.empty();
-        }
-        // And asked here as well as at the warm. The sheet is emptied when collecting goes off,
-        // but a read of the switch costs nothing beside a loot roll, and it is the one answer
-        // that cannot be stale.
-        if (!ServerSettings.get().modes().collectionEnabled()) {
-            return Optional.empty();
-        }
-        ArchiveDrops where = ArchiveDrops.of(tableId).orElse(null);
-        if (where == null || random.nextInt(where.oneIn()) != 0) {
-            return Optional.empty();
-        }
-        return Optional.of(pack());
-    }
-
-    /**
-     * What is inside one.
+     * What is inside one, out of a family's archive.
      * <p>Drawn with replacement, like every other pack in this mod: a sheet is a sheet, and a
-     * remainder of two cards should still give three of them rather than refusing.
+     * remainder of two cards should still give three of them rather than refusing. Server thread,
+     * with the level's random.
      */
-    public static List<CardIdentity> open(RandomSource random) {
-        BoosterSheet holding = sheet;
-        if (holding.isEmpty() || random == null) {
+    public static List<dev.gathering.core.card.CardIdentity> draw(List<UUID> printings, RandomSource random) {
+        if (printings == null || printings.isEmpty() || random == null) {
             return List.of();
         }
-        List<CardIdentity> cards = new ArrayList<>(ArchiveDrops.CARDS);
-        long total = Math.max(1L, holding.total());
+        List<dev.gathering.core.card.CardIdentity> cards = new ArrayList<>(ArchiveDrops.CARDS);
         for (int index = 0; index < ArchiveDrops.CARDS; index++) {
-            cards.add(holding.identityOf(holding.at(Math.floorMod(random.nextLong(), total))));
+            cards.add(dev.gathering.core.card.CardIdentity.ofPrinting(printings.get(random.nextInt(printings.size()))));
         }
         return List.copyOf(cards);
     }
-
 }

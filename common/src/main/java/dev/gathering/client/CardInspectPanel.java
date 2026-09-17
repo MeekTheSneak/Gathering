@@ -4,6 +4,7 @@ import dev.gathering.Gathering;
 import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.CardText;
+import dev.gathering.core.ui.CardTextFit;
 import dev.gathering.core.ui.InspectLayout;
 import dev.gathering.core.story.CardStory;
 import dev.gathering.core.ui.Rect;
@@ -72,9 +73,9 @@ public final class CardInspectPanel {
      * tall depending on the player's GUI scale, and a fixed size that reads as a small
      * preview on one is most of the screen on another.
      */
-    // Big enough to actually read. A table screen shows its own preview in a place chosen to
-    // stay legible and renderAtCursor bows out on any screen that does, so what is left here
-    // is inventories and chests, where there is nothing behind worth protecting.
+    // Big enough to actually read. A screen whose own preview says everything the card says
+    // keeps renderAtCursor out, and one showing only the picture gets the words alone, so a
+    // panel with art is over inventories, the table and lists, where the card is small.
     //
     // Two thirds of a GUI-scale-3 window is a little over two hundred pixels of card. The text
     // column is sized from the art, so this is the one knob.
@@ -93,7 +94,10 @@ public final class CardInspectPanel {
     private static final int CURSOR_OFFSET_Y = -12;
     private static final int SCREEN_EDGE = 6;
 
-    /** The most of the window's height the panel beside the cursor may take. */
+    /**
+     * The most of the window's height the panel beside the cursor takes while the whole text
+     * fits in that. A wordy card may have the rest.
+     */
     private static final float MOST_OF_THE_WINDOW = 0.8f;
 
     /**
@@ -117,12 +121,26 @@ public final class CardInspectPanel {
             GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
             CardStory story, String strength, int anchorX, int anchorY,
             int screenWidth, int screenHeight) {
+        renderBeside(graphics, summary, foil, flipped, story, strength, anchorX, anchorY,
+                screenWidth, screenHeight, true);
+    }
+
+    /**
+     * The same, with or without the picture.
+     * <p>Without, for a screen already showing the card's picture somewhere of its own: the
+     * words are what it is missing, and a second picture chasing the cursor is not.
+     */
+    public static void renderBeside(
+            GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
+            CardStory story, String strength, int anchorX, int anchorY,
+            int screenWidth, int screenHeight, boolean withArt) {
         told = story == null ? CardStory.NONE : story;
         overwritten = strength;
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, OVER_ITEMS);
         try {
-            drawBeside(graphics, summary, foil, flipped, anchorX, anchorY, screenWidth, screenHeight);
+            drawBeside(graphics, summary, foil, flipped, anchorX, anchorY, screenWidth, screenHeight,
+                    withArt);
         } finally {
             graphics.pose().popPose();
             told = CardStory.NONE;
@@ -132,46 +150,84 @@ public final class CardInspectPanel {
 
     private static void drawBeside(
             GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
-            int anchorX, int anchorY, int screenWidth, int screenHeight) {
+            int anchorX, int anchorY, int screenWidth, int screenHeight, boolean withArt) {
         // Art per printed side, text per face: a split card is one picture and two rules
         // boxes. The side is the one the card is showing - a transformed permanent read from
         // the table used to be described by its front, which is a different card.
-        // One picture: the side the card is showing. It was a one-element list, built per call and
-        // looped over, left from when both sides were drawn side by side.
         CardFaceSummary shown = summary.sideShown(flipped);
+        List<CardFaceSummary> faces = summary.faces();
         Font font = Minecraft.getInstance().font;
+        float asked = GuiText.askedScale();
 
-        int artHeight = Mth.clamp(
-                Math.round(screenHeight * CURSOR_ART_FRACTION), CURSOR_ART_MIN, CURSOR_ART_MAX);
-        int artWidth = CardShape.widthFor(artHeight);
-        int content = Math.max(artWidth, CURSOR_TEXT_WIDTH);
+        int artHeight = withArt
+                ? Mth.clamp(Math.round(screenHeight * CURSOR_ART_FRACTION), CURSOR_ART_MIN, CURSOR_ART_MAX)
+                : 0;
+        int content = Math.max(withArt ? CardShape.widthFor(artHeight) : 0, CURSOR_TEXT_WIDTH);
 
         // A narrow screen, or a double-faced card, can want more width than there is.
-        int available = screenWidth - SCREEN_EDGE * 2 - PADDING * 2;
+        int available = Math.max(1, screenWidth - SCREEN_EDGE * 2 - PADDING * 2);
         if (content > available) {
             float scale = (float) available / content;
-            artHeight = Math.max(1, Math.round(artHeight * scale));
-            artWidth = CardShape.widthFor(artHeight);
+            artHeight = withArt ? Math.max(1, Math.round(artHeight * scale)) : 0;
             content = available;
         }
 
-        List<Line> text = describe(font, summary.faces(), content);
-        List<Line> credit = credit(font, content);
-        int creditHeight = GAP + heightOf(credit);
-        // Never more than this much of the window. The panel is read *while* looking at the
-        // board, so one that reaches from the top of the screen to the bottom has answered
-        // the question and taken away the reason for asking it.
-        int ceiling = Math.min(
-                screenHeight - SCREEN_EDGE * 2, Math.round(screenHeight * MOST_OF_THE_WINDOW));
-        int furniture = PADDING * 2 + GAP + heightOf(text) + creditHeight;
+        // Room first, and only then smaller letters. Reported by the owner: "the alt screen
+        // that opens when hovering over a card should have the entire card's text. It needs to
+        // not be cut off." The panel used to stop at eight tenths of the window and drop
+        // whatever was left over the edge, so a wordy card lost its last ability and a
+        // double-faced one could lose its whole back.
+        //
+        // In order: under the art at the height that leaves the board in view, under it at the
+        // window's height, beside it and widening, and under it as wide as the window. The first
+        // that holds every word at the asked size is the one drawn. Where none does, the
+        // roomiest is, and the text shrinks or takes columns to fit it - see CardTextFit.
+        int tallest = Math.max(1, screenHeight - SCREEN_EDGE * 2);
+        // Not the whole window when it need not be. The panel is read *while* looking at the
+        // board, so one that reaches from the top of the screen to the bottom has answered the
+        // question and taken away the reason for asking it.
+        int comfortable = Math.min(tallest, Math.round(screenHeight * MOST_OF_THE_WINDOW));
+        int underArt = withArt ? CURSOR_ART_FLOOR + GAP : 0;
 
-        // A wordy card takes the room out of the art rather than off the end of the text.
-        if (furniture + artHeight > ceiling) {
-            artHeight = Math.max(CURSOR_ART_FLOOR, ceiling - furniture);
-            artWidth = CardShape.widthFor(artHeight);
+        List<Shape> tried = new ArrayList<>();
+        tried.add(Shape.under(fitFor(font, faces, content, comfortable - PADDING * 2 - underArt),
+                content, comfortable));
+        tried.add(Shape.under(fitFor(font, faces, content, tallest - PADDING * 2 - underArt),
+                content, tallest));
+        if (withArt) {
+            int besideArt = Math.max(1, Math.min(artHeight, tallest - PADDING * 2));
+            int widest = available - CardShape.widthFor(besideArt) - GAP;
+            for (int wide = CURSOR_TEXT_WIDTH; wide <= widest && !whole(tried, asked); ) {
+                tried.add(Shape.beside(fitFor(font, faces, wide, tallest - PADDING * 2),
+                        besideArt, wide));
+                wide = wide == widest ? widest + 1 : Math.min(widest, wide * 4 / 3);
+            }
         }
-        int height = Math.min(ceiling, furniture + artHeight);
-        int width = content + PADDING * 2;
+        if (!whole(tried, asked)) {
+            tried.add(Shape.under(fitFor(font, faces, available, tallest - PADDING * 2 - underArt),
+                    available, tallest));
+        }
+        Shape shape = best(tried, asked);
+        CardTextFit fit = shape.fit();
+
+        int artShown;
+        int width;
+        int height;
+        if (shape.beside()) {
+            artShown = shape.art();
+            width = PADDING * 2 + CardShape.widthFor(artShown) + GAP + shape.textWidth();
+            height = PADDING * 2 + Math.max(artShown, fit.height());
+        } else {
+            // A wordy card takes the room out of the art rather than off the end of the text.
+            artShown = withArt
+                    ? Math.max(CURSOR_ART_FLOOR,
+                            Math.min(artHeight, shape.ceiling() - PADDING * 2 - GAP - fit.height()))
+                    : 0;
+            width = PADDING * 2 + shape.textWidth();
+            height = PADDING * 2 + (withArt ? artShown + GAP : 0) + fit.height();
+        }
+        height = Math.min(height, tallest);
+        int artWidth = CardShape.widthFor(artShown);
 
         int x = anchorX + CURSOR_OFFSET_X;
         if (x + width > screenWidth - SCREEN_EDGE) {
@@ -190,12 +246,72 @@ public final class CardInspectPanel {
         // turn, because this panel is already following the cursor and turning it as well
         // would be two things answering one hand. Same drawing either way, so a foil
         // looks like a foil wherever it is met.
-        drawFace(graphics, shown, Holding.inspected(foil, grainOf(summary)),
-                x + PADDING + (content - artWidth) / 2, y + PADDING, artWidth, artHeight, true);
-        int textTop = y + PADDING + artHeight + GAP;
-        int textBottom = y + height - PADDING - creditHeight;
-        draw(graphics, font, text, x + PADDING, textTop, textBottom);
-        draw(graphics, font, credit, x + PADDING, textBottom + GAP, y + height - PADDING);
+        if (shape.beside()) {
+            drawFace(graphics, shown, Holding.inspected(foil, grainOf(summary)),
+                    x + PADDING, y + PADDING, artWidth, artShown, true);
+            drawFitted(graphics, font, faces, fit,
+                    x + PADDING + artWidth + GAP, y + PADDING, shape.textWidth(), fit.height());
+            return;
+        }
+        int textTop = y + PADDING;
+        if (withArt) {
+            drawFace(graphics, shown, Holding.inspected(foil, grainOf(summary)),
+                    x + PADDING + (shape.textWidth() - artWidth) / 2, y + PADDING,
+                    artWidth, artShown, true);
+            textTop += artShown + GAP;
+        }
+        drawFitted(graphics, font, faces, fit, x + PADDING, textTop, shape.textWidth(), fit.height());
+    }
+
+    /**
+     * One way of laying out the panel beside the cursor, and how the text came out in it.
+     *
+     * @param beside    whether the text is beside the art rather than under it
+     * @param art       the art's height, when beside
+     * @param textWidth the text's column, across
+     * @param ceiling   the tallest the panel may be, when under
+     */
+    private record Shape(CardTextFit fit, boolean beside, int art, int textWidth, int ceiling) {
+
+        static Shape under(CardTextFit fit, int textWidth, int ceiling) {
+            return new Shape(fit, false, 0, textWidth, ceiling);
+        }
+
+        static Shape beside(CardTextFit fit, int art, int textWidth) {
+            return new Shape(fit, true, art, textWidth, 0);
+        }
+    }
+
+    private static boolean whole(List<Shape> tried, float asked) {
+        return tried.stream().anyMatch(shape -> shape.fit().isWhole(asked));
+    }
+
+    /**
+     * The first shape that holds all of it at the asked size, or else the one where it came out
+     * largest: all of it before some of it, bigger letters before smaller, fewer columns before
+     * more. Ties go to the earlier shape, which is the smaller panel.
+     */
+    private static Shape best(List<Shape> tried, float asked) {
+        Shape best = tried.get(0);
+        for (Shape shape : tried) {
+            if (shape.fit().isWhole(asked)) {
+                return shape;
+            }
+            if (better(shape.fit(), best.fit())) {
+                best = shape;
+            }
+        }
+        return best;
+    }
+
+    private static boolean better(CardTextFit one, CardTextFit other) {
+        if (one.fits() != other.fits()) {
+            return one.fits();
+        }
+        if (one.scale() != other.scale()) {
+            return one.scale() > other.scale();
+        }
+        return one.columns() < other.columns();
     }
 
     /**
@@ -289,11 +405,8 @@ public final class CardInspectPanel {
             return;
         }
         Font font = Minecraft.getInstance().font;
-        List<Line> credit = credit(font, width);
-        int creditTop = y + height - heightOf(credit);
-
-        draw(graphics, font, describe(font, summary.faces(), width), x, y, creditTop - GAP);
-        draw(graphics, font, credit, x, creditTop, y + height);
+        drawFitted(graphics, font, summary.faces(),
+                fitFor(font, summary.faces(), width, height), x, y, width, height);
     }
 
     /**
@@ -498,20 +611,95 @@ public final class CardInspectPanel {
         GatheringSprites.panel(graphics, x, y, width, height);
 
         Font font = Minecraft.getInstance().font;
-        int textWidth = width - PADDING * 2;
-        List<Line> credit = credit(font, textWidth);
-        int creditTop = y + height - PADDING - heightOf(credit);
-
-        draw(graphics, font, describe(font, faces, textWidth), x + PADDING, y + PADDING, creditTop - GAP);
-        draw(graphics, font, credit, x + PADDING, creditTop, y + height - PADDING);
+        int textWidth = Math.max(1, width - PADDING * 2);
+        int textHeight = Math.max(1, height - PADDING * 2);
+        drawFitted(graphics, font, faces, fitFor(font, faces, textWidth, textHeight),
+                x + PADDING, y + PADDING, textWidth, textHeight);
     }
+
+    /**
+     * Everything a card says, fitted to a box and drawn there whole: columns flowed the way
+     * {@link CardTextFit} measured them, at the size it chose, the credit pinned to the bottom.
+     */
+    private static void drawFitted(GuiGraphics graphics, Font font, List<CardFaceSummary> faces,
+            CardTextFit fit, int x, int y, int width, int height) {
+        float scale = fit.scale();
+        List<Line> lines = describe(font, faces, fit.columnWrap(), fit.withStory());
+        int[] heights = heightsOf(font, lines);
+        int[] starts = CardTextFit.flow(heights, fit.capacity(), fit.columns());
+        if (starts.length == 0) {
+            // Only when no arrangement holds all of it - a window too small for any text. The
+            // most that fits, from the top.
+            starts = new int[] {0};
+        }
+        int across = (width - CardTextFit.COLUMN_GAP * (fit.columns() - 1)) / fit.columns();
+        for (int column = 0; column < starts.length; column++) {
+            int end = column + 1 < starts.length ? starts[column + 1] : lines.size();
+            drawScaled(graphics, font, lines.subList(starts[column], end),
+                    x + column * (across + CardTextFit.COLUMN_GAP), y, scale, fit.capacity());
+        }
+
+        List<Line> credit = credit(font, fit.creditWrap());
+        int creditHeight = 0;
+        for (int line : heightsOf(font, credit)) {
+            creditHeight += line;
+        }
+        drawScaled(graphics, font, credit,
+                x, y + height - CardTextFit.scaled(creditHeight, scale), scale, Integer.MAX_VALUE);
+    }
+
+    /**
+     * The fit for this card's text in a box this size, remembered.
+     * <p>Finding it wraps the whole text once per size tried, and the panel beside the cursor
+     * asks about several boxes every frame. The answer only changes with the card, the box and
+     * the text size, so it is kept for as long as those stay put.
+     */
+    private static CardTextFit fitFor(Font font, List<CardFaceSummary> faces, int width, int height) {
+        float asked = GuiText.askedScale();
+        FitKey key = new FitKey(faces, told, overwritten, width, height, asked,
+                Minecraft.getInstance().getLanguageManager().getSelected());
+        CardTextFit known = FITS.get(key);
+        if (known != null) {
+            return known;
+        }
+        CardTextFit fit = CardTextFit.of(width, height, asked, new CardTextFit.Measure() {
+            @Override
+            public int[] lines(int wrapWidth, boolean withStory) {
+                return heightsOf(font, describe(font, faces, wrapWidth, withStory));
+            }
+
+            @Override
+            public int[] credit(int wrapWidth) {
+                return heightsOf(font, CardInspectPanel.credit(font, wrapWidth));
+            }
+        });
+        FITS.put(key, fit);
+        return fit;
+    }
+
+    private record FitKey(List<CardFaceSummary> faces, CardStory story, String strength,
+            int width, int height, float scale, String language) {
+    }
+
+    /** A few frames' worth: the panel beside the cursor tries up to about eight boxes. */
+    private static final int FITS_KEPT = 32;
+
+    // statecheck: arithmetic about card text and box sizes, keyed by all of it, never a world's
+    private static final java.util.Map<FitKey, CardTextFit> FITS =
+            new java.util.LinkedHashMap<>(FITS_KEPT, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<FitKey, CardTextFit> eldest) {
+                    return size() > FITS_KEPT;
+                }
+            };
 
     /**
      * Everything worth saying about a card, wrapped to a width.
      * <p>Measured up front so a panel that has to size itself around the text can ask how
      * tall it will be before drawing any of it.
      */
-    private static List<Line> describe(Font font, List<CardFaceSummary> faces, int width) {
+    private static List<Line> describe(
+            Font font, List<CardFaceSummary> faces, int width, boolean withStory) {
         List<Line> lines = new ArrayList<>();
         for (int index = 0; index < faces.size(); index++) {
             CardFaceSummary face = faces.get(index);
@@ -524,7 +712,9 @@ public final class CardInspectPanel {
             wrap(lines, font, face.oracleText(), width, TEXT);
             strengthLine(lines, font, face, width);
         }
-        tell(lines, font, width);
+        if (withStory) {
+            tell(lines, font, width);
+        }
         return lines;
     }
 
@@ -633,27 +823,36 @@ public final class CardInspectPanel {
         }
     }
 
-    private static int heightOf(List<Line> lines) {
-        Font font = Minecraft.getInstance().font;
-        int height = 0;
-        for (Line line : lines) {
-            height += line.height(font);
+    private static int[] heightsOf(Font font, List<Line> lines) {
+        int[] heights = new int[lines.size()];
+        for (int index = 0; index < heights.length; index++) {
+            heights[index] = lines.get(index).height(font);
         }
-        return height;
+        return heights;
     }
 
-    private static void draw(GuiGraphics graphics, Font font, List<Line> lines, int x, int y, int bottom) {
-        int line = y;
+    /**
+     * Lines drawn down from a point at one size.
+     * <p>The bottom is in the same unscaled units the lines are measured in, and only ever
+     * reached when no fit holds the whole text.
+     */
+    private static void drawScaled(GuiGraphics graphics, Font font, List<Line> lines,
+            int x, int y, float scale, int bottom) {
+        graphics.pose().pushPose();
+        graphics.pose().translate(x, y, 0f);
+        graphics.pose().scale(scale, scale, 1f);
+        int line = 0;
         for (Line item : lines) {
             int height = item.height(font);
             if (line + height > bottom) {
                 break;
             }
             if (item.text() != null) {
-                graphics.drawString(font, item.text(), x, line, item.color(), false);
+                graphics.drawString(font, item.text(), 0, line, item.color(), false);
             }
             line += height;
         }
+        graphics.pose().popPose();
     }
 
     private static String header(CardFaceSummary face) {

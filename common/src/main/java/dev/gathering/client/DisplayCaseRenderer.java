@@ -20,15 +20,9 @@ import org.joml.Quaternionf;
  */
 public final class DisplayCaseRenderer implements BlockEntityRenderer<DisplayCaseBlockEntity> {
 
-    /** How tall a card stands in the case, as a fraction of a block. It is a counter, not a cabinet. */
-    private static final float TALL = 0.34f;
-
     /** The middle of the block, and the height a card's own middle sits at. */
     private static final float MIDDLE = 0.5f;
     private static final float STANDS_AT = 0.6875f;
-
-    /** How far apart the four of them stand, across the front of the block. */
-    private static final float APART = 0.21f;
 
     /**
      * How far the cards lean, in degrees.
@@ -51,18 +45,17 @@ public final class DisplayCaseRenderer implements BlockEntityRenderer<DisplayCas
         Direction facing = display.getBlockState().hasProperty(HorizontalDirectionalBlock.FACING)
                 ? display.getBlockState().getValue(HorizontalDirectionalBlock.FACING)
                 : Direction.SOUTH;
-        // Centered as a row however many are in it, so two cards sit in the middle of the case rather
-        // than at one end of a row of four gaps.
-        float from = -APART * (showing.size() - 1) / 2f;
         for (int at = 0; at < showing.size(); at++) {
             poseStack.pushPose();
             poseStack.translate(MIDDLE, STANDS_AT, MIDDLE);
             // The cards face the way the case does. A card drawn facing north in a case facing south is a
             // case a player has to walk round the back of to read.
             poseStack.mulPose(new Quaternionf().rotateY((float) Math.toRadians(-facing.toYRot())));
-            poseStack.translate(from + APART * at, 0f, 0f);
+            // Spaced by DisplayCaseRow, which checks they fit inside the glass without touching.
+            poseStack.translate(dev.gathering.core.ui.DisplayCaseRow.offsetOf(at, showing.size()), 0f, 0f);
             poseStack.mulPose(new Quaternionf().rotateX((float) Math.toRadians(LEANS)));
-            poseStack.scale(TALL, TALL, TALL);
+            float tall = dev.gathering.core.ui.DisplayCaseRow.TALL;
+            poseStack.scale(tall, tall, tall);
             // The card renderer draws in a one-by-one space with its origin at a corner, and centers
             // itself within it; undo the centering it is about to do.
             poseStack.translate(-0.5f, -0.5f, -0.5f);

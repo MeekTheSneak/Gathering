@@ -178,6 +178,18 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         return sideRows.size();
     }
 
+    /** The preview column is a picture. The words come from the read key. */
+    @Override
+    public boolean previewsTheText() {
+        return false;
+    }
+
+    /** And there is no column at all on a narrow window. */
+    @Override
+    public boolean previewsTheArt() {
+        return !preview.isEmpty();
+    }
+
     @Override
     protected void init() {
         int top = MARGIN + HEADER;

@@ -1,7 +1,7 @@
 package dev.gathering.client;
 
 import dev.gathering.core.tournament.HostActions;
-import dev.gathering.core.tournament.MatchResult;
+import dev.gathering.core.tournament.ResultTally;
 import dev.gathering.core.ui.EventScreenLayout;
 import dev.gathering.core.ui.InterfaceScale;
 import dev.gathering.core.ui.Rect;
@@ -49,8 +49,6 @@ public final class EventScreen extends Screen {
     private int prizePlace = 1;
     /** Whether the overview is showing a match's result buttons on their own, where they did not fit beside it. */
     private boolean reporting;
-    /** Which page of result buttons shows, where there are more than fit at once. */
-    private int resultPage;
     private EventScreenLayout layout = EventScreenLayout.of(854, 480, 100, 1f, 9);
     private final FocusKeeper focus = new FocusKeeper();
 
@@ -117,6 +115,7 @@ public final class EventScreen extends Screen {
     protected void init() {
         layout = EventScreenLayout.of(this.width, this.height, ClientSettings.controlScale(), GuiText.askedScale(),
                 this.font.lineHeight);
+        tallyLabels.clear();
         int tabs = view.youHost() ? 4 : 3;
         for (int index = 0; index < tabs; index++) {
             Tab each = Tab.values()[index];
@@ -132,9 +131,6 @@ public final class EventScreen extends Screen {
             case OVERVIEW -> overview(doneX);
             case STANDINGS, PAIRINGS -> paging(doneX);
             case HOST -> host(doneX);
-        }
-        if (tab != Tab.OVERVIEW && tab != Tab.PAIRINGS) {
-            resultPage = 0;
         }
         add("done", GatheringButtons.of(doneX, layout.bottomRow(), doneWidth, layout.row(), done, this::onClose));
         // Buttons side by side draw their words at one size, not each at whatever its own
@@ -154,26 +150,33 @@ public final class EventScreen extends Screen {
         int x = layout.left();
         int y = layout.bottomRow();
         int room = doneX - layout.gap() - x;
-        EventViewPayload.Mine reportingOn = view.mine();
-        if (reporting && (reportingOn.table() <= 0 || !reportingOn.confirmed().isEmpty())) {
-            // The match was settled while its buttons were up: back to the overview, which says so.
+        EventViewPayload.Mine mine = view.mine();
+        boolean reportable = mine.table() > 0 && mine.confirmed().isEmpty();
+        if (reportable) {
+            String key = mine.table() + "|" + mine.myReport() + "|" + mine.theirReport() + "|" + mine.suggested();
+            if (!key.equals(tallyFor)) {
+                // Something new was said about the match: start again from it, so confirming what the
+                // opponent or the table already said is one press.
+                tallyFor = key;
+                tally = ResultTally.startingFrom(mine.myReport(), mine.theirReport(), mine.suggested());
+            }
+        }
+        if (reporting && !reportable) {
+            // The match was settled while its counts were up: back to the overview, which says so.
             reporting = false;
         }
         if (reporting) {
             Component back = Component.translatable("gui.back");
-            int top = resultsTop(true);
-            List<MatchResult> results = resultsForMe();
-            int pageSize = resultsPerPage(results.size(), top);
-            // Room for the page arrows beside it first, when there is more than one page.
-            int arrows = pageSize < results.size() ? arrowWidth() * 2 + layout.gap() * 3 : 0;
-            int backWidth = Math.max(1, Math.min(widthFor(back, 90), room - arrows));
+            Button submit = submitButton(mine);
+            int backWidth = Math.max(1, Math.min(widthFor(back, 90), (room - layout.gap()) / 2));
             add("report:back", GatheringButtons.of(x, y, backWidth, layout.row(), back, () -> {
                 reporting = false;
-                resultPage = 0;
                 refresh();
             }));
-            resultButtons(results, top, pageSize);
-            resultPaging(results.size(), pageSize, x + backWidth + layout.gap() * 2, y, "report");
+            submit.setRectangle(Math.max(1, Math.min(submit.getWidth(), room - backWidth - layout.gap())), layout.row(),
+                    x + backWidth + layout.gap(), y);
+            add("report:send", submit);
+            tallyRows("report", resultsTop(true), youName(), mine.opponent(), () -> tally, chosen -> tally = chosen, null);
             return;
         }
         boolean signingUp = "signup".equals(view.phase()) || "check_in".equals(view.phase());
@@ -198,12 +201,11 @@ public final class EventScreen extends Screen {
             row.add(bottomButton("screen.gathering.event.practice", this::practice));
             names.add("practice");
         }
-        EventViewPayload.Mine mine = view.mine();
-        boolean reportable = mine.table() > 0 && mine.confirmed().isEmpty();
-        boolean resultsFit = reportable && resultsFit(resultsTop(false));
-        if (reportable && !resultsFit) {
-            // Too many result buttons for the room beside the match at these sizes: a button that
-            // shows them on their own, rather than buttons squeezed smaller than the player asked.
+        Button submit = reportable ? submitButton(mine) : null;
+        boolean countsFit = reportable && tallyFits(resultsTop(false), youName(), mine.opponent(), submit.getWidth());
+        if (reportable && !countsFit) {
+            // No room for the counts beside the match at these sizes: a button that shows them on their
+            // own, rather than counts squeezed smaller than the player asked.
             row.add(0, bottomButton("screen.gathering.event.report_result", () -> {
                 reporting = true;
                 refresh();
@@ -211,43 +213,42 @@ public final class EventScreen extends Screen {
             names.add(0, "report:open");
         }
         layoutRow(row, names, x, y, room);
-        if (resultsFit) {
-            List<MatchResult> results = resultsForMe();
-            resultButtons(results, resultsTop(false), results.size());
+        if (countsFit) {
+            tallyRows("report", resultsTop(false), youName(), mine.opponent(), () -> tally, chosen -> tally = chosen, submit);
         }
     }
 
-    /** How many result buttons show at once from {@code top}: every one if they fit, else as many whole rows as do. */
-    private int resultsPerPage(int count, int top) {
-        int perRow = layout.perRow(count, narrowestResult());
-        int rowsThatFit = Math.max(1, (layout.bodyBottom() - top + layout.gap()) / (layout.row() + layout.gap()));
-        return Math.min(count, rowsThatFit * perRow);
+    /**
+     * The button that sends the player's counts: Confirm where they match what the opponent said,
+     * Submit otherwise, grayed with the reason where the counts are not a result or were already sent.
+     */
+    private Button submitButton(EventViewPayload.Mine mine) {
+        boolean confirming = !mine.theirReport().isEmpty() && tally.label().equals(mine.theirReport());
+        Component label = Component.translatable(confirming ? "screen.gathering.event.confirm" : "screen.gathering.event.submit");
+        Button submit = GatheringButtons.of(0, 0, widthFor(label, 70), layout.row(), label, () -> tally
+                .result(view.bestOf(), view.elimination())
+                .ifPresent(result -> send(EventActionPayload.Action.REPORT, 0, result.winsA(), result.winsB(),
+                        result.draws(), EventActionPayload.NONE)));
+        java.util.Optional<Component> why = refusalOf(tally)
+                .or(() -> tally.label().equals(mine.myReport())
+                        ? java.util.Optional.of(Component.translatable("screen.gathering.event.tally.sent"))
+                        : java.util.Optional.empty());
+        why.ifPresent(reason -> {
+            submit.active = false;
+            submit.setTooltip(Tooltip.create(reason));
+        });
+        return submit;
+    }
+
+    /** Why these counts cannot be sent, in words, or empty when they can. */
+    private java.util.Optional<Component> refusalOf(ResultTally counts) {
+        return counts.refusal(view.bestOf(), view.elimination()).map(refusal -> Component.translatable(
+                "screen.gathering.event.tally." + refusal.name().toLowerCase(java.util.Locale.ROOT)));
     }
 
     /** A page arrow: square, a row tall, and never narrower than the control size asks. */
     private int arrowWidth() {
         return Math.max(layout.row(), Math.round(24 * InterfaceScale.asFraction(ClientSettings.controlScale())));
-    }
-
-    /** Arrows through the pages of result buttons, when there is more than one page. */
-    private void resultPaging(int count, int pageSize, int x, int y, String name) {
-        int pages = (count + pageSize - 1) / Math.max(1, pageSize);
-        if (pages <= 1) {
-            return;
-        }
-        resultPage = Math.min(resultPage, pages - 1);
-        int arrow = arrowWidth();
-        var back = add(name + ":earlier", GatheringButtons.of(x, y, arrow, layout.row(), Component.literal("<"), () -> {
-            resultPage = Math.max(0, resultPage - 1);
-            refresh();
-        }));
-        var forward = add(name + ":later", GatheringButtons.of(x + arrow + layout.gap(), y, arrow, layout.row(),
-                Component.literal(">"), () -> {
-                    resultPage = Math.min(pages - 1, resultPage + 1);
-                    refresh();
-                }));
-        back.active = resultPage > 0;
-        forward.active = resultPage < pages - 1;
     }
 
     private Button bottomButton(String key, Runnable action) {
@@ -272,58 +273,111 @@ public final class EventScreen extends Screen {
         }
     }
 
-    /** Where a match's result buttons start: under the match, or at the top of the body when shown on their own. */
+    /** Where a match's counts start: under the match, or at the top of the body when shown on their own. */
     private int resultsTop(boolean onTheirOwn) {
         // On their own, under two lines: the table, and what to do.
         return onTheirOwn ? layout.bodyTop() + layout.line() * 2 + layout.gap() : layout.bodyTop() + layout.line() * 4;
     }
 
-    private boolean resultsFit(int top) {
-        List<MatchResult> results = resultsForMe();
-        return top + layout.heightOfRows(layout.rowsFor(results.size(), narrowestResult())) <= layout.bodyBottom();
+    // ------------------------------------------------------------------ counting a result
+
+    /** A name drawn beside a row of counts. */
+    private record TallyLabel(Component text, int x, int y, int width) {
     }
 
-    /** The narrowest a result button may be and still show "2-1-1" at the text size asked. */
-    private int narrowestResult() {
-        return widthFor(Component.literal("2-1-1"), 40);
+    /** The names beside the rows of counts on screen now, drawn with the rest of the writing. */
+    private final List<TallyLabel> tallyLabels = new java.util.ArrayList<>();
+
+    /** The counts the player is entering for their match, and what they were started from. */
+    private ResultTally tally = ResultTally.NONE;
+    private String tallyFor = "";
+
+    /** The counts the host is entering for the table they picked, and which table that was. */
+    private ResultTally settling = ResultTally.NONE;
+    private int settlingTable = -1;
+
+    /** How wide one count's button is: square to a row, or as wide as its digit asks at the text size. */
+    private int countWidth() {
+        return Math.max(layout.row(), labelWidth(Component.literal("0")));
     }
 
-    /** A page of this player's result buttons from {@code top}, {@code pageSize} to a page. */
-    private void resultButtons(List<MatchResult> results, int top, int pageSize) {
-        EventViewPayload.Mine mine = view.mine();
-        if (mine.table() <= 0 || !mine.confirmed().isEmpty()) {
-            return;
+    /** How wide the names beside the rows are: the longest of them, but never more than a third of the body. */
+    private int tallyLabelWidth(String first, String second) {
+        int widest = 0;
+        for (Component name : List.of(Component.literal(first), Component.literal(second),
+                Component.translatable("screen.gathering.event.tally.draws"))) {
+            widest = Math.max(widest, Math.round(this.font.width(name) * GuiText.askedScale()));
         }
-        int perRow = layout.perRow(results.size(), narrowestResult());
-        int width = (layout.bodyWidth() - layout.gap() * (perRow - 1)) / perRow;
-        int from = Math.min(results.size(), resultPage * pageSize);
-        for (int index = from; index < Math.min(results.size(), from + pageSize); index++) {
-            MatchResult result = results.get(index);
-            String label = result.label();
-            int at = index - from;
-            add("report:" + label, GatheringButtons.toggle(layout.left() + at % perRow * (width + layout.gap()),
-                    top + at / perRow * (layout.row() + layout.gap()), width, layout.row(), Component.literal(label),
-                    () -> label.equals(mine.myReport()), () -> send(EventActionPayload.Action.REPORT, 0,
-                            result.winsA(), result.winsB(), result.draws(), EventActionPayload.NONE)));
-        }
+        return Math.min(widest + layout.gap() * 2, layout.bodyWidth() / 3);
+    }
+
+    /** How many rows the counts take: three, and a fourth for the button when it does not fit beside the last. */
+    private int tallyRowCount(int buttonWidth, int labelWidth) {
+        int beside = labelWidth + (ResultTally.mostDraws(view.bestOf()) + 1) * (countWidth() + layout.gap()) + layout.gap();
+        return beside + buttonWidth <= layout.bodyWidth() ? 3 : 4;
+    }
+
+    /** How tall the counts stand, with the button that sends them. */
+    private int tallyHeight(String first, String second, int buttonWidth) {
+        return layout.heightOfRows(tallyRowCount(buttonWidth, tallyLabelWidth(first, second)));
+    }
+
+    /** Whether the counts, and the button that sends them, fit from {@code top}. */
+    private boolean tallyFits(int top, String first, String second, int buttonWidth) {
+        int widest = tallyLabelWidth(first, second) + (ResultTally.mostWins(view.bestOf()) + 1) * (countWidth() + layout.gap());
+        return widest <= layout.bodyWidth() && top + tallyHeight(first, second, buttonWidth) <= layout.bodyBottom();
+    }
+
+    private static String youName() {
+        return Component.translatable("screen.gathering.event.tally.you").getString();
     }
 
     /**
-     * The results this player is offered: every usual one, and what the table saw when that is not
-     * among them - one to none with two drawn, say - so what the table suggests is one press.
+     * Three rows of counts from {@code top}: games the first side won, games the second won, games
+     * drawn - each a row of buttons from none up to the most there can be, the chosen one lit. The
+     * button that sends them goes beside the last row, or under it where it does not fit, when there
+     * is one to place.
      */
-    private List<MatchResult> resultsForMe() {
-        List<MatchResult> results = new java.util.ArrayList<>(offeredResults());
-        MatchResult.parse(view.mine().suggested())
-                .filter(seen -> seen.fits(view.bestOf()) && !(view.elimination() && seen.isDraw()))
-                .filter(seen -> !results.contains(seen))
-                .ifPresent(seen -> results.add(0, seen));
-        return results;
+    private void tallyRows(String name, int top, String first, String second,
+            java.util.function.Supplier<ResultTally> counts, java.util.function.Consumer<ResultTally> choose, Button send) {
+        int labelWidth = tallyLabelWidth(first, second);
+        int count = countWidth();
+        int step = layout.row() + layout.gap();
+        int left = layout.left();
+        int[] most = {ResultTally.mostWins(view.bestOf()), ResultTally.mostWins(view.bestOf()),
+            ResultTally.mostDraws(view.bestOf())};
+        Component[] names = {Component.literal(first), Component.literal(second),
+            Component.translatable("screen.gathering.event.tally.draws")};
+        for (int row = 0; row < 3; row++) {
+            int y = top + row * step;
+            tallyLabels.add(new TallyLabel(names[row], left, y + (layout.row() - layout.line()) / 2 + 1,
+                    labelWidth - layout.gap()));
+            for (int value = 0; value <= most[row]; value++) {
+                int which = row;
+                int chosen = value;
+                add(name + ":" + row + ":" + value, GatheringButtons.toggle(left + labelWidth + value * (count + layout.gap()),
+                        y, count, layout.row(), Component.literal(Integer.toString(value)),
+                        () -> countOf(counts.get(), which) == chosen, () -> {
+                            ResultTally now = counts.get();
+                            choose.accept(which == 0 ? now.withMine(chosen)
+                                    : which == 1 ? now.withTheirs(chosen) : now.withDraws(chosen));
+                            refresh();
+                        }));
+            }
+        }
+        if (send == null) {
+            return;
+        }
+        if (tallyRowCount(send.getWidth(), labelWidth) == 3) {
+            send.setRectangle(send.getWidth(), layout.row(), left + layout.bodyWidth() - send.getWidth(), top + 2 * step);
+        } else {
+            send.setRectangle(Math.min(send.getWidth(), layout.bodyWidth()), layout.row(), left, top + 3 * step);
+        }
+        add(name + ":send", send);
     }
 
-    /** The results this event's matches can be reported as, from the first chair. */
-    private List<MatchResult> offeredResults() {
-        return MatchResult.offered(view.bestOf(), view.elimination());
+    private static int countOf(ResultTally counts, int row) {
+        return row == 0 ? counts.mine() : row == 1 ? counts.theirs() : counts.draws();
     }
 
     private void practice() {
@@ -356,22 +410,13 @@ public final class EventScreen extends Screen {
         int y = layout.bottomRow();
         int count = tab == Tab.STANDINGS ? view.standings().size() : view.pairings().size();
         int arrow = Math.max(layout.row(), Math.round(24 * InterfaceScale.asFraction(ClientSettings.controlScale())));
-        // With a table picked and no room left for the list, the arrows turn the pages of its results.
-        boolean pagingResults = tab == Tab.PAIRINGS && view.youHost() && chosenMatch() != null && perPage() == 0;
         var back = add("page:back", GatheringButtons.of(x, y, arrow, layout.row(), Component.literal("<"), () -> {
-            if (pagingResults) {
-                resultPage = Math.max(0, resultPage - 1);
-            } else {
-                page = Math.max(0, page - 1);
-            }
+            page = Math.max(0, page - 1);
             refresh();
         }));
         var forward = add("page:forward", GatheringButtons.of(x + arrow + layout.gap(), y, arrow, layout.row(),
                 Component.literal(">"), () -> {
-                    if (pagingResults) {
-                        resultPage++;
-                        refresh();
-                    } else if ((page + 1) * Math.max(1, perPage()) < count) {
+                    if ((page + 1) * Math.max(1, perPage()) < count) {
                         page++;
                         refresh();
                     }
@@ -413,31 +458,23 @@ public final class EventScreen extends Screen {
                         refresh();
                     }));
         }
-        // The results a match of this length can end in, as the players' own buttons offer, on rows
-        // of their own above the page buttons - a page of them at a time, where the window is too small
-        // for them all at the sizes asked, turned by the same arrows the list uses.
-        List<MatchResult> results = offeredResults();
-        int perRow = layout.perRow(results.size(), narrowestResult());
-        int rows = layout.rowsFor(results.size(), narrowestResult());
-        int each = (layout.bodyWidth() - layout.gap() * (perRow - 1)) / perRow;
-        boolean allFit = !pagingResults;
-        int top = allFit ? settleTop(rows) : listTop() + listLine() + layout.gap();
-        int pageSize = allFit ? results.size() : resultsPerPage(results.size(), top);
-        int pages = (results.size() + pageSize - 1) / Math.max(1, pageSize);
-        resultPage = Math.min(resultPage, pages - 1);
-        if (!allFit) {
-            back.active = resultPage > 0;
-            forward.active = resultPage < pages - 1;
+        // The match's counts, as the players enter theirs, from the first player's chair: on rows of
+        // their own above the page buttons, or under the picked match where the list has no room.
+        if (settlingTable != chosen.table()) {
+            settlingTable = chosen.table();
+            settling = ResultTally.of(chosen.result()).orElse(ResultTally.NONE);
         }
-        int firstResult = resultPage * pageSize;
-        for (int index = firstResult; index < Math.min(results.size(), firstResult + pageSize); index++) {
-            MatchResult result = results.get(index);
-            int at = index - firstResult;
-            add("settle:" + chosen.table() + ":" + result.label(), GatheringButtons.of(x + at % perRow * (each + layout.gap()),
-                    top + at / perRow * (layout.row() + layout.gap()), each, layout.row(), Component.literal(result.label()),
-                    () -> send(EventActionPayload.Action.SETTLE, chosen.table(), result.winsA(), result.winsB(),
-                            result.draws(), EventActionPayload.NONE)));
-        }
+        Component record = Component.translatable("screen.gathering.event.record");
+        Button settle = GatheringButtons.of(0, 0, widthFor(record, 70), layout.row(), record, () -> settling
+                .result(view.bestOf(), view.elimination())
+                .ifPresent(result -> send(EventActionPayload.Action.SETTLE, chosen.table(), result.winsA(), result.winsB(),
+                        result.draws(), EventActionPayload.NONE)));
+        refusalOf(settling).ifPresent(why -> {
+            settle.active = false;
+            settle.setTooltip(Tooltip.create(why));
+        });
+        int top = perPage() == 0 ? listTop() + listLine() + layout.gap() : settleTop(chosen, settle.getWidth());
+        tallyRows("settle:" + chosen.table(), top, chosen.a(), chosen.b(), () -> settling, counts -> settling = counts, settle);
         Component dropA = Component.translatable("screen.gathering.event.drop_a");
         Component dropB = Component.translatable("screen.gathering.event.drop_b");
         int dropsX = forward.getX() + forward.getWidth() + layout.gap() * 2;
@@ -455,9 +492,14 @@ public final class EventScreen extends Screen {
                 .findFirst().orElse(null);
     }
 
-    /** Where the host's settle buttons start, so their last row sits just above the bottom row. */
-    private int settleTop(int rows) {
-        return layout.bodyBottom() - layout.heightOfRows(rows);
+    /** Where the host's counts start, so their last row sits just above the bottom row. */
+    private int settleTop(EventViewPayload.Match match, int buttonWidth) {
+        return layout.bodyBottom() - tallyHeight(match.a(), match.b(), buttonWidth);
+    }
+
+    /** How wide the host's Record button is, for laying out the rows above it. */
+    private int recordWidth() {
+        return widthFor(Component.translatable("screen.gathering.event.record"), 70);
     }
 
     /**
@@ -468,7 +510,7 @@ public final class EventScreen extends Screen {
     private int perPage() {
         int floor = layout.bodyBottom();
         if (tab == Tab.PAIRINGS && view.youHost() && chosenMatch() != null) {
-            floor = settleTop(layout.rowsFor(offeredResults().size(), narrowestResult())) - layout.gap();
+            floor = settleTop(chosenMatch(), recordWidth()) - layout.gap();
             return Math.max(0, Math.min(PER_PAGE, (floor - listTop()) / listLine()));
         }
         return Math.max(1, Math.min(PER_PAGE, (floor - listTop()) / listLine()));
@@ -650,6 +692,9 @@ public final class EventScreen extends Screen {
         GuiText.drawCentered(graphics, this.font, this.title, panel.x() + panel.width() / 2, layout.titleY(), width, LABEL);
         GuiText.drawCentered(graphics, this.font, header(), panel.x() + panel.width() / 2, layout.headerY(), width, DIM);
         int y = layout.bodyTop();
+        for (TallyLabel label : tallyLabels) {
+            GuiText.draw(graphics, this.font, label.text(), label.x(), label.y(), label.width(), LABEL);
+        }
         switch (tab) {
             case OVERVIEW -> renderOverview(graphics, x, y, width);
             case STANDINGS -> renderStandings(graphics, x, y, width);
@@ -762,8 +807,9 @@ public final class EventScreen extends Screen {
             GuiText.draw(graphics, this.font, said, x, y, width, mine.confirmed().isEmpty() ? WARN : GOOD);
         }
         int below = resultsTop(false);
-        if (mine.table() > 0 && mine.confirmed().isEmpty() && resultsFit(below)) {
-            below += layout.heightOfRows(layout.rowsFor(resultsForMe().size(), narrowestResult())) + layout.gap();
+        int sendWidth = widthFor(Component.translatable("screen.gathering.event.submit"), 70);
+        if (mine.table() > 0 && mine.confirmed().isEmpty() && tallyFits(below, youName(), mine.opponent(), sendWidth)) {
+            below += tallyHeight(youName(), mine.opponent(), sendWidth) + layout.gap();
         }
         if (!view.places().isEmpty() && below + line <= layout.bodyBottom()) {
             GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.event.places",

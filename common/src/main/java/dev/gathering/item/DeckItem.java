@@ -216,6 +216,11 @@ public class DeckItem extends Item {
         return cards.getItem() instanceof CardItem && CardItem.cardOf(cards).isPresent();
     }
 
+    /** Whether a right-click of this deck on these cards would put any of them in. */
+    public static boolean wouldTake(ItemStack deck, ItemStack cards) {
+        return deck != null && cards != null && deck.getCount() == 1 && roomFor(deck, cards) > 0;
+    }
+
     private static int roomFor(ItemStack deck, ItemStack cards) {
         if (!insertable(cards) || deckOf(deck).map(DeckComponent::loaner).orElse(false)) {
             // Nothing goes into a loaner: a real card in it could never come out again.

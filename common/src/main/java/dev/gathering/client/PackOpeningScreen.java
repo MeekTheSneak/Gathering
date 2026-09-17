@@ -485,13 +485,16 @@ public final class PackOpeningScreen extends Screen {
      * than where it was: it moves with the paper.
      */
     private void drawSymbol(Matrix4f matrix, Rect where) {
-        // The archive is not a set, so there is no symbol to print on it and asking would
-        // spend a request on a URL that cannot exist. Plain paper is the right answer.
-        if (dev.gathering.item.PackComponent.ARCHIVE.equals(setCode)) {
+        // An archive pack prints the symbol of the set it is for, which it carries where a booster
+        // carries its kind. One for no set in particular is plain paper: "archive" is not a set, and
+        // asking for its symbol would spend a request on a URL that cannot exist.
+        boolean archive = dev.gathering.item.PackComponent.ARCHIVE.equals(setCode);
+        String printed = archive ? kind : setCode;
+        if (printed == null || printed.isEmpty()) {
             return;
         }
-        int color = PackWrapper.symbolColor(kind);
-        ClientSetSymbols.get().symbol(setCode, color, 128).ifPresent(symbol ->
+        int color = PackWrapper.symbolColor(archive ? "" : kind);
+        ClientSetSymbols.get().symbol(printed, color, 128).ifPresent(symbol ->
                 PackClothRenderer.drawSymbol(matrix, cloth, symbol, where, SYMBOL_ACROSS, color));
     }
 

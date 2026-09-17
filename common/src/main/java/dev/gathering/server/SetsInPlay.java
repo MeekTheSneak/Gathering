@@ -36,15 +36,14 @@ public final class SetsInPlay {
             return CompletableFuture.completedFuture(
                     LootSets.wanted(named, Optional.empty(), List.of()));
         }
-        // "All" and "recent" are the same request with a different limit, so asking for both
-        // costs one call - and asking for all of them is asking for no limit at all.
-        int howFarBack = LootSets.wantsEverySet(named)
-                ? Integer.MAX_VALUE
-                : settings.collecting().lootRecentSets();
+        // "All" is every set anything was sold for, out of the two lists already fetched at start -
+        // Scryfall's sets and MTGJSON's products. "Recent" is the last few premier releases.
         CompletableFuture<List<String>> recent =
-                LootSets.needsMoreThanTheNewest(named)
-                        ? CurrentSet.recent(howFarBack)
-                        : CompletableFuture.completedFuture(List.of());
+                LootSets.wantsEverySet(named)
+                        ? everySold()
+                        : LootSets.needsMoreThanTheNewest(named)
+                                ? CurrentSet.recent(settings.collecting().lootRecentSets())
+                                : CompletableFuture.completedFuture(List.of());
         return CurrentSet.whenKnown().thenCombine(recent, (current, releases) -> {
             List<String> all = LootSets.wanted(named, current, releases);
             if (all.isEmpty()) {
@@ -53,6 +52,34 @@ public final class SetsInPlay {
                         + "to run without asking Scryfall.");
             }
             return all;
+        });
+    }
+
+    /**
+     * Every paper set that has come out and had something sold for it, premier sets first.
+     * <p>Falls back to the premier sets alone where either list cannot be had, which is what
+     * "all" used to mean and is still a server with every booster release in it.
+     */
+    private static CompletableFuture<List<String>> everySold() {
+        var cards = dev.gathering.service.CardDataService.active().orElse(null);
+        var collation = dev.gathering.service.CollationService.active().orElse(null);
+        if (cards == null || collation == null) {
+            return CurrentSet.recent(Integer.MAX_VALUE);
+        }
+        return cards.allSets().thenCombine(collation.everySetsProducts(), (sets, products) -> {
+            java.util.Set<String> sold = new java.util.HashSet<>();
+            products.forEach((code, reading) -> {
+                if (!reading.isEmpty()) {
+                    sold.add(code);
+                }
+            });
+            return dev.gathering.core.card.SetRelease.everySold(List.copyOf(sets.values()), CurrentSet.today(), sold)
+                    .stream().map(dev.gathering.core.card.SetRelease::code)
+                    .flatMap(code -> dev.gathering.core.card.SetCode.of(code).stream()).toList();
+        }).exceptionallyCompose(failure -> {
+            LOGGER.warn("Could not list every set anything was sold for, so \"all\" is every expansion "
+                    + "and core set", failure);
+            return CurrentSet.recent(Integer.MAX_VALUE);
         });
     }
 }

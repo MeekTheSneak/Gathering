@@ -147,9 +147,9 @@ public final class CardZoomOverlay {
             CardTilt.forget();
             return;
         }
-        if (Minecraft.getInstance().screen instanceof CardPreviewHost) {
-            // That screen shows the card itself, in a place chosen to leave its own content
-            // readable. A second copy chasing the cursor would undo exactly that.
+        if (previewedByTheScreen()) {
+            // That screen shows the card itself, words and all, in a place chosen to leave its
+            // own content readable. A second copy chasing the cursor would undo exactly that.
             return;
         }
         Held under = cardUnderCursor().orElse(null);
@@ -159,8 +159,18 @@ public final class CardZoomOverlay {
         // The panel already follows the cursor, so the cursor's place across the window is
         // what moves the shine. A card that also turned would be two answers to one hand.
         CardTilt.toward(mouseX, mouseY, screenWidth / 2, screenHeight / 2, screenWidth, screenHeight);
+        // Only the words over a screen already showing the picture, so the card is not drawn
+        // twice at once.
+        boolean withArt = !(Minecraft.getInstance().screen instanceof CardPreviewHost host
+                && host.previewsTheArt());
         CardInspectPanel.renderBeside(graphics, under.summary(), under.foil(), under.flipped(),
-                under.story(), under.strength(), mouseX, mouseY, screenWidth, screenHeight);
+                under.story(), under.strength(), mouseX, mouseY, screenWidth, screenHeight, withArt);
+    }
+
+    /** Whether the open screen's own preview already says everything the panel would. */
+    private static boolean previewedByTheScreen() {
+        return Minecraft.getInstance().screen instanceof CardPreviewHost host
+                && host.previewsTheText();
     }
 
     /**
@@ -173,7 +183,7 @@ public final class CardZoomOverlay {
      * yet keeps its tooltip, because the alternative is a stack that says nothing at all.
      */
     public static boolean replacesTooltipFor(ItemStack stack) {
-        if (!isActive() || Minecraft.getInstance().screen instanceof CardPreviewHost) {
+        if (!isActive() || previewedByTheScreen()) {
             return false;
         }
         return heldAs(stack).isPresent();

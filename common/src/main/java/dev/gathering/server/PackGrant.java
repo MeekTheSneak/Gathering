@@ -65,11 +65,13 @@ public final class PackGrant {
         // here rather than looked up. It is the one pack an admin cannot get any other way -
         // it is never sold, and finding one is the point.
         if (dev.gathering.item.PackComponent.ARCHIVE.equals(set)) {
-            ItemStack archive = Archive.pack();
+            // For the set named after it, or whichever set comes up when it is opened.
+            ItemStack archive = Archive.pack(wanted);
             CardStories.rememberOnPack(archive, stamp);
             dev.gathering.server.Handing.give(player, archive);
-            player.sendSystemMessage(Component.translatable(
-                    "message.gathering.archive_given", Archive.size()));
+            player.sendSystemMessage(wanted.isEmpty()
+                    ? Component.translatable("message.gathering.archive_given_any")
+                    : Component.translatable("message.gathering.archive_given", wanted.toUpperCase(Locale.ROOT)));
             return;
         }
 

@@ -29,7 +29,7 @@ public class DisplayCaseBlockEntity extends BlockEntity {
     public static final String ID = "display_case";
 
     /** How many a case shows. Four across the front of a block is a row you can read at a glance. */
-    public static final int HOLDS = 4;
+    public static final int HOLDS = dev.gathering.core.ui.DisplayCaseRow.HOLDS;
 
     private static final String CARDS_KEY = "Cards";
     private static final String CARD_KEY = "Card";

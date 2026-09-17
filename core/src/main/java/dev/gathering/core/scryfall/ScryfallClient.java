@@ -96,7 +96,9 @@ public final class ScryfallClient {
         List<CardMetadata> cards = new ArrayList<>(ScryfallCardCodec.parseCollection(json));
         // Scryfall pages at 175 results; a card with more printings than that is not a thing
         // the import screen needs, so the first page is the answer.
-        return List.copyOf(cards);
+        // Without another language's copies of the English printings: sorted cheapest first, a
+        // Spanish Foreign Black Border copy headed the chooser and was what a decklist resolved to.
+        return dev.gathering.core.card.ForeignPrintings.withoutCopies(cards);
     }
 
     /**

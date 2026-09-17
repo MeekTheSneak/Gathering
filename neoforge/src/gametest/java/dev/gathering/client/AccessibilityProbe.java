@@ -41,7 +41,6 @@ public final class AccessibilityProbe {
     private static int ticks;
     private static String focusedBefore;
     private static int ordinaryResultHeight;
-    private static final java.util.Set<String> SEEN = new java.util.LinkedHashSet<>();
     private static final java.util.Set<String> HOST_SEEN = new java.util.LinkedHashSet<>();
     private static int HOST_PAGES;
     private static int wasGuiScale = -1;
@@ -120,7 +119,7 @@ public final class AccessibilityProbe {
                 EventScreen screen = eventScreen(client);
                 shoot(client, "access-event-100");
                 laidOut(screen, "controls 100% text 100%");
-                ordinaryResultHeight = heightOf(screen, "2-1");
+                ordinaryResultHeight = heightOf(screen, "Submit");
                 if (ordinaryResultHeight != 18) {
                     fail("a result button at the shipped sizes is " + ordinaryResultHeight + " tall, not 18");
                 }
@@ -132,7 +131,7 @@ public final class AccessibilityProbe {
                 EventScreen screen = eventScreen(client);
                 shoot(client, "access-event-controls-200");
                 laidOut(screen, "controls 200%");
-                int larger = heightOf(screen, "2-1");
+                int larger = heightOf(screen, "Submit");
                 say("result button at controls 200%: " + larger + " (at 100%: " + ordinaryResultHeight + ")");
                 if (larger < ordinaryResultHeight * 2) {
                     fail("at 200% control size a result button is " + larger + " tall, not twice " + ordinaryResultHeight);
@@ -208,13 +207,13 @@ public final class AccessibilityProbe {
                 next();
             }
             case 10 -> {
-                // Focus on a result button, then the result is confirmed and the buttons go: focus
+                // Focus on the button sending a result, then the result is confirmed and it goes: focus
                 // falls back to the tab, never onto whatever took the button's place.
                 EventScreen screen = eventScreen(client);
                 screen.showTab(EventScreen.Tab.OVERVIEW);
                 EventScreen.accept(view(swiss(), true, false));
                 screen = eventScreen(client);
-                screen.setFocused(widget(screen, "2-1"));
+                screen.setFocused(widget(screen, "Submit"));
                 EventScreen.accept(view(swiss(), true, true));
                 String after = message(client.screen.getFocused());
                 say("focus after the result buttons went: " + after);
@@ -234,7 +233,7 @@ public final class AccessibilityProbe {
                 say("small window " + screen.width + "x" + screen.height);
                 laidOut(screen, "small window at 200%");
                 AbstractWidget report = find(screen, "Report result");
-                AbstractWidget result = find(screen, "2-1");
+                AbstractWidget result = find(screen, "Submit");
                 if (report == null && result == null) {
                     fail("in a small window at 200% there is no way to report a result");
                 }
@@ -247,48 +246,42 @@ public final class AccessibilityProbe {
                 EventScreen screen = eventScreen(client);
                 shoot(client, "access-small-window-reporting");
                 laidOut(screen, "reporting in a small window at 200%");
-                if (find(screen, "2-1") == null) {
-                    fail("reporting in a small window shows no result buttons");
-                } else if (heightOf(screen, "2-1") < 32) {
-                    fail("reporting in a small window squeezed a result button to " + heightOf(screen, "2-1"));
+                if (find(screen, "Submit") == null) {
+                    fail("reporting in a small window shows no way to send the result");
+                } else if (heightOf(screen, "Submit") < 32) {
+                    fail("reporting in a small window squeezed Submit to " + heightOf(screen, "Submit"));
                 }
-                // Two lines are written above them - the table, then what to do - and the second
+                // Two lines are written above the counts - the table, then what to do - and the second
                 // line's writing reaches half its growth below where it is placed.
-                AbstractWidget first = find(screen, "2-0");
+                AbstractWidget first = find(screen, "0");
                 int writingBottom = screen.layout().bodyTop() + screen.layout().line()
                         + Math.round(client.font.lineHeight * (1f + GuiText.askedScale()) / 2f);
                 if (first != null && first.getY() < writingBottom) {
-                    fail("reporting in a small window put the results at " + first.getY()
+                    fail("reporting in a small window put the counts at " + first.getY()
                             + ", over the line telling the player to report, which reaches " + writingBottom);
                 }
-                screen.children().stream().filter(child -> child instanceof AbstractWidget widget
-                        && widget.getMessage().getString().matches("\\d-\\d(-\\d)?"))
-                        .forEach(child -> SEEN.add(((AbstractWidget) child).getMessage().getString()));
-                AbstractWidget later = find(screen, ">");
-                if (later == null || !later.active) {
-                    fail("reporting in a small window shows no way to the other results");
-                } else {
-                    ((net.minecraft.client.gui.components.Button) later).onPress();
+                // Every count there is, at once: none to two for each player in a best of three, and
+                // none or one drawn - where the old buttons were a page at a time.
+                long counts = screen.children().stream().filter(child -> child instanceof AbstractWidget widget
+                        && widget.getMessage().getString().matches("\\d")).count();
+                if (counts != 8) {
+                    fail("reporting in a small window shows " + counts + " counts, not the 8 of a best of three");
                 }
                 next();
             }
             case 13 -> {
-                // Every result reachable, a page at a time, each page laid out properly.
+                // A count pressed lights, and the result sent is the one counted.
                 EventScreen screen = eventScreen(client);
-                laidOut(screen, "a later page of results in a small window at 200%");
-                screen.children().stream().filter(child -> child instanceof AbstractWidget widget
-                        && widget.getMessage().getString().matches("\\d-\\d(-\\d)?"))
-                        .forEach(child -> SEEN.add(((AbstractWidget) child).getMessage().getString()));
-                AbstractWidget later = find(screen, ">");
-                if (later != null && later.active && SEEN.size() < 32) {
-                    ((net.minecraft.client.gui.components.Button) later).onPress();
-                    waited = 10;
-                    return;
-                }
-                shoot(client, "access-small-window-last-results");
-                say("results reached a page at a time: " + SEEN);
-                if (SEEN.size() != 16 || !SEEN.contains("0-0") || !SEEN.contains("1-1-1")) {
-                    fail("only " + SEEN.size() + " of the 16 results can be reached in a small window: " + SEEN);
+                List<AbstractWidget> zeros = screen.children().stream().filter(child -> child instanceof AbstractWidget widget
+                        && widget.getMessage().getString().equals("0")).map(child -> (AbstractWidget) child).toList();
+                if (zeros.size() != 3) {
+                    fail("the counts have " + zeros.size() + " rows, not 3");
+                } else {
+                    ((net.minecraft.client.gui.components.Button) zeros.get(1)).onPress();
+                    AbstractWidget submit = find(eventScreen(client), "Submit");
+                    if (submit == null || !submit.active) {
+                        fail("counting two games to none left no Submit to press");
+                    }
                 }
                 EventScreen.accept(view(swiss(), true, false));
                 eventScreen(client).showTab(EventScreen.Tab.HOST);

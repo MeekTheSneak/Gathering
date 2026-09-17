@@ -123,7 +123,7 @@ public final class PackOpening {
         // one without the other would leave the player owed a booster they were holding.
         Runnable handedBack = () -> settleThenHandOver(player, receipt, giveBack);
         if (Archive.SET.equals(setCode)) {
-            openTheArchive(player, handedBack, receipt, ceremony, stamped);
+            openTheArchive(player, kind, handedBack, receipt, ceremony, stamped);
             return;
         }
         String refusal = whyNot();
@@ -433,6 +433,14 @@ public final class PackOpening {
                 return found;
             }
         }
+        // Any product of the set, but one sold in English first: MTGJSON lists Japanese boosters
+        // ("jp", "set-jp") beside the rest for some sets, and a pack that named no kind opening as
+        // one handed out Japanese cards.
+        for (var each : reading.packs().entrySet()) {
+            if (!each.getKey().equals("jp") && !each.getKey().endsWith("-jp")) {
+                return each.getValue();
+            }
+        }
         return reading.packs().values().iterator().next();
     }
 
@@ -678,28 +686,22 @@ public final class PackOpening {
     }
 
     /**
-     * Opens an Archive Pack, which has no set and no print sheet behind it.
-     * <p>Its own path because it is its own thing: the cards were chosen when the server
-     * worked out what its faucets miss, not by a collation, so there is nothing to fetch and
-     * nothing to pick a booster variant out of. What it shares with every other pack is
-     * everything after that - the cards are given, the best one remembers where it came from,
-     * and there is a wrapper to tear if the player did not sneak.
-     * <p>Server thread only, past the lookup it starts.
+     * Opens an Archive Pack, which has no print sheet behind it.
+     * <p>Its own path because it is its own thing: the cards are what the pack's set family has out
+     * of reach, worked out for that family when one of its packs is first opened, not a collation.
+     * A family with nothing out of reach opens as another; after {@link Archive#ATTEMPTS} of those the
+     * pack is handed back rather than swallowed. What it shares with every other pack is everything
+     * after that - the cards are given, the best one remembers where it came from, and there is a
+     * wrapper to tear if the player did not sneak.
+     * <p>Server thread only, past the work it starts.
+     *
+     * @param family the set the pack is for, or blank for a pack from before archive packs had one
      */
-    private static void openTheArchive(ServerPlayer player, Runnable giveBack,
+    private static void openTheArchive(ServerPlayer player, String family, Runnable giveBack,
             String receipt, boolean ceremony, List<dev.gathering.core.story.CardStory.Chapter> stamps) {
         String refusal = whyNot();
         if (refusal != null) {
             player.sendSystemMessage(Component.translatable(refusal));
-            giveBack.run();
-            return;
-        }
-        List<CardIdentity> giving = Archive.open(player.level().getRandom());
-        if (giving.isEmpty()) {
-            // The remainder is empty, or the server has not worked it out yet. Either way the
-            // pack is handed back rather than swallowed: a player who found one of these
-            // found the rarest thing on the server.
-            player.sendSystemMessage(Component.translatable("message.gathering.archive_empty"));
             giveBack.run();
             return;
         }
@@ -709,24 +711,41 @@ public final class PackOpening {
             giveBack.run();
             return;
         }
-        List<UUID> printings = new ArrayList<>(giving.size());
-        for (CardIdentity card : giving) {
-            card.printing().ifPresent(printings::add);
-        }
-        cards.findAll(printings).whenComplete(ServerRun.onServerThread(player, (named, failure) -> {
-            if (openerIsGone(player)) {
-                return;
-            }
-            // A card the server could not name is still a card. The archive's whole point is
-            // the long tail, which is exactly the part of a collection least likely to be in
-            // a cache already - refusing to hand it over would refuse it most of the time.
-            List<CardMetadata> about = failure == null && named != null ? named : List.of();
-            if (ceremony) {
-                handOver(player, giving, about, Archive.SET, "", receipt, true, stamps);
-            } else {
-                settleThenHandOver(player, receipt, () -> handOver(player, giving, about, Archive.SET, "", null, false, stamps));
-            }
-        }));
+        Archive.firstWithCards(Archive.candidates(family, player.level().getRandom()))
+                .whenComplete(ServerRun.onServerThread(player, (found, failure) -> {
+                    if (openerIsGone(player)) {
+                        return;
+                    }
+                    if (failure != null || found == null || found.isEmpty()) {
+                        // Nothing out of reach in any family tried, or they could not be read now.
+                        // Either way the pack is handed back: a player who found one of these found
+                        // the rarest thing on the server.
+                        player.sendSystemMessage(Component.translatable("message.gathering.archive_empty"));
+                        giveBack.run();
+                        return;
+                    }
+                    String opened = found.get().family();
+                    List<CardIdentity> giving = Archive.draw(found.get().printings(), player.level().getRandom());
+                    List<UUID> printings = new ArrayList<>(giving.size());
+                    for (CardIdentity card : giving) {
+                        card.printing().ifPresent(printings::add);
+                    }
+                    cards.findAll(printings).whenComplete(ServerRun.onServerThread(player, (named, lookup) -> {
+                        if (openerIsGone(player)) {
+                            return;
+                        }
+                        // A card the server could not name is still a card. The archive's whole point
+                        // is the long tail, which is exactly the part of a collection least likely to
+                        // be in a cache already - refusing to hand it over would refuse it most of the time.
+                        List<CardMetadata> about = lookup == null && named != null ? named : List.of();
+                        if (ceremony) {
+                            handOver(player, giving, about, Archive.SET, opened, receipt, true, stamps);
+                        } else {
+                            settleThenHandOver(player, receipt,
+                                    () -> handOver(player, giving, about, Archive.SET, opened, null, false, stamps));
+                        }
+                    }));
+                }));
     }
 
     /**

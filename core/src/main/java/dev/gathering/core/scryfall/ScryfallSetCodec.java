@@ -53,7 +53,9 @@ public final class ScryfallSetCodec {
                     number(set, "card_count"),
                     // What the cards themselves say they are one of. Scryfall omits it for
                     // the older sets, where it was the same as the count anyway.
-                    number(set, "printed_size")));
+                    number(set, "printed_size"),
+                    // The set this one came out beside: a promo set's, a Commander set's.
+                    text(set, "parent_set_code")));
         }
         return List.copyOf(sets);
     }
