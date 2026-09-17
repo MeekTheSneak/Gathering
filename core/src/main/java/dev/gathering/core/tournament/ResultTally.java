@@ -76,6 +76,12 @@ public record ResultTally(int mine, int theirs, int draws) {
         if (!MatchResult.isAMatch(mine, theirs, draws)) {
             return Optional.of(Refusal.TOO_MANY_GAMES);
         }
+        // As many drawn games as the screen offers and no more. Each row is capped where it is drawn,
+        // but a tally that never went through those rows is not - and nothing else counted the drawn
+        // games at all, so a best of five could be reported as having had nine of them.
+        if (draws > mostDraws(bestOf)) {
+            return Optional.of(Refusal.TOO_MANY_GAMES);
+        }
         MatchResult result = new MatchResult(mine, theirs, draws);
         if (!result.fits(bestOf)) {
             return Optional.of(mine > mostWins(bestOf) || theirs > mostWins(bestOf)

@@ -505,7 +505,15 @@ public final class Events {
         long now = wallClock.getAsLong();
         boolean again = before != null && before.dimension().equals(dimension) && before.desk().equals(deskPos)
                 && now - before.at() <= DESK_SECOND_USE_MILLIS;
-        if (hosting != null && (again || (free && homeless))) {
+        // Never a desk already running one of this host's own tournaments where it stands: using your
+        // own desk twice moved your other tournament onto it and left this one with nowhere to sign up
+        // at all - and a tournament with nowhere to sign up takes registrations from anywhere in the
+        // world, so two clicks on your own desk quietly opened one of them to the whole server. Taking
+        // somebody else's desk over is still what a second use does.
+        boolean alreadyMine = running != null && !running.tournament.isOver()
+                && running.tournament.host().equals(player.getUUID())
+                && deskPos.equals(running.registrationPoint);
+        if (hosting != null && !alreadyMine && (again || (free && homeless))) {
             if (running != null && deskPos.equals(running.registrationPoint)) {
                 running.registrationPoint = null;
                 changed(player.getServer(), running);
@@ -545,6 +553,12 @@ public final class Events {
     /** The desk runs this tournament; said in the chat unless the host was just told it was created here. */
     private static void runFromDesk(ServerPlayer player, dev.gathering.block.ScorekeepersDeskBlockEntity desk, EventState state,
             boolean say) {
+        // The desk it is leaving lets go of it first. Nothing ever called runs(null), so a desk a
+        // tournament had moved away from went on claiming it: it refused to host anything else for as
+        // long as that tournament ran, a display board wired to it showed a tournament signing up
+        // somewhere else, and one ordinary use of it pulled the tournament straight back - which
+        // defeated the two-press rule the move is supposed to take.
+        letGoOfTheDesk(player.getServer(), state);
         state.registrationPoint = desk.getBlockPos().immutable();
         desk.runs(state.tournament.id());
         changed(player.getServer(), state);
@@ -555,6 +569,24 @@ public final class Events {
             player.sendSystemMessage(Component.translatable("message.gathering.desk.runs", state.tournament.name()));
         }
         EventViews.show(player, state, true);
+    }
+
+    /** Whichever desk was running this tournament stops saying so. */
+    private static void letGoOfTheDesk(net.minecraft.server.MinecraftServer server, EventState state) {
+        if (server == null || state.registrationPoint == null) {
+            return;
+        }
+        for (net.minecraft.server.level.ServerLevel level : server.getAllLevels()) {
+            if (!level.dimension().location().toString().equals(state.dimension)) {
+                continue;
+            }
+            if (level.isLoaded(state.registrationPoint)
+                    && level.getBlockEntity(state.registrationPoint)
+                            instanceof dev.gathering.block.ScorekeepersDeskBlockEntity desk
+                    && desk.event().filter(state.tournament.id()::equals).isPresent()) {
+                desk.runs(null);
+            }
+        }
     }
 
     /** A table carried from one place to another: the events it is numbered in follow it. */

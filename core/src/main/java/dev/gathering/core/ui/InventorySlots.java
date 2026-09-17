@@ -44,4 +44,28 @@ public final class InventorySlots {
         }
         return place == OFF_HAND_PLACE ? OFF_HAND_SLOT : -1;
     }
+
+    /**
+     * The slot of the player's own menu that a slot of the creative inventory stands for, or -1 where it
+     * stands for none of them.
+     * <p>The creative inventory draws the player's pockets two different ways and numbers them
+     * differently in each, which is the whole reason this exists. On its inventory tab each slot is a
+     * wrapper standing directly in front of one of the player's own menu slots, and says which by its
+     * container slot - so the number is already the one the server wants, and it is the same as the
+     * slot's own place in the screen. On every other tab the row along the bottom is the hotbar, built
+     * fresh over the inventory itself, so its container slot is a place in the inventory - 0 to 8 - and
+     * the slots in front of it are the ones the tab is showing, which the player does not own at all.
+     * <p>Telling the two apart by whether the slot stands where it says it does is exactly what
+     * distinguishes them: a wrapper's two numbers agree, and the hotbar's cannot.
+     *
+     * @param inTheScreen   where the slot sits in the creative screen's own list
+     * @param containerSlot what the slot says it stands for
+     * @param playersOwn    whether the slot draws from the player's own inventory at all
+     */
+    public static int creativeSlot(int inTheScreen, int containerSlot, boolean playersOwn) {
+        if (!playersOwn) {
+            return -1;
+        }
+        return containerSlot == inTheScreen ? inTheScreen : inTheirOwnMenu(containerSlot);
+    }
 }

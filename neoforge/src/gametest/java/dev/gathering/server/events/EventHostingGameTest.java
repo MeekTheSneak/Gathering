@@ -104,8 +104,57 @@ public final class EventHostingGameTest {
                 helper.fail("using the free desk again did not move the tournament to it");
                 return;
             }
+            // And the desk it came from lets go of it. Nothing ever told a desk to stop running a
+            // tournament, so the old one went on claiming it: it would host nothing else, its display
+            // board showed a tournament signing up somewhere else, and one ordinary use of it pulled
+            // the tournament straight back - which is the two-press rule undone.
+            if (deskOf(helper, first).event().isPresent()) {
+                helper.fail("the desk the tournament moved away from still runs "
+                        + deskOf(helper, first).event());
+                return;
+            }
         } finally {
             remove(friday);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A second use of a desk already running one of the host's own tournaments moves nothing.
+     * <p>The second use is how a tournament is moved onto a <em>free</em> desk. On a busy one it used
+     * to move the host's other tournament here anyway and leave this one with nowhere to sign up -
+     * and a tournament with nowhere to sign up takes registrations from anywhere in the world, so two
+     * clicks on your own desk quietly opened one of your tournaments to the whole server.
+     */
+    @GameTest(template = "empty")
+    public static void asecondUseOfaBusyDeskLeavesBothTournamentsWhereTheyAre(GameTestHelper helper) {
+        BlockPos first = placeDesk(helper, 1, 2, 1);
+        BlockPos second = placeDesk(helper, 5, 2, 5);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        EventState friday = null;
+        EventState saturday = null;
+        try {
+            friday = create(host, first, "Friday Night");
+            saturday = create(host, second, "Saturday Night");
+            if (friday == null || saturday == null) {
+                helper.fail("hosting twice created " + friday + " and " + saturday);
+                return;
+            }
+            use(helper, host, first);
+            use(helper, host, first);
+            if (!first.equals(friday.registrationPoint) || !second.equals(saturday.registrationPoint)) {
+                helper.fail("using a busy desk twice left Friday signing up at " + friday.registrationPoint
+                        + " and Saturday at " + saturday.registrationPoint);
+                return;
+            }
+            if (!runs(helper, first, friday) || !runs(helper, second, saturday)) {
+                helper.fail("the desks run " + deskOf(helper, first).event() + " and "
+                        + deskOf(helper, second).event());
+                return;
+            }
+        } finally {
+            remove(friday);
+            remove(saturday);
         }
         helper.succeed();
     }
@@ -214,7 +263,8 @@ public final class EventHostingGameTest {
             // Place 3's slot is empty, and place 4 promises a slot place 1 already has.
             EventViews.create(host, new CreateEventPayload(desk, "Prized",
                     EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"),
-                    List.of(new PrizeOffer(1, 0), new PrizeOffer(2, 2), new PrizeOffer(3, 5), new PrizeOffer(4, 0))));
+                    List.of(new PrizeOffer(1, 0, "minecraft:diamond"), new PrizeOffer(2, 2, "minecraft:emerald"),
+                            new PrizeOffer(3, 5, "minecraft:diamond"), new PrizeOffer(4, 0, "minecraft:diamond"))));
             state = hostedBy(host);
             if (state == null) {
                 helper.fail("hosting with prizes created no tournament");
@@ -227,6 +277,45 @@ public final class EventHostingGameTest {
             }
             if (!host.getInventory().getItem(0).isEmpty() || !host.getInventory().getItem(2).isEmpty()) {
                 helper.fail("a prize the event holds is still in the host's hotbar");
+                return;
+            }
+        } finally {
+            remove(state);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A slot whose contents changed between promising it and creating the event is passed over.
+     * <p>What was put up is a slot number, and the slot is read when the tournament is made - so
+     * anything that moved in the meantime was taken instead of the prize. Every ordinary thing a
+     * player does while a screen is open moves it: a hotbar swap, a pickup, a mob dropping something.
+     * The prize is named as well as numbered, and a slot holding something else is left alone.
+     */
+    @GameTest(template = "empty")
+    public static void aPrizeSlotHoldingSomethingElseIsPassedOver(GameTestHelper helper) {
+        BlockPos desk = placeDesk(helper, 1, 2, 1);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        host.moveTo(Vec3.atCenterOf(desk).add(0, 0, 1.5));
+        // Diamonds were promised; a stack of netherite has arrived in that slot since.
+        host.getInventory().setItem(0, new ItemStack(Items.NETHERITE_INGOT, 3));
+        EventState state = null;
+        try {
+            EventViews.create(host, new CreateEventPayload(desk, "Switched",
+                    EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"),
+                    List.of(new PrizeOffer(1, 0, "minecraft:diamond"))));
+            state = hostedBy(host);
+            if (state == null) {
+                helper.fail("hosting with a prize created no tournament");
+                return;
+            }
+            if (!state.prizes.isEmpty()) {
+                helper.fail("the event took " + EventPrizes.describe(state) + " out of a slot that had "
+                        + "stopped holding what was promised");
+                return;
+            }
+            if (host.getInventory().getItem(0).getCount() != 3) {
+                helper.fail("the host's own netherite was taken as a prize");
                 return;
             }
         } finally {

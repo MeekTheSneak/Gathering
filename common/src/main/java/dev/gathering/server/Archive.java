@@ -58,7 +58,7 @@ public final class Archive {
     private static volatile Map<String, List<SetRelease>> members = Map.of();
 
     /** What each family's archive holds, for this run, once somebody has opened one of its packs. */
-    private static final Map<String, CompletableFuture<List<UUID>>> REMAINDERS = new ConcurrentHashMap<>();
+    private static final Map<String, CompletableFuture<Audited>> REMAINDERS = new ConcurrentHashMap<>();
 
     /** Which start of the archive is the current one; the work of any other has been superseded. */
     private static final AtomicLong STARTS = new AtomicLong();
@@ -161,7 +161,7 @@ public final class Archive {
         REMAINDERS.clear();
         members = Map.of("tst", List.of());
         families = List.of("tst");
-        REMAINDERS.put("tst", CompletableFuture.completedFuture(List.copyOf(printings)));
+        REMAINDERS.put("tst", CompletableFuture.completedFuture(new Audited(List.copyOf(printings), true)));
     }
 
     /**
@@ -225,11 +225,16 @@ public final class Archive {
             return CompletableFuture.completedFuture(Optional.empty());
         }
         String family = candidates.get(at);
-        return remainderOf(family).thenCompose(printings -> {
+        return remainderOf(family).thenCompose(remainder -> {
+            List<UUID> printings = remainder.printings();
             if (!printings.isEmpty()) {
                 return CompletableFuture.completedFuture(Optional.of(new Found(family, printings)));
             }
-            if (members.containsKey(family)) {
+            // Struck off only where every set of it was read and there was genuinely nothing left. An
+            // audit that could not be done comes back empty too, and striking a family off for that
+            // took it out of the archive for the rest of the run - so a bad ten minutes of Scryfall
+            // emptied the list one family at a time and the archive quietly stopped existing.
+            if (remainder.whole() && members.containsKey(family)) {
                 List<String> left = new ArrayList<>(families);
                 if (left.remove(family)) {
                     families = List.copyOf(left);
@@ -239,9 +244,13 @@ public final class Archive {
         });
     }
 
-    /** What one family's archive holds, worked out the first time it is asked for in a run. */
-    static CompletableFuture<List<UUID>> remainderOf(String family) {
-        CompletableFuture<List<UUID>> known = REMAINDERS.get(family);
+    /**
+     * What one family's archive holds, worked out the first time it is asked for in a run.
+     * <p>Answers with whether every set of it could be read, because "nothing left" and "could not be
+     * worked out" are the same empty list and mean opposite things.
+     */
+    static CompletableFuture<Audited> remainderOf(String family) {
+        CompletableFuture<Audited> known = REMAINDERS.get(family);
         if (known != null) {
             return known;
         }
@@ -249,10 +258,10 @@ public final class Archive {
         if (sets == null) {
             // Not a family this run knows - a pack from before, for a set since left out, or the list
             // has not arrived yet. Nothing is remembered, so it is asked again once it can be answered.
-            return CompletableFuture.completedFuture(List.of());
+            return CompletableFuture.completedFuture(new Audited(List.of(), false));
         }
-        CompletableFuture<List<UUID>> working = new CompletableFuture<>();
-        CompletableFuture<List<UUID>> raced = REMAINDERS.putIfAbsent(family, working);
+        CompletableFuture<Audited> working = new CompletableFuture<>();
+        CompletableFuture<Audited> raced = REMAINDERS.putIfAbsent(family, working);
         if (raced != null) {
             return raced;
         }
@@ -267,16 +276,16 @@ public final class Archive {
             }
             if (failure != null) {
                 LOGGER.warn("Could not work out the archive of {}", family, failure);
-                working.complete(List.of());
+                working.complete(new Audited(List.of(), false));
             } else {
-                working.complete(audited.printings());
+                working.complete(audited);
             }
         });
         return working;
     }
 
     /** A family's remainder, and whether every one of its sets could be read to work it out. */
-    private record Audited(List<UUID> printings, boolean whole) {
+    record Audited(List<UUID> printings, boolean whole) {
     }
 
     /** Works out one family's remainder, one set at a time so the searches never pile up. */

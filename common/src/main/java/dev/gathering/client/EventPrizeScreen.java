@@ -115,7 +115,9 @@ public final class EventPrizeScreen extends ChildScreen {
         if (player == null || held().isEmpty()) {
             return;
         }
-        choose(draft.withPrize(new PrizeOffer(place, player.getInventory().selected)));
+        choose(draft.withPrize(new PrizeOffer(place, player.getInventory().selected,
+                net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getKey(player.getInventory().getSelected().getItem()).toString())));
     }
 
     /** What is in the slot a prize was promised from, right now. */

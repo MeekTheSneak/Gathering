@@ -155,7 +155,9 @@ public record DeckBuild(
         return switch (to) {
             case MAINBOARD -> taken.with(card);
             case SIDEBOARD -> taken.aside(card);
-            case COMMANDERS -> taken.led(card);
+            // Not led: that takes a copy out of the build for itself, and this copy is already out.
+            // A build holding two of a card lost the second the moment the first was made commander.
+            case COMMANDERS -> taken.leading(card);
         };
     }
 
@@ -173,11 +175,18 @@ public record DeckBuild(
             return commander.map(this::backToTheDeck)
                     .orElseGet(() -> new DeckBuild(cards, sideboard, Optional.empty()));
         }
-        DeckBuild without = without(card.printing());
-        DeckBuild room = without.commander()
+        return without(card.printing()).leading(card);
+    }
+
+    /**
+     * The same, for a card already out of the pile it came from: nothing is taken out here.
+     * <p>Whoever was leading still goes back to the deck.
+     */
+    private DeckBuild leading(BuildCard card) {
+        DeckBuild room = commander()
                 .filter(already -> !already.printing().equals(card.printing()))
-                .map(without::backToTheDeck)
-                .orElse(without);
+                .map(this::backToTheDeck)
+                .orElse(this);
         return new DeckBuild(room.cards(), room.sideboard(), Optional.of(card));
     }
 

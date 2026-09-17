@@ -93,6 +93,11 @@ public final class CardZoomOverlay {
             latched = !latched;
         }
         wasDown = down;
+        // Nothing latched survives the card going away. A latch is a press with no key held, so a
+        // player who put the card down kept a locked camera and had the card snap back full-screen the
+        // moment they picked another up - and one who had since unbound the read key had no key left to
+        // press. Putting the card away is the way out of both, and it is the gesture they would try.
+        latched = latched && cardInHand().isPresent();
         return latched;
     }
 

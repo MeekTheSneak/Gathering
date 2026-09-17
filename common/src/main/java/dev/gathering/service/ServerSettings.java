@@ -128,13 +128,28 @@ public final class ServerSettings {
      * was written. Only values still sitting at the old default are moved, and every one is said out
      * loud - see {@link dev.gathering.core.config.SettingsUpgrade}.
      */
-    private static String upgraded(Path file, String text) throws IOException {
+    private static String upgraded(Path file, String text) {
         int was = dev.gathering.core.config.SettingsUpgrade.versionOf(text);
         if (was >= dev.gathering.core.config.SettingsUpgrade.VERSION) {
             return text;
         }
         var upgrade = dev.gathering.core.config.SettingsUpgrade.upgrade(text, was);
-        Files.writeString(file, upgrade.text(), StandardCharsets.UTF_8);
+        try {
+            // Beside the file and then moved onto it, so a write that stops half way leaves the owner's
+            // own file rather than half of it.
+            Path writing = file.resolveSibling(file.getFileName() + ".new");
+            Files.writeString(writing, upgrade.text(), StandardCharsets.UTF_8);
+            Files.move(writing, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException couldNotWrite) {
+            // A read-only file or a read-only mount, which containers and managed hosts both do. The
+            // settings that were just read are good, and running the whole server on defaults because a
+            // file could not be rewritten would throw away every one of them - import mode, the
+            // collection, ante, loot, table limits - over a file that was perfectly readable.
+            LOGGER.warn("{} is written for an older version of these settings and could not be rewritten "
+                    + "({}); this run uses the brought-up-to-date values without saving them", FILE_NAME,
+                    couldNotWrite.getMessage());
+            return upgrade.text();
+        }
         if (upgrade.changed().isEmpty()) {
             LOGGER.info("{} was written for an older version of these settings; nothing in it had to move",
                     FILE_NAME);

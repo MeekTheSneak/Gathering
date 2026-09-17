@@ -26,8 +26,10 @@ public record CreateEventPayload(BlockPos desk, String name, EventSettings setti
             (buffer, offer) -> {
                 buffer.writeVarInt(offer.place());
                 buffer.writeVarInt(offer.slot());
+                buffer.writeUtf(offer.item(), PrizeOffer.LONGEST_ITEM);
             },
-            buffer -> new PrizeOffer(buffer.readVarInt(), buffer.readVarInt()));
+            buffer -> new PrizeOffer(buffer.readVarInt(), buffer.readVarInt(),
+                    buffer.readUtf(PrizeOffer.LONGEST_ITEM)));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, CreateEventPayload> STREAM_CODEC =
             StreamCodec.composite(

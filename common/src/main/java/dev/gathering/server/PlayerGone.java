@@ -68,6 +68,9 @@ public final class PlayerGone {
         // And a lesson they had begun: finishing it after coming back is a new lesson.
         LessonRecords.forget(player.getUUID());
         CreativeDecks.forget(player);
+        // And the decks the creative cursor was carrying, which are back in their slots now. Up to
+        // 256 decks of a thousand cards were kept for every player who had ever logged in.
+        DeckVault.forget(player.getUUID());
         // And the budgets that limit how fast they may ask for things.
         TableActions.forget(player.getUUID());
         ActionBudget.forgetShared(player.getUUID());

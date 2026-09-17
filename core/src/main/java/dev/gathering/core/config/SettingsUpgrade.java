@@ -36,7 +36,10 @@ public final class SettingsUpgrade {
      * <p>Version two, 2026-09-17: sealed product is bought with the Mana Coin rather than with farmed
      * emeralds, a village builds a card shop about four times as often, packs come off mobs as well as
      * out of chests, and the shelf turns over every hour rather than every four - at four, a session saw
-     * one shelf and never watched it move, which reads as a shop whose stock never changes.
+     * one shelf and never watched it move, which reads as a shop whose stock never changes. And the one
+     * that is not about shopping: a finished casual game is watched back by the people who played it
+     * rather than by anybody, which changed before this class existed - so every file older than it was
+     * still showing every hand and every library of every game to the whole server.
      */
     private static final List<List<Change>> CHANGES = List.of(
             List.of(),
@@ -47,6 +50,7 @@ public final class SettingsUpgrade {
                     new Change("collection.sealed_price_booster", "2", "1"),
                     new Change("collection.village_shop_weight", "8", "20"),
                     new Change("collection.sealed_rotation_hours", "4", "1"),
+                    new Change("modes.replays", "\"public\"", "\"participants\""),
                     new Change("collection.pack_loot_sources",
                             "[\"fishing\", \"structures\", \"archaeology\"]",
                             "[\"structures\", \"mobs\", \"fishing\", \"archaeology\"]")));

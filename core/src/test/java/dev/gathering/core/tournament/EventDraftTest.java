@@ -91,35 +91,39 @@ class EventDraftTest {
     @DisplayName("prizes put up before the event exists are kept in the order they were put up")
     void prizesAreKeptInOrder() {
         EventDraft draft = EventDraft.blank("modern")
-                .withPrize(new PrizeOffer(1, 0))
-                .withPrize(new PrizeOffer(2, 3));
-        assertThat(draft.prizes()).containsExactly(new PrizeOffer(1, 0), new PrizeOffer(2, 3));
-        assertThat(draft.withoutPrize(0).prizes()).containsExactly(new PrizeOffer(2, 3));
+                .withPrize(new PrizeOffer(1, 0, "minecraft:diamond"))
+                .withPrize(new PrizeOffer(2, 3, "minecraft:diamond"));
+        assertThat(draft.prizes()).containsExactly(new PrizeOffer(1, 0, "minecraft:diamond"),
+                new PrizeOffer(2, 3, "minecraft:diamond"));
+        assertThat(draft.withoutPrize(0).prizes()).containsExactly(new PrizeOffer(2, 3, "minecraft:diamond"));
     }
 
     @Test
     @DisplayName("one slot is one prize, however many times it is put up")
     void oneSlotIsOnePrize() {
-        EventDraft draft = EventDraft.blank("modern").withPrize(new PrizeOffer(1, 0)).withPrize(new PrizeOffer(4, 0));
-        assertThat(draft.prizes()).containsExactly(new PrizeOffer(1, 0));
+        EventDraft draft = EventDraft.blank("modern").withPrize(new PrizeOffer(1, 0, "minecraft:diamond"))
+                .withPrize(new PrizeOffer(4, 0, "minecraft:diamond"));
+        assertThat(draft.prizes()).containsExactly(new PrizeOffer(1, 0, "minecraft:diamond"));
     }
 
     @Test
     @DisplayName("a prize for a place or a slot that does not exist is not put up")
     void anImpossiblePrizeIsRefused() {
         EventDraft draft = EventDraft.blank("modern");
-        assertThat(draft.withPrize(new PrizeOffer(0, 0)).prizes()).isEmpty();
-        assertThat(draft.withPrize(new PrizeOffer(PrizeOffer.LOWEST_PLACE + 1, 0)).prizes()).isEmpty();
-        assertThat(draft.withPrize(new PrizeOffer(1, PrizeOffer.HOTBAR_SLOTS)).prizes()).isEmpty();
-        assertThat(draft.withPrize(new PrizeOffer(1, -1)).prizes()).isEmpty();
+        assertThat(draft.withPrize(new PrizeOffer(0, 0, "minecraft:diamond")).prizes()).isEmpty();
+        assertThat(draft.withPrize(new PrizeOffer(PrizeOffer.LOWEST_PLACE + 1, 0, "minecraft:diamond")).prizes()).isEmpty();
+        assertThat(draft.withPrize(new PrizeOffer(1, PrizeOffer.HOTBAR_SLOTS, "minecraft:diamond")).prizes()).isEmpty();
+        assertThat(draft.withPrize(new PrizeOffer(1, -1, "minecraft:diamond")).prizes()).isEmpty();
     }
 
     @Test
     @DisplayName("what a client sent is read defensively: nulls, nonsense and repeats are dropped")
     void offersAreReadDefensively() {
         assertThat(PrizeOffer.accepted(null)).isEmpty();
-        List<PrizeOffer> offered = java.util.Arrays.asList(new PrizeOffer(1, 0), null, new PrizeOffer(2, 0),
-                new PrizeOffer(99, 1), new PrizeOffer(3, 8));
-        assertThat(PrizeOffer.accepted(offered)).containsExactly(new PrizeOffer(1, 0), new PrizeOffer(3, 8));
+        List<PrizeOffer> offered = java.util.Arrays.asList(new PrizeOffer(1, 0, "minecraft:diamond"), null,
+                new PrizeOffer(2, 0, "minecraft:diamond"), new PrizeOffer(99, 1, "minecraft:diamond"),
+                new PrizeOffer(3, 8, "minecraft:diamond"));
+        assertThat(PrizeOffer.accepted(offered)).containsExactly(new PrizeOffer(1, 0, "minecraft:diamond"),
+                new PrizeOffer(3, 8, "minecraft:diamond"));
     }
 }

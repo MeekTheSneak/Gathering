@@ -131,6 +131,53 @@ public final class DeckSweepGameTest {
         helper.succeed();
     }
 
+    /**
+     * The card goes in once, not twice, however many times the deck is put down.
+     * <p>Both halves of the gesture run: the server does the insert it is told about, and the client
+     * does the same click on its own copy - so when that copy comes back, every card in it that is not
+     * a stand-in was already in the deck the server holds. Adding them on top put each card in twice,
+     * and repeating the gesture minted pairs of any card at will.
+     */
+    @GameTest(template = "empty")
+    public static void acardPutIntoaDeckInCreativeGoesInOnce(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        UUID handle = UUID.randomUUID();
+        DeckComponent deck = new DeckComponent("Creative", "", Optional.of(player.getUUID()),
+                List.of(card(11)), List.of(), List.of());
+        dev.gathering.server.DeckVault.remember(player.getUUID(), handle, deck);
+        net.minecraft.world.item.ItemStack held = DeckItem.of(deck);
+        held.set(dev.gathering.registry.GatheringComponents.DECK_HANDLE.get(), handle);
+        player.getInventory().setItem(1, held);
+        player.getInventory().setItem(0, CardItem.of(card(12)));
+        // The deck picked up onto the creative cursor, then the card right-clicked into it.
+        player.connection.handleSetCreativeModeSlot(
+                new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(37, ItemStack.EMPTY));
+        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
+
+        // The copy the client puts back down: its own cards hidden, and the card it just put in face up.
+        DeckComponent theirs = new DeckComponent("Creative", "", Optional.of(player.getUUID()),
+                List.of(dev.gathering.item.CardComponent.HIDDEN, card(12)), List.of(), List.of());
+        net.minecraft.world.item.ItemStack back = DeckItem.of(theirs);
+        back.set(dev.gathering.registry.GatheringComponents.DECK_HANDLE.get(), handle);
+        player.connection.handleSetCreativeModeSlot(
+                new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(37, back));
+
+        DeckComponent put = DeckItem.deckOf(player.getInventory().getItem(1)).orElse(null);
+        if (put == null) {
+            helper.fail("the deck put back down in the creative menu is not a deck");
+            return;
+        }
+        long copies = put.entries().stream().filter(card(12)::equals).count();
+        if (copies != 1 || put.entries().size() != 2) {
+            helper.fail("a card right-clicked into a deck in the creative menu went in " + copies
+                    + " time(s), leaving " + put.entries().size() + " cards: " + put.entries());
+            return;
+        }
+        helper.succeed();
+    }
+
     /** And nobody who is not in creative can name a deck they are not holding. */
     @GameTest(template = "empty")
     public static void namingaDeckOnlyWorksInCreative(GameTestHelper helper) {

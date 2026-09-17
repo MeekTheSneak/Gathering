@@ -52,12 +52,17 @@ public abstract class ContainerSweepMixin implements DeckSweep.Sweepable {
 
     @Override
     public int gathering$serverSlotId(Slot slot) {
-        // Its slots stand in front of the player's own, and each one says which of those it stands for:
-        // that is what its container slot is here, not a place in the inventory. Vanilla reads the same
-        // number out of the wrapper before it clicks.
-        return (AbstractContainerScreen<?>) (Object) this instanceof CreativeModeInventoryScreen
-                ? slot.getContainerSlot()
-                : slot.index;
+        // Its slots stand in front of the player's own, and the arithmetic that says which is
+        // InventorySlots'. Reading the container slot straight was right on the inventory tab and wrong
+        // on every other one, where the row along the bottom is the hotbar numbered 0 to 8 - so a card
+        // swept there named the crafting square and the armor, and the gesture did nothing at all.
+        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (!(screen instanceof CreativeModeInventoryScreen) || player == null) {
+            return slot.index;
+        }
+        return dev.gathering.core.ui.InventorySlots.creativeSlot(
+                slot.index, slot.getContainerSlot(), slot.container == player.getInventory());
     }
 
     @Override

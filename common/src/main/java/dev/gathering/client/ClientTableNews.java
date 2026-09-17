@@ -127,16 +127,13 @@ public final class ClientTableNews {
             }
             boolean resumed = dev.gathering.core.ui.LogCatchUp.tooMuchToRead(unread);
             long highest = readTo == null ? -1 : readTo;
-            if (resumed) {
-                for (LogEntry entry : board.log()) {
-                    highest = Math.max(highest, entry.sequence());
-                }
-                READ_UP_TO.put(key, highest);
-                return;
-            }
             for (LogEntry entry : board.log()) {
                 highest = Math.max(highest, entry.sequence());
-                if (readTo == null || entry.sequence() <= readTo || entry.undone()) {
+                // Too much missed to replay: the lines are marked read and none of them is sounded.
+                // Marked read and then returned, which is what this did, skipped the turn coming round
+                // to you as well - and at a table waiting on you no further board arrives, so it was
+                // never told at all. The one thing you have to act on is noticed below either way.
+                if (resumed || readTo == null || entry.sequence() <= readTo || entry.undone()) {
                     continue;
                 }
                 if (entry.key().startsWith(SHUFFLED)) {

@@ -65,13 +65,15 @@ public final class CreativeDecks {
         }
         ItemStack restored = real.copy();
         restored.setCount(incoming.getCount());
+        // The deck as it was when it left its slot, which is what the client's copy was made from.
+        DeckComponent left = DeckItem.deckOf(real).orElse(null);
         // What the deck holds now, which is the vault's to say. The copy remembered when the deck left
         // its slot is the deck as it was then, and a card put into it while it sat on the creative
         // cursor - a gesture the server is told about and does itself, see DeckSweeps - happened after
         // that. Putting the remembered copy back dropped the card that had just gone in.
         DeckVault.deckOf(player.getUUID(), handle).ifPresent(
                 now -> restored.set(GatheringComponents.DECK.get(), now));
-        return withCardsAddedTo(restored, incoming);
+        return withCardsAddedTo(restored, incoming, left);
     }
 
     /**
@@ -83,15 +85,25 @@ public final class CreativeDecks {
      * destroyed by putting it in a deck, which the owner found at once.
      * <p>A card in the hidden copy that is not a stand-in was put there by the player, so it is added to
      * the real deck rather than dropped. Nothing else of the copy is trusted.
+     * <p>Except the ones the server has already put in itself. Both halves of the gesture run: the
+     * server does the insert it was told about (see {@link DeckSweeps}) and the client does the same
+     * click on its own copy, so the card is in both - and adding every face-up card of the copy on top
+     * of the deck the server now holds put each one in twice. Doing it again minted another pair. So
+     * what the deck has gained since it left its slot is taken off what the copy is offering, and only
+     * a card the server never saw go in is added.
+     *
+     * @param left the deck as it was when it left its slot, which is what the client's copy was made
+     *             from, or null where the server has no such record
      */
-    private static ItemStack withCardsAddedTo(ItemStack restored, ItemStack incoming) {
+    private static ItemStack withCardsAddedTo(ItemStack restored, ItemStack incoming, DeckComponent left) {
         DeckComponent theirs = DeckItem.deckOf(incoming).orElse(null);
         DeckComponent mine = DeckItem.deckOf(restored).orElse(null);
         if (theirs == null || mine == null) {
             return restored;
         }
-        List<CardComponent> put = theirs.entries().stream().filter(card -> !card.isHidden()).toList();
-        List<CardComponent> putAside = theirs.sideboard().stream().filter(card -> !card.isHidden()).toList();
+        List<CardComponent> put = notAlreadyIn(theirs.entries(), left == null ? List.of() : left.entries(), mine.entries());
+        List<CardComponent> putAside = notAlreadyIn(theirs.sideboard(), left == null ? List.of() : left.sideboard(),
+                mine.sideboard());
         if (put.isEmpty() && putAside.isEmpty()) {
             return restored;
         }
@@ -108,6 +120,33 @@ public final class CreativeDecks {
                 new DeckComponent(mine.name(), mine.description(), mine.owner(), entries, mine.commanders(),
                         sideboard, mine.color(), mine.sleeve(), mine.stories(), mine.loaner()));
         return restored;
+    }
+
+    /**
+     * The face-up cards of the client's copy that the server has not already put in for itself.
+     * <p>What the server put in is exactly what the deck has gained since it left the slot: the cards
+     * it holds now, less the ones it held then. Each of those cancels one face-up card of the copy.
+     *
+     * @param theirs what the client's copy holds
+     * @param left   what the deck held when it left the slot
+     * @param now    what the server's deck holds
+     */
+    private static List<CardComponent> notAlreadyIn(List<CardComponent> theirs, List<CardComponent> left,
+            List<CardComponent> now) {
+        List<CardComponent> gained = new java.util.ArrayList<>(now);
+        for (CardComponent had : left) {
+            gained.remove(had);
+        }
+        List<CardComponent> put = new java.util.ArrayList<>();
+        for (CardComponent card : theirs) {
+            if (card.isHidden()) {
+                continue;
+            }
+            if (!gained.remove(card)) {
+                put.add(card);
+            }
+        }
+        return List.copyOf(put);
     }
 
     /** Forgets one player, who has gone. */

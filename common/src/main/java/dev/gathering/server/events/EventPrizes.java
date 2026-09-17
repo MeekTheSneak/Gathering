@@ -72,9 +72,9 @@ public final class EventPrizes {
      * an event to hold them.
      * <p>A slot rather than a stack, because until this moment there was nowhere to keep one - see
      * {@link dev.gathering.core.tournament.PrizeOffer}. The slot is read from the host's own
-     * inventory on the server, so nothing a client sent decides what is taken; a slot emptied between
-     * filling the screen in and pressing Create is passed over and said so, rather than taking
-     * whatever has since been put there.
+     * inventory on the server, so nothing a client sent decides what is taken; a slot emptied - or
+     * holding something else - between filling the screen in and pressing Create is passed over and
+     * said so, rather than taking whatever is there now.
      * <p>Saved before anything leaves the hotbar, the same way a prize put up afterwards is: a prize
      * the event holds only in memory is lost with a restart, and a save that fails leaves the host
      * holding every one of them.
@@ -91,7 +91,11 @@ public final class EventPrizes {
         int missing = 0;
         for (var offer : offers) {
             ItemStack stack = host.getInventory().getItem(offer.slot());
-            if (stack.isEmpty()) {
+            // What was promised, or nothing. A slot emptied - or filled with something else - between
+            // the promise and Create is passed over: taking whatever is there now handed somebody's
+            // pickaxe to the winner of a tournament they meant to give a booster to.
+            if (stack.isEmpty() || !offer.stillHolds(
+                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) {
                 missing++;
                 continue;
             }

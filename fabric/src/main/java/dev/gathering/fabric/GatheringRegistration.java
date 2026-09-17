@@ -223,9 +223,12 @@ final class GatheringRegistration {
                 BuiltInRegistries.ITEM, Gathering.id(GatheringContent.SHOP_COUNTER_ID),
                 GatheringContent.createShopCounterItem());
         GatheringContent.SHOP_COUNTER_ITEM.bindValue(counterItem);
-        dev.gathering.village.GatheringVillagers.COUNTER_POI.bindValue(
-                net.fabricmc.fabric.api.object.builder.v1.world.poi.PointOfInterestHelper.register(
-                        Gathering.id(GatheringContent.SHOP_COUNTER_ID), 1, 1, counter));
+        // Every counter in every wood, which is what GatheringVillagers builds. Passing the one plain
+        // block here left a shop built out of spruce or birch a shop no villager on this loader would
+        // ever take a job at, while the same shop worked on the other one.
+        dev.gathering.village.GatheringVillagers.COUNTER_POI.bindValue(Registry.register(
+                BuiltInRegistries.POINT_OF_INTEREST_TYPE, Gathering.id(GatheringContent.SHOP_COUNTER_ID),
+                dev.gathering.village.GatheringVillagers.createCounterPoi()));
         dev.gathering.village.GatheringVillagers.SHOPKEEPER.bindValue(Registry.register(
                 BuiltInRegistries.VILLAGER_PROFESSION,
                 Gathering.id(dev.gathering.village.GatheringVillagers.SHOPKEEPER_ID),

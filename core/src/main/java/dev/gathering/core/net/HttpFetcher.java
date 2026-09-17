@@ -87,11 +87,29 @@ public final class HttpFetcher {
             java.net.URI target = base.resolve(location);
             return base.getScheme() != null && base.getScheme().equalsIgnoreCase(target.getScheme())
                     && base.getHost() != null && base.getHost().equalsIgnoreCase(target.getHost())
-                    && base.getPort() == target.getPort()
+                    && portOf(base) == portOf(target)
                     ? target.toString() : null;
         } catch (IllegalArgumentException malformed) {
             return null;
         }
+    }
+
+    /**
+     * The port an address is really asking for, with the scheme's own filled in where it is unwritten.
+     * <p>An address that spells its default port out is the same origin as one that leaves it off, and
+     * comparing the two as written refused exactly the move this follows: a request to mtgjson.com sent
+     * on to {@code https://mtgjson.com:443/...} compared -1 against 443 and was thrown out.
+     */
+    private static int portOf(java.net.URI address) {
+        if (address.getPort() >= 0) {
+            return address.getPort();
+        }
+        String scheme = address.getScheme() == null ? "" : address.getScheme().toLowerCase(java.util.Locale.ROOT);
+        return switch (scheme) {
+            case "https" -> 443;
+            case "http" -> 80;
+            default -> -1;
+        };
     }
 
     public HttpTransport.HttpReply post(

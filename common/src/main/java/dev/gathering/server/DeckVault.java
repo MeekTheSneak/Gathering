@@ -41,6 +41,13 @@ public final class DeckVault {
     private DeckVault() {
     }
 
+    /** Forgets one player, who has gone: their decks are in the save now, not here. */
+    public static void forget(UUID player) {
+        if (player != null) {
+            KEPT.remove(player);
+        }
+    }
+
     /** Remembers the real contents of a deck. Hidden copies are not remembered, which is the point. */
     public static void remember(UUID player, UUID handle, DeckComponent deck) {
         if (player == null || handle == null || deck == null || deck.isRedacted()) {

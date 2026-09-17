@@ -3389,3 +3389,91 @@ the old default (`SettingsUpgrade`, tested) - which is why his shop still wanted
 villages still hardly built a shop; and the shelf turns over every hour rather than every four, so a
 session sees it move.
 
+
+## 2026-09-17: defect hunt over everything since `2e3f97c1`
+
+Five read-only reviewers were given a bounded slice each - tournaments, the card pipeline, decks and
+the collection, client presentation, economy and config - the requirements and the diff, and no
+narrative about the implementation. Between them they raised thirty-odd findings. What follows is what
+was investigated and fixed; each fix's guard was run against the code without it first, except where
+said otherwise.
+
+**Cards were being duplicated in the creative inventory.** The fix earlier today has the server do the
+insert it is told about; the client does the same click on its own copy; and `CreativeDecks` then
+added every face-up card of that copy on top of the deck the server now held. Every card went in
+twice, and repeating the gesture minted pairs at will. `CreativeDecks.notAlreadyIn` now takes what the
+deck has gained since it left its slot off what the copy is offering, so a card the server already put
+in is not put in again - and a card it never saw still is, which is what happens when the payload does
+not arrive. Guard: `acardPutIntoaDeckInCreativeGoesInOnce`.
+
+**The sweep named the wrong slots outside the creative inventory's own tab.** Its inventory tab puts a
+wrapper in front of each of the player's menu slots; every other tab builds the bottom row fresh over
+the inventory, so the same row is numbered 0-8 there and 36-44 there. Reading the container slot
+straight named the crafting square and the armor, so a sweep on any category or search tab did nothing
+at all. `InventorySlots.creativeSlot` does the arithmetic now, and both loaders' mixins use it
+(`CreativeSlotsTest`, shown failing on the old arithmetic).
+
+**Moving a card into the command zone ate a second copy.** `DeckBuild.moved` took the card out of its
+pile and handed it to `led`, which took another copy out. Two copies in the deck, one made commander,
+and the other was gone; a sideboard copy promoted ate the mainboard's. `DeckBuildCommanderMoveTest`.
+
+**Every server older than the settings upgrade was still showing hidden information.** `modes.replays`
+stopped defaulting to `public` before `SettingsUpgrade` was written, so it was not in the list of
+defaults that move - and a file predating it still let any player watch any finished casual game back,
+hand by hand. Now carried like the rest (`SettingsUpgradeReplaysTest`). Beside it: a settings file
+that could not be **written** made the server drop every setting it had just read successfully and run
+on defaults, which a read-only config mount does on every start; the rewrite is now beside-and-move,
+and a failure keeps the values that were read.
+
+**On Fabric only the dark oak counter was a job site.** The "every wooden counter" fix reached one
+loader: Fabric registered the plain block rather than the states `GatheringVillagers.createCounterPoi`
+builds, so a spruce shop was a shop no villager there would work at.
+
+**The archive could strike a family off for a network failure.** An audit that could not be done comes
+back as an empty remainder, which is the same shape as "nothing left" - so a throttled Scryfall took
+families out of the archive one at a time, permanently for the run. `remainderOf` now says whether the
+audit was whole, and only a whole one strikes a family off.
+
+**A same-origin redirect that spelled out its port was refused** - `https://host:443/...` compared 443
+against the request's -1 - which is exactly the MTGJSON move the following exists for
+(`RedirectDefaultPortTest`).
+
+**The camera could be left locked with no key to release it.** In press-to-inspect, the latch survived
+the card going away: put the card down and the camera stayed locked; pick another up and it snapped
+full-screen again; unbind the read key in between and there was no key left to press. The latch is now
+released when there is no card in hand, which is the gesture a player would try.
+
+**A catch-up swallowed "it's your turn".** Walking back to a table with more unread than
+`LogCatchUp.STILL_NEWS` marked the log read and returned before the turn was noticed - and at a table
+waiting on you no further board arrives, so it was never told at all. The lines are still marked read
+without their sounds; the turn is noticed either way. Source-verified: neither test set reaches this
+client-side path, and no guard was written for it.
+
+**Tournaments.** A prize is now promised by name as well as by slot, so a slot whose contents changed
+between the create screen and the tournament being made is passed over rather than emptied
+(`aPrizeSlotHoldingSomethingElseIsPassedOver`). A desk a tournament moves away from lets go of it -
+nothing ever called `runs(null)`, so the old desk went on claiming it, refused to host anything else,
+and pulled the tournament back on one press
+(`afreeDeskOffersHostingRatherThanMovingATournamentWithADesk`). A second use of a desk already running
+one of your own tournaments moves nothing: it used to move your other tournament here and leave this
+one with nowhere to sign up, which means registrations from anywhere in the world
+(`asecondUseOfaBusyDeskLeavesBothTournamentsWhereTheyAre`). Taking somebody else's desk over on a
+second use still works - the first attempt at this broke it, and the gate caught it. And a tally may
+report no more drawn games than the match had room for (`ResultTallyDrawsTest`).
+
+**`DeckVault` is forgotten with the player**, which it was not: up to 256 decks of a thousand cards
+were kept for everybody who had ever logged in.
+
+**Raised and not yet done**, in the reviewers' own order of severity: the create screen forgets a draft
+before the server answers; no bound on how many tournaments one host may run, and `EventViews.create`
+sits outside `withinBudget`; `EventDrafts` is keyed by position without dimension; `CardDataService`'s
+`setPrintings` memo and the lookups it seeds are unbounded and never expire; `warm()` can throw
+`RejectedExecutionException` onto the server thread; a replaced bulk index's file handle leaks when the
+server stops within two minutes of a rebuild; `Archive.factsFor` counts a failed re-read as a whole
+audit; a long sweep is silently truncated by the shared action budget and the sweeping player hears
+nothing; `CreativeDecks.inInventory` copies a live deck, which the creative hotbar save can duplicate;
+fitting a card's text costs about six hundred font wraps on a cache-miss frame; a neighbouring table's
+label can be pulled in front of the board you are seated at; the master shopkeeper's tier is priced
+above what `ShopPrice` will sell, so it is empty on a default server; setting `sealed_price_item` alone
+produces a mixed-currency price; the archive pack ignores the loot source list and the player-kill
+gate; and the shop's own chest hands out coins with no source gate at all.
