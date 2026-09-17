@@ -65,7 +65,7 @@ public final class DeckNotLegalScreen extends Screen {
                 Component.translatable("screen.gathering.not_legal.another"), this::onClose));
         addRenderableWidget(GatheringButtons.of(panel.right() - MARGIN - half, decideTop, half, ROW,
                 Component.translatable("screen.gathering.not_legal.anyway"), () -> {
-                    ClientNetworking.send(new ChooseDeckPayload(asked.table(), asked.slot(), true));
+                    ClientNetworking.send(new ChooseDeckPayload(asked.table(), asked.slot(), true, java.util.Optional.empty()));
                     this.minecraft.setScreen(null);
                 }));
     }

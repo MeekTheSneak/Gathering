@@ -106,6 +106,21 @@ public final class TableJoining {
         boolean anyway = payload.anyway() && asked != null && asked.table().equals(origin) && asked.slot() == payload.slot()
                 && payload.slot() >= 0 && payload.slot() < player.getInventory().getContainerSize()
                 && player.getInventory().getItem(payload.slot()) == asked.stack();
+        // The deck they were looking at, not whatever is in that slot now. The list is read once when
+        // the picker opens and the screen does not pause the game, so a deck swapped into the slot
+        // between the read and the press went down at the seat instead - a different deck than the
+        // row they clicked, mid-event, and clicking again does not undo it. The anyway branch above
+        // has always checked this; the ordinary one did not.
+        if (payload.deck().isPresent() && payload.slot() >= 0
+                && payload.slot() < player.getInventory().getContainerSize()) {
+            java.util.UUID nowThere = dev.gathering.item.DeckItem
+                    .handleOf(player.getInventory().getItem(payload.slot())).orElse(null);
+            if (!payload.deck().get().equals(nowThere)) {
+                player.sendSystemMessage(
+                        Component.translatable("message.gathering.deck_not_there"));
+                return;
+            }
+        }
         TableBlock.chooseDeck(player.serverLevel(), origin, player, payload.slot(), anyway);
     }
 

@@ -176,7 +176,7 @@ public final class JoiningGameTest {
         int slot = 20;
         ItemStack chosen = DeckItem.of(deckOf("Chosen", forest, 60));
         host.getInventory().setItem(slot, chosen);
-        TableJoining.choose(host, new ChooseDeckPayload(table, slot, false));
+        TableJoining.choose(host, new ChooseDeckPayload(table, slot, false, java.util.Optional.empty()));
         if (library(helper, table, host) != 60 || !host.getInventory().getItem(slot).isEmpty()) {
             helper.fail("choosing the deck in slot " + slot + " left a library of " + library(helper, table, host)
                     + " and " + host.getInventory().getItem(slot));
@@ -203,7 +203,7 @@ public final class JoiningGameTest {
         int slot = 21;
         ItemStack tooSmall = DeckItem.of(deckOf("Too small", forest, 30));
         host.getInventory().setItem(slot, tooSmall);
-        TableJoining.choose(host, new ChooseDeckPayload(table, slot, false));
+        TableJoining.choose(host, new ChooseDeckPayload(table, slot, false, java.util.Optional.empty()));
         if (library(helper, table, host) != 0 || host.getInventory().getItem(slot) != tooSmall) {
             helper.fail("a thirty-card deck at a Modern table went down without being asked about");
             return;
@@ -212,12 +212,12 @@ public final class JoiningGameTest {
         // in its turn, not played on the strength of an answer about a different one.
         ItemStack swapped = DeckItem.of(deckOf("Swapped in", forest, 30));
         host.getInventory().setItem(slot, swapped);
-        TableJoining.choose(host, new ChooseDeckPayload(table, slot, true));
+        TableJoining.choose(host, new ChooseDeckPayload(table, slot, true, java.util.Optional.empty()));
         if (library(helper, table, host) != 0 || host.getInventory().getItem(slot) != swapped) {
             helper.fail("a deck swapped into the slot after the question went down on the answer about another");
             return;
         }
-        TableJoining.choose(host, new ChooseDeckPayload(table, slot, true));
+        TableJoining.choose(host, new ChooseDeckPayload(table, slot, true, java.util.Optional.empty()));
         if (library(helper, table, host) != 30 || !host.getInventory().getItem(slot).isEmpty()) {
             helper.fail("a deck chosen anyway did not go down: library " + library(helper, table, host));
             return;
@@ -302,6 +302,50 @@ public final class JoiningGameTest {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         player.setGameMode(GameType.SURVIVAL);
         return player;
+    }
+
+
+    /**
+     * The deck the player was looking at, not whatever is in that slot now.
+     * <p>The picker reads the inventory once when it opens and does not pause the game, so a deck
+     * swapped into the slot between the read and the press used to go down at the seat instead - a
+     * different deck than the row that was clicked, and nothing undoes putting a deck down. The
+     * "play it anyway" branch beside this has always checked the slot still holds what it was asked
+     * about; the ordinary one did not.
+     */
+    @GameTest(template = "tables")
+    public static void adeckThatMovedIsNotTheOneThatGoesDown(GameTestHelper helper) {
+        CardMetadata forest = forest(helper);
+        if (forest == null) {
+            return;
+        }
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        ServerPlayer host = hostAGame(helper, table, MatchRules.single(FormatPresets.defaultPreset()));
+
+        int slot = 20;
+        ItemStack theirs = DeckItem.of(deckOf("Mine", forest, 60));
+        if (DeckItem.handleOf(theirs).isEmpty()) {
+            helper.fail("fixture: a deck built for this test carries no handle to name it by");
+            return;
+        }
+        // Something else is in that slot by the time the press lands.
+        host.getInventory().setItem(slot, DeckItem.of(deckOf("Theirs", forest, 60)));
+        TableJoining.choose(host, ChooseDeckPayload.of(table, slot, false, theirs));
+        if (library(helper, table, host) != 0 || host.getInventory().getItem(slot).isEmpty()) {
+            helper.fail("a deck the player was not looking at went down at the seat: library "
+                    + library(helper, table, host));
+            return;
+        }
+
+        // The same press, with the deck still where it was read, goes down as it always did.
+        host.getInventory().setItem(slot, theirs);
+        TableJoining.choose(host, ChooseDeckPayload.of(table, slot, false, theirs));
+        if (library(helper, table, host) != 60 || !host.getInventory().getItem(slot).isEmpty()) {
+            helper.fail("the deck the player was looking at did not go down: library "
+                    + library(helper, table, host) + " and " + host.getInventory().getItem(slot));
+            return;
+        }
+        helper.succeed();
     }
 
     private static BlockPos chairAt(GameTestHelper helper, BlockPos where, Direction facing) {

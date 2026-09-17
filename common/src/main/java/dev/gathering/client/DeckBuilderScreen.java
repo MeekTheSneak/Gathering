@@ -116,6 +116,30 @@ public final class DeckBuilderScreen extends ChildScreen {
     private dev.gathering.core.card.Sleeve sleeve = dev.gathering.core.card.Sleeve.DEFAULT;
 
     private DeckBuild build = DeckBuild.EMPTY;
+
+    /**
+     * The deck grouped for drawing, worked out when the deck changes rather than every frame.
+     * <p>Grouping a hundred-card deck builds two maps, a list per kind, a row per copy, and then
+     * sorts each pile - and it was being done inside {@code render}, three times over with the
+     * colors outside the commander's identity and the mana curve beside it. That is several hundred
+     * allocations and a sort, sixty times a second, to draw a list that only moves when somebody
+     * clicks. The sideboard screen made exactly this fix and wrote down why; the builder never got
+     * it. {@code DeckBuild} is a record replaced whole on every edit, so identity is the whole test.
+     */
+    private DeckBuild groupedFrom;
+    private java.util.Map<CardKind, List<DeckBuild.Row>> grouped = java.util.Map.of();
+    private List<BuildCard> outsideIdentity = List.of();
+    private int[] curve = new int[0];
+
+    private void regroupIfChanged() {
+        if (build == groupedFrom) {
+            return;
+        }
+        groupedFrom = build;
+        grouped = build.byKind();
+        outsideIdentity = build.outsideIdentity();
+        curve = build.curve();
+    }
     private CollectionQuery query = CollectionQuery.EVERYTHING;
     private int page;
     private int pages = 1;
@@ -776,7 +800,8 @@ public final class DeckBuilderScreen extends ChildScreen {
                                 "screen.gathering.builder.deck_total", build.total()),
                 pane.x() + 2, pane.y(), TEXT, false);
 
-        List<BuildCard> outside = build.outsideIdentity();
+        regroupIfChanged();
+        List<BuildCard> outside = outsideIdentity;
         if (!outside.isEmpty()) {
             GuiText.draw(graphics, this.font,
                     Component.translatable("screen.gathering.builder.off_color", outside.size()),
@@ -785,7 +810,7 @@ public final class DeckBuilderScreen extends ChildScreen {
 
         int y = pane.y() + ROW_HEIGHT * 2 - deckScroll;
         deckRows.clear();
-        for (Map.Entry<CardKind, List<DeckBuild.Row>> pile : build.byKind().entrySet()) {
+        for (Map.Entry<CardKind, List<DeckBuild.Row>> pile : grouped.entrySet()) {
             if (y > pane.y() && y < listBottom) {
                 GuiText.draw(graphics, this.font,
                         Component.translatable(pile.getKey().translationKey()),
@@ -835,7 +860,8 @@ public final class DeckBuilderScreen extends ChildScreen {
 
         Rect columns = new Rect(area.x(), area.y() + CURVE_TITLE,
                 area.width(), area.height() - CURVE_TITLE - CURVE_FOOT);
-        int[] curve = build.curve();
+        regroupIfChanged();
+        int[] curve = this.curve;
         int tallest = 1;
         for (int count : curve) {
             tallest = Math.max(tallest, count);
@@ -880,7 +906,7 @@ public final class DeckBuilderScreen extends ChildScreen {
         int at = Math.clamp((mouseX - curveArea.x()) / columnWidth,
                 0, DeckBuild.CURVE_BUCKETS - 1);
         return List.of(Component.translatable("screen.gathering.builder.curve_bucket",
-                footOf(at), build.curve()[at]));
+                footOf(at), curve[at]));
     }
 
     /** Where the columns were last drawn, so the cursor can be asked which one it is over. */
@@ -1017,7 +1043,8 @@ public final class DeckBuilderScreen extends ChildScreen {
     /** How many cards the curve is counting - everything in the deck that is not a land. */
     int curveTotal() {
         int total = 0;
-        for (int count : build.curve()) {
+        regroupIfChanged();
+        for (int count : curve) {
             total += count;
         }
         return total;

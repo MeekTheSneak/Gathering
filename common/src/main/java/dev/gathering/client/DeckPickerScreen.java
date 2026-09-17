@@ -127,8 +127,18 @@ public final class DeckPickerScreen extends Screen {
         return Math.max(0, Math.min(decks.size(), room / (ROW + GAP)));
     }
 
+    /** What is in that slot right now, so the server can refuse a deck that has moved on. */
+    private net.minecraft.world.item.ItemStack stackAt(int slot) {
+        if (this.minecraft == null || this.minecraft.player == null || slot < 0) {
+            return net.minecraft.world.item.ItemStack.EMPTY;
+        }
+        var inventory = this.minecraft.player.getInventory();
+        return slot < inventory.getContainerSize()
+                ? inventory.getItem(slot) : net.minecraft.world.item.ItemStack.EMPTY;
+    }
+
     private void choose(int slot) {
-        ClientNetworking.send(new ChooseDeckPayload(table, slot, false));
+        ClientNetworking.send(ChooseDeckPayload.of(table, slot, false, stackAt(slot)));
         // Borrowing opens the loaner list; a deck going down opens the board. Neither needs this screen.
         this.minecraft.setScreen(null);
     }

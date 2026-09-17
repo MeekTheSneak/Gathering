@@ -15,7 +15,16 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param anyway  whether the player has been told what is not legal about this deck in the table's
  *                format and chose to play it anyway
  */
-public record ChooseDeckPayload(BlockPos table, int slot, boolean anyway) implements AtATable {
+public record ChooseDeckPayload(
+        BlockPos table, int slot, boolean anyway, java.util.Optional<java.util.UUID> deck)
+        implements AtATable {
+
+    /** Which deck the player meant, as its handle, for a slot whose contents may have moved on. */
+    public static ChooseDeckPayload of(BlockPos table, int slot, boolean anyway,
+            net.minecraft.world.item.ItemStack stack) {
+        return new ChooseDeckPayload(table, slot, anyway,
+                stack == null ? java.util.Optional.empty() : dev.gathering.item.DeckItem.handleOf(stack));
+    }
 
     /** Not a slot: the loaner decks, please. */
     public static final int BORROW = -1;
@@ -28,6 +37,8 @@ public record ChooseDeckPayload(BlockPos table, int slot, boolean anyway) implem
                     BlockPos.STREAM_CODEC, ChooseDeckPayload::table,
                     ByteBufCodecs.VAR_INT, ChooseDeckPayload::slot,
                     ByteBufCodecs.BOOL, ChooseDeckPayload::anyway,
+                    ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC),
+                    ChooseDeckPayload::deck,
                     ChooseDeckPayload::new);
 
     @Override
