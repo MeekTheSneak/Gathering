@@ -2698,6 +2698,46 @@ record a test cares about must not be the oldest one in the set.
 
 Verified: gate green (627/16).
 
+### Forty-first batch: the Importants that touch property (2026-09-16)
+
+The five the review found where a card could duplicate or vanish, plus the checks around them.
+
+- **A deck could come back holding twice what went in.** The vault's repair takes the cards it
+  remembers and then re-adds anything in the arriving copy that is not a stand-in, on the reading
+  that a wire copy has every card hidden. It decided that with `isRedacted`, which asks whether
+  *any* card is hidden - so a copy of a hundred real cards with one stand-in among them read as a
+  hundred cards just added. It now believes the copy only when the stand-ins account for exactly the
+  cards it knows, which is what a wire copy is; anything else is put back as last known.
+  The first attempt at this was wrong and two tests said so: the legitimate case - a creative player
+  right-clicking a card onto a deck - *is* a mixed copy, and refusing all mixed copies refused it.
+- **A saved game was destroyed by a failure to save it.** `writeSession` returned on a missing key
+  or an encryption error, which skipped writing the bytes entirely - so a table restored from disk,
+  holding both the live game and the sealed copy it came from, was saved with neither. It falls
+  through to the copy it found now. Losing the moves since it was opened is bad; losing the game is
+  worse.
+- **And one unlucky read made that permanent.** `SessionKeyring` latched "tried" before the attempt,
+  so a single `IOException` at boot meant no game on that server opened or saved again. Latched on
+  success now, and `forget()` - whose javadoc said it was called when a server stops, and which was
+  called nowhere - is in the teardown list.
+- **Card histories survived one path and not the other.** Putting a card into a deck one at a time
+  kept its story; doing forty at once through the deck builder threw every one away, and taking from
+  a collection by identity pruned the oldest story for that printing outright. A story is the one
+  thing in this mod a player cannot get back. Both bulk paths carry it now.
+- **A printing with an unusual color identity would disconnect everybody it was sent to.** The
+  reader took at most eight colors of at most eight characters; the writer had no limit, and a
+  mis-set length is not one broken field, it is every field after it in the packet. Trimmed on the
+  way in, like the token list beside it that already was.
+
+With them: the undo rule no longer reads an empty table as unanimous consent, and no longer says
+"only seated players" while checking whether a seat exists; copying a card out of a hand or library
+is an information boundary, because it puts that card's name on the battlefield; a retired secret
+verb no longer refuses a whole saved session; two payloads that wrote a file or spawned items per
+packet are budgeted like their neighbours; and `tablecheck` asks about every position a serverbound
+payload carries rather than only ones called `table`, which found two that were not covered.
+
+Verified: gate green (628/16). The duplication guard fails without its fix, saying a deck of four
+came back holding eight.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

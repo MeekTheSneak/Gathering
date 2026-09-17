@@ -1429,18 +1429,25 @@ public class TableBlockEntity extends BlockEntity {
      * it is the one irreversible thing available here.
      */
     private void writeSession(CompoundTag tag) {
+        // Falling through to what was found rather than returning, on both failures. Returning
+        // skipped the write entirely, so a table restored from disk - which holds both the live
+        // game and the sealed bytes it was restored from - was saved with neither. One IOException
+        // during an ordinary chunk save destroyed the game this method's own comment calls the one
+        // irreversible thing available here. Writing back the copy that arrived loses the moves
+        // since it was opened, which is bad; writing nothing loses the game, which is worse.
         StoredSession toWrite = stored;
         if (session != null) {
             Optional<SecretKey> key = SessionKeyring.key();
             if (key.isEmpty()) {
-                LOGGER.error("No session key, so the game at {} cannot be saved", worldPosition);
-                return;
-            }
-            try {
-                toWrite = StoredSession.of(session, startingLife, key.get());
-            } catch (IOException e) {
-                LOGGER.error("Could not write the game at {}: {}", worldPosition, e.getMessage());
-                return;
+                LOGGER.error("No session key, so the game at {} is saved as it was last read",
+                        worldPosition);
+            } else {
+                try {
+                    toWrite = StoredSession.of(session, startingLife, key.get());
+                } catch (IOException e) {
+                    LOGGER.error("Could not write the game at {}, so it is saved as it was last read: {}",
+                            worldPosition, e.getMessage());
+                }
             }
         }
         if (toWrite == null) {

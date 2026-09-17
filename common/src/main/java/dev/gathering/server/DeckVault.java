@@ -78,7 +78,19 @@ public final class DeckVault {
         // wire has every card hidden, so a card in it that is not hidden is one the client has just put in -
         // a creative player right-clicking cards onto a deck, whose click the server never sees. Taking the
         // kept list alone threw those cards away, which is a card deleted rather than a card moved.
+        //
+        // Believed only when the stand-ins account for exactly the cards the vault knows about. That
+        // is what a wire copy looks like: one stand-in per card that was in the deck, and anything
+        // face up beside them is new. The test used to be isRedacted, which asks whether *any* card
+        // is hidden - so a copy of a hundred real cards with one stand-in among them read as a
+        // hundred cards just added, and the deck came back holding two hundred. When the counts do
+        // not line up there is no way to tell which cards are which, so it is put back as it was
+        // last known and nothing is added.
         DeckComponent restored = deck.holding(known);
+        long standIns = deck.entries().stream().filter(CardComponent::isHidden).count();
+        if (standIns != known.entries().size()) {
+            return Optional.of(restored);
+        }
         for (CardComponent card : deck.entries()) {
             if (card == null || card.isHidden()) {
                 continue;

@@ -50,7 +50,8 @@ public final class PocketCards {
                 missed++;
                 continue;
             }
-            if (!take(player, wanted)) {
+            Optional<dev.gathering.core.story.CardStory> story = takeWithItsStory(player, wanted);
+            if (story.isEmpty()) {
                 missed++;
                 continue;
             }
@@ -63,7 +64,8 @@ public final class PocketCards {
                 missed++;
                 continue;
             }
-            deck = next.get();
+            // And its history with it, the way the one-at-a-time gesture has always done.
+            deck = next.get().keeping(wanted.faceUp(), story.get());
             went++;
         }
 
@@ -116,23 +118,38 @@ public final class PocketCards {
      * ends up eating somebody's commander.
      */
     static boolean take(ServerPlayer player, CardComponent wanted) {
+        return takeWithItsStory(player, wanted).isPresent();
+    }
+
+    /**
+     * Takes one of these out of the inventory, and hands back whatever history it was carrying.
+     * <p>The story is the point. Putting a card into a deck one at a time - the bundle gesture -
+     * read the history off the stack and kept it with the deck; doing forty at once through this
+     * screen did not, so building a deck out of a card won in an ante threw away the record of
+     * winning it. A story cannot be got back, and the only other place in the mod that destroys one
+     * says so at the point it happens.
+     *
+     * @return the story it carried, empty if it carried none, or null if there was no such card
+     */
+    static Optional<dev.gathering.core.story.CardStory> takeWithItsStory(
+            ServerPlayer player, CardComponent wanted) {
         if (wanted == null) {
-            return false;
+            return Optional.empty();
         }
         CardComponent looking = wanted.faceUp();
-        for (ItemStack stack : player.getInventory().items) {
-            if (matches(stack, looking)) {
-                stack.shrink(1);
-                return true;
+        for (java.util.List<ItemStack> where
+                : java.util.List.of(player.getInventory().items, player.getInventory().offhand)) {
+            for (ItemStack stack : where) {
+                if (matches(stack, looking)) {
+                    dev.gathering.item.StoryComponent story =
+                            stack.get(dev.gathering.registry.GatheringComponents.STORY.get());
+                    stack.shrink(1);
+                    return Optional.of(story == null
+                            ? dev.gathering.core.story.CardStory.NONE : story.story());
+                }
             }
         }
-        for (ItemStack stack : player.getInventory().offhand) {
-            if (matches(stack, looking)) {
-                stack.shrink(1);
-                return true;
-            }
-        }
-        return false;
+        return Optional.empty();
     }
 
     /** Face up either way round: which side a loose card is lying is not part of what it is. */

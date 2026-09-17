@@ -202,7 +202,14 @@ public final class SessionCodec {
                 if (sequence < 0) {
                     return secrets;
                 }
-                secrets.put(sequence, EventCodec.read(sealed, sleeved));
+                // A verb this build has retired reads as nothing, and storing that nothing made it
+                // indistinguishable from a sealed stream that was missing the event - so the whole
+                // session refused to open, for ever, over one label nobody reads. Dropped here the
+                // way the open half already drops it.
+                GameEvent secret = EventCodec.read(sealed, sleeved);
+                if (secret != null) {
+                    secrets.put(sequence, secret);
+                }
                 if (secrets.size() > MAX_LIST) {
                     throw new IOException("Implausibly many sealed events");
                 }

@@ -60,7 +60,7 @@ public final class EventViews {
             case OPEN_CHECK_IN -> Events.openCheckIn(player, id);
             case BEGIN -> Events.begin(player, id);
             case START_NOW -> Events.startNow(player, id);
-            case SETTLE -> result(player, payload).ifPresent(result -> Events.settle(player, id, payload.table(), result));
+            case SETTLE -> result(player, payload).ifPresent(result -> Events.settle(player, id, payload.tableNumber(), result));
             case DROP_PLAYER -> Events.dropPlayer(player, id, payload.player());
             case CANCEL -> Events.cancel(player, id);
             case ADD_TABLES -> {
@@ -68,7 +68,7 @@ public final class EventViews {
                     Events.addTables(player, id, payload.at());
                 }
             }
-            case ADD_PRIZE -> EventPrizes.put(player, id, payload.table());
+            case ADD_PRIZE -> EventPrizes.put(player, id, payload.tableNumber());
             case RECORD -> record(player, payload.player());
             case MARK_REGISTRATION -> Events.markRegistration(player, id);
         }

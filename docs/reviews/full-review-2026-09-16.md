@@ -61,12 +61,12 @@ Status column: **fixed** / **open** / **rejected** (with the reason).
 - `network/CardSummary.java:107-131` - `colorIdentity` trimmed on decode but not on encode; a printing with >8 entries writes a packet the far side cannot read, disconnecting every recipient.
 - `network/GatheringProtocol.java:207` - `MarkWantedPayload` writes a file per packet with no budget.
 - `network/GatheringProtocol.java:233` - `CollectionTakePayload` is the one collection payload with no throttle.
-- `tools/tablecheck.py:32` - matches on the component *name* `table`; `DraftPickPayload.pod` and `EventActionPayload.at` carry table positions and are silently uncovered.
+- **[fixed]** `tools/tablecheck.py:32` - matches on the component *name* `table`; `DraftPickPayload.pod` and `EventActionPayload.at` carry table positions and are silently uncovered.
 
 **Game core**
-- `GameSession.java:240-246` - `undo` treats "nobody occupies a seat" as unanimous consent, so an unconsented rewind across a reveal succeeds in that window.
-- `GameEvent.java:625-627` - `TokenCopyCreated` does not report as an information boundary when copying from a hand or library, so it can be silently and unilaterally undone after the table saw it.
-- `persistence/SessionCodec.java:205` - a retired secret verb makes a whole saved session refuse to open.
+- **[fixed]** `GameSession.java:240-246` - `undo` treats "nobody occupies a seat" as unanimous consent, so an unconsented rewind across a reveal succeeds in that window.
+- **[fixed]** `GameEvent.java:625-627` - `TokenCopyCreated` does not report as an information boundary when copying from a hand or library, so it can be silently and unilaterally undone after the table saw it.
+- **[fixed]** `persistence/SessionCodec.java:205` - a retired secret verb makes a whole saved session refuse to open.
 
 **Collections**
 - `server/CollectionKeys.java:143-158` - handing a collection over is one click, name-typed, irreversible, unconfirmed.

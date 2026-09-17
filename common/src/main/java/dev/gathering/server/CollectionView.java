@@ -456,9 +456,14 @@ public final class CollectionView {
         CardDataService service = CardDataService.active().orElse(null);
         List<CardComponent> got = new ArrayList<>();
         List<CardComponent> commanders = new ArrayList<>();
+        // What each claimed card was carrying, so the deck can keep it. Taking a card one at a time
+        // has always kept its history; building a deck out of forty of them threw every one away,
+        // and a story is the one thing in this mod a player cannot get back.
+        java.util.Map<CardComponent, dev.gathering.core.story.CardStory> histories =
+                new java.util.LinkedHashMap<>();
         int missed = 0;
         for (CardComponent wanted : asked.commander().map(List::of).orElse(List.of())) {
-            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted);
+            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted, histories);
             if (claimed != null) {
                 commanders.add(claimed);
             } else {
@@ -466,7 +471,7 @@ public final class CollectionView {
             }
         }
         for (CardComponent wanted : asked.cards()) {
-            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted);
+            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted, histories);
             if (claimed != null) {
                 got.add(claimed);
             } else {
@@ -496,6 +501,11 @@ public final class CollectionView {
                 // still decides what the deck contains; the sleeve is the one thing the
                 // client picks, and it decides nothing but what the cards look like.
                 .sleeved(asked.sleeve());
+        // Every history the cards brought with them, kept with the deck they went into.
+        for (java.util.Map.Entry<CardComponent, dev.gathering.core.story.CardStory> held
+                : histories.entrySet()) {
+            deck = deck.keeping(held.getKey(), held.getValue());
+        }
         ItemStack stack = DeckItem.of(deck);
         dev.gathering.server.Handing.give(player, stack);
         player.sendSystemMessage(Component.translatable(
@@ -527,7 +537,8 @@ public final class CollectionView {
      * @param collection the box to take from, or null where this player may not take from it
      */
     private static CardComponent claim(CardDataService service, ServerPlayer player,
-            CollectionBlockEntity collection, CardComponent wanted) {
+            CollectionBlockEntity collection, CardComponent wanted,
+            java.util.Map<CardComponent, dev.gathering.core.story.CardStory> histories) {
         if (wanted == null) {
             return null;
         }
@@ -539,10 +550,25 @@ public final class CollectionView {
                     .map(printing -> CardComponent.of(CardIdentity.ofPrinting(printing, false)))
                     .orElse(null);
         }
-        if (collection != null && collection.take(identity, 1) > 0) {
-            return wanted.faceUp();
+        if (collection != null) {
+            // With its history, not without it. Taking by identity alone pruned the oldest story for
+            // that printing and left nothing holding it.
+            CollectionBlockEntity.Taken taken = collection.takeWithStories(identity, 1);
+            if (taken.took() > 0) {
+                taken.stories().stream().filter(story -> story != null && !story.isEmpty())
+                        .findFirst().ifPresent(story -> histories.put(wanted.faceUp(), story));
+                return wanted.faceUp();
+            }
         }
-        return PocketCards.take(player, wanted) ? wanted.faceUp() : null;
+        java.util.Optional<dev.gathering.core.story.CardStory> carried =
+                PocketCards.takeWithItsStory(player, wanted);
+        if (carried.isEmpty()) {
+            return null;
+        }
+        if (!carried.get().isEmpty()) {
+            histories.put(wanted.faceUp(), carried.get());
+        }
+        return wanted.faceUp();
     }
 
     /** The last build each player asked for, so one cannot be asked for every tick. */

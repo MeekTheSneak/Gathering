@@ -27,26 +27,53 @@ PAYLOADS = ROOT / "common/src/main/java/dev/gathering/network"
 #: The record header, up to the implements clause. Payloads are records without exception.
 HEADER = re.compile(r"public record (\w+)\(([^)]*)\)\s*implements\s+([\w.,\s]+?)\s*\{", re.S)
 
-#: A component that is a table's position. Named rather than typed: a payload may carry some
-#: other BlockPos - a block being pointed at - and that is not where the payload is going.
-TABLE = re.compile(r"\bBlockPos\s+table\b")
+#: Any position a payload carries. Every one of these is asked about, because naming the
+#: component `table` was the whole of the old test and a payload is free to call it anything:
+#: `DraftPickPayload` said `pod` and `EventActionPayload` said `at`, both were table positions,
+#: and neither was ever looked at by the check whose job is to look at them.
+POSITION = re.compile(r"\bBlockPos\s+(\w+)\b")
+
+#: Positions that are not a table's, each with the reason it is not. A payload naming one of
+#: these is passed over; anything else has to implement AtATable or say why here, which makes
+#: adding a position to a payload a decision somebody writes down rather than one nobody sees.
+NOT_A_TABLE = {
+    "collection": "a collection block, which is not a table and has no session",
+    "where": "a collection block, which is not a table and has no session",
+    "desk": "a scorekeeper's desk, which stands beside tables rather than being one",
+    "block": "whichever block was clicked, before anything has decided what it is",
+}
+
+
+def serverbound() -> set:
+    """The payloads a client can send, which are the only ones the guard applies to.
+
+    A clientbound payload is written by the server and never goes through ClientNetworking.send,
+    so asking it to implement AtATable would be asking it to carry an answer nobody reads.
+    """
+    registry = (ROOT / "common/src/main/java/dev/gathering/network/GatheringProtocol.java")
+    return set(re.findall(r"toServer\((\w+)\.TYPE", registry.read_text()))
 
 
 def main() -> int:
     wrong = []
     checked = 0
+    fromClients = serverbound()
     for source in sorted(PAYLOADS.glob("*Payload.java")):
         found = HEADER.search(source.read_text())
         if not found:
             continue
         name, components, implemented = found.groups()
-        if not TABLE.search(components):
+        if name not in fromClients:
+            continue
+        carried = [held for held in POSITION.findall(components) if held not in NOT_A_TABLE]
+        if not carried:
             continue
         checked += 1
         if "AtATable" not in implemented:
-            wrong.append(f"{source.relative_to(ROOT)}: {name} carries a table position but "
-                         f"implements {implemented.strip()}, so ClientNetworking.send cannot "
-                         f"ask where it is going")
+            wrong.append(f"{source.relative_to(ROOT)}: {name} carries a position "
+                         f"({', '.join(carried)}) but implements {implemented.strip()}, so "
+                         f"ClientNetworking.send cannot ask where it is going. Implement AtATable, "
+                         f"or name the component in tablecheck's NOT_A_TABLE with the reason.")
 
     # A check that finds nothing to check has not proved anything, and must not report that it
     # has. Twenty-five of these existed when the rule was written.

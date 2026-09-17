@@ -646,7 +646,13 @@ public sealed interface GameEvent {
          */
         @Override
         public boolean revealsInformation(GameState before) {
-            return before.card(source).map(CardInstance::isFaceDown).orElse(false);
+            // Where it was copied from, as well as which way up it was lying. Copying a card out of
+            // a hand or a library puts a face-up token carrying its identity on the battlefield for
+            // the whole table to read - and those cards are face up, because facing is per card and
+            // hiding is per zone. So this said nothing was revealed, and the rewind that followed
+            // could be taken back by one player alone, silently, after everybody had seen it.
+            return before.locationOf(source).map(where -> where.zone().isHidden()).orElse(false)
+                    || before.card(source).map(CardInstance::isFaceDown).orElse(false);
         }
     }
 

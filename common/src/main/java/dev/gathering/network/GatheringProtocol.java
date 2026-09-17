@@ -204,9 +204,13 @@ public final class GatheringProtocol {
             toServer(AskSetProgressPayload.TYPE, AskSetProgressPayload.STREAM_CODEC,
                     budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, (player, payload) -> dev.gathering.server.CollectionSets.progress(
                             player, payload.collection()))),
+            // Budgeted because every one of these that changes the list queues a file write, so a
+            // client toggling one card on and off as fast as the socket allows is sustained disk
+            // work and a growing queue from one ordinary player.
             toServer(MarkWantedPayload.TYPE, MarkWantedPayload.STREAM_CODEC,
-                    (player, payload) -> dev.gathering.server.Wants.mark(
-                            player, payload.printing(), payload.wanted())),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS,
+                            (player, payload) -> dev.gathering.server.Wants.mark(
+                                    player, payload.printing(), payload.wanted()))),
             toServer(AskSetMissingPayload.TYPE, AskSetMissingPayload.STREAM_CODEC,
                     budgeted(dev.gathering.server.ActionBudget.WHOLE_SETS, (player, payload) -> dev.gathering.server.CollectionSets.missing(
                             player, payload.collection(), payload.setCode()))),
@@ -238,9 +242,13 @@ public final class GatheringProtocol {
                             player, payload.where(), payload.query(), payload.descending(),
                             payload.page(), payload.perPage(), payload.pockets(),
                             payload.revision())),
+            // The one collection request with no throttle of its own, beside neighbours that all
+            // have one: sixty-four cards a packet, and a full inventory turns each into a dropped
+            // item entity.
             toServer(CollectionTakePayload.TYPE, CollectionTakePayload.STREAM_CODEC,
-                    (player, payload) -> dev.gathering.server.CollectionView.take(
-                            player, payload.where(), payload.card(), payload.howMany())),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS,
+                            (player, payload) -> dev.gathering.server.CollectionView.take(
+                                    player, payload.where(), payload.card(), payload.howMany()))),
             toServer(BuildDeckPayload.TYPE, BuildDeckPayload.STREAM_CODEC,
                     dev.gathering.server.CollectionView::build),
             toServer(CollectionKeysAskPayload.TYPE, CollectionKeysAskPayload.STREAM_CODEC,

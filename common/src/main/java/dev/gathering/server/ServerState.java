@@ -36,6 +36,10 @@ public final class ServerState {
         ServerTicks.clear();
         PackWrappers.clear();
         DeckVault.clear();
+        // So the next world in this JVM reads its own key rather than the last one's. Its javadoc
+        // said it was called here and it was called nowhere, which in single-player meant a failed
+        // read stayed failed until the game was restarted.
+        SessionKeyring.forget();
         TradeSessions.clear();
         TableActions.clear();
         Lending.clear();

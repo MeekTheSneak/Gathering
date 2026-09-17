@@ -19,7 +19,18 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * came back.
  */
 public record DraftPickPayload(BlockPos pod, List<Integer> positions)
-        implements CustomPacketPayload {
+        implements AtATable {
+
+    /**
+     * A pod drafts at tables, so its position is a table's and answers the same question.
+     * <p>Said here because {@code ClientNetworking.send} asks every serverbound payload where it is
+     * going, to keep the guided first game - which is a board at a position no table occupies - off
+     * the wire. This payload carried a table position under another name and was never asked.
+     */
+    @Override
+    public BlockPos table() {
+        return pod;
+    }
 
     /** Nobody picks more than two at once; a bound so a bad packet is refused on arrival. */
     public static final int MAX_PICKS = 2;

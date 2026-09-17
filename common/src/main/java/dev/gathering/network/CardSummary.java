@@ -105,7 +105,7 @@ public record CardSummary(
                         RARITY_STREAM_CODEC.encode(buffer, card.rarity());
                         buffer.writeDouble(card.manaValue());
                         buffer.writeVarInt(card.colorIdentity().size());
-                        card.colorIdentity().forEach(buffer::writeUtf);
+                        card.colorIdentity().forEach(color -> buffer.writeUtf(color, LONGEST_COLOR));
                         buffer.writeVarInt(card.makes().size());
                         card.makes().forEach(made -> {
                             buffer.writeUtf(made.name(), LONGEST_TOKEN_NAME);
@@ -145,9 +145,22 @@ public record CardSummary(
         oracleId = oracleId == null ? scryfallId : oracleId;
         // Kept in order rather than sorted into a hash order salted once per launch, so two
         // clients encode the same card the same way.
-        colorIdentity = colorIdentity == null
-                ? Set.of()
-                : java.util.Collections.unmodifiableSet(new java.util.LinkedHashSet<>(colorIdentity));
+        // Trimmed on the way in for the same reason makes is, and it was not: the reader takes at
+        // most MOST_COLORS of at most LONGEST_COLOR characters, so a printing carrying more than
+        // that wrote a packet the far side could not read back - and a mis-set length is not one
+        // broken field, it is every field after it in the packet. Scryfall has never sent more than
+        // five single letters; this is so that a day it does is a trimmed color and not a
+        // disconnect for every client the card is sent to.
+        java.util.Set<String> colors = new java.util.LinkedHashSet<>();
+        if (colorIdentity != null) {
+            for (String color : colorIdentity) {
+                if (color == null || color.isEmpty() || colors.size() >= MOST_COLORS) {
+                    continue;
+                }
+                colors.add(color.length() > LONGEST_COLOR ? color.substring(0, LONGEST_COLOR) : color);
+            }
+        }
+        colorIdentity = java.util.Collections.unmodifiableSet(colors);
         // Trimmed here rather than at the menu, so a printing that lists thirty tokens cannot
         // encode a packet the far side then refuses to read back.
         makes = makes == null

@@ -187,7 +187,9 @@ public final class GameSession {
         if (actionCount < 1) {
             return UndoDecision.denied("Nothing to undo.");
         }
-        if (!state.hasSeat(requester)) {
+        // Occupied, not merely a seat that exists here: hasSeat asks whether this is one of the
+        // table's seats, and the refusal says somebody is sitting in it.
+        if (!state.hasSeat(requester) || !state.seatState(requester).isOccupied()) {
             return UndoDecision.denied("Only seated players can rewind.");
         }
         // The end is the one line that is not rewound. The match has been scored, the decks
@@ -239,7 +241,12 @@ public final class GameSession {
         }
         if (decision instanceof UndoDecision.NeedsUnanimousConsent needed) {
             Set<SeatId> agreed = new LinkedHashSet<>(consents);
-            if (!agreed.containsAll(occupiedSeats())) {
+            // Nobody to agree is not everybody agreeing. containsAll of an empty table is vacuously
+            // true, and a seat released while its board stays on the felt leaves the table occupied
+            // by nobody - so a rewind across a revealed card went through unopposed in exactly the
+            // window where there was no one to oppose it. The rule this guards says it is not a
+            // setting; that has to include the case where the room is empty.
+            if (occupiedSeats().isEmpty() || !agreed.containsAll(occupiedSeats())) {
                 return new Result.Rejected(needed.reason());
             }
             unanimous = true;

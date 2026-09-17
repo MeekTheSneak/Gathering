@@ -14,7 +14,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  *
  * @param event  the tournament, or the nil UUID for the list
  * @param action what is being done
- * @param table  a table number, for settling; or a place, for a prize
+ * @param tableNumber  a table number, for settling; or a place, for a prize
  * @param winsA  games won by the first player (or by the reporter, for a report)
  * @param winsB  games won by the second player (or by the reporter's opponent)
  * @param draws  games drawn
@@ -22,8 +22,20 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param at     the table the player is standing at, for adding tables
  */
 public record EventActionPayload(
-        UUID event, Action action, int table, int winsA, int winsB, int draws, UUID player, BlockPos at)
-        implements CustomPacketPayload {
+        UUID event, Action action, int tableNumber, int winsA, int winsB, int draws, UUID player, BlockPos at)
+        implements AtATable {
+
+    /**
+     * Where the host is standing, which for ADD_TABLES is the table they mean.
+     * <p>Said here because {@code ClientNetworking.send} asks every serverbound payload where it is
+     * going, to keep the guided first game off the wire. This one carried a position called
+     * {@code at} and was never asked. Null where the action is not about a place, which the guard
+     * reads as nowhere in particular rather than as the demonstration.
+     */
+    @Override
+    public BlockPos table() {
+        return at;
+    }
 
     public enum Action {
         LIST, VIEW, REGISTER, WITHDRAW, CHECK_IN, READY, REPORT, OPEN_CHECK_IN, BEGIN, START_NOW, SETTLE,
@@ -42,7 +54,7 @@ public record EventActionPayload(
             (buffer, payload) -> {
                 buffer.writeUUID(payload.event());
                 buffer.writeVarInt(payload.action().ordinal());
-                buffer.writeVarInt(payload.table());
+                buffer.writeVarInt(payload.tableNumber());
                 buffer.writeVarInt(payload.winsA());
                 buffer.writeVarInt(payload.winsB());
                 buffer.writeVarInt(payload.draws());

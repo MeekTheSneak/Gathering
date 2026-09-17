@@ -290,6 +290,7 @@ public record DeckComponent(
                 || sideboard.stream().anyMatch(CardComponent::isHidden);
     }
 
+
     public DeckComponent {
         description = description == null ? "" : description;
         sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;

@@ -200,6 +200,51 @@ public final class DeckMadeInCreativeGameTest {
         helper.succeed();
     }
 
+    /**
+     * A copy whose stand-ins do not account for what the vault knows adds nothing.
+     * <p>The re-add loop exists for a real case: a creative player right-clicking a card onto a deck,
+     * whose click the server never sees, so the copy arrives as one stand-in per card already in it
+     * plus the new card face up. What told the two apart was {@code isRedacted}, which asks whether
+     * <em>any</em> card is hidden - so a copy of a hundred real cards with a single stand-in among
+     * them read as a hundred cards just added, and the deck came back holding two hundred.
+     */
+    @GameTest(template = "empty")
+    public static void amismatchedCopyDoesNotDoubleTheDeck(GameTestHelper helper) {
+        ServerPlayer maker = helper.makeMockServerPlayerInLevel();
+        maker.setGameMode(GameType.CREATIVE);
+        UUID handle = UUID.randomUUID();
+
+        // The vault knows a deck of four.
+        List<CardComponent> four = new java.util.ArrayList<>();
+        for (int card = 0; card < 4; card++) {
+            four.add(new CardComponent(Optional.of(UUID.randomUUID()), false, Optional.empty(), false));
+        }
+        DeckComponent known = new DeckComponent("", "", Optional.empty(), four, List.of(), List.of());
+        DeckEdits.made(maker, new DeckMadePayload(handle,
+                new DeckComponent("", "", Optional.empty(), four.subList(0, 2), List.of(), List.of())));
+        // Straight into the vault, because the payload only believes decks of two.
+        dev.gathering.server.DeckVault.remember(maker.getUUID(), handle, known);
+
+        // And a copy of those same four, real, with one stand-in dropped among them.
+        List<CardComponent> mixed = new java.util.ArrayList<>(four);
+        mixed.add(CardComponent.HIDDEN);
+        DeckComponent arriving =
+                new DeckComponent("", "", Optional.empty(), mixed, List.of(), List.of());
+
+        DeckComponent back = dev.gathering.server.DeckVault
+                .real(maker.getUUID(), handle, arriving).orElse(null);
+        if (back == null) {
+            helper.fail("a deck the vault knew came back as nothing");
+            return;
+        }
+        if (back.entries().size() != known.entries().size()) {
+            helper.fail("a deck of " + known.entries().size() + " came back holding "
+                    + back.entries().size());
+            return;
+        }
+        helper.succeed();
+    }
+
     /** And the whole trip on a real item, which is the shape the owner actually met it in. */
     @GameTest(template = "empty")
     public static void theItemItselfComesBackWhole(GameTestHelper helper) {

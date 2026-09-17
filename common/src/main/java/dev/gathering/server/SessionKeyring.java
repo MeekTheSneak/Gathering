@@ -30,9 +30,12 @@ public final class SessionKeyring {
         if (tried) {
             return Optional.ofNullable(key);
         }
-        tried = true;
         try {
             key = SessionKeys.load(Platform.get().configDirectory());
+            // Latched only on success. Latched before the attempt, one unlucky read - a permissions
+            // hiccup, a busy filesystem at boot - meant every game on this server refused to open
+            // or save for the rest of the run, and nothing would retry.
+            tried = true;
         } catch (IOException | RuntimeException e) {
             // Never the key itself, and never a stack trace that might carry it.
             LOGGER.error("Could not load the session key, so saved games will not open: {}",
