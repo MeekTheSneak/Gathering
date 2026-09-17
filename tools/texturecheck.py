@@ -221,9 +221,9 @@ def stretchedFaces():
 #: exists. Named here it is a line in the report rather than a failure, and the item shows the missing
 #: texture in game until the file lands, which is the honest thing for it to do. A name here whose file
 #: has arrived is a stale excuse, and that fails.
-OWED = {
-    "item/mana_coin.png": "the shop's currency, a swirl of the five mana colors (owner, 2026-09-17)",
-}
+#: Empty, which is the ordinary state. The Mana Coin was here until the owner asked for a stand-in
+#: drawn from the mod's own orbs to play with (2026-09-17); it is drawn by tools/manacoin.py.
+OWED = {}
 
 
 def owedArt(onDisk):

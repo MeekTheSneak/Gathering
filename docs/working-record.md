@@ -3346,3 +3346,14 @@ run - the in-world server was not run from this worktree. Nothing about the scre
 drawn: the menu over the box grid, the sideboard heading and its count, and the scrolling of two
 sections all need a client. `DevScene.buildADeck` now takes the commander and the sideboard off
 the menu, and that scene has not been run either.
+
+**The Mana Coin's art (2026-09-17).** The owner asked for a stand-in to play with rather than waiting
+on his own: `tools/manacoin.py` draws it, reading the five colors out of the mod's own mana orbs so the
+coin and a card's pips are the same five, and striking a dark rim round a swirl of them. It is a
+stand-in and says so; the owner replaces it whenever he likes, and the script is how it was made rather
+than a grid of pixels nobody can reason about. Art is otherwise still the owner's - texturecheck's
+OWED list is the way to name art that is promised but not drawn.
+
+The scripted run after the whole list: 387 of 387, one failure - the two views' framing, which the
+owner has left alone for now.
+
