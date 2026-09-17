@@ -38,6 +38,7 @@ public final class ClientPreferencesGameTest {
         anOldFileKeepsWhatItSaid(helper);
         abrokenfilefallsbackratherthanfailing(helper);
         impossiblevaluesareclamped(helper);
+        aquoteinthethemedoesnotcostthewholefile(helper);
         writingbackkeepswhatthisversiondoesnotknow(helper);
         asimilarlynamedlineisleftalone(helper);
         thesamenameunderanotherheadingisleftalone(helper);
@@ -161,6 +162,36 @@ public final class ClientPreferencesGameTest {
             }
             if (ClientSettings.textScale() != 100 || !ClientSettings.tableSounds()) {
                 helper.fail("a broken settings file did not fall back to the defaults");
+            }
+        });
+    }
+
+    /**
+     * A theme with a quote in it does not leave a file that will not parse.
+     * <p>The theme was written back between quotes with nothing escaped. The reader accepts an
+     * escaped quote on the way in and the writer put it out bare, so the next launch read a
+     * line it refuses. The reader is forgiving line by line, so what was lost was the theme
+     * rather than everything - but a settings file the game writes should be one it can read.
+     */
+    private static void aquoteinthethemedoesnotcostthewholefile(GameTestHelper helper) throws Exception {
+        withFile("""
+                [file]
+                schema = 2
+
+                [gui]
+                theme = "gathering:wal\\"nut"
+
+                [accessibility]
+                text_scale = 150
+                """, helper, where -> {
+            boolean was = ClientSettings.reducedMotion();
+            ClientSettings.reducedMotion(!was);
+            ClientSettings.flush();
+            String written = Files.readString(where, StandardCharsets.UTF_8);
+            try {
+                dev.gathering.core.config.Toml.read(written);
+            } catch (dev.gathering.core.config.TomlException unreadable) {
+                helper.fail("the settings file written back does not parse: " + unreadable.getMessage());
             }
         });
     }

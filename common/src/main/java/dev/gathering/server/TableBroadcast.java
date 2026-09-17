@@ -77,6 +77,18 @@ public final class TableBroadcast {
         return viewsBuilt;
     }
 
+    /**
+     * Told of every board view as it is built for a player: who it is for, and what they were
+     * shown. Does nothing unless a test sets it.
+     * <p>The visibility rules are proven in the core, and the codec is proven not to add
+     * anything. Nothing proved the step between - that the view built for a player is built for
+     * <em>that</em> player's seat - and a slip there would put one player's hand in front of
+     * another with every rule and every codec test still green. A stand-in player cannot take a
+     * payload, so a test cannot read the wire; it reads this instead, one step before the wire.
+     */
+    public static volatile java.util.function.BiConsumer<java.util.UUID, GameView> builtForTesting =
+            (player, view) -> { };
+
     /** Starts both counts again. */
     public static void forgetTheCount() {
         boardsSent = 0;
@@ -139,6 +151,7 @@ public final class TableBroadcast {
                 }
             }
             boardsSent++;
+            builtForTesting.accept(nearby.getUUID(), shared);
             Sending.to(nearby, new TableViewPayload(tableOrigin, encoded, false));
             CardArtPush.sendFor(nearby, shared);
         }
@@ -189,6 +202,7 @@ public final class TableBroadcast {
                     session.state(), viewer, session.recentLog(LOG_LINES_SENT));
             viewsBuilt++;
             boardsSent++;
+            builtForTesting.accept(player.getUUID(), seen);
             Sending.to(player,
                     new TableViewPayload(tableOrigin, ViewCodec.write(seen), open));
             // What the table is playing, beside it. Nothing about it is hidden, so it is the same for

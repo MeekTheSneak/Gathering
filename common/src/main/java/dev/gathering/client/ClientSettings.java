@@ -201,9 +201,22 @@ public final class ClientSettings {
 
     // ---------------------------------------------------------------- saying
 
+    /**
+     * Whether this is a theme id at all: a resource location, and nothing a file cannot hold.
+     * <p>The theme is written back between quotes with nothing escaped, and the reader takes
+     * {@code \"} inside a string. So a quote or a backslash got in by hand came back out as a
+     * line the reader refused on the next launch - and a file that will not read is a file
+     * whose every setting falls back to the default, the accessibility ones and the lesson
+     * already taken included. Refused on the way in instead, as the only kind of value a theme
+     * id can be.
+     */
+    static boolean isThemeId(String id) {
+        return id != null && id.length() <= 128 && id.matches("[a-z0-9_.-]+:[a-z0-9_./-]+");
+    }
+
     public static void themeId(String wanted) {
         load();
-        if (wanted == null || wanted.equals(theme)) {
+        if (!isThemeId(wanted) || wanted.equals(theme)) {
             return;
         }
         theme = wanted;
@@ -466,6 +479,9 @@ public final class ClientSettings {
         }
         try {
             theme = read.string(THEME_KEY, DEFAULT_THEME);
+            if (!isThemeId(theme)) {
+                theme = DEFAULT_THEME;
+            }
             textScale = clampScale(read.number(TEXT_SCALE_KEY, 100));
             controlScale = clampScale(read.number(CONTROL_SCALE_KEY, 100));
             reducedMotion = read.flag(REDUCED_MOTION_KEY, false);
