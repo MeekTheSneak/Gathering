@@ -71,7 +71,7 @@ public final class DeployerPacks {
      */
     public static boolean tearOpen(ServerLevel level, net.minecraft.world.entity.item.ItemEntity loose) {
         PackComponent pack = PackItem.packOf(loose.getItem()).filter(PackComponent::isReal).orElse(null);
-        if (pack == null || !loose.isAlive()) {
+        if (pack == null || !loose.isAlive() || !aDeployerMayOpen(pack)) {
             return false;
         }
         java.util.UUID id = loose.getUUID();
@@ -90,6 +90,17 @@ public final class DeployerPacks {
                     swapForCards(level, id, pack, cards);
                 }));
         return true;
+    }
+
+    /**
+     * Whether a press may open this pack at all.
+     * <p>The same question opening one by hand asks, and a deployer used to skip it: with
+     * collecting switched off, a hand is told no and a deployer opened the booster anyway. And
+     * never an archive pack, which draws from the server's collections rather than a set - the
+     * draw handed back nothing and warned on every press, for as long as the deployer spun.
+     */
+    static boolean aDeployerMayOpen(PackComponent pack) {
+        return PackOpening.whyNot() == null && !pack.isArchive();
     }
 
     /** One of this loose booster, if it is still lying there, becomes these cards beside it. */
@@ -143,7 +154,7 @@ public final class DeployerPacks {
             return true;
         }
         PackComponent pack = firstPackOn(handler);
-        if (pack == null) {
+        if (pack == null || !aDeployerMayOpen(pack)) {
             return false;
         }
         DRAWING.add(where);

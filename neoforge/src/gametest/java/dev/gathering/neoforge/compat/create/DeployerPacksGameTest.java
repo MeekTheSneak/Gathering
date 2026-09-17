@@ -48,6 +48,26 @@ public final class DeployerPacksGameTest {
     }
 
     /**
+     * With collecting switched off a press opens nothing, as a hand's does not.
+     * <p>Run inside one call, so no other test's tick sees the setting changed.
+     */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    public static void aPressOpensNothingWhileCollectingIsOff(GameTestHelper helper) {
+        BlockPos depot = depotWithABooster(helper);
+        String[] wrong = {null};
+        dev.gathering.neoforge.test.TestConfigAccess.run("[modes]\ncollection_enabled = false\n", () -> {
+            if (DeployerPacks.tearOpen(helper.getLevel(), depot) || DeployerPacks.isDrawingAt(helper.getLevel(), depot)) {
+                wrong[0] = "a Deployer opened a booster on a server with collecting switched off";
+            }
+        });
+        if (wrong[0] != null) {
+            helper.fail(wrong[0]);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
      * A real Deployer, turned by a Creative Motor and facing a Depot sideways with an empty hand,
      * starts opening the booster on it - through the press Create makes, rather than by calling the
      * opener directly as the tests below do.

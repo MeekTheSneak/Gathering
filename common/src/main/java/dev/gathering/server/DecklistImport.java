@@ -60,6 +60,19 @@ public final class DecklistImport {
     }
 
     /**
+     * Forgets every import in flight and every cooldown, for a world that has closed.
+     * <p>The in-flight marker comes off when the lookup completes, and a lookup still queued
+     * when the world closes never does: the card worker is shut down with its queue dropped,
+     * and a dropped task completes nothing. So a single-player import made while the worker
+     * was still busy warming its caches, then a quit, left that player refused - "An import is
+     * already running" - in every world until the game was restarted.
+     */
+    public static void clear() {
+        inFlight.clear();
+        lastImportNanos.clear();
+    }
+
+    /**
      * Why this player may not import, or null if they may.
      * <p>Public so the command that opens the import screen can ask before opening it: being
      * told no after typing a decklist out is a worse answer than being told no instead of

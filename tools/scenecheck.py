@@ -34,8 +34,14 @@ LAST = re.compile(r"private static final int LAST_STEP = (\d+);")
 SHOTS = ROOT / "tools/shots.sh"
 
 CONSTANT = re.compile(r"private static final int ([A-Z_]+) = (\d+);")
-ADVANCE = re.compile(r"advance\(([^()]*)\)")
+#: A scene step moving on, and one waiting where it is. Named calls only, so a pack cloth's
+#: own advance(1f / 60f) - a simulation step, not a pause - is not counted as scene time.
+ADVANCE = re.compile(r"(?<![.\w])advance\(([^()]*)\)")
+WAIT_HERE = re.compile(r"(?<![.\w])waitHere\(([^()]*)\)")
 WAITED = re.compile(r"waited = ([^;]+);")
+
+#: What advance() and waitHere() call their own argument, so their bodies are not read as waits.
+PASSED_ON = {"settle", "ticksToWait"}
 BUDGET = re.compile(r'BUDGET="\$\{SHOT_SECONDS:-(\d+)\}"')
 
 #: Ticks a second. The scene's pauses are counted in client ticks.
@@ -122,14 +128,25 @@ def budgetProblems(source):
     named = {name: int(value) for name, value in CONSTANT.findall(source)}
     ticks = 0
     counted = 0
-    for expression in list(ADVANCE.findall(source)) + list(WAITED.findall(source)):
+    unreadable = []
+    waits = (list(ADVANCE.findall(source)) + list(WAIT_HERE.findall(source))
+             + list(WAITED.findall(source)))
+    for expression in waits:
+        written = expression.strip()
         try:
-            ticks += int(eval(expression.strip(), {"__builtins__": {}}, named))
+            ticks += int(eval(written, {"__builtins__": {}}, named))
             counted += 1
         except Exception:
-            continue
+            # A wait this cannot size is time it would otherwise leave out without saying so.
+            # The two helpers' own declarations and the parameters they pass on are not waits;
+            # they are counted where the helpers are called.
+            if not written.startswith("int ") and written not in PASSED_ON:
+                unreadable.append(written)
     if counted == 0:
         return ["no scripted waiting found in the scene at all, which cannot be right"]
+    if unreadable:
+        return ["the scene waits for " + ", ".join(sorted(set(unreadable)))
+                + ", which this cannot add up; write it from the scene's int constants"]
 
     seconds = ticks / A_SECOND
     room = min(budgets) * MOST_OF_IT

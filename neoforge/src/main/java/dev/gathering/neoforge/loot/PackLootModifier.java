@@ -19,6 +19,8 @@ import net.neoforged.neoforge.common.loot.LootModifier;
  * <p>No conditions in the json. Which tables matter is a rule, not a setting, and writing
  * it as a hundred {@code loot_table_id} conditions would be a hundred places for it to
  * drift from the one place that already says it.
+ * <p>Except for a table vanilla only rolls from inside another, which a global modifier never
+ * sees: those get a pool of their own from {@link NestedLootPools}, fishing among them.
  * <p>Fabric does the same job with {@link dev.gathering.loot.PackLootEntry}; both ask
  * {@link SealedLoot} the same question and get the same odds.
  */
@@ -34,8 +36,13 @@ public final class PackLootModifier extends LootModifier {
     @Override
     protected ObjectArrayList<ItemStack> doApply(
             ObjectArrayList<ItemStack> generatedLoot, LootContext context) {
-        SealedLoot.rollFor(context.getQueriedLootTableId().toString(), context.getRandom())
-                .ifPresent(generatedLoot::add);
+        String table = context.getQueriedLootTableId().toString();
+        // A table vanilla only reaches by nesting has its own pool instead - this modifier is
+        // never asked about those on the way through. See NestedLootPools.
+        if (NestedLootPools.coveredByAPool(table)) {
+            return generatedLoot;
+        }
+        SealedLoot.rollFor(table, context.getRandom()).ifPresent(generatedLoot::add);
         return generatedLoot;
     }
 

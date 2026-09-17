@@ -80,6 +80,35 @@ public final class SealedLootGameTest {
         });
     }
 
+    /**
+     * Fishing can bring up a pack on this loader.
+     * <p>The bobber rolls {@code gameplay/fishing}, which reaches the treasure table as a nested
+     * entry, and NeoForge runs global loot modifiers only for the table a roll starts from. The
+     * modifier's rule named the treasure table, so it was never asked about it, and nobody on
+     * NeoForge ever fished up a pack. The treasure table now carries a pool of its own, as it
+     * does on Fabric. Checked on the loaded table rather than by rolling for a pack, because a
+     * pack needs the set list and a test server has none - which is also why the older check,
+     * handing the treasure table's name straight to the roll, could not see this.
+     */
+    @GameTest(template = "empty")
+    public static void theTreasureFishingReachesHasAPackPool(GameTestHelper helper) {
+        LootTable treasure = helper.getLevel().getServer().reloadableRegistries().getLootTable(
+                ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE,
+                        ResourceLocation.withDefaultNamespace("gameplay/fishing/treasure")));
+        if (treasure.getPool("gathering_sealed_product") == null) {
+            helper.fail("the fishing treasure table has no pack pool, so fishing never brings up a pack");
+            return;
+        }
+        // And the premise: the table fishing rolls is not the treasure table. If vanilla ever
+        // rolled treasure directly, the modifier would see it and this pool would double it.
+        String rolled = net.minecraft.world.level.storage.loot.BuiltInLootTables.FISHING.location().toString();
+        if (rolled.equals("minecraft:gameplay/fishing/treasure")) {
+            helper.fail("fishing now rolls the treasure table directly; the pack pool would roll twice");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** The modifier's own two files, which nothing complains about the absence of. */
     @GameTest(template = "empty")
     public static void theLootModifierIsActuallyInstalled(GameTestHelper helper) {

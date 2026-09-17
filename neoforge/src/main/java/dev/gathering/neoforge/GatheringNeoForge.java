@@ -66,6 +66,7 @@ public final class GatheringNeoForge {
                 (net.neoforged.neoforge.event.tick.ServerTickEvent.Post tick) ->
                         dev.gathering.server.ServerTicks.tick(tick.getServer()));
         NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onVillagerTrades);
+        NeoForge.EVENT_BUS.addListener(dev.gathering.neoforge.loot.NestedLootPools::onLoad);
         NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onEntityInteract);
         // A player's wants list, read when they arrive and let go when they leave. Both are
         // needed: without the first a client draws its first collection screen with no marks
