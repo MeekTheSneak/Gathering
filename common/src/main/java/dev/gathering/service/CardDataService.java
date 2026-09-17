@@ -60,8 +60,10 @@ public final class CardDataService implements AutoCloseable {
         // One worker, and a bounded queue in front of it. Unbounded, a queue of lookups could grow
         // faster than Scryfall's rate lets it drain - every request waiting behind the rest, and
         // memory growing with it. Past the bound a lookup fails at once, and says so.
+        // Still one worker, and a queue that is not first come first served: a lookup a player is
+        // waiting on - a pack being opened, a deck being read - goes ahead of anything that is not.
         this.executor = new java.util.concurrent.ThreadPoolExecutor(1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
-                new java.util.concurrent.LinkedBlockingQueue<>(MOST_QUEUED), ServiceThreads.named("gathering-scryfall"));
+                new java.util.concurrent.PriorityBlockingQueue<>(), ServiceThreads.named("gathering-scryfall"));
         this.store = new DiskCardMetadataStore(cacheRoot);
         this.client = new ScryfallClient(new JdkHttpTransport(), RateLimiter.defaultLimiter(), userAgent);
         this.source = new CachingCardSource(store, client);
@@ -101,7 +103,7 @@ public final class CardDataService implements AutoCloseable {
 
     /** Paste to deck. The Phase 0 deliverable, in one call. */
     public CompletableFuture<ResolvedDeck> importDecklist(String decklistText) {
-        return supply(() -> importer.importText(decklistText));
+        return supply(Lane.PLAYER, () -> importer.importText(decklistText));
     }
 
     /**
@@ -109,7 +111,11 @@ public final class CardDataService implements AutoCloseable {
      * import, so a card fetched here is a card the next import does not have to fetch.
      */
     public CompletableFuture<Optional<CardMetadata>> card(UUID scryfallId) {
-        return supply(() -> {
+        Optional<CardMetadata> known = scryfallId == null ? Optional.empty() : store.inMemory(scryfallId);
+        if (known.isPresent()) {
+            return CompletableFuture.completedFuture(known);
+        }
+        return supply(Lane.PLAYER, () -> {
             CardQuery query = CardQuery.byId(scryfallId);
             return source.resolve(List.of(query)).get(query);
         });
@@ -121,7 +127,7 @@ public final class CardDataService implements AutoCloseable {
      * collection search resolve against.
      */
     public CompletableFuture<Optional<CardMetadata>> findByName(String cardName) {
-        return supply(() -> {
+        return supply(Lane.PLAYER, () -> {
             CardQuery query = CardQuery.byName(cardName);
             return source.resolve(List.of(query)).get(query);
         });
@@ -153,7 +159,23 @@ public final class CardDataService implements AutoCloseable {
      * separate ones, and usually zero network at all.
      */
     public CompletableFuture<List<CardMetadata>> findAll(List<UUID> scryfallIds) {
-        return supply(() -> {
+        // Answered at once where every one is already in memory, which after the first pack of a
+        // set is nearly every pack: no queue, no thread, nothing to wait behind.
+        List<CardMetadata> known = new java.util.ArrayList<>(scryfallIds.size());
+        for (UUID printing : scryfallIds) {
+            Optional<CardMetadata> found = printing == null ? Optional.empty() : store.inMemory(printing);
+            if (found.isEmpty()) {
+                known = null;
+                break;
+            }
+            if (!known.contains(found.get())) {
+                known.add(found.get());
+            }
+        }
+        if (known != null) {
+            return CompletableFuture.completedFuture(List.copyOf(known));
+        }
+        return supply(Lane.PLAYER, () -> {
             List<CardQuery> queries = scryfallIds.stream().map(CardQuery::byId).toList();
             return List.copyOf(source.resolve(queries).found().values());
         });
@@ -201,7 +223,7 @@ public final class CardDataService implements AutoCloseable {
             return 0;
         }
         List<UUID> wanted = List.copyOf(asking);
-        supply(() -> source.refresh(wanted.stream().map(CardQuery::byId).toList()))
+        supply(Lane.BACKGROUND, () -> source.refresh(wanted.stream().map(CardQuery::byId).toList()))
                 .whenComplete((result, failure) -> {
                     refreshing.removeAll(wanted);
                     if (failure != null) {
@@ -231,12 +253,12 @@ public final class CardDataService implements AutoCloseable {
                 // The store indexes what it reads, so asking is what warms it.
                 store.find(CardQuery.byId(printing));
             }
-        }, executor);
+        }, lane(Lane.PLAYER));
     }
 
     /** Every printing of a card, cheapest first - what the import screen's chooser offers. */
     public CompletableFuture<List<CardMetadata>> printingsOf(String cardName) {
-        return supply(() -> client.printingsOf(cardName));
+        return supply(Lane.PLAYER, () -> client.printingsOf(cardName));
     }
 
     /**
@@ -251,7 +273,7 @@ public final class CardDataService implements AutoCloseable {
      *         audited as though it were complete
      */
     public CompletableFuture<java.util.Optional<List<CardMetadata>>> everyPrintingToAudit(String setCode) {
-        return supply(() -> {
+        return supply(Lane.BACKGROUND, () -> {
             var printings = client.everyPrintingOf(setCode);
             if (!printings.allOfThem()) {
                 LOGGER.warn("The card list for set {} came back short, so the archive does not audit it "
@@ -274,7 +296,32 @@ public final class CardDataService implements AutoCloseable {
      * would be three hundred cards fetched twice.
      */
     public CompletableFuture<List<CardMetadata>> everyPrintingIn(String setCode) {
-        return supply(() -> {
+        // Asked once a run per set: a set's printings are read page by page, up to forty requests, and
+        // every pack of a set with no published collation used to read all of them again.
+        String key = setCode == null ? "" : setCode.trim().toLowerCase(java.util.Locale.ROOT);
+        CompletableFuture<List<CardMetadata>> known = setPrintings.get(key);
+        if (known != null) {
+            return known;
+        }
+        CompletableFuture<List<CardMetadata>> reading = readEveryPrintingIn(setCode);
+        CompletableFuture<List<CardMetadata>> raced = setPrintings.putIfAbsent(key, reading);
+        if (raced != null) {
+            return raced;
+        }
+        reading.whenComplete((found, failure) -> {
+            if (failure != null || found == null || found.isEmpty()) {
+                setPrintings.remove(key, reading);
+            }
+        });
+        return reading;
+    }
+
+    /** Each set's printings, once read whole this run. See {@link #everyPrintingIn}. */
+    private final Map<String, CompletableFuture<List<CardMetadata>>> setPrintings =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private CompletableFuture<List<CardMetadata>> readEveryPrintingIn(String setCode) {
+        return supply(Lane.PLAYER, () -> {
             List<CardMetadata> found = new java.util.ArrayList<>();
             var printings = client.everyPrintingOf(setCode);
             for (var parsed : printings.cards()) {
@@ -316,7 +363,7 @@ public final class CardDataService implements AutoCloseable {
         if (known != null) {
             return CompletableFuture.completedFuture(known);
         }
-        return supply(() -> {
+        return supply(Lane.NORMAL, () -> {
             Map<String, dev.gathering.core.card.SetRelease> byCode = new java.util.LinkedHashMap<>();
             for (dev.gathering.core.card.SetRelease set : client.everySet()) {
                 byCode.putIfAbsent(set.code(), set);
@@ -344,7 +391,7 @@ public final class CardDataService implements AutoCloseable {
 
     /** Tokens matching a name, for the "make a token" screen. */
     public CompletableFuture<List<CardMetadata>> tokensNamed(String name) {
-        return supply(() -> client.tokensNamed(name));
+        return supply(Lane.PLAYER, () -> client.tokensNamed(name));
     }
 
     /**
@@ -353,7 +400,7 @@ public final class CardDataService implements AutoCloseable {
      * requests at all; costs one pass over the cache directory and nothing afterwards.
      */
     public CompletableFuture<Integer> warmCache() {
-        return supply(store::loadIndex);
+        return supply(Lane.BACKGROUND, store::loadIndex);
     }
 
     public DiskCardMetadataStore store() {
@@ -379,7 +426,49 @@ public final class CardDataService implements AutoCloseable {
     /** The most lookups waiting for the card worker at once. */
     static final int MOST_QUEUED = 4096;
 
-    private <T> CompletableFuture<T> supply(IoSupplier<T> work) {
+    /**
+     * How soon a lookup is answered, against the others waiting.
+     * <p>A player opening a pack used to wait behind whatever was already queued - a set searched page by
+     * page, an import, an audit - because the one worker took them in the order they came. The worker is
+     * still one, for Scryfall's sake; what it takes next is the most urgent thing waiting.
+     */
+    enum Lane {
+        /** Somebody is watching a screen for this: a pack, a deck, a card lookup. */
+        PLAYER,
+        /** Needed soon, by the server rather than by a person: a set's cards, the list of sets. */
+        NORMAL,
+        /** Nobody is waiting: refreshes, audits, warming the index. */
+        BACKGROUND
+    }
+
+    /** One piece of work waiting for the worker, most urgent first and oldest first within that. */
+    private record Waiting(Runnable work, Lane lane, long order) implements Runnable, Comparable<Waiting> {
+
+        @Override
+        public void run() {
+            work.run();
+        }
+
+        @Override
+        public int compareTo(Waiting other) {
+            int byLane = lane.compareTo(other.lane);
+            return byLane != 0 ? byLane : Long.compare(order, other.order);
+        }
+    }
+
+    private final java.util.concurrent.atomic.AtomicLong arrivals = new java.util.concurrent.atomic.AtomicLong();
+
+    /** An executor that queues its work in a lane, refusing past {@link #MOST_QUEUED} waiting. */
+    private java.util.concurrent.Executor lane(Lane lane) {
+        return work -> {
+            if (executor instanceof java.util.concurrent.ThreadPoolExecutor pool && pool.getQueue().size() >= MOST_QUEUED) {
+                throw new java.util.concurrent.RejectedExecutionException("The card lookup queue is full");
+            }
+            executor.execute(new Waiting(work, lane, arrivals.incrementAndGet()));
+        };
+    }
+
+    private <T> CompletableFuture<T> supply(Lane lane, IoSupplier<T> work) {
         try {
             return CompletableFuture.supplyAsync(() -> {
                 try {
@@ -387,7 +476,7 @@ public final class CardDataService implements AutoCloseable {
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
-            }, executor);
+            }, lane(lane));
         } catch (java.util.concurrent.RejectedExecutionException refused) {
             return CompletableFuture.failedFuture(new IOException(executor.isShutdown()
                     ? "Card lookups have stopped; the server is shutting down"

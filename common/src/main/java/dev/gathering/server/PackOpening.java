@@ -298,8 +298,22 @@ public final class PackOpening {
             card.printing().ifPresent(printings::add);
         }
         return cards.findAll(printings)
+                // Asked once more, a moment later, before the pack is handed back. Scryfall turning the
+                // server away for a second failed a pack outright, and a second try after its pause
+                // is nearly always answered.
+                .exceptionallyCompose(failure -> {
+                    LOGGER.info("Naming the cards of a {} pack failed once, trying again: {}", config.id(),
+                            Failures.rootMessage(failure));
+                    return java.util.concurrent.CompletableFuture.supplyAsync(() -> null,
+                            java.util.concurrent.CompletableFuture.delayedExecutor(NAMING_RETRY_MILLIS,
+                                    java.util.concurrent.TimeUnit.MILLISECONDS))
+                            .thenCompose(ignored -> cards.findAll(printings));
+                })
                 .thenApply(found -> new Opened(reading, config, madeUp, pack, found));
     }
+
+    /** How long a pack waits before asking a second time for its cards' names. */
+    static final long NAMING_RETRY_MILLIS = 2_000L;
 
     /**
      * A pack for a set nobody has published the collation of.

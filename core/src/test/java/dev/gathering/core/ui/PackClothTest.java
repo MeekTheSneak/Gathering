@@ -75,6 +75,24 @@ class PackClothTest {
         assertThat(cloth.isOpen()).isFalse();
     }
 
+    @Test
+    @DisplayName("a short pull at the crimp moves the foil and does not open the pack")
+    void aShortPullDoesNotOpenIt() {
+        // The scripted run's gentle pull: from the middle of the crimp, a seventh of the pack's width across
+        // and a fourteenth of its height up, over forty frames. When the seam's diagonals were weakened from
+        // the start, this tore the whole strip off.
+        for (long seed : new long[] {1L, 42L, 1234L}) {
+            PackCloth cloth = new PackCloth(seed);
+            cloth.grab(0.5f, 1f / 12f, 1.7f);
+            for (int step = 1; step <= 40; step++) {
+                float along = 0.07f * step / 40f;
+                cloth.dragTo(0.5f + along * 2.2f, 1f / 12f - along);
+                cloth.advance(1f / 60f);
+            }
+            assertThat(cloth.isOpen()).as("seed %s, torn %s", seed, cloth.torn()).isFalse();
+        }
+    }
+
     /**
      * The one everything else rests on. Two people watching one screen see one wrapper, and a picture of a
      * torn pack is only worth taking if the same pull gives the same tear.

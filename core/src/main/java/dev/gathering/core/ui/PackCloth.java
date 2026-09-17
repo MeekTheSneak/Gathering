@@ -350,12 +350,11 @@ public final class PackCloth {
                 continue;
             }
             boolean alongTheSeam = b == a + ACROSS && a / ACROSS == seam;
-            // Every link across the seam gives way there, not only the straight ones. The two
-            // diagonals in each column crossing it tore at the body's strength, so once every straight
-            // link had gone the strip still hung from twenty-eight diagonals - and "the strip peels
-            // off along the crimp" was true only because the screen stopped drawing it once opened.
-            boolean acrossTheSeam = a / ACROSS == seam && b / ACROSS == seam + 1;
-            if (length > linkRest[at] * (acrossTheSeam ? SEAM_TEARS_AT : TEARS_AT)) {
+            // Only the straight links of the seam are weak. Weakening the diagonals across it too - so the
+            // strip would come away whole rather than hang from them - let one torn link weaken its
+            // neighbors in turn, and the gentlest pull unzipped the whole wrapper. Once it is open the
+            // screen stops drawing the strip, so what the diagonals hold is never seen.
+            if (length > linkRest[at] * (alongTheSeam ? SEAM_TEARS_AT : TEARS_AT)) {
                 linkAlive[at] = false;
                 if (b == a + 1) {
                     rightAlive[a] = false;

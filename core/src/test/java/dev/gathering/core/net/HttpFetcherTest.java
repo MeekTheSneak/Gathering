@@ -144,4 +144,24 @@ class HttpFetcherTest {
             heldFor.add(millis);
         }
     }
+
+    @Test
+    @DisplayName("a file that moved on the same host is followed, and one sent to another host is not")
+    void redirectsAreFollowedOnTheSameHostOnly() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport();
+        transport.replyWith(new HttpTransport.HttpReply(301, "", 0L, "https://mtgjson.com/api/v5/CON_.json"));
+        transport.reply(200, "conflux");
+        HttpFetcher fetcher = new HttpFetcher(transport, new RateLimiter(0L, System::currentTimeMillis, ignored -> { }), 4, 500L, ignored -> { });
+
+        assertThat(fetcher.get("https://mtgjson.com/api/v5/CON.json", NO_HEADERS, "Conflux").body()).isEqualTo("conflux");
+        assertThat(transport.requests().get(1).url()).isEqualTo("https://mtgjson.com/api/v5/CON_.json");
+
+        FakeHttpTransport elsewhere = new FakeHttpTransport();
+        elsewhere.replyWith(new HttpTransport.HttpReply(302, "", 0L, "https://evil.example/CON.json"));
+        HttpFetcher refusing = new HttpFetcher(elsewhere, new RateLimiter(0L, System::currentTimeMillis, ignored -> { }), 4, 500L, ignored -> { });
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> refusing.get("https://mtgjson.com/api/v5/CON.json", NO_HEADERS, "Conflux"))
+                .isInstanceOf(FetchException.class);
+        assertThat(elsewhere.requestCount()).isEqualTo(1);
+    }
 }

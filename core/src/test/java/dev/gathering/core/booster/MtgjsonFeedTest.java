@@ -126,6 +126,24 @@ class MtgjsonFeedTest {
     }
 
     @Test
+    @DisplayName("a set that came out months ago is trusted for months, not fetched again every week")
+    void aSettledSetIsTrustedLonger() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport()
+                .reply(200, setFile("TST", "a", ONE).replace("\"code\": \"TST\",", "\"code\": \"TST\", \"releaseDate\": \"2020-01-01\","))
+                .reply(200, setFile("TST", "a", ONE));
+        MtgjsonFeed feed = feed(transport);
+
+        feed.collationFor("tst");
+        traveled += MtgjsonFeed.DEFAULT_MAX_AGE_MILLIS + 1;
+        feed(transport).collationFor("tst");
+        assertThat(transport.requestCount()).isEqualTo(1);
+
+        traveled += MtgjsonFeed.SETTLED_MAX_AGE_MILLIS;
+        feed(transport).collationFor("tst");
+        assertThat(transport.requestCount()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("a cached file that got corrupted is fetched again rather than failing")
     void aCorruptedCacheIsFetchedAgain() throws Exception {
         FakeHttpTransport transport = new FakeHttpTransport()

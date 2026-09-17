@@ -47,6 +47,11 @@ public final class JdkHttpTransport implements HttpTransport {
     private HttpRequest.Builder builder(String url, Map<String, String> headers) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url)).timeout(REQUEST_TIMEOUT);
         headers.forEach(builder::header);
+        // Compressed where the far end will. MTGJSON's set files are JSON that shrinks to a third - five
+        // megabytes to under two - and Scryfall's replies the same; the JDK client does not ask on its own.
+        if (headers.keySet().stream().noneMatch(name -> name.equalsIgnoreCase("Accept-Encoding"))) {
+            builder.header("Accept-Encoding", "gzip");
+        }
         return builder;
     }
 
@@ -92,7 +97,11 @@ public final class JdkHttpTransport implements HttpTransport {
             // or something in between - was otherwise read into memory until the server ran out.
             HttpResponse<java.io.InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
             byte[] body;
-            try (java.io.InputStream in = response.body()) {
+            boolean zipped = response.headers().firstValue("Content-Encoding")
+                    .map(said -> said.trim().equalsIgnoreCase("gzip")).orElse(false);
+            try (java.io.InputStream raw = response.body();
+                    java.io.InputStream in = zipped ? new java.util.zip.GZIPInputStream(raw, 1 << 16) : raw) {
+                // Bounded after unpacking, which is the size that has to fit in memory.
                 body = in.readNBytes(MOST_BYTES + 1);
             }
             if (body.length > MOST_BYTES) {
@@ -101,7 +110,8 @@ public final class JdkHttpTransport implements HttpTransport {
             }
             return new HttpReply(response.statusCode(),
                     new String(body, java.nio.charset.StandardCharsets.UTF_8),
-                    retryAfterMillis(response));
+                    retryAfterMillis(response),
+                    response.headers().firstValue("Location").orElse(""));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new FetchException("Interrupted during " + request.method() + " " + request.uri(), e);

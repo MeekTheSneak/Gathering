@@ -50,6 +50,17 @@ public final class MtgjsonFeed {
      */
     public static final long DEFAULT_MAX_AGE_MILLIS = 7L * 24 * 60 * 60 * 1000;
 
+    /**
+     * How long a set that came out a while ago is trusted for.
+     * <p>Three months rather than a week. A set's collation is settled within weeks of release, and a
+     * server drawing from every set was downloading all of them again every seven days - a few
+     * megabytes each, several hundred sets - to learn nothing had changed.
+     */
+    public static final long SETTLED_MAX_AGE_MILLIS = 90L * 24 * 60 * 60 * 1000;
+
+    /** How long after its release a set counts as settled. */
+    static final long SETTLES_AFTER_MILLIS = 120L * 24 * 60 * 60 * 1000;
+
     /** As many companion sets as a real product reaches into, with room to spare. */
     private static final int MOST_COMPANION_SETS = 12;
 
@@ -65,6 +76,29 @@ public final class MtgjsonFeed {
     private final Path cacheRoot;
     private final long maxAgeMillis;
     private final RateLimiter.Clock clock;
+
+    /**
+     * What each companion set lends a pack, read once per feed.
+     * <p>Every modern set's play booster reaches into The List, and The List's file is seventeen megabytes:
+     * the first pack of each set parsed it again, which was most of the wait on that pack.
+     */
+    private final Map<String, Lent> lent = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** A companion set's printings and colors, which is all a pack borrows from it. */
+    private record Lent(Map<String, UUID> printings, Map<UUID, String> colors) {
+    }
+
+    /**
+     * The last few set files parsed, kept so reading a set's packs and then its products does not parse
+     * the same megabytes twice. Two, because that is the pair; bigger would hold hundreds of megabytes of
+     * parsed JSON for nothing.
+     */
+    private final Map<String, JsonObject> recentlyParsed = new LinkedHashMap<>(4, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, JsonObject> eldest) {
+            return size() > 2;
+        }
+    };
 
     public MtgjsonFeed(HttpTransport transport, RateLimiter rateLimiter, String userAgent,
             Path cacheRoot) throws IOException {
@@ -156,13 +190,19 @@ public final class MtgjsonFeed {
                 // A companion that will not come is a reason for some packs not to open, not a
                 // reason for the whole set to fail. Said out loud, and then carried on past.
                 try {
-                    Optional<JsonObject> fetched = setFile(companion);
-                    if (fetched.isEmpty()) {
-                        troubles.add(companion + " is not a set MTGJSON has a file for");
-                        continue;
+                    Lent borrowed = lent.get(companion);
+                    if (borrowed == null) {
+                        Optional<JsonObject> fetched = setFile(companion);
+                        if (fetched.isEmpty()) {
+                            troubles.add(companion + " is not a set MTGJSON has a file for");
+                            continue;
+                        }
+                        borrowed = new Lent(Map.copyOf(MtgjsonCollation.printings(fetched.get())),
+                                Map.copyOf(MtgjsonCollation.colors(fetched.get())));
+                        lent.put(companion, borrowed);
                     }
-                    bridge.putAll(MtgjsonCollation.printings(fetched.get()));
-                    colors.putAll(MtgjsonCollation.colors(fetched.get()));
+                    bridge.putAll(borrowed.printings());
+                    colors.putAll(borrowed.colors());
                     anythingNew = true;
                 } catch (IOException couldNotFetch) {
                     troubles.add(companion + " could not be fetched: "
@@ -219,9 +259,19 @@ public final class MtgjsonFeed {
 
     private Optional<JsonObject> file(String code) throws IOException {
         Path cached = cacheRoot.resolve(code + ".json");
-        if (isFresh(cached)) {
+        if (isFresh(cached, code)) {
+            synchronized (recentlyParsed) {
+                JsonObject parsed = recentlyParsed.get(code);
+                if (parsed != null) {
+                    return Optional.of(parsed);
+                }
+            }
             try {
-                return Optional.of(parse(Files.readString(cached, StandardCharsets.UTF_8), code));
+                JsonObject parsed = parse(Files.readString(cached, StandardCharsets.UTF_8), code);
+                synchronized (recentlyParsed) {
+                    recentlyParsed.put(code, parsed);
+                }
+                return Optional.of(parsed);
             } catch (IOException unreadable) {
                 // A half-written or corrupted cache file is not worth a failure when the
                 // original is one request away.
@@ -241,6 +291,14 @@ public final class MtgjsonFeed {
                     reply.status());
         }
         JsonObject file = parse(body, code);
+        synchronized (recentlyParsed) {
+            recentlyParsed.put(code, file);
+        }
+        // Which day the set came out, beside the file, so its age can be judged without parsing it.
+        String released = releaseDateOf(file);
+        if (!released.isEmpty()) {
+            Files.writeString(cacheRoot.resolve(code + ".released"), released, StandardCharsets.UTF_8);
+        }
         // Written somewhere else and moved into place, so a fetch cut off half way through
         // leaves the previous file rather than a broken one - and to a name of its own, so
         // two callers after the same set cannot write into each other's.
@@ -256,12 +314,39 @@ public final class MtgjsonFeed {
 
     // ------------------------------------------------------------------- bits
 
-    private boolean isFresh(Path cached) throws IOException {
+    private boolean isFresh(Path cached, String code) throws IOException {
         if (!Files.isRegularFile(cached)) {
             return false;
         }
-        long age = clock.currentTimeMillis() - Files.getLastModifiedTime(cached).toMillis();
-        return age >= 0 && age < maxAgeMillis;
+        long now = clock.currentTimeMillis();
+        long age = now - Files.getLastModifiedTime(cached).toMillis();
+        return age >= 0 && age < (settled(code, now) ? Math.max(maxAgeMillis, SETTLED_MAX_AGE_MILLIS) : maxAgeMillis);
+    }
+
+    /** Whether a set came out long enough ago that its file has stopped changing. */
+    private boolean settled(String code, long now) {
+        Path said = cacheRoot.resolve(code + ".released");
+        try {
+            if (!Files.isRegularFile(said)) {
+                return false;
+            }
+            long released = java.time.LocalDate.parse(Files.readString(said, StandardCharsets.UTF_8).trim())
+                    .atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli();
+            return now - released > SETTLES_AFTER_MILLIS;
+        } catch (IOException | RuntimeException unreadable) {
+            return false;
+        }
+    }
+
+    /** A set file's release date as it writes it, or blank. */
+    private static String releaseDateOf(JsonObject file) {
+        JsonElement data = file.get("data");
+        if (data == null || !data.isJsonObject()) {
+            return "";
+        }
+        JsonElement date = data.getAsJsonObject().get("releaseDate");
+        String said = date != null && date.isJsonPrimitive() ? date.getAsString().trim() : "";
+        return said.matches("\\d{4}-\\d{2}-\\d{2}") ? said : "";
     }
 
     private static JsonObject parse(String body, String code) throws FetchException {

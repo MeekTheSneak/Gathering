@@ -57,7 +57,41 @@ public final class HttpFetcher {
      */
     public HttpTransport.HttpReply get(String url, Map<String, String> headers, String description)
             throws IOException {
-        return send(() -> transport.get(url, headers), description);
+        String asking = url;
+        for (int hop = 0; ; hop++) {
+            String now = asking;
+            HttpTransport.HttpReply reply = send(() -> transport.get(now, headers), description, true);
+            if (!reply.isRedirect()) {
+                return reply;
+            }
+            // Followed on the same host and scheme only. MTGJSON moved Conflux from CON.json to CON_.json -
+            // CON is a name Windows will not give a file - and the move was a failure, so Shards of Alara
+            // packs lost their companion set. Another host is not followed: every address this fetcher
+            // is given was chosen, and a reply does not get to choose a different one.
+            String next = hop < MOST_REDIRECTS ? sameHost(now, reply.location()) : null;
+            if (next == null) {
+                throw new FetchException(description + " returned HTTP " + reply.status() + " to "
+                        + reply.location() + ", which is not followed", reply.status());
+            }
+            asking = next;
+        }
+    }
+
+    /** How many moves one request follows before the move itself is the answer. */
+    static final int MOST_REDIRECTS = 3;
+
+    /** Where a redirect points, resolved against the request, if it is the same scheme and host; else null. */
+    static String sameHost(String from, String location) {
+        try {
+            java.net.URI base = java.net.URI.create(from);
+            java.net.URI target = base.resolve(location);
+            return base.getScheme() != null && base.getScheme().equalsIgnoreCase(target.getScheme())
+                    && base.getHost() != null && base.getHost().equalsIgnoreCase(target.getHost())
+                    && base.getPort() == target.getPort()
+                    ? target.toString() : null;
+        } catch (IllegalArgumentException malformed) {
+            return null;
+        }
     }
 
     public HttpTransport.HttpReply post(
@@ -67,6 +101,10 @@ public final class HttpFetcher {
     }
 
     private HttpTransport.HttpReply send(Request request, String description) throws IOException {
+        return send(request, description, false);
+    }
+
+    private HttpTransport.HttpReply send(Request request, String description, boolean followsMoves) throws IOException {
         IOException lastFailure = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
@@ -85,7 +123,7 @@ public final class HttpFetcher {
                 continue;
             }
 
-            if (reply.isSuccess() || reply.status() == 404) {
+            if (reply.isSuccess() || reply.status() == 404 || (followsMoves && reply.isRedirect())) {
                 return reply;
             }
             if (!reply.isRetryable()) {

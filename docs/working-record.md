@@ -3031,3 +3031,35 @@ The owner's playtest list, worked on 2026-09-17 (not yet through the gate at the
     handed back. Pack shows the family's set symbol and "Archive Pack: SOS". Old archive packs open as a
     random family. Facts files bumped to version 2.
 
+## 2026-09-17: loading speed (the owner's request to optimize Scryfall and MTGJSON use)
+
+Measured first: one Scryfall worker at 100 ms for everything, so a pack waited behind set searches and
+audits (627 HTTP 429s in the logs, one pack failed on one); card art fetched only when a card was turned
+over, two at a time; MTGJSON set files uncompressed (450 MB cached), refetched weekly, reparsed per run,
+The List's 17 MB file parsed again for every set; a set with no collation searched in full on every pack;
+CON's 301 not followed.
+
+Done here (gate pending at the time of writing):
+- Scryfall work runs in lanes on its one worker: player lookups (packs, decks, names, tokens, imports)
+  before server needs before background (refresh, audits, index warm). `findAll` and `card` answer at once
+  from memory when every card is known, with no queue at all.
+- A set's printings are read once per run (`everyPrintingIn`), not on every made-up pack.
+- Requests ask for gzip and unpack it (MTGJSON's NEO file: 5.8 MB to 1.7 MB on the wire); same-host
+  redirects are followed, up to three (fixes Conflux), other hosts refused (`HttpFetcherTest`).
+- MTGJSON files of a set released over 120 days ago are trusted for 90 days rather than 7 (a `.released`
+  file beside each); a companion set's printings and colors are read once per run; the last two parsed
+  set files are kept so a set's packs and products do not parse twice (`MtgjsonFeedTest`).
+- A pack's card art starts downloading as the pack screen opens, six at a time instead of two.
+- A pack whose card names fail to come back is asked once more after two seconds before it is handed back.
+- The card art cache is trimmed to 768 MB, least recently used first, once past 1 GB (`CacheTrim`).
+- Bulk data (Scryfall's daily card file as a local index) is being built separately.
+
+Scripted tour on 2026-09-17 (after the playtest batch): reached 387 of 387 with 8 failures. Fixed: the
+tournament steps still pressed the old "2-0" result buttons (now the counts and Record); a gentle pull
+opened a pack, from the second minor batch weakening the seam's diagonals (reverted, guarded by
+`PackClothTest.aShortPullDoesNotOpenIt`, proven failing with the weakened seam); the seated view framed
+the whole table smaller than the block view, from the same batch scaling the camera by width as well as
+height (reverted). Not yet explained: "a card that was pointed at is not ringed", and "the row of tables in
+every wood would have gone down on a table already standing" with "no other tables stood up" - to be
+rechecked on the next run.
+

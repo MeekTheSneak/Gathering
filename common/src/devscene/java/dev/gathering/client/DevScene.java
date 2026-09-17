@@ -3987,11 +3987,12 @@ public final class DevScene {
                 advance(SETTLE / 4);
             }
             case 340 -> {
-                // The settle buttons, a frame after the table was picked: every result a match can
-                // end in, none of them under the page buttons or Done.
+                // The host's counts, a frame after the table was picked: games each player won and games
+                // drawn, none of them under the page buttons or Done. Counted two to none and recorded.
                 settleRowFits(client);
                 shoot(client, "105a-settling-a-table");
-                press(client, "2-0");
+                press(client, "2");
+                press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.record").getString());
                 advance(SETTLE);
             }
             case 341 -> {
@@ -8486,8 +8487,9 @@ public final class DevScene {
     }
 
     /**
-     * The host's settle buttons offer a drawn and an agreed result, and none of them overlaps
-     * another button: a dozen of them used to run on under the drop buttons and Done.
+     * The host's counts offer every game count a best of three can end in - drawn and agreed results
+     * included - with the button that records them, and none of them overlaps another button: a dozen
+     * result buttons used to run on under the drop buttons and Done.
      */
     private static void settleRowFits(Minecraft client) {
         if (!(client.screen instanceof EventScreen event)) {
@@ -8496,14 +8498,17 @@ public final class DevScene {
         }
         List<net.minecraft.client.gui.components.AbstractWidget> results = new ArrayList<>();
         List<net.minecraft.client.gui.components.AbstractWidget> others = new ArrayList<>();
+        String record = net.minecraft.network.chat.Component.translatable("screen.gathering.event.record").getString();
         for (var child : event.children()) {
             if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
-                (widget.getMessage().getString().matches("\\d-\\d(-\\d)?") ? results : others).add(widget);
+                String said = widget.getMessage().getString();
+                (said.matches("\\d") || said.equals(record) ? results : others).add(widget);
             }
         }
-        if (results.stream().noneMatch(widget -> widget.getMessage().getString().equals("0-0"))
-                || results.stream().noneMatch(widget -> widget.getMessage().getString().equals("1-1"))) {
-            fail("the settle buttons do not offer a drawn match: " + results.size() + " of them");
+        long zeros = results.stream().filter(widget -> widget.getMessage().getString().equals("0")).count();
+        if (zeros != 3 || results.stream().noneMatch(widget -> widget.getMessage().getString().equals(record))) {
+            fail("the host's counts are not three rows and a Record button: " + results.size() + " controls, "
+                    + zeros + " rows");
         }
         var font = client.font;
         for (var widget : event.children()) {

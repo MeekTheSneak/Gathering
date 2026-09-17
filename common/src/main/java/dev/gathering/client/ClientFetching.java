@@ -17,6 +17,7 @@ public final class ClientFetching {
     /** Called once at client init, before anything has had a chance to fetch. */
     public static void identifyAs(String agent) {
         ClientCardImages.get().identifyAs(agent);
+        ClientCardImages.get().trimDiskCache();
         ClientSetSymbols.get().identifyAs(agent);
     }
 }

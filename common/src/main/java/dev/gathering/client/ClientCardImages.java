@@ -64,7 +64,15 @@ public final class ClientCardImages {
     private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
     private static final ClientCardImages INSTANCE = new ClientCardImages();
 
-    private final ExecutorService fetchers = Executors.newFixedThreadPool(2, daemonThreads("gathering-card-art"));
+    /**
+     * How many pictures download at once.
+     * <p>Six rather than two. The pictures come from Scryfall's image host, which is a CDN with no request
+     * limit, and a pack of fifteen fetched two at a time was seven round trips of waiting while the cards
+     * were already being turned over.
+     */
+    static final int FETCHERS = 6;
+
+    private final ExecutorService fetchers = Executors.newFixedThreadPool(FETCHERS, daemonThreads("gathering-card-art"));
     // Redirects followed on purpose - a CDN that moves an image should not look like a missing
     // card - but by hand, and only to allowed addresses: see AllowedFetch.
     private final HttpClient http = AllowedFetch.client(TIMEOUT);
@@ -173,6 +181,17 @@ public final class ClientCardImages {
             fetchers.execute(() -> fetch(url));
         }
         return Optional.empty();
+    }
+
+    /**
+     * Starts fetching pictures that are about to be wanted, without waiting for anything to draw them.
+     * <p>For a pack: the server has said what is in it before the screen opens, and every card's art used
+     * to start downloading only at the moment it was turned over.
+     */
+    public void prefetch(java.util.Collection<String> urls) {
+        if (urls != null) {
+            urls.forEach(this::texture);
+        }
     }
 
     /**
@@ -350,11 +369,62 @@ public final class ClientCardImages {
             return Optional.empty();
         }
         try {
-            return Optional.of(Files.readAllBytes(file));
+            byte[] bytes = Files.readAllBytes(file);
+            try {
+                // When it was last wanted, which is what the trim goes by.
+                Files.setLastModifiedTime(file, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
+            } catch (IOException ignored) {
+                // A picture that cannot be touched is kept or trimmed a little early; it is still a picture.
+            }
+            return Optional.of(bytes);
         } catch (IOException e) {
             return Optional.empty();
         }
     }
+
+    /** Past this the picture cache is trimmed, down to {@link #TRIMMED_TO}. It used to grow for ever. */
+    static final long MOST_CACHED_BYTES = 1L << 30;
+    static final long TRIMMED_TO = 768L << 20;
+
+    /** Trims the picture cache on disk, least recently used first, off the render thread. Once a session. */
+    public void trimDiskCache() {
+        if (!trimmed.compareAndSet(false, true)) {
+            return;
+        }
+        fetchers.execute(() -> {
+            Path root = Minecraft.getInstance().gameDirectory.toPath().resolve(Gathering.MOD_ID).resolve(CACHE_DIRECTORY);
+            if (!Files.isDirectory(root)) {
+                return;
+            }
+            java.util.List<dev.gathering.core.card.CacheTrim.Entry> entries = new java.util.ArrayList<>();
+            try (java.util.stream.Stream<Path> files = Files.walk(root, 2)) {
+                files.filter(Files::isRegularFile).forEach(file -> {
+                    try {
+                        entries.add(new dev.gathering.core.card.CacheTrim.Entry(root.relativize(file).toString(),
+                                Files.size(file), Files.getLastModifiedTime(file).toMillis()));
+                    } catch (IOException ignored) {
+                        // Gone between listing and reading: nothing to trim.
+                    }
+                });
+            } catch (IOException | RuntimeException couldNotList) {
+                LOGGER.debug("Could not look over the card art cache", couldNotList);
+                return;
+            }
+            var deleting = dev.gathering.core.card.CacheTrim.toDelete(entries, MOST_CACHED_BYTES, TRIMMED_TO);
+            for (var entry : deleting) {
+                try {
+                    Files.deleteIfExists(root.resolve(entry.name()));
+                } catch (IOException ignored) {
+                    // In use, or already gone.
+                }
+            }
+            if (!deleting.isEmpty()) {
+                LOGGER.info("Trimmed {} card picture(s) out of the art cache", deleting.size());
+            }
+        });
+    }
+
+    private final java.util.concurrent.atomic.AtomicBoolean trimmed = new java.util.concurrent.atomic.AtomicBoolean();
 
     /**
      * What came back, and whether asking again could ever give a different answer.

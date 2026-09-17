@@ -86,8 +86,18 @@ public final class ClientPayloads {
                     TradeScreen::accept),
             route(dev.gathering.network.PackOpenedPayload.TYPE,
                     dev.gathering.network.PackOpenedPayload.class,
-                    opened -> Minecraft.getInstance().setScreen(new PackOpeningScreen(
-                            opened.setCode(), opened.kind(), opened.cards(), opened.wrapper()))),
+                    opened -> {
+                        // Every card's picture on its way while the wrapper is still being torn, so a card
+                        // turned over is a card already there.
+                        java.util.List<String> art = new java.util.ArrayList<>();
+                        for (var card : opened.cards()) {
+                            ClientCardCache.get().summary(card).ifPresent(summary -> summary.printedSides()
+                                    .forEach(side -> side.readableImage().ifPresent(art::add)));
+                        }
+                        ClientCardImages.get().prefetch(art);
+                        Minecraft.getInstance().setScreen(new PackOpeningScreen(
+                                opened.setCode(), opened.kind(), opened.cards(), opened.wrapper()));
+                    }),
             route(dev.gathering.network.MyDeckPayload.TYPE,
                     dev.gathering.network.MyDeckPayload.class,
                     ClientHeldDeck::accept),

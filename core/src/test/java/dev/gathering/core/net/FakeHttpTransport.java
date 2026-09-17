@@ -24,6 +24,12 @@ public final class FakeHttpTransport implements HttpTransport {
         return this;
     }
 
+    /** Any reply at all, headers and all. */
+    public FakeHttpTransport replyWith(HttpReply reply) {
+        scripted.add(reply);
+        return this;
+    }
+
     public FakeHttpTransport failWith(IOException failure) {
         scripted.add(failure);
         return this;

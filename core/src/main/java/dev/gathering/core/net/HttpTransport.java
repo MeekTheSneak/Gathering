@@ -22,10 +22,24 @@ public interface HttpTransport {
      *     say. A 429 usually carries one, and ignoring it is asking again too soon by definition -
      *     which is what the mod was doing, so a throttled player could not open a pack at all.
      */
-    record HttpReply(int status, String body, long retryAfterMillis) {
+    record HttpReply(int status, String body, long retryAfterMillis, String location) {
+
+        public HttpReply(int status, String body, long retryAfterMillis) {
+            this(status, body, retryAfterMillis, "");
+        }
 
         public HttpReply(int status, String body) {
             this(status, body, 0L);
+        }
+
+        public HttpReply {
+            location = location == null ? "" : location;
+        }
+
+        /** A moved answer, with somewhere to go instead. */
+        public boolean isRedirect() {
+            return (status == 301 || status == 302 || status == 303 || status == 307 || status == 308)
+                    && !location.isEmpty();
         }
 
         public boolean isSuccess() {
