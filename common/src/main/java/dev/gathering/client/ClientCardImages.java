@@ -149,6 +149,16 @@ public final class ClientCardImages {
         if (url == null || url.isBlank() || failed.contains(url)) {
             return Optional.empty();
         }
+        // The picture first, when there is one. This is asked for every card drawn on every frame,
+        // and everything below it - a URI parsed, a host lowercased, a map of pending fetches - was
+        // being done before the answer was looked up, to re-decide something that cannot change for
+        // a given string. A board of sixty cards was thousands of URI parses a second on the render
+        // thread. Nothing about what may be fetched changes: a URL only reaches the cache below by
+        // passing the check first.
+        Held drawn = resident.get(url);
+        if (drawn != null) {
+            return Optional.of(drawn.id());
+        }
         // Scryfall's, or not fetched. The URL is a string the server put in a card's summary,
         // and this used to fetch whatever it said - which made every client at a table a way
         // for the host to read addresses inside that client's own network. Refused once, and
@@ -162,10 +172,6 @@ public final class ClientCardImages {
         Long notBefore = waiting.get(url);
         if (notBefore != null && System.currentTimeMillis() < notBefore) {
             return Optional.empty();
-        }
-        Held ready = resident.get(url);
-        if (ready != null) {
-            return Optional.of(ready.id());
         }
         if (inFlight.add(url)) {
             fetchers.execute(() -> fetch(url));

@@ -142,6 +142,11 @@ public final class ClientCardFlights {
                     // rather than hanging there for ever.
                     flying.clear();
                 }
+                // Pruned here too. Everything a player moves is noted, and the prune below is the
+                // only thing that forgets it - so with reduced motion on, which returns before ever
+                // reaching it, the note grew for every card moved for the whole session. It bit
+                // only the players who turned the setting on.
+                OWN_DOING.entrySet().removeIf(entry -> now - entry.getValue() > OWN_DOING_LASTS);
             }
             return;
         }
@@ -274,6 +279,28 @@ public final class ClientCardFlights {
             }
         }
         return false;
+    }
+
+    /**
+     * Every card in the air at this table right now, as a set to test against.
+     * <p>For a caller asking about a whole board. {@link #isFlying} takes the class monitor - shared
+     * with the network thread - and copies the flight list, and it was being called once per card:
+     * sixty locks and sixty list copies a frame, at the exact moment the board is busiest, to answer
+     * one question sixty times.
+     */
+    public static java.util.Set<CardInstanceId> flyingAt(BlockPos table, long now) {
+        if (table == null) {
+            return java.util.Set.of();
+        }
+        List<Flight> flights = at(table, now);
+        if (flights.isEmpty()) {
+            return java.util.Set.of();
+        }
+        java.util.Set<CardInstanceId> inTheAir = new java.util.LinkedHashSet<>();
+        for (Flight flight : flights) {
+            flight.move().card().ifPresent(inTheAir::add);
+        }
+        return inTheAir;
     }
 
     /** Which card, if the viewer may know, so a flight can be drawn face up. */

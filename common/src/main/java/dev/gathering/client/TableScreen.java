@@ -1267,14 +1267,16 @@ public final class TableScreen extends Screen {
             List<Placed> onTable = everythingOnTheTable(board);
             hovered = frontMostAt(onTable, mouseX, mouseY);
             long flying = ClientCardFlights.now();
+        // Asked once for the frame rather than once per card: see ClientCardFlights#flyingAt.
+        java.util.Set<CardInstanceId> inTheAir = ClientCardFlights.flyingAt(table, flying);
             for (Placed placed : onTable) {
                 // Not while it is still crossing. The board that started the flight already
                 // has the card at its destination, so drawing it here as well put a copy at
                 // the end of the journey the instant it began - the card appearing to
                 // teleport, with a ghost of itself trailing behind to where it had already
                 // arrived.
-                if (idOf(placed) != null
-                        && ClientCardFlights.isFlying(table, idOf(placed), flying)) {
+                CardInstanceId here = idOf(placed);
+                if (here != null && inTheAir.contains(here)) {
                     continue;
                 }
                 if (isOffScreen(placed.where())) {
@@ -4742,13 +4744,20 @@ public final class TableScreen extends Screen {
      * Sends one event per target, built from what that card currently is.
      * <p>For verbs whose answer differs per card - which angle it is at, whose graveyard it
      * goes to. Cards that have already left the board are skipped rather than guessed at.
+     * <p><b>From the board as it is now, not the one the menu was built against.</b> A menu closes
+     * over the view it was opened on, and boards keep arriving the whole time it is open - a palette
+     * stays open while somebody types. So "turn right" was reading an angle that had already
+     * changed and sending that angle plus fifteen, putting the card back where it had been; and the
+     * tap filter read a card as untapped that somebody else had tapped since. The board it was
+     * built against is the fallback, for a screen whose table has gone.
      */
     private void eachCard(
             GameView board, List<CardInstanceId> targets,
             java.util.function.Function<CardView.Visible, GameEvent> verb) {
+        GameView now = view().orElse(board);
         List<GameEvent> events = new ArrayList<>(targets.size());
         for (CardInstanceId target : targets) {
-            findCard(board, target)
+            findCard(now, target)
                     .filter(CardView.Visible.class::isInstance)
                     .map(CardView.Visible.class::cast)
                     .map(verb)

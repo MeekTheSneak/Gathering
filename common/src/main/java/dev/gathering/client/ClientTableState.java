@@ -90,6 +90,10 @@ public final class ClientTableState {
                     .filter(forgotten -> !forgotten.equals(seatedAt))
                     .findFirst()
                     .ifPresent(ClientTableState::forget);
+            // Through forget, so the pot, the terms and the away seats go with the board. Only
+            // BOARDS was bounded, and those three are filled by payloads the server sends about any
+            // position it likes - so walking past a row of tables grew them for the rest of the
+            // connection, and a server could drive that growth on purpose.
         }
         oldestFirst.remove(table.immutable());
         oldestFirst.add(table.immutable());
@@ -167,7 +171,9 @@ public final class ClientTableState {
         if (cards == null || cards.isEmpty()) {
             POTS.remove(table);
         } else {
-            POTS.put(table, java.util.List.copyOf(cards));
+            // Immutable like every sibling: a caller handing in a MutableBlockPos would otherwise
+            // file the pot under a key that changes out from under the map.
+            POTS.put(table.immutable(), java.util.List.copyOf(cards));
         }
     }
 

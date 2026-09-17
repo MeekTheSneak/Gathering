@@ -326,6 +326,7 @@ public final class PackOpeningScreen extends Screen {
         }
 
         PackClothRenderer.draw(matrix, cloth, PackFaceRenderer.WRAPPER, where);
+        drawSymbol(matrix, where);
 
         // Only before it has been touched. Once somebody is pulling at it, the wrapper is the feedback;
         // a line of text cheering them on is the screen talking for the sake of it.
@@ -527,16 +528,13 @@ public final class PackOpeningScreen extends Screen {
     private static final int GLOW_STEPS = 7;
 
     /**
-     * The set's symbol, printed on the wrapper in the product's color.
-     * <p>On the pack rather than over it: it goes through the lens like everything else, so
-     * it lies on the paper and turns with it instead of hovering in front.
+     * The set's symbol on the body of the wrapper, creasing and tearing with it.
+     * <p>It was printed through the lens the whole pack used to be drawn with, and when the wrapper
+     * became a sheet that lens went - taking the only call to this with it, silently, while the
+     * comments went on describing a symbol nobody was drawing. On the cloth now, which is better
+     * than where it was: it moves with the paper.
      */
-    private void drawSymbol(GuiGraphics graphics, CardLens lens, Matrix4f matrix) {
-        float side = 0.42f;
-        float acrossFrom = 0.5f - side / 2f;
-        // Centered in the body, which is what is left under the crimp.
-        float down = (float) CRIMP + (1f - (float) CRIMP) / 2f;
-        float tall = side * packWidth / Math.max(1f, packHeight);
+    private void drawSymbol(Matrix4f matrix, Rect where) {
         // The archive is not a set, so there is no symbol to print on it and asking would
         // spend a request on a URL that cannot exist. Plain paper is the right answer.
         if (dev.gathering.item.PackComponent.ARCHIVE.equals(setCode)) {
@@ -544,13 +542,11 @@ public final class PackOpeningScreen extends Screen {
         }
         int color = PackWrapper.symbolColor(kind);
         ClientSetSymbols.get().symbol(setCode, color, 128).ifPresent(symbol ->
-                TiltedPack.print(matrix, lens, symbol,
-                        acrossFrom, down - tall / 2f, acrossFrom + side, down + tall / 2f,
-                        SYMBOL_CUTS));
+                PackClothRenderer.drawSymbol(matrix, cloth, symbol, where, SYMBOL_ACROSS, color));
     }
 
-    /** How finely the symbol is cut up, so it lies on the paper rather than across it. */
-    private static final int SYMBOL_CUTS = 3;
+    /** How wide the symbol is printed, as a fraction of the wrapper. */
+    private static final float SYMBOL_ACROSS = 0.42f;
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {

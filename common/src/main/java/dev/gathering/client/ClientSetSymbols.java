@@ -97,6 +97,17 @@ public final class ClientSetSymbols {
     }
 
     /**
+     * What a caller asked for, exactly as they asked it, so the same call is one map lookup.
+     * <p>Keyed on the unchecked code, because checking it is part of what this avoids. Nothing is
+     * put here that has not been through the check on the slow path below.
+     */
+    private record Ready(String setCode, int color, int size) {
+    }
+
+    /** Answers for calls that have been made before, which on a steady frame is all of them. */
+    private final Map<Ready, ResourceLocation> ready = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
      * The symbol for a set, in this color and this many pixels across, if it is ready.
      * <p>Returns empty and starts fetching otherwise, so a caller draws a plain wrapper this
      * frame and a wrapper with a symbol on it a moment later. Never blocks.
@@ -104,6 +115,15 @@ public final class ClientSetSymbols {
      * @param color packed ARGB; the symbol is a silhouette and this is what it is printed in
      */
     public Optional<ResourceLocation> symbol(String setCode, int color, int size) {
+        // The ready answer first, on the key the caller can hand in unchanged. This is asked every
+        // frame for every pack in view, and it was spending a trim, a lowercase, an Optional and a
+        // three-part string concatenation to build a key, before looking anything up with it - five
+        // allocations to re-ask a question whose answer was already sitting there.
+        Ready asking = new Ready(setCode, color, size);
+        ResourceLocation alreadyDrawn = ready.get(asking);
+        if (alreadyDrawn != null) {
+            return Optional.of(alreadyDrawn);
+        }
         String code = checked(setCode);
         if (code == null || failed.contains(code)) {
             return Optional.empty();
@@ -112,9 +132,10 @@ public final class ClientSetSymbols {
         if (undrawable.contains(key)) {
             return Optional.empty();
         }
-        ResourceLocation ready = drawn.get(key);
-        if (ready != null) {
-            return Optional.of(ready);
+        ResourceLocation alreadyThere = drawn.get(key);
+        if (alreadyThere != null) {
+            ready.put(asking, alreadyThere);
+            return Optional.of(alreadyThere);
         }
         SetSymbol outline = outlines.get(code);
         if (outline == null) {
@@ -217,6 +238,8 @@ public final class ClientSetSymbols {
                     Minecraft.getInstance().getTextureManager().release(old);
                 }
                 drawn.clear();
+                // With it, or the fast path hands out a texture that has just been released.
+                ready.clear();
             }
             ResourceLocation id = Gathering.id("set_symbol/" + textureCounter.incrementAndGet());
             Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));

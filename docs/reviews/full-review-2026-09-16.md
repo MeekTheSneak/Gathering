@@ -39,13 +39,13 @@ Status column: **fixed** / **open** / **rejected** (with the reason).
 - **[fixed]** `Events.java:1188-1192` - `turnPassed` mutates and returns without saving.
 
 **Client**
-- `ClientTableState.java:37-46` - `POTS`, `TERMS`, `AWAY` unbounded and not cleaned on eviction; a server can drive the growth.
-- `ClientCardImages.java:148-166` - full `URI` parse + `toLowerCase` per card per frame before the cache is consulted.
-- `ClientSetSymbols.java:106-111` - same shape: five allocations to build a cache key, per call, per frame.
-- `TableScreen.java:4571-4585, 6258` - context-menu and palette actions act on the board captured when the menu opened, not the live one. Sends stale angles and wrong tap states under ordinary multiplayer timing.
-- `ClientCardFlights.java:267-276` - `isFlying` takes a global monitor and copies a list once per card per frame.
-- `ClientCardFlights.java:122-147` - with reduced motion on, `OWN_DOING` is never pruned.
-- `PackOpeningScreen.java:534-552` - `drawSymbol` is dead; the wrapper's set symbol documented in the class javadoc is no longer drawn.
+- **[fixed]** `ClientTableState.java:37-46` - `POTS`, `TERMS`, `AWAY` unbounded and not cleaned on eviction; a server can drive the growth.
+- **[fixed]** `ClientCardImages.java:148-166` - full `URI` parse + `toLowerCase` per card per frame before the cache is consulted.
+- **[fixed]** `ClientSetSymbols.java:106-111` - same shape: five allocations to build a cache key, per call, per frame.
+- **[fixed]** `TableScreen.java:4571-4585, 6258` - context-menu and palette actions act on the board captured when the menu opened, not the live one. Sends stale angles and wrong tap states under ordinary multiplayer timing.
+- **[fixed]** `ClientCardFlights.java:267-276` - `isFlying` takes a global monitor and copies a list once per card per frame.
+- **[fixed]** `ClientCardFlights.java:122-147` - with reduced motion on, `OWN_DOING` is never pruned.
+- **[fixed]** `PackOpeningScreen.java:534-552` - `drawSymbol` is dead; the wrapper's set symbol documented in the class javadoc is no longer drawn.
 - `TableMiniatureRenderer.java:509-528` - `Component.translatable` and two enum array clones per verb per seat per table per frame.
 - `FoilSheen.java:177-178` - two `float[4]` per vertex; ~7,500 arrays per frame on a read foil, plus a `new Random` per card per frame.
 - `EventScreen.java:657` - translation key built by concatenation from a wire string, per frame; unknown phase renders the raw key as UI.

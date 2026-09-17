@@ -2769,6 +2769,35 @@ came back holding eight.
 
 Verified: gate green (628/16).
 
+### Forty-third batch: the client Importants (2026-09-16)
+
+- **A menu acted on the board it was opened against.** Boards keep arriving the whole time a menu is
+  open, and a palette stays open while somebody types - so "turn right" read an angle that had
+  already changed and sent that angle plus fifteen, putting the card back where it had been, and the
+  tap filter read a card as untapped that somebody else had tapped since. Menu actions read the live
+  board now, falling back to the captured one only for a screen whose table has gone.
+- **Three per-table maps grew for the whole connection.** Only the boards were bounded; the pot, the
+  terms and the away seats were filled by payloads the server sends about any position it likes, and
+  nothing cleaned them. Eviction goes through `forget` now, so everything about a table leaves with it.
+- **Two caches validated before they looked up.** The art cache parsed a URI and lowercased a host for
+  every card on every frame before consulting the answer, and the set symbols built a three-part
+  string key the same way - both re-deciding something that cannot change for a given input. A board
+  of sixty cards was thousands of URI parses a second on the render thread. The answer comes first
+  now, and nothing about what may be fetched has changed, because nothing reaches either cache
+  without passing the check.
+- **A flight was asked about once per card.** `isFlying` takes a lock shared with the network thread
+  and copies a list; at sixty cards that was sixty of each per frame, at the moment the board is
+  busiest. Asked once for the frame now.
+- **Reduced motion never pruned what it was skipping**, so the note of everything a player moved grew
+  for the session - and only for the players who turned the setting on.
+- **The set symbol had silently stopped being drawn.** It was printed through the lens the whole pack
+  used to use, and when the wrapper became a sheet that tears, the lens went and took the only call
+  with it - while the comments went on describing a symbol nobody was drawing. It is on the cloth
+  now, which is better than where it was: it creases and tears with the paper.
+  Photographed (`39-a-sealed-pack.png`).
+
+Verified: gate green (628/16).
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

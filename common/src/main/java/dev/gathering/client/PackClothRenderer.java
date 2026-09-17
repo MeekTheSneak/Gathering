@@ -64,6 +64,77 @@ final class PackClothRenderer {
     }
 
     /**
+     * The set's symbol, printed on the body of the wrapper and creasing with it.
+     * <p>It used to be printed flat over the pack, through the lens the whole pack was drawn with.
+     * When the wrapper became a sheet that tears, that lens went and nothing called the printing any
+     * more - so the symbol quietly stopped being drawn, while the class that drew it went on saying
+     * it did. Drawn here instead, on the same squares as the foil, so it stretches and tears with
+     * the paper rather than floating over it.
+     *
+     * @param across how wide the symbol is as a fraction of the wrapper
+     */
+    static void drawSymbol(Matrix4f matrix, PackCloth cloth, ResourceLocation symbol, Rect where,
+            float across, int color) {
+        float side = Math.clamp(across, 0.05f, 1f);
+        float left = 0.5f - side / 2f;
+        float right = 0.5f + side / 2f;
+        // Down the middle of what is left under the crimp, in the sheet's own coordinates.
+        float bodyTop = (float) PackWrapper.crimp();
+        float middle = bodyTop + (1f - bodyTop) / 2f;
+        float tall = side * where.width() / Math.max(1f, where.height());
+        float top = middle - tall / 2f;
+        float bottom = middle + tall / 2f;
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderTexture(0, symbol);
+        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+        BufferBuilder buffer = Tesselator.getInstance()
+                .begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+
+        boolean anything = false;
+        for (int down = 0; down + 1 < PackCloth.DOWN; down++) {
+            for (int sideways = 0; sideways + 1 < PackCloth.ACROSS; sideways++) {
+                if (!cloth.stillThere(sideways, down) || !within(sideways, down, left, right, top, bottom)) {
+                    continue;
+                }
+                printed(buffer, matrix, cloth, where, sideways, down, left, right, top, bottom, color);
+                printed(buffer, matrix, cloth, where, sideways, down + 1, left, right, top, bottom, color);
+                printed(buffer, matrix, cloth, where, sideways + 1, down + 1, left, right, top, bottom, color);
+                printed(buffer, matrix, cloth, where, sideways + 1, down, left, right, top, bottom, color);
+                anything = true;
+            }
+        }
+        if (anything) {
+            BufferUploader.drawWithShader(buffer.buildOrThrow());
+        } else {
+            buffer.build();
+        }
+    }
+
+    /** Whether any corner of this square falls inside the symbol's rectangle on the flat sheet. */
+    private static boolean within(int across, int down, float left, float right, float top, float bottom) {
+        float x1 = across / (float) (PackCloth.ACROSS - 1);
+        float x2 = (across + 1) / (float) (PackCloth.ACROSS - 1);
+        float y1 = down / (float) (PackCloth.DOWN - 1);
+        float y2 = (down + 1) / (float) (PackCloth.DOWN - 1);
+        return x2 > left && x1 < right && y2 > top && y1 < bottom;
+    }
+
+    /** One corner of the symbol, at the solver's position, with the symbol's own texture across it. */
+    private static void printed(BufferBuilder buffer, Matrix4f matrix, PackCloth cloth, Rect where,
+            int across, int down, float left, float right, float top, float bottom, int color) {
+        int at = PackCloth.at(across, down);
+        float x = where.x() + cloth.xOf(at) * where.width();
+        float y = where.y() + cloth.yOf(at) * where.height();
+        float u = (across / (float) (PackCloth.ACROSS - 1) - left) / Math.max(1.0e-4f, right - left);
+        float v = (down / (float) (PackCloth.DOWN - 1) - top) / Math.max(1.0e-4f, bottom - top);
+        buffer.addVertex(matrix, x, y, 0f)
+                .setUv(Math.clamp(u, 0f, 1f), Math.clamp(v, 0f, 1f))
+                .setColor(color);
+    }
+
+    /**
      * One corner: where the solver has put it, printed with the piece of wrapper it began as.
      * <p>The texture coordinate comes from the point's place in the grid and never from where it has
      * moved to - that is what makes the printing travel with the foil.
