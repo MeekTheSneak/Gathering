@@ -383,6 +383,43 @@ public final class CardStoryGameTest {
                         net.minecraft.core.Direction.UP, helper.absolutePos(at), false));
     }
 
+    /**
+     * The card overview is told every copy of a card and the history of each copy that has one,
+     * newest first - which a collection's grid of printings never showed at all.
+     */
+    @GameTest(template = "tables")
+    public static void theOverviewHearsEveryCopysHistory(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var player = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(player.getUUID()));
+
+        ItemStack trophy = CardItem.of(CardComponent.of(CARD));
+        CardStories.remember(trophy, won());
+        put(helper, at, player, trophy);
+        put(helper, at, player, CardItem.of(CardComponent.of(CARD)));
+        ItemStack pulled = CardItem.of(CardComponent.of(CARD));
+        CardStories.remember(pulled, new dev.gathering.core.story.CardStory.Chapter(
+                dev.gathering.core.story.HowItCame.PULLED, "Dev", "", "SOS", ""));
+        put(helper, at, player, pulled);
+
+        var told = dev.gathering.server.CollectionView.described(collection, helper.absolutePos(at), CardComponent.of(CARD));
+        if (told.copies() != 3) {
+            helper.fail("the overview was told of " + told.copies() + " copies, not 3");
+            return;
+        }
+        if (told.stories().size() != 2 || told.untold() != 0) {
+            helper.fail("the overview was told " + told.stories().size() + " histories and " + told.untold()
+                    + " untold, not 2 and none");
+            return;
+        }
+        if (told.stories().get(0).chapters().get(0).how() != dev.gathering.core.story.HowItCame.PULLED) {
+            helper.fail("the newest history was not told first");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static CollectionBlockEntity place(GameTestHelper helper, BlockPos at) {
         helper.setBlock(at, GatheringContent.COLLECTION.get().defaultBlockState());
         return (CollectionBlockEntity) helper.getLevel()

@@ -366,6 +366,43 @@ public final class CollectionView {
     }
 
     /**
+     * Tells somebody about one card in a collection: how many copies, and where the copies with a
+     * history have been, newest first. What the card overview shows.
+     * <p>Reading, so standing at the box is enough - the same as searching it. A history names who
+     * pulled or traded a card, which anybody holding that card can already read on it.
+     */
+    public static void describe(ServerPlayer player, BlockPos where, CardComponent card) {
+        CollectionBlockEntity collection = at(player, where);
+        if (collection == null) {
+            player.sendSystemMessage(Component.translatable("message.gathering.collection_gone"));
+            return;
+        }
+        if (card == null) {
+            return;
+        }
+        Sending.to(player, described(collection, where, card));
+    }
+
+    /** What the overview is told about one card in a collection. */
+    public static dev.gathering.network.CollectionCardPayload described(CollectionBlockEntity collection, BlockPos where,
+            CardComponent card) {
+        CardIdentity identity = card.faceUp().toIdentity();
+        List<dev.gathering.core.story.CardStory> stories = new ArrayList<>();
+        int storied = 0;
+        List<CollectionBlockEntity.StoriedCard> kept = collection.storied();
+        for (int index = kept.size() - 1; index >= 0; index--) {
+            if (kept.get(index).card().equals(identity)) {
+                storied++;
+                if (stories.size() < dev.gathering.network.CollectionCardPayload.MOST_STORIES) {
+                    stories.add(kept.get(index).story());
+                }
+            }
+        }
+        return new dev.gathering.network.CollectionCardPayload(where, card,
+                collection.cards().of(identity), stories, storied - stories.size());
+    }
+
+    /**
      * Takes cards out, into the inventory.
      * <p>Whatever is in hand. A deck in hand used to fill up from the collection instead - sleeving -
      * and the owner found it in play as a card going somewhere they did not expect, and chose the

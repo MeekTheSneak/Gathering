@@ -2998,7 +2998,14 @@ The owner's playtest list, worked on 2026-09-17 (not yet through the gate at the
 3. **Display case glass stretched.** All 44 case models sampled 14x14 texels of glass over faces 5.5 tall.
    UVs now one texel per pixel; `texturecheck` fails any face drawing glass at another density (330 faces
    before the fix).
-4. **A detailed card view with history in the collection block.** Not started at the time of writing.
+4. **A detailed card view with history in the collection block.** Shift-clicking a card in a collection (or
+   any click where the box is read-only) opens `CardOverviewScreen`: the card as large as the window
+   allows, its full text, how many copies the box holds, and each storied copy's history, newest first,
+   scrolled with the wheel; Take one, Take four, Turn over, Back. The server answers
+   `CollectionCardAskPayload` with `CollectionCardPayload` (at most 32 histories and a count of the rest),
+   only for a player standing at the box. Layout pure and property-tested at every window size
+   (`CardOverviewLayout`); `CardStoryGameTest.theOverviewHearsEveryCopysHistory` checks what is told.
+   Not yet seen on screen and not in the scripted tour.
 5. **Display case cards overlapped.** 0.218 wide at 0.21 apart. Now `DisplayCaseRow` (0.31 tall, 0.215
    apart), tested to leave a gap and stay inside the glass; guard proven with the old numbers.
 6. **Languages.** Owner's rule: foreign-only printings (a Japanese bonus sheet, a Japan-only promo) stay;

@@ -256,6 +256,10 @@ public final class GatheringProtocol {
                     budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS,
                             (player, payload) -> dev.gathering.server.CollectionView.take(
                                     player, payload.where(), payload.card(), payload.howMany()))),
+            toServer(CollectionCardAskPayload.TYPE, CollectionCardAskPayload.STREAM_CODEC,
+                    budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS,
+                            (player, payload) -> dev.gathering.server.CollectionView.describe(
+                                    player, payload.where(), payload.card()))),
             toServer(BuildDeckPayload.TYPE, BuildDeckPayload.STREAM_CODEC,
                     dev.gathering.server.CollectionView::build),
             toServer(CollectionKeysAskPayload.TYPE, CollectionKeysAskPayload.STREAM_CODEC,
@@ -296,6 +300,7 @@ public final class GatheringProtocol {
             toClient(EventPointerPayload.TYPE, EventPointerPayload.STREAM_CODEC),
             toClient(OpenCollectionPayload.TYPE, OpenCollectionPayload.STREAM_CODEC),
             toClient(CollectionPagePayload.TYPE, CollectionPagePayload.STREAM_CODEC),
+            toClient(CollectionCardPayload.TYPE, CollectionCardPayload.STREAM_CODEC),
             toClient(CollectionKeysPayload.TYPE, CollectionKeysPayload.STREAM_CODEC),
             toClient(OpenLoanersPayload.TYPE, OpenLoanersPayload.STREAM_CODEC),
             toClient(AntePotPayload.TYPE, AntePotPayload.STREAM_CODEC),

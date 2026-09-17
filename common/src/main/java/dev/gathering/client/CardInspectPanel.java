@@ -775,6 +775,24 @@ public final class CardInspectPanel {
         }
     }
 
+    /**
+     * A card's history as the lines somebody reads, oldest first, with the gap said where chapters
+     * were forgotten. For the card overview, which lists it rather than fitting it under a panel.
+     */
+    public static List<String> historyOf(CardStory story) {
+        if (story == null || story.isEmpty()) {
+            return List.of();
+        }
+        List<String> said = new java.util.ArrayList<>();
+        if (story.hasGaps()) {
+            said.add(Component.translatable("story.gathering.and_more", story.forgotten()).getString());
+        }
+        for (CardStory.Chapter chapter : story.chapters()) {
+            said.add(sentenceFor(chapter));
+        }
+        return List.copyOf(said);
+    }
+
     /** One chapter, as a line somebody reads. Every word of it translated. */
     private static String sentenceFor(CardStory.Chapter chapter) {
         Component said = chapter.how().hasSomebodyBefore() && !chapter.from().isEmpty()

@@ -714,7 +714,8 @@ public final class CollectionScreen extends Screen {
         int hintRoom = Math.max(0, row - GuiText.width(this.font, found, row) - 8);
         Component how = null;
         for (Component way : mayTake ? whatAClickDoes()
-                : List.of(Component.translatable("screen.gathering.collection.hint_look"))) {
+                : List.of(Component.translatable("screen.gathering.collection.hint_look_details"),
+                        Component.translatable("screen.gathering.collection.hint_look"))) {
             if (GuiText.fitsWhole(this.font, way, hintRoom)) {
                 how = way;
                 break;
@@ -749,6 +750,7 @@ public final class CollectionScreen extends Screen {
      */
     private List<Component> whatAClickDoes() {
         return List.of(
+                Component.translatable("screen.gathering.collection.hint_take_details"),
                 Component.translatable("screen.gathering.collection.hint_take"),
                 Component.translatable("screen.gathering.collection.hint_take_short"),
                 Component.translatable("screen.gathering.collection.hint_take_shortest"));
@@ -833,9 +835,6 @@ public final class CollectionScreen extends Screen {
             GatheringButtons.clickSound();
             return true;
         }
-        if (!mayTake) {
-            return false;
-        }
         int index = cardUnder(mouseX, mouseY);
         // Bounded by what is drawn, not only by what the page holds: between a window shrink
         // and the re-asked page arriving, cards past the grid exist but are not on the
@@ -844,6 +843,13 @@ public final class CollectionScreen extends Screen {
             return false;
         }
         CardComponent card = rows.get(index).card();
+        // Shift-click looks at the card - every copy, and where the ones with a history have been -
+        // and so does any click where there is nothing to take.
+        if (hasShiftDown() || !mayTake) {
+            CardOverviewScreen.open(this, where, card, rows.get(index).about().orElse(null), mayTake);
+            GatheringButtons.clickSound();
+            return true;
+        }
         // Left takes one, right takes four - a playset, which is what anybody taking more
         // than one card out of a binder is taking.
         int howMany = button == 1 ? 4 : 1;
