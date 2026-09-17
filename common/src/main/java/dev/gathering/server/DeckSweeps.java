@@ -81,7 +81,10 @@ public final class DeckSweeps {
             return carried;
         }
         java.util.UUID handle = payload.deck().orElse(null);
-        if (handle == null || !player.hasInfiniteMaterials()) {
+        // Creative only, and only a deck that has just left one of this player's own slots: that is what
+        // being on the cursor looks like from here. A deck lying in a chest would have taken the cards
+        // into a copy the chest never hears about, which is a card destroyed.
+        if (handle == null || !player.hasInfiniteMaterials() || !CreativeDecks.isInHand(player, handle)) {
             return null;
         }
         var kept = dev.gathering.server.DeckVault.deckOf(player.getUUID(), handle).orElse(null);

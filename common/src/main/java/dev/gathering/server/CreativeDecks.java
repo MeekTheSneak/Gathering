@@ -137,6 +137,18 @@ public final class CreativeDecks {
         }
     }
 
+    /**
+     * Whether this deck has left one of this player's own slots and not come back - which in a creative
+     * inventory means it is on their cursor.
+     * <p>The one thing the server can know about a cursor it is never sent. Without it, a client could
+     * name any deck its owner had ever held and have cards taken out of the world into a copy nothing
+     * would ever show again.
+     */
+    public static boolean isInHand(ServerPlayer player, UUID handle) {
+        LinkedHashMap<UUID, ItemStack> decks = player == null ? null : REMEMBERED.get(player.getUUID());
+        return decks != null && handle != null && decks.containsKey(handle);
+    }
+
     private static ItemStack forget(ServerPlayer player, UUID handle) {
         LinkedHashMap<UUID, ItemStack> decks = REMEMBERED.get(player.getUUID());
         return decks == null ? null : decks.remove(handle);

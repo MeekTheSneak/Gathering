@@ -108,7 +108,13 @@ public final class DeckSweepGameTest {
         DeckComponent deck = new DeckComponent("Creative", "", Optional.of(player.getUUID()),
                 List.of(card(5)), List.of(), List.of());
         dev.gathering.server.DeckVault.remember(player.getUUID(), handle, deck);
+        net.minecraft.world.item.ItemStack held = DeckItem.of(deck);
+        held.set(dev.gathering.registry.GatheringComponents.DECK_HANDLE.get(), handle);
+        player.getInventory().setItem(1, held);
         player.getInventory().setItem(0, CardItem.of(card(6)));
+        // Picked up, which is what puts a deck on the creative cursor: the slot it left arrives empty.
+        player.connection.handleSetCreativeModeSlot(
+                new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(37, ItemStack.EMPTY));
 
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
                 Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
@@ -131,8 +137,14 @@ public final class DeckSweepGameTest {
         var player = helper.makeMockServerPlayerInLevel();
         player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         UUID handle = UUID.randomUUID();
-        dev.gathering.server.DeckVault.remember(player.getUUID(), handle,
-                new DeckComponent("Survival", "", Optional.of(player.getUUID()), List.of(card(7)), List.of(), List.of()));
+        DeckComponent theirs = new DeckComponent("Survival", "", Optional.of(player.getUUID()),
+                List.of(card(7)), List.of(), List.of());
+        dev.gathering.server.DeckVault.remember(player.getUUID(), handle, theirs);
+        net.minecraft.world.item.ItemStack held = DeckItem.of(theirs);
+        held.set(dev.gathering.registry.GatheringComponents.DECK_HANDLE.get(), handle);
+        player.getInventory().setItem(1, held);
+        player.connection.handleSetCreativeModeSlot(
+                new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(37, ItemStack.EMPTY));
         player.getInventory().setItem(0, CardItem.of(card(8)));
 
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
@@ -140,6 +152,37 @@ public final class DeckSweepGameTest {
 
         if (player.getInventory().getItem(0).isEmpty()) {
             helper.fail("a player who is not in creative took a card into a deck they were not holding");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A deck the player is not holding takes nothing, even in creative.
+     * <p>The creative cursor is the client's alone, so the client names which deck it is holding - and a
+     * client that named a deck lying in a chest instead would have sent its cards somewhere the chest's
+     * copy never hears about, which is a card destroyed. Only a deck that has just left one of this
+     * player's own slots counts as being on their cursor.
+     */
+    @GameTest(template = "empty")
+    public static void adeckNotOnTheCursorTakesNothing(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        UUID handle = UUID.randomUUID();
+        dev.gathering.server.DeckVault.remember(player.getUUID(), handle,
+                new DeckComponent("Elsewhere", "", Optional.of(player.getUUID()), List.of(card(11)), List.of(), List.of()));
+        player.getInventory().setItem(0, CardItem.of(card(12)));
+
+        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
+
+        if (player.getInventory().getItem(0).isEmpty()) {
+            helper.fail("a card was taken into a deck the player was not holding");
+            return;
+        }
+        var kept = dev.gathering.server.DeckVault.deckOf(player.getUUID(), handle).orElse(null);
+        if (kept != null && kept.entries().contains(card(12))) {
+            helper.fail("a deck nobody was holding took a card anyway");
             return;
         }
         helper.succeed();
