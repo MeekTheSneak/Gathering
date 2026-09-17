@@ -2,6 +2,7 @@ package dev.gathering.server;
 
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,24 +25,39 @@ import java.util.UUID;
  */
 public final class DeckVault {
 
-    /** How many decks are remembered at once; the least recently seen goes first. */
-    private static final int REMEMBERED = 2048;
+    /** How many decks are remembered per player at once; the least recently seen goes first. */
+    private static final int REMEMBERED = 256;
 
-    private static final Map<UUID, DeckComponent> KEPT = new LinkedHashMap<>(256, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<UUID, DeckComponent> eldest) {
-            return size() > REMEMBERED;
-        }
-    };
+    /**
+     * Kept under the player holding the deck, and then under the deck's handle.
+     * <p>Per player, and not by handle alone, because a handle is not a secret. It rides on the item in
+     * its own component, which is sent to every client that can see the item - somebody carrying a deck
+     * past you, a deck in a display case, a deck lying on the ground. A vault keyed on the handle alone
+     * is a vault whose keys are broadcast, so anything that can write to it by handle can write over
+     * somebody else's deck. Under the holder, the worst a write can reach is the writer's own cards.
+     */
+    private static final Map<UUID, LinkedHashMap<UUID, DeckComponent>> KEPT = new HashMap<>();
 
     private DeckVault() {
     }
 
     /** Remembers the real contents of a deck. Hidden copies are not remembered, which is the point. */
-    public static void remember(UUID handle, DeckComponent deck) {
-        if (handle != null && deck != null && !deck.isRedacted()) {
-            KEPT.put(handle, deck);
+    public static void remember(UUID player, UUID handle, DeckComponent deck) {
+        if (player == null || handle == null || deck == null || deck.isRedacted()) {
+            return;
         }
+        KEPT.computeIfAbsent(player, who -> new LinkedHashMap<>(64, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<UUID, DeckComponent> eldest) {
+                return size() > REMEMBERED;
+            }
+        }).put(handle, deck);
+    }
+
+    /** Everything this player's vault knows, for a test to read. */
+    public static java.util.Set<UUID> handlesFor(UUID player) {
+        LinkedHashMap<UUID, DeckComponent> theirs = KEPT.get(player);
+        return theirs == null ? java.util.Set.of() : java.util.Set.copyOf(theirs.keySet());
     }
 
     /**
@@ -49,11 +65,12 @@ public final class DeckVault {
      * name, note, color, sleeves, commanders - holding the cards last known to be in it. Empty when a
      * hidden copy arrives for a deck never seen with its cards.
      */
-    public static Optional<DeckComponent> real(UUID handle, DeckComponent deck) {
+    public static Optional<DeckComponent> real(UUID player, UUID handle, DeckComponent deck) {
         if (deck == null || !deck.isRedacted()) {
             return Optional.ofNullable(deck);
         }
-        DeckComponent known = handle == null ? null : KEPT.get(handle);
+        LinkedHashMap<UUID, DeckComponent> theirs = player == null ? null : KEPT.get(player);
+        DeckComponent known = theirs == null || handle == null ? null : theirs.get(handle);
         if (known == null) {
             return Optional.empty();
         }

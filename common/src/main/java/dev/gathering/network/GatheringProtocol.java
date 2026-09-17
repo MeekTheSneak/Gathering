@@ -77,6 +77,13 @@ public final class GatheringProtocol {
      * <p>Twenty-three, for what anybody at all may do with a collection: three switches rather than one
      * lock, so "anyone may look and only I may take" is a thing its owner says rather than the default
      * they hope for.
+     * <p>Twenty-five, for putting back a payload twenty-one took away, because twenty-one's reasoning
+     * was wrong: the server does <em>not</em> read a creative client's cards off the copy the creative
+     * menu sends it. That copy has been through the deck component's only wire format, which replaces
+     * every card with a stand-in in both directions, and the recovery it was supposed to rely on can
+     * only rebuild a deck the server has already seen whole - which a deck made out of two cards in
+     * that menu never was. So the client says what it made, and it is believed only from creative and
+     * only in the one shape that gesture can produce.
      * <p>Twenty-four, for handing a collection to somebody else - which nothing could do, so a cabinet
      * whose owner had stopped playing was locked to everybody for ever.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
@@ -141,7 +148,8 @@ public final class GatheringProtocol {
                             CardMetadataRequests.handle(player, service, payload))),
             toServer(DeckEditPayload.TYPE, DeckEditPayload.STREAM_CODEC, DeckEdits::handle),
             toServer(RenameDeckPayload.TYPE, RenameDeckPayload.STREAM_CODEC, DeckEdits::rename),
-            toServer(DeckMadePayload.TYPE, DeckMadePayload.STREAM_CODEC, DeckEdits::made),
+            toServer(DeckMadePayload.TYPE, DeckMadePayload.STREAM_CODEC,
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, DeckEdits::made)),
             toServer(SleeveDeckPayload.TYPE, SleeveDeckPayload.STREAM_CODEC, DeckEdits::sleeve),
             toServer(TradeActionPayload.TYPE, TradeActionPayload.STREAM_CODEC,
                     dev.gathering.server.TradeSessions::handle),

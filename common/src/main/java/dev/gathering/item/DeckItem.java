@@ -266,9 +266,14 @@ public class DeckItem extends Item {
             return;
         }
         // Its real cards, whatever copy of it arrived: see DeckVault. Before anything else reads it.
+        // The vault is kept under whoever is holding the deck, because a handle is not a secret - it
+        // rides on the item where every client that can see the item is sent it. A deck nobody is
+        // holding is not being handed to the server by a creative menu either, so it needs no repair.
         DeckComponent carried = deckOf(stack).orElse(null);
         boolean wasRedacted = carried != null && carried.isRedacted();
-        if (carried != null) {
+        java.util.UUID holding = entity instanceof net.minecraft.world.entity.player.Player who
+                ? who.getUUID() : null;
+        if (carried != null && holding != null) {
             java.util.UUID handle = handleOf(stack).orElse(null);
             if (handle == null && !carried.isRedacted()) {
                 // Minted the first time the server sees a deck with its real cards, rather than only when
@@ -279,7 +284,7 @@ public class DeckItem extends Item {
                 handle = java.util.UUID.randomUUID();
                 stack.set(GatheringComponents.DECK_HANDLE.get(), handle);
             }
-            DeckComponent real = dev.gathering.server.DeckVault.real(handle, carried).orElse(null);
+            DeckComponent real = dev.gathering.server.DeckVault.real(holding, handle, carried).orElse(null);
             if (real == null && carried.isRedacted()) {
                 // A hidden copy of a deck this server has never seen whole. Keeping the stand-ins leaves
                 // an item that lists cards forever loading and hands out blank ones; what is really in it
@@ -295,7 +300,7 @@ public class DeckItem extends Item {
             if (real != null && real != carried) {
                 stack.set(GatheringComponents.DECK.get(), real);
             }
-            dev.gathering.server.DeckVault.remember(handle, real == null ? carried : real);
+            dev.gathering.server.DeckVault.remember(holding, handle, real == null ? carried : real);
         }
         // An empty deck is a deck somebody emptied. A deck whose cards arrived hidden and could not be
         // put back is not empty - it is unknown - and throwing the item away for it would be the server

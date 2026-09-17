@@ -94,7 +94,19 @@ public final class DeckEdits {
         if (said.handle() == null || said.deck() == null || said.deck().isRedacted()) {
             return;
         }
-        dev.gathering.server.DeckVault.remember(said.handle(), said.deck());
+        // Only the one shape the gesture this speaks for can make: two cards, nothing else, no name.
+        // Without it this is a message that writes an arbitrary deck of a thousand cards into the
+        // server's memory as often as a client cares to send it, which is a cost a client should not
+        // be able to choose. See CardItem#overrideOtherStackedOnMe, which builds exactly this.
+        DeckComponent made = said.deck();
+        if (made.entries().size() != 2 || !made.commanders().isEmpty() || !made.sideboard().isEmpty()
+                || !made.stories().isEmpty() || !made.name().isEmpty() || made.loaner()) {
+            return;
+        }
+        // And filed under the player who made it. A handle is not a secret - it rides on the item,
+        // where every client that can see the item is sent it - so a vault keyed on the handle alone
+        // would let anybody who has walked past a deck rewrite what the server thinks is in it.
+        dev.gathering.server.DeckVault.remember(player.getUUID(), said.handle(), made);
     }
 
     public static void handle(Player player, DeckEditPayload edit) {

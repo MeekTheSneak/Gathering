@@ -2623,6 +2623,44 @@ on code.
 
 Verified: gate green (621/16), and the scripted run reached step 382 of 382 with 0 failures.
 
+### Thirty-ninth batch: a whole-codebase review, and the two worst things it found (2026-09-16)
+
+Seven reviewers over ~110,000 lines of main source: the recent diff, and six bounded areas covering
+the whole mod. Each was told the project's own rule that a comment describing a guarantee does not
+establish it, and asked to find the enforcing code or report that it could not. The findings are in
+the session transcript; these are the two that had to be fixed before anything else.
+
+**The visibility invariant was violated by an ordinary click.** `GameFold.movedCard` closed the
+revealed-top window when a card *left* a library and when one arrived on *top* of one, and a card
+moved from a library to the same library was neither. The window is positional - "the first N of this
+library are face up to the room" - so putting the revealed top card on the bottom slid it onto the
+next card and handed that identity to every opponent and every spectator. Repeat it and the window
+walks the whole shuffled library, in order. This is how cascade, Bolas's Citadel and every
+reveal-until effect resolve, and the card menu offers it.
+
+Fixed by asking the question that actually matters rather than by adding a third move to the list:
+the window is kept only while it still holds the cards that were revealed into it. That closes the
+class, and it keeps the behaviour the old rule got right - tucking a card under a revealed top does
+not disturb it, because the cards in the window have not changed.
+
+**Why the suite missed it.** Every case in `RevealedTopTest` asserted `revealedIn(...) == 0`, which is
+the mod's own bookkeeping answering a question about itself, and the property suite's library oracle
+asks `openCardsOf` - the same function the visibility rules use to decide. A window whose count is
+right and whose contents are somebody else's cards reads as correct to both. The new guard asks the
+only question that means anything: which identities does a spectator actually receive. It fails
+without the fix on the first move, naming the card.
+
+**And the deck vault could be written over by anybody.** The payload added yesterday was filed by
+deck handle alone - and a handle is not a secret. It rides on the item in its own component, which is
+sent to every client that can see the item. So it was keyed on something broadcast, and a creative
+player who had walked past a deck could rewrite what the server believed was in it. Now filed under
+the player who made the deck, in the shape `CreativeDecks` already used; it is refused unless the
+deck is the one shape the gesture can produce; and it is rate-limited like every other costly
+request. Three guards, including a stranger failing to write over somebody else's deck.
+
+Verified: gate green (623/16). The library guard fails without its fix, naming the card a spectator
+was shown.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

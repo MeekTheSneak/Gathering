@@ -298,8 +298,8 @@ public final class GameFold {
         requireSeat(state, moved.to().seat());
         ZoneRef from = state.locationOf(moved.card()).orElse(null);
         GameState updated = state.place(moved.card(), moved.to(), moved.placement());
-        if (from != null && from.zone() == Zone.LIBRARY && !from.equals(moved.to())) {
-            updated = updated.withRevealed(from.seat(), 0);
+        if (from != null && from.zone() == Zone.LIBRARY) {
+            updated = theWindowStillHoldsWhatWasRevealed(state, updated, from.seat());
         }
         if (from != null && from.zone() == Zone.HAND && moved.to().zone() == Zone.LIBRARY
                 && moved.to().seat().equals(from.seat()) && moved.placement() instanceof Placement.Bottom) {
@@ -309,7 +309,38 @@ public final class GameFold {
                 updated = updated.withSeatState(seat.oneWentToTheBottom());
             }
         }
-        return arrivingOnTop(updated, moved.to(), moved.placement());
+        if (moved.to().zone() == Zone.LIBRARY) {
+            updated = theWindowStillHoldsWhatWasRevealed(state, updated, moved.to().seat());
+        }
+        return updated;
+    }
+
+    /**
+     * The revealed window, kept only while it still holds the cards that were revealed into it.
+     * <p>The window is positional - "the first N of this library are face up to the room" - so what
+     * makes it safe is not where a card went but whether the cards standing in those places are
+     * still the ones somebody revealed. Asked that way it needs no list of the moves that are
+     * dangerous, which is what the previous two guards were, and what let this through:
+     * <p>They closed the window when a card <em>left</em> a library and when one arrived on
+     * <em>top</em> of one, and a card moved from a library to the same library was neither. Putting
+     * the revealed top card on the bottom - which is how cascade, Bolas's Citadel and every
+     * reveal-until effect resolve, and which the card menu offers - slid the window down onto the
+     * next card and handed its identity to every opponent and every spectator. Done repeatedly it
+     * walks the window through the whole shuffled library, in order.
+     * <p>Tucking a card under a revealed top still leaves the window alone, because the cards in it
+     * have not changed - which is what that verb is for, and what the old rule got right.
+     */
+    private static GameState theWindowStillHoldsWhatWasRevealed(
+            GameState before, GameState after, SeatId seat) {
+        int open = after.revealedIn(seat);
+        if (open <= 0) {
+            return after;
+        }
+        List<CardInstanceId> was = before.contents(seat, Zone.LIBRARY);
+        List<CardInstanceId> now = after.contents(seat, Zone.LIBRARY);
+        List<CardInstanceId> wasOpen = was.subList(0, Math.min(open, was.size()));
+        List<CardInstanceId> nowOpen = now.subList(0, Math.min(open, now.size()));
+        return wasOpen.equals(nowOpen) ? after : after.withRevealed(seat, 0);
     }
 
     /**

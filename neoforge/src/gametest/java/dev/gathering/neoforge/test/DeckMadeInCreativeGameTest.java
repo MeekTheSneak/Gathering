@@ -75,7 +75,7 @@ public final class DeckMadeInCreativeGameTest {
             helper.fail("the stand-in copy this test is built on is not actually redacted");
             return;
         }
-        DeckComponent recovered = DeckVault.real(handle, redacted).orElse(null);
+        DeckComponent recovered = DeckVault.real(maker.getUUID(), handle, redacted).orElse(null);
         if (recovered == null) {
             helper.fail("a deck made in the creative menu could not be put back together at all");
             return;
@@ -112,7 +112,7 @@ public final class DeckMadeInCreativeGameTest {
 
         DeckEdits.made(maker, new DeckMadePayload(handle, twoCards()));
 
-        if (DeckVault.real(handle, asItCrossesTheWire(twoCards())).isPresent()) {
+        if (DeckVault.real(maker.getUUID(), handle, asItCrossesTheWire(twoCards())).isPresent()) {
             helper.fail("a survival player minted a deck's contents by saying what was in it");
             return;
         }
@@ -135,9 +135,66 @@ public final class DeckMadeInCreativeGameTest {
         // And now the same handle again, this time with the cards already gone.
         DeckEdits.made(maker, new DeckMadePayload(handle, asItCrossesTheWire(real)));
 
-        DeckComponent recovered = DeckVault.real(handle, asItCrossesTheWire(real)).orElse(null);
+        DeckComponent recovered = DeckVault.real(maker.getUUID(), handle, asItCrossesTheWire(real)).orElse(null);
         if (recovered == null || !recovered.entries().equals(real.entries())) {
             helper.fail("a hidden copy overwrote what the vault knew: " + recovered);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * One player cannot write over another player's deck.
+     * <p>A handle is not a secret. It rides on the item in its own component, which is sent to every
+     * client that can see the item - somebody carrying a deck past you, a deck in a display case, a
+     * deck on the ground. So a vault keyed on the handle alone is a vault whose keys are broadcast,
+     * and this message would let anybody in creative who has walked past a deck rewrite what the
+     * server believes is in it. Filed under the player, the worst it can reach is their own cards.
+     */
+    @GameTest(template = "empty")
+    public static void onePlayerCannotWriteOverAnothersDeck(GameTestHelper helper) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        owner.setGameMode(GameType.CREATIVE);
+        ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+        stranger.setGameMode(GameType.CREATIVE);
+
+        UUID handle = UUID.randomUUID();
+        DeckComponent mine = twoCards();
+        DeckEdits.made(owner, new DeckMadePayload(handle, mine));
+
+        // The stranger has seen the handle - it was on the item - and says the deck holds otherwise.
+        DeckComponent theirs = new DeckComponent("", "", Optional.empty(),
+                List.of(new CardComponent(Optional.of(UUID.randomUUID()), false, Optional.empty(), false),
+                        new CardComponent(Optional.of(UUID.randomUUID()), false, Optional.empty(), false)),
+                List.of(), List.of());
+        DeckEdits.made(stranger, new DeckMadePayload(handle, theirs));
+
+        DeckComponent recovered =
+                DeckVault.real(owner.getUUID(), handle, asItCrossesTheWire(mine)).orElse(null);
+        if (recovered == null || !recovered.entries().equals(mine.entries())) {
+            helper.fail("a stranger rewrote what the server thinks is in somebody else's deck: "
+                    + (recovered == null ? "nothing left" : recovered.entries().toString()));
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A deck of any other shape than the gesture makes is refused, so this cannot be a deck factory. */
+    @GameTest(template = "empty")
+    public static void onlyTheShapeTheGestureMakesIsBelieved(GameTestHelper helper) {
+        ServerPlayer maker = helper.makeMockServerPlayerInLevel();
+        maker.setGameMode(GameType.CREATIVE);
+        UUID handle = UUID.randomUUID();
+
+        List<CardComponent> many = new java.util.ArrayList<>();
+        for (int card = 0; card < 40; card++) {
+            many.add(new CardComponent(Optional.of(UUID.randomUUID()), false, Optional.empty(), false));
+        }
+        DeckComponent big = new DeckComponent("", "", Optional.empty(), many, List.of(), List.of());
+        DeckEdits.made(maker, new DeckMadePayload(handle, big));
+
+        if (!DeckVault.handlesFor(maker.getUUID()).isEmpty()) {
+            helper.fail("a deck of forty cards was believed from a gesture that can only make two");
             return;
         }
         helper.succeed();
