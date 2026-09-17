@@ -1,206 +1,226 @@
 # Gathering
 
-**Sit down at a table in Minecraft and play a real card game with your real decks.**
+Sit down at a table in Minecraft and play a card game with real decks. Gathering turns a table
+block into a tabletop surface: cards you pick up and read, a hand only you can see, and up to
+eight players around one board. You move the cards and you decide what happens. Nothing is
+automated.
 
-Gathering turns a wooden table into a full tabletop card surface: decks that are yours, actual
-cards you can pick up and read, hidden hands, and four friends round one board. It works the
-way a table works — you move the cards, you decide what happens. Nothing is automated and
-nothing tells you no.
-
-> **Unofficial Fan Content.** Not approved or endorsed by Wizards of the Coast. Portions of
-> the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
+> **Unofficial Fan Content.** Not approved or endorsed by Wizards of the Coast. Portions of the
+> materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
 >
 > Card data and images come from [Scryfall](https://scryfall.com). No card images ship inside
 > this mod; each player's game fetches and caches its own.
 
 | | |
 |---|---|
+| **Version** | 0.3.1 (pre-release) |
 | **Minecraft** | 1.21.1 |
-| **Loaders** | NeoForge and Fabric |
+| **Loaders** | NeoForge 21.1.1+ and Fabric (Loader 0.15.11+, Fabric API 0.102.0+) |
 | **Players** | Singleplayer, LAN, or a dedicated server |
 | **Needs** | An internet connection the first time it looks up a card |
-| **License** | MIT — free, and always will be |
+| **License** | MIT |
 
 ---
 
-## What you actually do
+## What you do
 
-**Craft a table.** Three wool over a frame of planks. Place it and it builds itself into a
-two-by-two table you can walk around. Put four tables together and they merge into one
-surface seating up to eight.
+**Build a table.** Three wool over a frame of planks. Place it and it becomes a three-by-three
+table you can walk around, with chairs to match. Put four tables together and they merge into
+one surface seating eight.
 
-Stone ones too, for builds the wooden one does not suit: **cobblestone** on stout legs for a
-cellar or a rubble hall, **polished blackstone** with a chiseled course for somewhere formal,
-and **crying obsidian** standing on a single plinth that glows. They are the same table in
-every way that matters — the felt dyes, the game plays, and any of them cluster into any
-other — so mixing materials in one eight-seat table is a decision about the room, not about
-the game.
+Tables, chairs, shop counters, standings desks and display cases all come in every wood in the
+game, plus cobblestone, polished blackstone and crying obsidian for builds that planks don't
+suit. They behave identically, so mixing materials is a decision about the room.
 
-**Get a deck.** Two ways in, and a server picks which. **Out of the box you earn your cards:**
-open packs, keep a collection, and build a deck from what you own. **Or a server can let
-everyone import instead** — `/gathering import`, paste a decklist, and you hold the deck a
-moment later. It reads exports from Moxfield, Archidekt, MTG Arena, MTGO and deckstats, or
-plain `1 Sol Ring` lines, and an Archidekt link fetches the exact printings for you.
-(Operators can always import, whatever the setting.)
+**Get a deck.** Servers choose one of two ways in. By default you earn your cards: open packs,
+keep a collection, build a deck from what you own. A server can instead let everyone import a
+decklist — `/gathering import`, paste, and you hold the deck. It reads exports from Moxfield,
+Archidekt, MTG Arena, MTGO and deckstats, or plain `1 Sol Ring` lines. Operators can always
+import, whatever the setting.
 
-**Sit down and play.** Walk up holding the deck and right-click. You're seated, shuffled and
+**Sit down and play.** Walk up holding a deck and right-click. You're seated, shuffled and
 holding seven. From there it's a table: drag cards where you want them, tap them, put them in
-your graveyard, count your life, and argue about the stack out loud like you would in person.
+the graveyard, count your life.
 
-Dice and coins are there too, because Magic keeps asking for them — a d4 through d20, or any
-number of sides up to twenty, a coin, and the planar die with its four blanks, its chaos and
-its planeswalk. The server rolls, so nobody has to be trusted, and the result lands in the
-game log under your name where the whole table can read it.
+Dice and coins are built in — any die up to twenty sides, a coin, and the planar die with its
+four blanks, chaos and planeswalk. The server rolls, so nobody has to be trusted, and the
+result goes in the game log under your name.
 
-**Talk to the table, not the server.** Your chat key at the board says it to the people
-playing and the people watching, and nobody else — it turns up over the felt as well as in the
-chat window, so you can hear the person across the table without closing the game.
+**Talk to the table.** Your chat key at the board reaches the people playing and watching and
+nobody else. It shows up over the felt as well as in the chat window.
 
-**Show your hand** to one player or to the whole table, and take it back when you are done.
-Only ever your own: a card that says "target player reveals their hand" is settled the way it
-is in paper, by that player turning it round.
+**Show your hand** to one player or the whole table, and take it back afterwards. Only ever
+your own hand: "target player reveals their hand" is settled the way it is in paper, by that
+player turning it round.
 
-**Blank cards and emblems** for everything Magic keeps inventing that is not a card — the
-monarch, the initiative, the ring tempting you, whatever the next set calls its version.
-Write on one and put it on the table. And the four **dungeons** come in from outside the game
-the way they are meant to, with the room you are in written on the card.
+**Blank cards and emblems** cover whatever Magic has invented that isn't a card — the monarch,
+the initiative, the ring. Write on one and put it on the table. The four dungeons work the way
+they do in paper, with the room you're in written on the card.
 
-Hold **Alt** over any card to read it: out in the world it fills the window, the card down one
-side and everything it says down the other, and it **tips with your mouse** — which is how you
-catch the light on a foil, because a foil is drawn here rather than fetched and the shine only
-exists while it moves. Press **F1** at the table for every key. Press **V** to switch between
-playing on your screen and playing on the actual table block in the world, which is also what
-everybody standing around it can see.
+Hold **Alt** over any card to read it. In the world it fills the window, the card on one side
+and its text on the other, and it tilts with your mouse, which is how you catch the light on a
+foil. Press **F1** at the table for the full key list. Press **V** to switch between playing on
+your screen and playing on the table block itself, which is also what everyone standing around
+it sees. The table's shortcuts — pass turn, untap, draw, scry, mill, shuffle, the action
+palette — are all rebindable in Minecraft's own Controls screen.
 
-## The two things that make it different
+## Two things that make it different
 
 **There is no rules engine, and there never will be.** The mod moves cards, tracks numbers and
 shows things. It never says no. You can tap a tapped creature, set your life to minus eleven,
-or draw six on turn one — exactly like sitting at a kitchen table with a pile of cards. The
+or draw six on turn one, exactly like sitting at a kitchen table with a pile of cards. The
 rules live in your heads, and the game log records who did what, by name, so the table can
-always check. The only exception is a deck check before a formatted game starts, the same way
-a tournament checks decks at the door, and it stops the moment the game begins.
+check. The one exception is a deck check before a formatted game starts, the same way a
+tournament checks decks at the door, and it stops once the game begins.
 
 **Hidden information is real.** Your hand is yours. The identity of a card in a hidden zone is
 never sent to a player who isn't entitled to see it, so there is nothing on the other end for a
 modified client to read. Face-down cards travel as blank markers that change every time they
-flip, and shuffles come from a seed that is never logged, never sent and never shown. This is
-the one security property of the mod and it has its own test suite.
+flip, and shuffles come from a seed that is never logged, sent or shown. This is the mod's one
+security property and it has its own test suite.
 
-## Collecting, drafting and playing for keeps
+## Collecting
 
-**On by default**, because a card conjured out of a decklist and a card opened out of a pack
-cannot both be ordinary at the same table — the first makes the second pointless. So unless
-your server says otherwise, cards are things you own rather than things you type:
+On by default, because a card typed out of a decklist and a card opened out of a pack can't
+both be ordinary at the same table. Unless your server says otherwise, cards are things you own:
 
-- **Find and buy sealed product.** Packs turn up in loot, and a shopkeeper villager sells
-  boosters, boxes, Commander decks and cases from behind a shop counter.
-- **Open a pack properly.** Right-click and the pack comes to the middle of the screen; the
-  tear follows your cursor across the wrapper, and the torn edge glows before a single card is
-  shown. Shift-right-click if you'd rather just have the cards.
-- **Real collation.** Packs are built from the actual print sheets a set was really sold with,
-  read from published set data — so a pack from a given set contains what that pack contained.
-- **Keep a collection** and search it the way you search a card site - `t:elf c:g mv<=3`,
-  the syntax you already know - then build a deck out of it card by card, or from a list in
-  one go.
-- **Draft** with four to eight players, keep your pool, and build out of it.
-- **Trade** with another player, lend a deck to a friend who has none, or **play for keeps**
-  with an ante — which only ever happens when everyone at the table agrees to it.
+- **Find and buy sealed product.** Packs turn up in loot. Place a shop counter in a village and
+  an unemployed villager takes the job, selling boosters, boxes, Commander decks and cases for
+  **Mana Coins**, which are found in chests rather than farmed. What a shopkeeper stocks depends
+  on their level: packs from day one, a display box once you're a regular, a case from somebody
+  who knows you. Every shop in the world stocks the same shelf, and the shelf turns over.
+- **Open a pack properly.** Right-click and the pack comes to the middle of the screen; the tear
+  follows your cursor across the wrapper, and the torn edge glows with the best card inside
+  before any of them is shown. Shift-right-click if you'd rather just have the cards.
+- **Real collation.** Packs are built from the print sheets a set was actually sold with, read
+  from published set data, so a pack from a given set contains what that pack contained.
+- **Keep a collection.** File cards into a collection block and search it the way you search a
+  card site: `t:elf c:g mv<=3`. Build a deck out of it card by card, or from a list in one go.
+- **Draft** with four to eight players, keep your pool, build out of it. Cube drafting too.
+- **Trade** with another player, lend a deck to somebody who has none, or play for keeps with an
+  ante, which only happens when everyone at the table agrees to it.
+- **Archive Packs** are the rare drop that holds what nothing else on your server can reach:
+  promos, buy-a-box cards, the long tail of a set nobody sells any more. They shrink as a server
+  adds products, and a server whose shops already cover its catalog drops none.
+- **Display cases** put one card under glass, face up and readable across the room. Only the
+  owner can put a card in or take it out.
 
-Servers control all of it in one config file the mod writes and explains on first start.
-A server that would rather everybody just brought a decklist sets `allow_all_players = true`
-under `[import]`, and can switch collecting off entirely if it wants nothing but the table.
+Cards remember how they came to you — won at ante, fished out of the sea, opened in a pack — and
+the card's own screen shows that history.
+
+## Tournaments
+
+Place a Scorekeeper's Desk and any player can run a Swiss event from it. Players sign up at the
+desk, check in, and the desk pairs them, runs the round clock, keeps standings and cuts to a top
+eight. Results are entered the way the Companion app asks for them: games you won, games they
+won, games drawn. Prizes can be put up before the tournament exists and are handed out at the
+end. One host can run more than one event, from different desks.
+
+If Create is installed, a Display Link on the desk writes standings, pairings, the round and its
+clock, final places, prizes or the sign-up list onto a board. A link on a table writes the life
+totals.
 
 ## Where the cards come from
 
-Worth knowing, because it's the part people ask about:
+Card names, rules text and art come from [Scryfall](https://scryfall.com). No card images are
+inside the mod, and none travel across the mod's own network: the server sends your game the
+address of a picture and your game fetches it. You need no account and no API key.
 
-Card names, rules text and art all come from [Scryfall](https://scryfall.com), fetched when
-they're needed and cached on disk afterward. **No card images are inside the mod**, and none
-travel across the mod's own network — the server sends your game the address of a picture, and
-your game fetches it itself. You need no account and no API key. A card you've already seen
-works offline; a card nobody on your machine has ever looked up needs a connection once.
+By default the server downloads Scryfall's bulk card file once (about 110 MB) and builds a local
+index, so ordinary play makes no card requests at all. The per-card API is the fallback for
+anything the index doesn't have. A card you've already seen works offline.
 
-The server only ever sends your game the details of cards you're allowed to see. That's what
-makes the hidden-information promise above hold up.
+The server only ever sends your game the details of cards you're allowed to see, which is what
+makes the hidden-information promise hold.
 
 ## Multiplayer
 
-Install the mod on the server and on every client — the same version, and Fabric players also
-need Fabric API. Any table seats two; four tables merged seat eight. People who aren't playing
-can watch: the board renders on the table block itself, so a game is something you can walk
-past and see.
+Install the mod on the server and on every client, at the same version; Fabric players also need
+Fabric API. Any table seats two, four merged tables seat eight. People who aren't playing can
+watch: the board renders on the table block, so a game is something you can walk past and see.
+
+Finished casual games can be watched back. By default only the people who played can watch;
+tournament matches are public once the event is over.
 
 ## Status
 
-**Pre-release, and honest about it.** The game is built and playable from end to end — import a
-deck, sit down, play a full game, collect and draft if your server wants that. Two things stand
-between this and a first release:
+Pre-release. The game is built and playable end to end: get a deck, sit down, play a full game,
+collect and draft and run a tournament if your server wants that. Two things stand between this
+and a first release.
 
-- **Some of the art is still generated.** The mana symbols, the booster wrapper, the felt and
-  the shopkeeper are drawn; the collection block, the shop counter and the interface sprites
-  are still generated stand-ins.
-- **It has never been played by four humans at once.** Multiplayer is built, and tested by
-  machine including the hidden-information rules, but the real four-player session that proves
-  it is enjoyable hasn't happened yet.
+**Some art is still generated.** The felt, the booster wrapper and the shopkeeper are hand
+drawn, and the mana symbols are assembled from hand-drawn parts. Block faces — including the
+collection block and the shop counter — and every interface sprite are still generated
+stand-ins, as is the Mana Coin.
 
-If you're here early and want to help, that second one is the useful thing — see
-[`TESTING.md`](TESTING.md), which says what to try and what's worth reporting.
+**It has never been played by four people at once.** Multiplayer is built and tested by machine,
+hidden-information rules included, but the session that proves it's enjoyable hasn't happened.
+If you're here early, that's the useful thing — [`TESTING.md`](TESTING.md) says what to try.
 
-## Questions people ask
+## Questions
 
-**Does it enforce the rules?** No, deliberately, and it never will. See above.
+**Does it enforce the rules?** No, and it never will.
 
 **Which formats can I play?** Any, since nothing is enforced during a game. The pre-game deck
-check knows Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Commander and Oathbreaker — or
-choose free play and it checks nothing at all.
+check knows Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Commander, Duel
+Commander, Oathbreaker and Limited. Choose free play and it checks nothing.
 
-**Can I use my Moxfield deck?** Yes — use Moxfield's More → Export → Text and paste that.
-Moxfield links are recognized but can't be fetched; their API refuses other tools, and this mod
+**Can I use my Moxfield deck?** Yes. Use More → Export → Text and paste that. Moxfield and
+Archidekt links are recognized but can't be fetched; their APIs refuse other tools and this mod
 won't work around that.
 
-**Does this need a resource pack, or a Scryfall account?** Neither.
+**Does this need a resource pack or a Scryfall account?** Neither.
 
-**Can I change how it looks?** Yes, all of it. Nothing in the mod draws a colored rectangle:
-every panel, band, tint, ring, badge and bar is a texture, so a resource pack can replace any
-of it. Thirteen sets of that art ship — five palettes of one construction, four built around
-their own card frame, four built around a frame drawn by hand — along with a template that
-draws every element as a labeled diagram, and **Options → Video Settings → Gathering look**
-switches between them. Adding your own is a folder of PNGs and a four-line file in a resource pack, with
-no code: a look may leave elements out and inherit them, so repainting six things is a complete
-look. [`docs/themes.md`](docs/themes.md) is the guide, and
-[`docs/gui-elements.png`](docs/gui-elements.png) is the one page to paint from.
+**Can I change how it looks?** All of it. Nothing in the mod draws a colored rectangle: every
+panel, band, tint, ring, badge and bar is a texture, so a resource pack can replace any of it.
+Twelve looks ship — five palettes of one construction, three built around their own card frame,
+four around a frame drawn by hand — and **Options → Video Settings → Gathering look** switches
+between them. Adding your own is a folder of PNGs and a four-line file, with no code; a look can
+leave elements out and inherit them, so repainting six things is a complete look.
+[`docs/themes.md`](docs/themes.md) is the guide and
+[`docs/gui-elements.png`](docs/gui-elements.png) is the page to paint from.
 
-**Will it hammer my server?** No. Card lookups are batched, rate-limited, cached on disk and
-done off the main thread. A hundred-card decklist costs two requests cold and none warm.
+**Will it hammer my server?** No. Card lookups are batched, rate-limited, cached on disk and done
+off the main thread, and with the bulk index most lookups never leave the machine.
 
-**Is this legal?** It follows the Wizards Fan Content Policy: free, no paywalls, no real-money
-anything, no Wizards trademarks in the name, and no Wizards artwork inside the download. It
-follows Scryfall's API guidelines the same way.
+**Is there a tutorial?** Yes. A six-step guided game teaches the table's controls, naming
+whichever keys you have the verbs bound to.
 
-**Is there a rules-enforcing digital client instead?** Yes, several, and they're good. This
-isn't trying to be one — it's trying to be the kitchen table.
+**Can new players sit down without a deck?** Yes, if the server sets up loaner decks: an operator
+drops decklists in a directory and any table can lend one.
+
+**Is this legal?** It follows the Wizards Fan Content Policy — free, no paywalls, no real-money
+anything, no Wizards trademarks in the name, no Wizards artwork in the download. It follows
+Scryfall's API guidelines the same way.
+
+**Is there a rules-enforcing digital client instead?** Yes, several, and they're good. This isn't
+trying to be one.
 
 ## For developers
 
-The full design is in [`docs/design-brief.md`](docs/design-brief.md); project conventions and
-version pins are in [`DIALECT.md`](DIALECT.md); [`TESTING.md`](TESTING.md) is the by-hand
-checklist. Gradle must run on **Java 21**.
+The design is in [`docs/design-brief.md`](docs/design-brief.md); conventions and version pins are
+in [`DIALECT.md`](DIALECT.md); [`TESTING.md`](TESTING.md) is the by-hand checklist. Gradle needs
+**Java 21**.
 
 ```bash
-./gradlew verify               # the gate: build, tests, data generation, headless game tests
-./gradlew :core:test           # the fast loop - pure logic only, seconds
+tools/gate.sh                  # the gate: nothing is done until this exits zero
+./gradlew :core:test           # the fast loop, pure logic, seconds
 ./gradlew :neoforge:runClient  # play it
 ```
 
+`tools/gate.sh` runs `./gradlew verify` — both loaders built, unit tests, the architecture
+fences, data generation and both loaders' in-world tests — then eighteen static checks
+(translation keys, stranded documentation, dev-scene steps, game-test plots, one gesture per
+verb, GUI art with nothing drawing it, client state, save round-trips, threading, block and item
+textures against their models, art hashes, table layout, key bindings, preferences, recipes,
+voice lines, spelling, and mixin registration), then three checks that the tests actually
+discovered anything.
+
 `core` is pure Java with no Minecraft on its classpath and `common` has no loader imports, both
-enforced by the build rather than by convention, which keeps the layer that can be tested in
-milliseconds as large as possible. Beside the gate sit nine checks - translation keys, stranded
-documentation, dev-scene steps, game-test plots, one gesture per verb, GUI art with nothing
-drawing it, block and item textures against the models that name them, teardown lists, and the
-mana symbols against their parts - plus `tools/smoke.sh`,
-which boots both loaders, and `tools/shots.sh`, a scripted client that plays a whole game and
-photographs every step. [`tools/README.md`](tools/README.md) lists all of it.
+enforced by the build. That keeps the layer testable in milliseconds as large as possible.
+Beside the gate, `tools/smoke.sh` boots both loaders and `tools/shots.sh` drives a scripted
+client through a whole game and photographs every step.
+[`tools/README.md`](tools/README.md) lists the rest.
 
 ## License
 

@@ -75,6 +75,37 @@ class ShopCounterTest {
         assertThat(ShopCounter.pick(List.of(new SealedShelf.Item(PLAY, 2)), 0)).isEmpty();
     }
 
+    @Test
+    @DisplayName("a counter stocks only what this server's prices can be paid in")
+    void thingsTooDearToHandOverAreNotStocked() {
+        // A case worth 216 boosters, priced in a currency with no larger denomination: 216 of it
+        // cannot be handed over in a trade's two slots, and the offer was simply dropped - so a
+        // shopkeeper trained all the way to master, which is the reward of the whole profession,
+        // had an empty counter. The display box below it can be paid for.
+        SealedProduct box = holding("box", "Display Box", PLAY, 36);
+        SealedProduct crate = holding("case", "Case", PLAY, 216);
+        SealedCatalog catalog = Catalogs.of(PLAY, box, crate);
+        SealedShelf shelf = new SealedShelf(List.of(
+                new SealedShelf.Item(crate, 216), new SealedShelf.Item(box, 36)));
+
+        assertThat(ShopTier.of(crate, catalog)).isEqualTo(ShopTier.LEVELS);
+        assertThat(ShopCounter.at(shelf, catalog, ShopTier.LEVELS, 0, 1))
+                .extracting(SealedShelf.Item::name)
+                .containsExactly("Display Box");
+        // And with a currency that can carry it, the case is what a master sells.
+        assertThat(ShopCounter.at(shelf, catalog, ShopTier.LEVELS, 0, 9))
+                .extracting(SealedShelf.Item::name)
+                .containsExactly("Case");
+    }
+
+    /** A box holding this many of one booster, which is how a shelf's big product is built. */
+    private static SealedProduct holding(String id, String name, SealedProduct pack, int howMany) {
+        return new SealedProduct(id, name, "tst", "box", "", 15 * howMany,
+                new SealedProduct.Contents(
+                        List.of(), List.of(new SealedProduct.Held(pack.productId(), pack.name(), howMany)),
+                        List.of(), List.of(), List.of(), 0));
+    }
+
     private static SealedProduct booster(String id, String name, String kind) {
         return new SealedProduct(id, name, "tst", "booster_pack", kind, 15,
                 new SealedProduct.Contents(

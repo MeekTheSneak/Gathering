@@ -42,7 +42,7 @@ public final class DeckSweepGameTest {
 
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId, Optional.empty(),
                 List.of(InventorySlots.inTheirOwnMenu(0), InventorySlots.inTheirOwnMenu(1),
-                        InventorySlots.inTheirOwnMenu(2))));
+                        InventorySlots.inTheirOwnMenu(2)), false));
 
         DeckComponent after = DeckItem.deckOf(player.inventoryMenu.getCarried()).orElse(null);
         if (after == null || !after.entries().contains(card(1)) || !after.entries().contains(card(2))) {
@@ -68,7 +68,7 @@ public final class DeckSweepGameTest {
         player.getInventory().setItem(0, CardItem.of(card(3)));
 
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId, Optional.empty(),
-                List.of(InventorySlots.inTheirOwnMenu(0))));
+                List.of(InventorySlots.inTheirOwnMenu(0)), false));
 
         if (player.getInventory().getItem(0).isEmpty()) {
             helper.fail("a sweep with no deck on the cursor took a card anyway");
@@ -86,7 +86,7 @@ public final class DeckSweepGameTest {
         player.getInventory().setItem(0, CardItem.of(card(4)));
 
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId + 7, Optional.empty(),
-                List.of(InventorySlots.inTheirOwnMenu(0))));
+                List.of(InventorySlots.inTheirOwnMenu(0)), false));
 
         if (player.getInventory().getItem(0).isEmpty()) {
             helper.fail("a sweep naming another menu moved a card out of this one");
@@ -117,7 +117,7 @@ public final class DeckSweepGameTest {
                 new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(37, ItemStack.EMPTY));
 
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
-                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0)), false));
 
         var kept = dev.gathering.server.DeckVault.deckOf(player.getUUID(), handle).orElse(null);
         if (kept == null || !kept.entries().contains(card(6)) || !kept.entries().contains(card(5))) {
@@ -154,7 +154,7 @@ public final class DeckSweepGameTest {
         player.connection.handleSetCreativeModeSlot(
                 new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(37, ItemStack.EMPTY));
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
-                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0)), false));
 
         // The copy the client puts back down: its own cards hidden, and the card it just put in face up.
         DeckComponent theirs = new DeckComponent("Creative", "", Optional.of(player.getUUID()),
@@ -195,7 +195,7 @@ public final class DeckSweepGameTest {
         player.getInventory().setItem(0, CardItem.of(card(8)));
 
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
-                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0)), false));
 
         if (player.getInventory().getItem(0).isEmpty()) {
             helper.fail("a player who is not in creative took a card into a deck they were not holding");
@@ -221,7 +221,7 @@ public final class DeckSweepGameTest {
         player.getInventory().setItem(0, CardItem.of(card(12)));
 
         dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
-                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0)), false));
 
         if (player.getInventory().getItem(0).isEmpty()) {
             helper.fail("a card was taken into a deck the player was not holding");

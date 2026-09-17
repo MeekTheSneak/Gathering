@@ -19,9 +19,14 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  *                    Empty everywhere else, where the server holds the cursor itself and is believed
  *                    over anything a client says
  * @param slots       the slot numbers in that menu, in the order the cursor crossed them
+ * @param heardAlready whether the client made this click itself as well, and so has already played the
+ *                    sound of it. The vanilla insert sound is played by both sides - the call excludes
+ *                    the player it is given, which on the client means them alone and on the server
+ *                    means everybody else - so a click the server does on its own plays for the whole
+ *                    room except the one person who made it
  */
-public record DeckSweepPayload(int containerId, java.util.Optional<java.util.UUID> deck, List<Integer> slots)
-        implements CustomPacketPayload {
+public record DeckSweepPayload(int containerId, java.util.Optional<java.util.UUID> deck, List<Integer> slots,
+        boolean heardAlready) implements CustomPacketPayload {
 
     /** The most slots one sweep names. A row of an inventory is nine; a whole one is thirty-six. */
     public static final int MOST_SLOTS = 64;
@@ -33,6 +38,7 @@ public record DeckSweepPayload(int containerId, java.util.Optional<java.util.UUI
                     ByteBufCodecs.VAR_INT, DeckSweepPayload::containerId,
                     ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC), DeckSweepPayload::deck,
                     ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list(MOST_SLOTS)), DeckSweepPayload::slots,
+                    ByteBufCodecs.BOOL, DeckSweepPayload::heardAlready,
                     DeckSweepPayload::new);
 
     public DeckSweepPayload {

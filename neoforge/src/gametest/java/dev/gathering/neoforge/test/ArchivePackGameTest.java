@@ -98,7 +98,7 @@ public final class ArchivePackGameTest {
         try {
             ItemStack found = null;
             for (int roll = 0; roll < 500 && found == null; roll++) {
-                found = Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom()).orElse(null);
+                found = Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom(), true).orElse(null);
             }
             PackComponent pack = found == null ? null : PackItem.packOf(found).orElse(null);
             if (pack == null) {
@@ -131,6 +131,38 @@ public final class ArchivePackGameTest {
      * change could publish after it, and the roll never asked the switch itself. Checked at the
      * roll now, where no race can reach it.
      */
+    /**
+     * A boss nobody fought drops no archive pack.
+     * <p>A wither farm is a boss dying over and over with no player in the fight, and one pack in two
+     * is the most generous roll in the mod - so without this the one thing a player cannot buy would
+     * be the one thing a machine hands out fastest.
+     */
+    @GameTest(template = "empty")
+    public static void abossNobodyFoughtDropsNoArchivePack(GameTestHelper helper) {
+        Archive.holdForTesting(java.util.Set.of(java.util.UUID.randomUUID()));
+        try {
+            for (int roll = 0; roll < 1_000; roll++) {
+                if (Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom(), false).isPresent()) {
+                    helper.fail("an archive pack dropped off a wither no player had a hand in killing");
+                    return;
+                }
+            }
+            // And the chests it also comes out of never had a kill behind them to begin with.
+            boolean fromAChest = false;
+            for (int roll = 0; roll < 2_000 && !fromAChest; roll++) {
+                fromAChest = Archive.rollFor("minecraft:chests/ancient_city",
+                        helper.getLevel().getRandom(), false).isPresent();
+            }
+            if (!fromAChest) {
+                helper.fail("fixture: a full archive dropped nothing from two thousand ancient city chests");
+                return;
+            }
+        } finally {
+            Archive.clear();
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void aFullArchiveDropsNothingWithCollectingOff(GameTestHelper helper) {
         Archive.holdForTesting(java.util.Set.of(java.util.UUID.randomUUID()));
@@ -139,7 +171,7 @@ public final class ArchivePackGameTest {
             TestConfig.run("[modes]\ncollection_enabled = true\n", () -> {
                 boolean any = false;
                 for (int roll = 0; roll < 200 && !any; roll++) {
-                    any = Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom()).isPresent();
+                    any = Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom(), true).isPresent();
                 }
                 if (!any) {
                     wrong[0] = "fixture: a full archive dropped nothing from two hundred withers with collecting on";
@@ -148,7 +180,7 @@ public final class ArchivePackGameTest {
             if (wrong[0] == null) {
                 TestConfig.run("[modes]\ncollection_enabled = false\n", () -> {
                     for (int roll = 0; roll < 1_000; roll++) {
-                        if (Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom()).isPresent()) {
+                        if (Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom(), true).isPresent()) {
                             wrong[0] = "an archive pack dropped on a server with collecting switched off";
                             return;
                         }

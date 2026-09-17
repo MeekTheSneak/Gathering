@@ -109,7 +109,44 @@ public final class ShopCounter {
      */
     public static List<SealedShelf.Item> at(
             SealedShelf shelf, SealedCatalog catalog, int level, long rotation) {
-        return pick(ShopTier.at(shelf, catalog, level), PER_LEVEL, rotation);
+        return at(shelf, catalog, level, rotation, 0);
+    }
+
+    /**
+     * The same, stocking only what this server's prices can actually be paid in.
+     * <p>A villager is given two trades per level and the price was worked out afterwards, so a
+     * choice too dear to hand over in two slots was a slot on the counter with nothing in it rather
+     * than a cheaper thing sold. Worse at the top: a case is worth over two hundred boosters, the
+     * default currency has no larger denomination, and so a shopkeeper trained all the way to master -
+     * the whole reward of the profession - had an empty counter.
+     * <p>So the dear ones are left off, and a level that ends with nothing it can sell falls back to
+     * the dearest level below it that has something. A master then sells display boxes rather than
+     * nothing, which is the honest answer to a currency that cannot carry a case.
+     *
+     * @param perBlock how many of the loose currency one of the larger denomination is worth, or 0
+     *                 for a counter that is not being priced
+     */
+    public static List<SealedShelf.Item> at(
+            SealedShelf shelf, SealedCatalog catalog, int level, long rotation, int perBlock) {
+        List<SealedShelf.Item> stock = payable(ShopTier.at(shelf, catalog, level), perBlock);
+        for (int below = level - 1; stock.isEmpty() && below >= 1; below--) {
+            stock = payable(ShopTier.at(shelf, catalog, below), perBlock);
+        }
+        return pick(stock, PER_LEVEL, rotation);
+    }
+
+    /** Only the things a price can be made of, or all of them where nothing is being priced. */
+    private static List<SealedShelf.Item> payable(List<SealedShelf.Item> stock, int perBlock) {
+        if (perBlock <= 0) {
+            return stock;
+        }
+        List<SealedShelf.Item> affordable = new ArrayList<>(stock.size());
+        for (SealedShelf.Item item : stock) {
+            if (ShopPrice.of(item.price(), perBlock).isPresent()) {
+                affordable.add(item);
+            }
+        }
+        return List.copyOf(affordable);
     }
 
     /**

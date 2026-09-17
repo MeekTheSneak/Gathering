@@ -223,7 +223,8 @@ public final class CardShop {
      */
     public static List<SealedShelf.Item> counterAt(int level, long rotation) {
         Stock now = stock;
-        return ShopCounter.at(now.shelf(), now.catalog(), level, rotation);
+        return ShopCounter.at(now.shelf(), now.catalog(), level, rotation,
+                dev.gathering.service.ServerSettings.get().collecting().sealedPriceBlockWorth());
     }
 
     /** The item somebody is handed when they buy this. */

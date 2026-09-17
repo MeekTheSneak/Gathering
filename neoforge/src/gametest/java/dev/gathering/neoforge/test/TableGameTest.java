@@ -693,15 +693,22 @@ public final class TableGameTest {
         // The block entity type names the blocks it will attach to, and a table missing from
         // that list is not an error - it is a table that silently has no block entity, and so
         // no session, no seats and no game. Nothing says why. So every material gets asked.
-        int x = 1;
+        // One at a time, in the same corner, taken up again before the next goes down. A row of
+        // fifteen materials four blocks apart is sixty blocks wide and this plot is seventeen, so
+        // it was writing into whichever test the server happened to pack next to it - which is why
+        // it started failing the day an unrelated test was added somewhere else in the suite.
         for (var material : GatheringContent.tables()) {
-            BlockPos origin = placeOf(helper, material.get(), x, 2, 1);
-            if (!(helper.getLevel().getBlockEntity(origin) instanceof TableBlockEntity)) {
+            BlockPos origin = placeOf(helper, material.get(), 1, 2, 1);
+            boolean holdsAGame = helper.getLevel().getBlockEntity(origin) instanceof TableBlockEntity;
+            for (TablePart part : TablePart.values()) {
+                helper.getLevel().setBlock(part.offsetFrom(origin),
+                        net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (!holdsAGame) {
                 helper.fail("A " + material.entryName() + " has no block entity, so it can "
                         + "never hold a game");
                 return;
             }
-            x += 4;
         }
         helper.succeed();
     }

@@ -55,6 +55,17 @@ public enum ArchiveDrops {
     }
 
     /**
+     * Whether a player has to have had a hand in this for the pack to come out.
+     * <p>The bosses do. A wither farm is a boss that dies over and over with nobody fighting it, and
+     * one archive pack in two is the most generous roll in the mod - so without this, the one thing a
+     * player cannot buy is the one thing a machine hands out fastest. The chests and the sea do not:
+     * there is no killing in either.
+     */
+    public boolean needsAPlayer() {
+        return this == BOSS;
+    }
+
+    /**
      * Whether an archive pack can come out of this loot table, and how often.
      * <p>Minecraft's own tables only, like everything else here: a pack falling out of
      * somebody else's dungeon is a surprise nobody asked this mod for.

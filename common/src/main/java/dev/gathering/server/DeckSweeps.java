@@ -63,6 +63,14 @@ public final class DeckSweeps {
             dev.gathering.server.DeckVault.remember(player.getUUID(), DeckItem.handleOf(carried).orElse(null),
                     DeckItem.deckOf(carried).orElse(null));
         }
+        if (!payload.heardAlready()) {
+            // The insert's own sound reaches everybody but the person who made the gesture, because
+            // both sides normally play it and this one the client never made. So they are told
+            // separately, and a sweep that took a row of cards is heard by the person sweeping.
+            player.playNotifySound(net.minecraft.sounds.SoundEvents.BUNDLE_INSERT,
+                    net.minecraft.sounds.SoundSource.PLAYERS, 0.8f,
+                    0.8f + player.level().getRandom().nextFloat() * 0.4f);
+        }
         menu.broadcastChanges();
         player.inventoryMenu.broadcastChanges();
     }

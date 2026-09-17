@@ -517,12 +517,13 @@ public final class EventsGameTest {
      */
     @GameTest(template = "tables")
     public static void sixteenPlayersAreSeatedAcrossEightNumberedTables(GameTestHelper helper) {
-        List<BlockPos> tables = new ArrayList<>();
-        for (int row = 0; row < 2; row++) {
-            for (int column = 0; column < 4; column++) {
-                tables.add(place(helper, column * 4, 2 + row, row * 2));
-            }
-        }
+        // Written out rather than counted into: the plot check reads these coordinates, and a
+        // placement it cannot read is a table that may be standing in another test's plot.
+        List<BlockPos> tables = new ArrayList<>(List.of(
+                place(helper, 0, 2, 0), place(helper, 4, 2, 0),
+                place(helper, 8, 2, 0), place(helper, 12, 2, 0),
+                place(helper, 0, 3, 2), place(helper, 4, 3, 2),
+                place(helper, 8, 3, 2), place(helper, 12, 3, 2)));
         List<ServerPlayer> players = new ArrayList<>();
         BlockPos hall = helper.absolutePos(new BlockPos(6, 2, 3));
         for (int index = 0; index < 16; index++) {

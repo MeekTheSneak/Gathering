@@ -3477,3 +3477,46 @@ label can be pulled in front of the board you are seated at; the master shopkeep
 above what `ShopPrice` will sell, so it is empty on a default server; setting `sealed_price_item` alone
 produces a mixed-currency price; the archive pack ignores the loot source list and the player-kill
 gate; and the shop's own chest hands out coins with no source gate at all.
+
+## 2026-09-17: the README, and the next of the review's findings
+
+**The README was rewritten.** It had drifted: it described the table as two blocks by two (it has
+been three by three since the owner's playtest on the 15th), said the shop takes emeralds, claimed an
+Archidekt link fetches printings for you (it does not - links are refused, the same as Moxfield's),
+counted thirteen looks where twelve ship, named nine static checks where there are eighteen, called
+`./gradlew verify` the gate, and did not mention tournaments, the Scorekeeper's Desk, display cases,
+the collection block, the shop counter, chairs, the Mana Coin, loaner decks, replays, the tutorial,
+card stories, cube draft or the eleven woods everything comes in. Every claim in the new one was
+checked against the code. `docs/themes.md` (which still described four looks named Felt, Slate and
+Walnut, and a `future` look that does not exist) and `tools/README.md` ("the sixteen static checks")
+were corrected with it.
+
+**The master shopkeeper had nothing to sell.** A trade is paid in two slots, so the most that can
+change hands is 128 of a currency with no larger denomination - and the Mana Coin has none, while a
+case is worth over two hundred boosters. The offer was simply dropped, so the reward of training a
+shopkeeper all the way up was an empty counter. A counter now stocks only what its price can be paid
+in, and a level with nothing it can sell falls back to the dearest level below it
+(`thingsTooDearToHandOverAreNotStocked`, shown failing without the filter). **The owner may want to
+decide the other half of this:** a case cannot be bought for coins at all on default prices, and the
+honest fixes are a larger denomination or a bulk discount, both of which are his call.
+
+**An archive pack could come off a boss nobody fought.** One in two boss kills is the most generous
+roll in the mod, and the archive is the only path to a server's long tail - so a wither farm handed
+out the one thing a player cannot buy, faster than anything else in the game. `ArchiveDrops` says
+which sources need a player and `SealedLoot` passes that through (`abossNobodyFoughtDropsNoArchivePack`
+in world, `abossNeedsAPlayer` in core). The archive's *source list* is unchanged and deliberate: which
+tables it comes out of is a rule, not a setting.
+
+**The sweeping player could not hear the sweep.** The insert sound is played by both sides - the call
+excludes the player it is given, which on a client means them alone and on a server means everybody
+else - so a click the server makes on its own plays for the whole room except the person who made it.
+The payload now says whether the client made the click itself, and the server tells the sweeper
+otherwise.
+
+**A test had been writing into another test's plot.** `everyMaterialOfTableIsStillATable` put fifteen
+tables in a row four apart: sixty blocks across a plot seventeen blocks wide. It passed for months and
+started failing the day an unrelated test was added, because that changed which plot it landed in.
+The test now puts one table down at a time and takes it up again. `tools/plotcheck.py` exists for
+exactly this and could not see it, because it only reads coordinates written out as numbers - it now
+refuses a placement it cannot read, which found one more (a venue of eight tables, in bounds but
+unreadable, since written out).

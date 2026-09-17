@@ -24,6 +24,17 @@ class ArchiveDropsTest {
     }
 
     @Test
+    @DisplayName("a boss has to have been fought by somebody")
+    void abossNeedsAPlayer() {
+        // A wither farm is a boss dying over and over with nobody fighting it, and one pack in two
+        // is the most generous roll in the mod - so the one thing a player cannot buy would be the
+        // one thing a machine hands out fastest.
+        assertThat(ArchiveDrops.BOSS.needsAPlayer()).isTrue();
+        assertThat(ArchiveDrops.EXPEDITION.needsAPlayer()).isFalse();
+        assertThat(ArchiveDrops.TREASURE.needsAPlayer()).isFalse();
+    }
+
+    @Test
     @DisplayName("treasure out of the sea, but not the junk and not the fish")
     void onlyTreasureFishing() {
         assertThat(ArchiveDrops.of("minecraft:gameplay/fishing/treasure"))

@@ -5,9 +5,9 @@ ring under the cursor, the wash over a tapped card, the rime on a frozen one, th
 counter, the progress bars, the blank card stock. There is no color written in the Java. So a
 look is a folder of PNGs, and making one is painting, not programming.
 
-There are four in the box. **Felt** is the dark green table the mod ships as. **Slate** is cold
-and gray. **Walnut** is warm wood and brass. **Template** is not meant to be played on: every
-element is drawn as a labeled diagram so you can see what you are painting over.
+Twelve ship, plus a template. **Basic** is the one the mod starts on and the one every other
+falls back to. **Template** is not meant to be played on: every element is drawn as a labeled
+diagram so you can see what you are painting over. The rest are listed at the end of this file.
 
 ## The one page to paint from
 
@@ -134,18 +134,18 @@ nothing draws (usually a typo in a name), and whether any `.mcmeta` is missing.
 
 ## What ships
 
-Thirteen looks and a template.
+Twelve looks and a template.
 
 `basic` is the default and the one every other falls back to, so it is the only one that has to
 be complete. `blue`, `red`, `yellow` and `pink` are the same construction in another palette.
 
-`future`, `bubble`, `arcade` and `retro` are built differently as well as colored differently —
-hairlined, glossy, hard-pixelled and grainy — because those name a card frame rather than a
-color, and a palette alone does not make one.
+`bubble`, `arcade` and `retro` are built differently as well as colored differently — glossy,
+hard-pixelled and grainy — because those name a card frame rather than a color, and a palette
+alone does not make one.
 
 `ember`, `arcane`, `verdant` and `royal` are painted around a frame drawn by hand rather than
 generated: the palette is theirs, the panel comes from `art/gui/frames`.
 
 All of it comes out of `tools/gui_art.py`, where a look is one entry: a palette, and either the
-construction it uses or the frame it is painted around. Adding a fourteenth is a line in that
+construction it uses or the frame it is painted around. Adding a thirteenth is a line in that
 table, or a folder in a resource pack if it is not ours to add.

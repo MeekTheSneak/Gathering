@@ -85,8 +85,10 @@ public final class DeckSweep {
             for (int index : step.clicks()) {
                 swept.add(sweepable.gathering$serverSlotId(slots.get(index)));
             }
+            // The drag is ours alone: nothing here clicks, so nothing here makes a sound either.
             ClientNetworking.send(new dev.gathering.network.DeckSweepPayload(
-                    sweepable.gathering$serverContainerId(), DeckItem.handleOf(screen.getMenu().getCarried()), swept));
+                    sweepable.gathering$serverContainerId(), DeckItem.handleOf(screen.getMenu().getCarried()), swept,
+                    false));
         }
         return step.ours();
     }
@@ -106,9 +108,10 @@ public final class DeckSweep {
                 || slot == null || !carryingADeck(screen) || !takes(screen, slot)) {
             return false;
         }
+        // The screen goes on to make this click itself, sound and all - this only tells the server.
         ClientNetworking.send(new dev.gathering.network.DeckSweepPayload(
                 sweepable.gathering$serverContainerId(), DeckItem.handleOf(screen.getMenu().getCarried()),
-                java.util.List.of(sweepable.gathering$serverSlotId(slot))));
+                java.util.List.of(sweepable.gathering$serverSlotId(slot)), true));
         return true;
     }
 

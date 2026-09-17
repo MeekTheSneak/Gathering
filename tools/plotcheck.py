@@ -52,6 +52,12 @@ METHOD = re.compile(r"^\s*(?:public|private|protected|static|final|\s)*[\w<>\[\]
 TABLE = re.compile(r"\b(?:place|placeOf)\(\s*\w+\s*,(?:\s*[\w.]+\(\)\s*,)?\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)")
 #: One block written or looked up at a literal position.
 BLOCK = re.compile(r"absolutePos\(new BlockPos\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\)")
+#: A table put down at coordinates that are not written out: a loop variable, a field, arithmetic.
+#: Refused rather than skipped. The one this check could not read was fifteen tables four apart -
+#: sixty blocks across a plot seventeen blocks wide - and it took an unrelated test failing two runs
+#: in three, the day a test was added elsewhere in the suite, to find what this was written to find.
+UNREADABLE = re.compile(
+    r"\b(?:place|placeOf)\(\s*\w+\s*,(?:\s*[\w.]+\(\)\s*,)?\s*([^,()]+?)\s*,\s*([^,()]+?)\s*,\s*([^,()]+?)\s*\)")
 
 
 def sizeOf(name):
@@ -97,6 +103,13 @@ def main():
             if size is None:
                 problems.append(f"{path.name}:{number} names a template that does not exist: {current}")
                 continue
+            for match in UNREADABLE.finditer(line):
+                if all(re.fullmatch(r"-?\d+", where) for where in match.groups()):
+                    continue
+                problems.append(
+                    f"{path.relative_to(ROOT)}:{number} puts a table down at coordinates this check "
+                    f"cannot read ({', '.join(match.groups())}); write them out, or keep the table in "
+                    f"one place and take it up again between materials")
             for pattern, footprint in ((TABLE, BLOCKS_PER_TABLE), (BLOCK, 1)):
                 for match in pattern.finditer(line):
                     spot = [int(value) for value in match.groups()]

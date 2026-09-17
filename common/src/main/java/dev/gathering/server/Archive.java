@@ -171,6 +171,11 @@ public final class Archive {
      * all: two packs out of one chest reads as a fault rather than as luck.
      */
     public static Optional<ItemStack> rollFor(String tableId, RandomSource random) {
+        return rollFor(tableId, random, false);
+    }
+
+    /** The same, saying whether a player had a hand in the kill. */
+    public static Optional<ItemStack> rollFor(String tableId, RandomSource random, boolean killedByAPlayer) {
         // Before the string is touched. This runs for every loot table the game rolls.
         List<String> findable = families;
         if (findable.isEmpty() || random == null) {
@@ -183,7 +188,10 @@ public final class Archive {
             return Optional.empty();
         }
         ArchiveDrops where = ArchiveDrops.of(tableId).orElse(null);
-        if (where == null || random.nextInt(where.oneIn()) != 0) {
+        if (where == null || (where.needsAPlayer() && !killedByAPlayer)) {
+            return Optional.empty();
+        }
+        if (random.nextInt(where.oneIn()) != 0) {
             return Optional.empty();
         }
         return Optional.of(pack(findable.get(random.nextInt(findable.size()))));

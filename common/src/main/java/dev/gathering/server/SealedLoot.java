@@ -187,7 +187,7 @@ public final class SealedLoot {
         // The archive first, and answering means the ordinary pack is not asked at all: two
         // packs out of one chest reads as a fault rather than as luck, and the rarer of the
         // two is the one worth having come out.
-        Optional<ItemStack> archive = Archive.rollFor(tableId, random);
+        Optional<ItemStack> archive = Archive.rollFor(tableId, random, killedByAPlayer);
         if (archive.isPresent()) {
             return archive;
         }
