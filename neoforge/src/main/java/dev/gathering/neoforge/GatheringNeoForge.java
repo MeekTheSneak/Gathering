@@ -91,6 +91,7 @@ public final class GatheringNeoForge {
             // would be a confusing symptom of this one.
             throw new IllegalStateException("Could not open the Gathering card metadata cache", e);
         }
+        // runcheck: a log line and nothing else, which belongs to no world.
         cardData.warmCache().thenAccept(count -> LOGGER.info("Card metadata cache warmed: {} printings", count));
         dev.gathering.server.CurrentSet.resolve();
         dev.gathering.server.SealedLoot.warm();

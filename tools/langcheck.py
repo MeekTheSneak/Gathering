@@ -238,6 +238,10 @@ def main() -> int:
     print(f"\n{len(whole)} keys written out, {len(prefixes)} prefixes, "
           f"{len(entries)} entries in en_us.json, {len(missing)} missing, {len(unused)} unused, "
           f"{len(stray)} stray shortcuts, {len(nameless)} nameless actions")
+    # a check that finds nothing to check must fail rather than pass - DIALECT.md
+    if not entries or not whole:
+        print("langcheck: no lang entries or no keys in the source, so nothing was checked")
+        return 1
     return 1 if missing or stray or nameless else 0
 
 

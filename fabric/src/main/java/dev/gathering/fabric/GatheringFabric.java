@@ -125,6 +125,7 @@ public final class GatheringFabric implements ModInitializer {
             } catch (IOException e) {
                 throw new IllegalStateException("Could not open the Gathering card metadata cache", e);
             }
+            // runcheck: a log line and nothing else, which belongs to no world.
             cardData.warmCache().thenAccept(count ->
                     LOGGER.info("Card metadata cache warmed: {} printings", count));
             dev.gathering.server.CurrentSet.resolve();

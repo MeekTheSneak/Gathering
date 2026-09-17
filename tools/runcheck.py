@@ -44,10 +44,21 @@ WHERE = [
     "common/src/main/java/dev/gathering/service",
     "common/src/main/java/dev/gathering/block",
     "common/src/main/java/dev/gathering/village",
+    # Commands wait on reloads, and the loaders start the warms. Neither was read, and a
+    # command answering through a bare server.execute is exactly the shape this bans.
+    "common/src/main/java/dev/gathering/command",
+    "neoforge/src/main/java",
+    "fabric/src/main/java",
 ]
 
-#: A result landing from another thread.
-LANDS = re.compile(r"\.(?:whenComplete|thenAccept|thenRun)\s*\(")
+#: A result landing from another thread and doing something with it. The Async forms and
+#: thenAcceptBoth are the same thing, and were missed. The stages that only turn one value into
+#: another - thenApply, thenCompose, handle - are not listed: they hand their answer on to one of
+#: these, which is where the fence goes. One that writes shared state on the way is a defect this
+#: cannot see by shape, and LoanerDecks' shelf swap was one; it checks the run by hand now.
+LANDS = re.compile(
+    r"\.(?:whenComplete|thenAccept|thenRun|thenAcceptBoth|runAfterBoth|runAfterEither|acceptEither)"
+    r"(?:Async)?\s*\(")
 
 #: The things that know which world asked. The wrappers are the usual ones; the bare check is
 #: for a completion with tidying-up of its own that has to happen either way - the shop's
@@ -81,6 +92,8 @@ def main():
     for folder in WHERE:
         here = ROOT / folder
         if not here.is_dir():
+            # A folder that moved is a folder this stopped reading, and would pass for it.
+            problems.append(f"{folder} is not there, so nothing in it was checked")
             continue
         for path in sorted(here.rglob("*.java")):
             if path.stem in EXEMPT:
@@ -93,7 +106,9 @@ def main():
                 # The binding may be on this line or on the next few, which is where a
                 # formatter puts it when the lambda is long.
                 window = "\n".join(lines[number - 1:number + 10])
-                if any(bound in window for bound in BOUND) or EXCUSED in window:
+                # An excuse is written above the line it excuses, as a comment is.
+                above = lines[number - 2] if number >= 2 else ""
+                if any(bound in window for bound in BOUND) or EXCUSED in window or EXCUSED in above:
                     continue
                 why = ("server.execute is not a fence: on the server thread it runs the task "
                        "inline, and once the server has stopped it runs it inline on the "
@@ -104,6 +119,9 @@ def main():
                     f"without saying which world asked for it. {why}"
                     f"Wrap it in ServerRun.onServerThread(...) or ServerRun.stillThisRun(...)."
                 )
+
+    if checked == 0:
+        problems.append("no asynchronous completions found anywhere, which cannot be right")
 
     if problems:
         for problem in problems:

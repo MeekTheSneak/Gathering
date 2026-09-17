@@ -181,9 +181,17 @@ public final class LoanerDecks {
         for (LoanerShelf.Loaner loaner : shelf.decks()) {
             resolving.add(resolve(service, loaner, staging));
         }
+        // Stamped now, so a reload that finishes after its world closed does not stock the next
+        // world's shelf with the last one's decks. The swap runs on the card worker, which is
+        // why it asks rather than hands itself to a server: the shelf is a concurrent map and
+        // the only thing that matters is whose shelf it lands on.
+        long run = ServerRun.generation();
         return java.util.concurrent.CompletableFuture
                 .allOf(resolving.toArray(java.util.concurrent.CompletableFuture[]::new))
                 .thenApply(ignored -> {
+                    if (!ServerRun.isStill(run)) {
+                        return 0;
+                    }
                     SHELF.keySet().retainAll(staging.keySet());
                     SHELF.putAll(staging);
                     return staging.size();

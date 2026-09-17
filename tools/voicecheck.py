@@ -68,6 +68,10 @@ def main() -> int:
         print(problem)
     print(f"{len(entries)} lines of interface text and {len(list(GUIDE.glob('*.md')))} guide pages "
           f"read, {len(problems)} that read as writing rather than as interface")
+    # a check that finds nothing to check must fail rather than pass - DIALECT.md
+    if not entries or not list(GUIDE.glob("*.md")):
+        print("voicecheck: no interface text or no guide pages found, so nothing was checked")
+        return 1
     return 1 if problems else 0
 
 

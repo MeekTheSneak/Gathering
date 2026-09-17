@@ -238,8 +238,14 @@ public final class GatheringCommands {
                                 ? ""
                                 : " (needs " + String.join(", ", reward.requiredMods()) + ")")),
                 false));
-        for (String problem : dev.gathering.service.Rewards.problems()) {
-            source.sendSuccess(() -> Component.literal("  ! " + problem), false);
+        // The reasons a file would not load, to operators only. They are read off the disk and
+        // an IOException's message is usually the absolute path on the server, which is
+        // nothing a player standing in the world needs and something a host may not want read.
+        java.util.List<String> problems = dev.gathering.service.Rewards.problems();
+        if (!problems.isEmpty() && source.hasPermission(2)) {
+            for (String problem : problems) {
+                source.sendSuccess(() -> Component.literal("  ! " + problem), false);
+            }
         }
         return all.size();
     }
@@ -423,8 +429,10 @@ public final class GatheringCommands {
     private static int reloadLoaners(CommandSourceStack source) {
         source.sendSuccess(
                 () -> Component.translatable("message.gathering.loaners_reloading"), true);
+        long run = dev.gathering.server.ServerRun.generation();
+        net.minecraft.server.MinecraftServer server = source.getServer();
         dev.gathering.server.LoanerDecks.reload().thenAccept(lent ->
-                source.getServer().execute(() -> source.sendSuccess(
+                dev.gathering.server.ServerRun.onTheServerThread(server, run, () -> source.sendSuccess(
                         () -> Component.translatable("message.gathering.loaners_reloaded", lent),
                         true)));
         return 1;
@@ -625,7 +633,11 @@ public final class GatheringCommands {
             source.sendFailure(Component.translatable("message.gathering.pipeline_unavailable"));
             return 0;
         }
-        DecklistImport.importFor(player, service, decklist);
+        String refused = DecklistImport.importFor(player, service, decklist);
+        if (refused != null) {
+            source.sendFailure(Component.literal(refused));
+            return 0;
+        }
         source.sendSuccess(() -> Component.translatable("message.gathering.import_started"), false);
         return 1;
     }

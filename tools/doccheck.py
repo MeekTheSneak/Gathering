@@ -78,6 +78,10 @@ def main() -> int:
     for orphan in orphans:
         print(f"orphaned javadoc: {orphan}")
     print(f"\n{checked} files checked, {len(orphans)} orphaned javadoc blocks")
+    # a check that finds nothing to check must fail rather than pass - DIALECT.md
+    if checked == 0:
+        print("doccheck: no Java files found, so nothing was checked")
+        return 1
     return 1 if orphans else 0
 
 

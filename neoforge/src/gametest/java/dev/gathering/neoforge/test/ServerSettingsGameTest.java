@@ -49,6 +49,59 @@ public final class ServerSettingsGameTest {
         });
     }
 
+    /**
+     * The import command says a refusal is a refusal.
+     * <p>It said "import started" whatever happened - straight after the server had refused
+     * the player, who was then left waiting for a deck that was never coming.
+     */
+    @GameTest(template = "empty")
+    public static void theImportCommandSaysWhenItWasRefused(GameTestHelper helper) {
+        TestConfig.withPlayer(helper, null, player -> {
+            if (dev.gathering.service.CardDataService.active().isEmpty()) {
+                return "fixture: no card pipeline, so the command would stop before asking";
+            }
+            if (DecklistImport.whyNot(player) == null) {
+                return "fixture: a mock player on the shipped defaults was allowed to import";
+            }
+            java.util.List<String> said = new java.util.ArrayList<>();
+            net.minecraft.commands.CommandSourceStack source = player.createCommandSourceStack()
+                    .withSource(new net.minecraft.commands.CommandSource() {
+                        @Override
+                        public void sendSystemMessage(net.minecraft.network.chat.Component line) {
+                            said.add(line.getString());
+                        }
+
+                        @Override
+                        public boolean acceptsSuccess() {
+                            return true;
+                        }
+
+                        @Override
+                        public boolean acceptsFailure() {
+                            return true;
+                        }
+
+                        @Override
+                        public boolean shouldInformAdmins() {
+                            return false;
+                        }
+                    });
+            int result;
+            try {
+                result = helper.getLevel().getServer().getCommands().getDispatcher()
+                        .execute("gathering import 1 Forest", source);
+            } catch (com.mojang.brigadier.exceptions.CommandSyntaxException wrongShape) {
+                return "fixture: the import command did not parse: " + wrongShape.getMessage();
+            }
+            String started = net.minecraft.network.chat.Component
+                    .translatable("message.gathering.import_started").getString();
+            if (result != 0 || said.stream().anyMatch(line -> line.contains(started))) {
+                return "a refused import was reported as started: " + said;
+            }
+            return null;
+        });
+    }
+
     @GameTest(template = "empty")
     public static void importTurnedOffInTheFileRefusesEverybody(GameTestHelper helper) {
         TestConfig.with(helper, "[modes]\nimport_enabled = false\n", () -> {

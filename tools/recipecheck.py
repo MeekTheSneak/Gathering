@@ -127,6 +127,10 @@ def main() -> int:
     print(f"{len(list(BLOCKSTATES.glob('*.json')))} blocks, {len(recipes)} recipes, "
           f"{len(uncraftable)} without a recipe, "
           + (f"{written} unlock(s) written" if write else f"{len(unfindable)} without an unlock"))
+    # a check that finds nothing to check must fail rather than pass - DIALECT.md
+    if not recipes or not list(BLOCKSTATES.glob("*.json")):
+        print("recipecheck: no recipes or no blocks found, so nothing was checked")
+        return 1
     return 1 if uncraftable or (unfindable and not write) else 0
 
 

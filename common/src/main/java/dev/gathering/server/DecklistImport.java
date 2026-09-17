@@ -133,19 +133,21 @@ public final class DecklistImport {
      * @param player   the importer; the deck is bound to them and lands in their inventory
      * @param service  the card pipeline, which owns the off-thread executor
      * @param decklist the pasted text, exactly as typed
+     * @return why it was refused, or null when the import is under way. A command has to know:
+     *         it said "import started" whatever happened, straight after a refusal.
      */
-    public static void importFor(ServerPlayer player, CardDataService service, String decklist) {
-        importFor(player, service, decklist, "", "");
+    public static String importFor(ServerPlayer player, CardDataService service, String decklist) {
+        return importFor(player, service, decklist, "", "");
     }
 
     /**
      * @param deckName    what the player called it, or blank to take the list's own name
      * @param description the player's note, shown under the name on the item
      */
-    public static void importFor(
+    public static String importFor(
             ServerPlayer player, CardDataService service, String decklist, String deckName,
             String description) {
-        importFor(player, service, decklist, deckName, description, null,
+        return importFor(player, service, decklist, deckName, description, null,
                 java.util.Optional.empty());
     }
 
@@ -160,7 +162,7 @@ public final class DecklistImport {
      *                   nobody pressed a button for - a command, or the scripted run - which
      *                   no screen then acts on, which is right: nobody is waiting.
      */
-    public static void importFor(
+    public static String importFor(
             ServerPlayer player, CardDataService service, String decklist, String deckName,
             String description, net.minecraft.core.BlockPos from,
             java.util.Optional<UUID> forRequest) {
@@ -171,22 +173,22 @@ public final class DecklistImport {
         String refusal = from == null ? whyNot(player) : whyNotFromCollection();
         if (refusal != null) {
             send(player, new ImportResultPayload("", 0, List.of(refusal), forRequest));
-            return;
+            return refusal;
         }
 
         if (!inFlight.add(id)) {
-            send(player, new ImportResultPayload("", 0,
-                    List.of("An import is already running; wait for it to finish."), forRequest));
-            return;
+            String running = "An import is already running; wait for it to finish.";
+            send(player, new ImportResultPayload("", 0, List.of(running), forRequest));
+            return running;
         }
 
         long now = System.nanoTime();
         Long previous = lastImportNanos.get(id);
         if (previous != null && now - previous < COOLDOWN_NANOS) {
             inFlight.remove(id);
-            send(player, new ImportResultPayload("", 0,
-                    List.of("Importing again so soon; give it a few seconds."), forRequest));
-            return;
+            String soon = "Importing again so soon; give it a few seconds.";
+            send(player, new ImportResultPayload("", 0, List.of(soon), forRequest));
+            return soon;
         }
         // Forgotten wholesale past a bound, the way CollectionView remembers its takes: one
         // entry per player who ever imported, kept for the life of the JVM, is a map that
@@ -234,6 +236,7 @@ public final class DecklistImport {
                     inFlight.remove(id);
                     handOver.accept(deck, failure);
                 });
+        return null;
     }
 
     private static void deliver(ServerPlayer player, ResolvedDeck deck, String deckName,
