@@ -61,6 +61,14 @@ public final class Shopkeepers {
         if (villager == null || villager.level().isClientSide() || !isShopkeeper(villager)) {
             return;
         }
+        // Never under somebody already trading. This runs as a player right-clicks, before the
+        // game decides the villager is busy - so a second player walking up at a turnover moved
+        // the first player's offers under their open screen, and the slot they pressed paid for
+        // whatever had moved into it. The busy villager turns the second player away as always;
+        // the stock turns over for whoever opens it next.
+        if (villager.isTrading()) {
+            return;
+        }
         int level = villager.getVillagerData().getLevel();
         long rotation = rotation(villager.level());
         // Before the offers are asked for. Cheap when the shelf is already this turnover's,

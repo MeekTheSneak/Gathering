@@ -83,4 +83,44 @@ public final class ArchivePackGameTest {
         }
         helper.succeed();
     }
+
+    /**
+     * A full archive drops nothing once collecting is switched off.
+     * <p>The sheet is emptied when the setting changes, but a walk over history begun before the
+     * change could publish after it, and the roll never asked the switch itself. Checked at the
+     * roll now, where no race can reach it.
+     */
+    @GameTest(template = "empty")
+    public static void aFullArchiveDropsNothingWithCollectingOff(GameTestHelper helper) {
+        Archive.holdForTesting(java.util.Set.of(java.util.UUID.randomUUID()));
+        String[] wrong = {null};
+        try {
+            TestConfig.run("[modes]\ncollection_enabled = true\n", () -> {
+                boolean any = false;
+                for (int roll = 0; roll < 200 && !any; roll++) {
+                    any = Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom()).isPresent();
+                }
+                if (!any) {
+                    wrong[0] = "fixture: a full archive dropped nothing from two hundred withers with collecting on";
+                }
+            });
+            if (wrong[0] == null) {
+                TestConfig.run("[modes]\ncollection_enabled = false\n", () -> {
+                    for (int roll = 0; roll < 1_000; roll++) {
+                        if (Archive.rollFor("minecraft:entities/wither", helper.getLevel().getRandom()).isPresent()) {
+                            wrong[0] = "an archive pack dropped on a server with collecting switched off";
+                            return;
+                        }
+                    }
+                });
+            }
+        } finally {
+            Archive.clear();
+        }
+        if (wrong[0] != null) {
+            helper.fail(wrong[0]);
+            return;
+        }
+        helper.succeed();
+    }
 }

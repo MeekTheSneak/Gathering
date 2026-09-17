@@ -81,6 +81,10 @@ public final class Archive {
      */
     public static void warm() {
         sheet = BoosterSheet.EMPTY;
+        // A new walk makes every older one stale, whatever it is still reading. A settings change
+        // starts one: without this a walk begun before collecting was switched off could publish
+        // its sheet after the switch had emptied it, and archive packs went on dropping.
+        long walk = WALKS.incrementAndGet();
         var settings = ServerSettings.get();
         if (!settings.modes().collectionEnabled()
                 || settings.collecting().packLootSources().isEmpty()) {
@@ -96,7 +100,7 @@ public final class Archive {
         long run = ServerRun.generation();
         SetsInPlay.wanted(settings)
                 .thenCombine(cards.allSets(), (inPlay, everySet) -> new Walk(
-                        collation, cards, root, run, java.util.Set.copyOf(inPlay), shopOpen,
+                        collation, cards, root, run, walk, java.util.Set.copyOf(inPlay), shopOpen,
                         order(inPlay, everySet)))
                 .thenCompose(Walk::next)
                 .whenComplete(ServerRun.stillThisRun((walked, failure) -> {
@@ -135,18 +139,20 @@ public final class Archive {
         private final CardDataService cards;
         private final java.nio.file.Path root;
         private final long run;
+        private final long walk;
         private final java.util.Set<String> inPlay;
         private final boolean shopOpen;
         private final List<dev.gathering.core.card.SetRelease> sets;
         private final List<dev.gathering.core.booster.ArchiveAudit.SetFacts> learned = new ArrayList<>();
         private int at;
 
-        Walk(CollationService collation, CardDataService cards, java.nio.file.Path root, long run,
+        Walk(CollationService collation, CardDataService cards, java.nio.file.Path root, long run, long walk,
                 java.util.Set<String> inPlay, boolean shopOpen, List<dev.gathering.core.card.SetRelease> sets) {
             this.collation = collation;
             this.cards = cards;
             this.root = root;
             this.run = run;
+            this.walk = walk;
             this.inPlay = inPlay;
             this.shopOpen = shopOpen;
             this.sets = sets;
@@ -161,7 +167,7 @@ public final class Archive {
          */
         CompletableFuture<Walk> next() {
             while (at < sets.size()) {
-                if (!ServerRun.isStill(run)) {
+                if (!isCurrent()) {
                     return CompletableFuture.completedFuture(this);
                 }
                 dev.gathering.core.card.SetRelease set = sets.get(at++);
@@ -233,8 +239,13 @@ public final class Archive {
             return facts;
         }
 
+        /** Whether this walk is still the one this world is waiting for. */
+        private boolean isCurrent() {
+            return ServerRun.isStill(run) && WALKS.get() == walk;
+        }
+
         private void publish(boolean finished) {
-            if (!ServerRun.isStill(run)) {
+            if (!isCurrent()) {
                 return;
             }
             Set<UUID> remainder = dev.gathering.core.booster.ArchiveAudit.unobtainable(learned, inPlay, shopOpen);
@@ -280,8 +291,17 @@ public final class Archive {
 
     /** Between servers, so one world's remainder is not the next one's. */
     public static void clear() {
+        WALKS.incrementAndGet();
         sheet = BoosterSheet.EMPTY;
     }
+
+    /** For the in-world tests, which have no network to walk history over: the archive holds these. */
+    public static void holdForTesting(Set<UUID> printings) {
+        sheet = CoverageAudit.archiveSheet(new CoverageReport(printings.size(), printings, java.util.Map.of()));
+    }
+
+    /** Which walk over history is the current one; any other has been superseded. */
+    private static final java.util.concurrent.atomic.AtomicLong WALKS = new java.util.concurrent.atomic.AtomicLong();
 
     /**
      * An archive pack for this loot table, if one comes up.
@@ -292,6 +312,12 @@ public final class Archive {
     public static Optional<ItemStack> rollFor(String tableId, RandomSource random) {
         // Before the string is touched. This runs for every loot table the game rolls.
         if (sheet.isEmpty() || random == null) {
+            return Optional.empty();
+        }
+        // And asked here as well as at the warm. The sheet is emptied when collecting goes off,
+        // but a read of the switch costs nothing beside a loot roll, and it is the one answer
+        // that cannot be stale.
+        if (!ServerSettings.get().modes().collectionEnabled()) {
             return Optional.empty();
         }
         ArchiveDrops where = ArchiveDrops.of(tableId).orElse(null);

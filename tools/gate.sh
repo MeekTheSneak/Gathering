@@ -84,6 +84,11 @@ if [ "$QUICK" = 0 ]; then
         printf 'ok (%s)\n' "$(printf '%s' "$counts" | tr '\n' '/')"
     fi
 
+    # And :core, which prints no count to read: every test class under core/src/test has to have
+    # run something, by Gradle's own results. A class whose tests stopped being found passes
+    # otherwise - fourteen properties went unrun for months in exactly that way.
+    stage "core tests actually ran" python3 tools/coretestcheck.py
+
     # A table's tick and a tournament's clock keep their failures to themselves rather than
     # crashing the server, which also means a failure in them no longer stops an in-world test
     # run. So the gate reads the run for them instead. The one exception is the test that

@@ -185,4 +185,56 @@ public final class CardShopGameTest {
         }
         helper.fail("A box this server cannot look up opened into something");
     }
+
+    /**
+     * A shopkeeper somebody is already trading with does not change stock under them.
+     * <p>The refresh runs as a player right-clicks, before the game decides the villager is busy -
+     * so a second player walking up at a turnover moved the first player's offers under their open
+     * screen, and the slot they pressed paid for whatever had moved into it.
+     */
+    @GameTest(template = "empty")
+    public static void aShopkeeperMidTradeKeepsTheirStock(GameTestHelper helper) {
+        dev.gathering.core.sealed.SealedProduct booster = new dev.gathering.core.sealed.SealedProduct(
+                "pack-play", "Test play", "tst", "booster_pack", "play", 15,
+                new dev.gathering.core.sealed.SealedProduct.Contents(
+                        List.of(new dev.gathering.core.sealed.SealedProduct.Booster("tst", "play")),
+                        List.of(), List.of(), List.of(), List.of()));
+        dev.gathering.core.sealed.SealedShelf shelf = dev.gathering.core.sealed.SealedShelf.of(
+                new dev.gathering.core.sealed.MtgjsonProducts.Reading("tst", List.of(booster), List.of()), 2);
+        Object was = dev.gathering.server.CardShop.stockForTesting(shelf);
+        try {
+            Villager free = shopkeeper(helper, 1);
+            Villager busy = shopkeeper(helper, 3);
+            if (free == null || busy == null) {
+                helper.fail("fixture: could not make the shopkeepers");
+                return;
+            }
+            Shopkeepers.refresh(free);
+            if (free.getOffers().isEmpty()) {
+                helper.fail("fixture: a shopkeeper nobody is trading with stocked nothing from a full shelf");
+                return;
+            }
+            busy.setTradingPlayer(helper.makeMockServerPlayerInLevel());
+            Shopkeepers.refresh(busy);
+            if (!busy.getOffers().isEmpty()) {
+                helper.fail("a shopkeeper's offers changed while somebody was trading with them");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            dev.gathering.server.CardShop.restockForTesting(was);
+        }
+    }
+
+    private static Villager shopkeeper(GameTestHelper helper, int x) {
+        Villager villager = EntityType.VILLAGER.create(helper.getLevel());
+        if (villager == null) {
+            return null;
+        }
+        villager.setPos(helper.absoluteVec(new BlockPos(x, 1, 1).getCenter()));
+        villager.setVillagerData(new VillagerData(VillagerType.PLAINS, GatheringVillagers.SHOPKEEPER.get(), 1));
+        villager.getOffers().clear();
+        helper.getLevel().addFreshEntity(villager);
+        return villager;
+    }
 }

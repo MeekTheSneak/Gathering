@@ -74,6 +74,22 @@ public final class CardShop {
 
     private static volatile Stock stock = Stock.NOTHING;
 
+    /**
+     * For the in-world tests, which have no network to read a shelf from: the shop sells this.
+     *
+     * @return what it sold before, to put back
+     */
+    public static Object stockForTesting(SealedShelf shelf) {
+        Stock was = stock;
+        stock = new Stock(shelf, SealedCatalog.EMPTY);
+        return was;
+    }
+
+    /** Puts back what {@link #stockForTesting} returned. */
+    public static void restockForTesting(Object was) {
+        stock = was instanceof Stock kept ? kept : Stock.NOTHING;
+    }
+
     /** What {@link #stockedFor} says when nothing has been stocked yet. */
     private static final long NOTHING_STOCKED = -1;
 
