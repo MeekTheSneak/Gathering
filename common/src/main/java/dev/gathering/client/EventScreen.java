@@ -654,10 +654,33 @@ public final class EventScreen extends Screen {
             case OVERVIEW -> renderOverview(graphics, x, y, width);
             case STANDINGS -> renderStandings(graphics, x, y, width);
             case PAIRINGS -> renderPairings(graphics, x, y, width);
-            case HOST -> paragraph(graphics, Component.translatable("screen.gathering.event.host_help." + view.phase()),
-                    x, hostHelpTop, width, DIM);
+            case HOST -> hostHelp().ifPresent(help -> paragraph(graphics, help,
+                    x, hostHelpTop, width, DIM));
         }
     }
+
+    /**
+     * What the host should do next, for the phase the event is in.
+     * <p>Matched against the phases this screen knows rather than concatenated into a key. It was
+     * built by joining a string that came off the wire, per frame - so a phase this build does not
+     * recognise drew the raw translation key as the panel's text, and every frame of the host tab
+     * allocated a key and a component to say the same sentence again.
+     */
+    private java.util.Optional<Component> hostHelp() {
+        String phase = view.phase();
+        for (String known : HOST_HELP_FOR) {
+            if (known.equals(phase)) {
+                return java.util.Optional.of(
+                        Component.translatable("screen.gathering.event.host_help." + known));
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    /** The phases there is advice for, which is every phase the server can report. */
+    private static final String[] HOST_HELP_FOR = {
+        "signup", "check_in", "preparing", "swiss", "cut", "finished", "cancelled",
+    };
 
     /** Writing over as many lines as it needs at the text size asked, stopping above the bottom row. */
     private void paragraph(GuiGraphics graphics, Component text, int x, int y, int width, int color) {

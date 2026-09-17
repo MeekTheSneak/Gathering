@@ -26,11 +26,11 @@ Status column: **fixed** / **open** / **rejected** (with the reason).
 ## Important
 
 **Property (cards must not duplicate or vanish)**
-- `server/PocketCards.java:48-68`, `CollectionView.java:542` - bulk card-into-deck paths destroy card provenance; the single-card path preserves it. Winning a card in an ante and then deck-building deletes its story.
-- `server/DeckVault.java:68-88` - `isRedacted()` is `anyMatch` but `real()` assumes `allMatch`, so a deck of 100 real + 1 hidden entry is treated as a wire copy with 100 additions and comes back with 200 cards.
-- `block/TableBlockEntity.java:1431-1448` - `writeSession` returns early on a key or encryption failure, dropping the live game *and* the sealed copy it was written to protect.
-- `server/SessionKeyring.java:45` - `forget()` has no callers and the `tried` latch is set before the attempt, so one transient read failure means no game on the server opens or saves again.
-- `block/TableBlockEntity.java:880-901` - `endSession` clears held decks with none of the loud backstop its javadoc promises (the pot gets one).
+- **[fixed]** `server/PocketCards.java:48-68`, `CollectionView.java:542` - bulk card-into-deck paths destroy card provenance; the single-card path preserves it. Winning a card in an ante and then deck-building deletes its story.
+- **[fixed]** `server/DeckVault.java:68-88` - `isRedacted()` is `anyMatch` but `real()` assumes `allMatch`, so a deck of 100 real + 1 hidden entry is treated as a wire copy with 100 additions and comes back with 200 cards.
+- **[fixed]** `block/TableBlockEntity.java:1431-1448` - `writeSession` returns early on a key or encryption failure, dropping the live game *and* the sealed copy it was written to protect.
+- **[fixed]** `server/SessionKeyring.java:45` - `forget()` has no callers and the `tried` latch is set before the attempt, so one transient read failure means no game on the server opens or saves again.
+- **[fixed]** `block/TableBlockEntity.java:880-901` - `endSession` clears held decks with none of the loud backstop its javadoc promises (the pot gets one).
 
 **Tournaments**
 - **[fixed]** `Events.java:568-571` vs `Tournament.beginPreparing` vs `HostActions.playersIfBegunNow` - "who will actually play" defined three times, two ways.
@@ -46,21 +46,21 @@ Status column: **fixed** / **open** / **rejected** (with the reason).
 - **[fixed]** `ClientCardFlights.java:267-276` - `isFlying` takes a global monitor and copies a list once per card per frame.
 - **[fixed]** `ClientCardFlights.java:122-147` - with reduced motion on, `OWN_DOING` is never pruned.
 - **[fixed]** `PackOpeningScreen.java:534-552` - `drawSymbol` is dead; the wrapper's set symbol documented in the class javadoc is no longer drawn.
-- `TableMiniatureRenderer.java:509-528` - `Component.translatable` and two enum array clones per verb per seat per table per frame.
-- `FoilSheen.java:177-178` - two `float[4]` per vertex; ~7,500 arrays per frame on a read foil, plus a `new Random` per card per frame.
-- `EventScreen.java:657` - translation key built by concatenation from a wire string, per frame; unknown phase renders the raw key as UI.
+- **[fixed]** `TableMiniatureRenderer.java:509-528` - `Component.translatable` and two enum array clones per verb per seat per table per frame.
+- **[fixed]** `FoilSheen.java:177-178` - two `float[4]` per vertex; ~7,500 arrays per frame on a read foil, plus a `new Random` per card per frame.
+- **[fixed]** `EventScreen.java:657` - translation key built by concatenation from a wire string, per frame; unknown phase renders the raw key as UI.
 
 **Data and economy**
 - **[fixed]** `core/.../booster/BoosterOpener.java:77` - slot count from external data sizes an array with no bound.
 - **[fixed]** `core/.../scryfall/ScryfallClient.java:111-124` - `everyPrintingIn` truncates at 8 pages and says nothing, so the Archive Pack's completeness guarantee has a silent hole.
 - **[fixed]** `core/.../scryfall/DiskCardMetadataStore.java:115-125` - non-atomic cache write, while the collation cache five files away is atomic.
-- `core/.../deck/ArchidektDeckSource.java:56` - deck-site fetch bypasses `HttpFetcher`, so no limiter, no retry, no `Retry-After`.
-- `InMemoryCardMetadataStore.java:20-23` - unbounded heap growth, contradicting `DiskCardMetadataStore`'s "costs disk and not heap".
+- **[fixed]** `core/.../deck/ArchidektDeckSource.java:56` - deck-site fetch bypasses `HttpFetcher`, so no limiter, no retry, no `Retry-After`.
+- **[fixed]** `InMemoryCardMetadataStore.java:20-23` - unbounded heap growth, contradicting `DiskCardMetadataStore`'s "costs disk and not heap".
 
 **Networking**
-- `network/CardSummary.java:107-131` - `colorIdentity` trimmed on decode but not on encode; a printing with >8 entries writes a packet the far side cannot read, disconnecting every recipient.
-- `network/GatheringProtocol.java:207` - `MarkWantedPayload` writes a file per packet with no budget.
-- `network/GatheringProtocol.java:233` - `CollectionTakePayload` is the one collection payload with no throttle.
+- **[fixed]** `network/CardSummary.java:107-131` - `colorIdentity` trimmed on decode but not on encode; a printing with >8 entries writes a packet the far side cannot read, disconnecting every recipient.
+- **[fixed]** `network/GatheringProtocol.java:207` - `MarkWantedPayload` writes a file per packet with no budget.
+- **[fixed]** `network/GatheringProtocol.java:233` - `CollectionTakePayload` is the one collection payload with no throttle.
 - **[fixed]** `tools/tablecheck.py:32` - matches on the component *name* `table`; `DraftPickPayload.pod` and `EventActionPayload.at` carry table positions and are silently uncovered.
 
 **Game core**
@@ -83,6 +83,17 @@ inconsistent clocks (`System.currentTimeMillis` where the area uses tick counts)
 - The ordering worry about `DeckMadePayload` was unfounded: the system self-heals across arbitrary
   reordering, because `inventoryTick` refuses to strip a redacted deck to nothing and the vault
   refuses to store a redacted copy. The javadoc's ordering claim should be replaced with that.
-- `instabuild` is not forgeable: `handlePlayerAbilities` only writes `flying`, clamped by `mayfly`.
+- Not a finding: `instabuild` is not forgeable: `handlePlayerAbilities` only writes `flying`, clamped by `mayfly`.
 - The display case cannot become unopenable: the lock toggle sits after the owner check, and
   `getDrops` builds a fresh stack so neither owner nor lock rides into the item.
+
+---
+
+## Closed
+
+Every Critical and every Important is fixed. `InMemoryCardMetadataStore`'s unbounded heap is the one
+that is *documented* rather than bounded: the javadoc now says what actually happens and that
+bounding it has not been done, which is the honest state rather than a silent one.
+
+Both loaders run the scripted client to step 382 of 382 with zero failures, which is the first time
+that has been true of Fabric.

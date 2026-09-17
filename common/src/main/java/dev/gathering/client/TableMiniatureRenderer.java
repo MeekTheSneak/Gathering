@@ -500,6 +500,27 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     }
 
     /**
+     * The four button names, built once.
+     * <p>This is the block entity renderer: it runs for every table in the world, for every seated
+     * mat on it, on every frame. A fresh component per button per seat per table per frame is a lot
+     * of garbage for four words that never change - and the table screen already keeps exactly this
+     * array, for exactly this reason.
+     */
+    private static final Component[] VERB_NAMES = buildVerbNames();
+
+    /** And the verbs themselves, because {@code values()} clones the array on every call. */
+    private static final TableVerb[] VERBS = TableVerb.values();
+
+    private static Component[] buildVerbNames() {
+        TableVerb[] verbs = TableVerb.values();
+        Component[] names = new Component[verbs.length];
+        for (int index = 0; index < verbs.length; index++) {
+            names[index] = Component.translatable(verbs[index].key());
+        }
+        return names;
+    }
+
+    /**
      * The run of verb buttons printed down a seat's own mat.
      * <p>Drawn, not clickable here: the board on the block is pointed at with a ray and the
      * screen that owns that ray is the one that listens. What this has to do is make sure the
@@ -508,7 +529,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private void drawVerbs(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
             TableSurface surface, SeatId seat, int seatIndex, float span) {
-        int count = TableVerb.count();
+        int count = VERBS.length;
         drawGroup(poseStack, buffers, surface.verbGroup(seatIndex, count), span);
         float lineHeight = onSurface(WRITING_HEIGHT, span);
         for (int index = 0; index < count; index++) {
@@ -523,7 +544,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             drawSlot(poseStack, buffers, x, z, width, depth,
                     ClientTableHighlight.isPointedAtVerb(seat, index));
             writing(poseStack, buffers, packedLight,
-                    Component.translatable(TableVerb.values()[index].key()),
+                    VERB_NAMES[index],
                     x + width / 2f, z + depth / 2f, lineHeight, width * WRITING_ROOM,
                     surface.facingDegrees(seatIndex), 0, layer(ON_THE_FELT), feltWriting);
         }

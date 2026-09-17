@@ -2826,6 +2826,27 @@ Mostly small, and two of them player-visible.
 
 Verified: gate green (628/16).
 
+### Forty-fifth batch: the last of the findings (2026-09-16)
+
+- **The block entity renderer built four components per seat per table per frame.** It runs for every
+  table in the world; the table screen already keeps exactly this array for exactly this reason.
+- **The foil allocated two arrays per vertex**, which on a card being read is about seven thousand a
+  frame, and a fresh `Random` per card per frame besides. Written into scratch and reseeded.
+- **The host's advice was a key joined from a string off the wire, per frame** - so a phase this build
+  does not know drew the raw translation key as the panel's text. Matched against the phases it knows.
+- **The deck-site fetch was the one of the mod's three outward paths with no rate limiter**, no
+  retries and no `Retry-After`, in a file whose own comment names all three and says being a good
+  citizen at each should not be three copies of the same loop drifting apart. It goes through the
+  fetcher now, and keeps its own wording: the fetcher's message is about a request, and the person
+  reading it pasted a link.
+
+**Every Critical and every Important from the review is closed.** One is documented rather than
+bounded - the metadata store holds every card it reads for the run, and now says so instead of
+claiming a large cache costs disk and not heap.
+
+Verified: gate green (628/16), and **both loaders reach step 382 of 382 with zero failures**, which
+is the first time that has been true of Fabric.
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

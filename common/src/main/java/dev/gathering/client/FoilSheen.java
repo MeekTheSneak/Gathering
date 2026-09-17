@@ -174,8 +174,14 @@ public final class FoilSheen {
     private static int colorAt(
             float along, float across,
             float travel, float crossTravel, float middle, float crossMiddle) {
-        float[] first = spectrum(along, travel, middle, 1f);
-        float[] second = spectrum(across, crossTravel, crossMiddle, CROSS_SHARE);
+        // Into scratch arrays rather than two fresh ones. This is called once per vertex, and the
+        // reading mesh is twenty-six by thirty-six - so a foil being read was about seven thousand
+        // four-float arrays a frame, and every foil card in the world a few hundred more. One
+        // renderer, one thread, so a pair of fields is the whole of it.
+        float[] first = SCRATCH_ONE;
+        float[] second = SCRATCH_TWO;
+        spectrum(along, travel, middle, 1f, first);
+        spectrum(across, crossTravel, crossMiddle, CROSS_SHARE, second);
         // The faint one under the strong one, composited the ordinary way rather than added,
         // so two spectra crossing stay a sheen instead of stacking up into a fog.
         float alpha = first[3] + second[3] * (1f - first[3]);
@@ -232,16 +238,35 @@ public final class FoilSheen {
      * wraps has a seam in it - and a seam between two points of a mesh is a cell drawn with
      * the whole spectrum running backwards through it. This has no seam anywhere.
      *
-     * @return red, green, blue and alpha, each zero to one
+     * @param into red, green, blue and alpha, each zero to one, written into the caller's own
+     *     array rather than returned in a new one - see {@link #colorAt} for why
      */
-    private static float[] spectrum(float along, float travel, float middle, float strength) {
+    private static void spectrum(
+            float along, float travel, float middle, float strength, float[] into) {
         float phase = along * CYCLES + travel * SPECTRUM_TRAVEL;
         float alpha = strength
                 * (SPECTRUM_ALPHA + CATCH_ALPHA * bell(along - middle, CATCH_WIDTH));
-        return new float[] {
-            tinted(phase, 0f), tinted(phase, 1f / 3f), tinted(phase, 2f / 3f),
-            Mth.clamp(alpha, 0f, 1f),
-        };
+        into[0] = tinted(phase, 0f);
+        into[1] = tinted(phase, 1f / 3f);
+        into[2] = tinted(phase, 2f / 3f);
+        into[3] = Mth.clamp(alpha, 0f, 1f);
+    }
+
+    /** The two the compositing needs at once. Drawn from one thread, so two are enough. */
+    private static final float[] SCRATCH_ONE = new float[4];
+    private static final float[] SCRATCH_TWO = new float[4];
+
+    /**
+     * The grain's placement for one printing, reseeded rather than rebuilt.
+     * <p>A fresh {@code Random} per card per frame, for every foil in hand, in a slot, on the ground
+     * or in an item frame. Reseeding gives the identical sequence - which is the point, the grain has
+     * to sit still on the picture - without the allocation.
+     */
+    private static final java.util.Random SCATTER = new java.util.Random();
+
+    private static java.util.Random scatterFor(long seed) {
+        SCATTER.setSeed(seed * 0x9E3779B97F4A7C15L + 0x2545F491L);
+        return SCATTER;
     }
 
     /** One channel of the iridescence, pulled toward white by however unsaturated it is. */
@@ -259,7 +284,7 @@ public final class FoilSheen {
     private static void grain(
             Matrix4f matrix, CardLens lens, float middle, float cosRake, float sinRake, long seed,
             float strength) {
-        java.util.Random scatter = new java.util.Random(seed * 0x9E3779B97F4A7C15L + 0x2545F491L);
+        java.util.Random scatter = scatterFor(seed);
         BufferBuilder buffer =
                 Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         float[] corner = new float[2];
@@ -363,7 +388,7 @@ public final class FoilSheen {
             VertexConsumer consumer, Matrix4f matrix, Light light,
             float width, float height, float halfWidth, float halfHeight, float z,
             float aspect, long seed, float strength) {
-        java.util.Random scatter = new java.util.Random(seed * 0x9E3779B97F4A7C15L + 0x2545F491L);
+        java.util.Random scatter = scatterFor(seed);
         for (int index = 0; index < GRAINS; index++) {
             float u = scatter.nextFloat();
             float v = scatter.nextFloat();

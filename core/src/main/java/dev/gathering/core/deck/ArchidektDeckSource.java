@@ -1,5 +1,6 @@
 package dev.gathering.core.deck;
 
+import dev.gathering.core.net.HttpFetcher;
 import dev.gathering.core.net.HttpTransport;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -34,13 +35,32 @@ public final class ArchidektDeckSource {
     /** Enough for a very large deck with every card's full printing data. */
     private static final int MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 
-    private final HttpTransport transport;
+    private final HttpFetcher fetcher;
     private final Map<String, String> headers;
 
-    public ArchidektDeckSource(HttpTransport transport, String userAgent) {
-        this.transport = java.util.Objects.requireNonNull(transport, "transport");
+    /**
+     * Through a fetcher, so a deck site is treated the way the other two places this mod talks to
+     * are: a minimum interval between requests, bounded retries, and {@code Retry-After} honoured.
+     * <p>{@code HttpFetcher}'s own comment names the three - card data, deck sites, collation - and
+     * says being a good citizen at all of them should not be three copies of the same loop drifting
+     * apart. Deck sites was the one that had no copy at all: it called the transport directly, so a
+     * 429 was shown to the player as a failure and nothing held off, and however many players pasted
+     * a link at once was however many requests went out at once.
+     */
+    public ArchidektDeckSource(HttpFetcher fetcher, String userAgent) {
+        this.fetcher = java.util.Objects.requireNonNull(fetcher, "fetcher");
         this.headers = Map.of("User-Agent", userAgent, "Accept", "application/json");
     }
+
+    /** The same, building the fetcher around a bare transport at the interval a deck site asks for. */
+    public ArchidektDeckSource(HttpTransport transport, String userAgent) {
+        this(new HttpFetcher(transport, new dev.gathering.core.net.RateLimiter(
+                        BETWEEN_REQUESTS, System::currentTimeMillis, Thread::sleep)),
+                userAgent);
+    }
+
+    /** How long to leave between requests to a deck site. Their own guidance is one a second. */
+    private static final long BETWEEN_REQUESTS = 1000L;
 
     /**
      * Fetches and converts a deck.
@@ -53,7 +73,17 @@ public final class ArchidektDeckSource {
             throw new IllegalArgumentException("Not an Archidekt link: " + link);
         }
 
-        HttpTransport.HttpReply reply = transport.get(link.apiUrl(), headers);
+        HttpTransport.HttpReply reply;
+        try {
+            reply = fetcher.get(link.apiUrl(), headers, "a deck from Archidekt");
+        } catch (FetchException gaveUp) {
+            // The fetcher has already waited and tried again; what is left is what to tell the
+            // person who pasted the link, and its own wording is about a request rather than about
+            // them. A 404 still comes back as a reply, so this is only the ones worth retrying.
+            throw new FetchException(
+                    "Archidekt could not be reached (HTTP " + gaveUp.status() + "). "
+                            + "Try again, or paste the text export.", gaveUp.status());
+        }
         if (reply.status() == 404) {
             throw new FetchException(
                     "That Archidekt deck does not exist, or it is private. Only public decks can be imported.",
