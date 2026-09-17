@@ -3070,6 +3070,7 @@ Chased on 2026-09-17, after the bulk-data work:
 - **The tables within one run** were the run's own, from a scene an hour earlier: the scenes work out a
   corner from wherever the player is, and the player walks. A scene now takes away any of its own tables
   standing in the way rather than refusing, and the run starts from a fresh world.
+After those fixes the run reached 387 of 387 with one failure left, the framing one below.
 - **Two views, two sizes** (block 158x72, screen 131x59, at a window of 427x240): not a regression. The
   seated view fits the whole table into what is left after the life totals (16 px) and the hand (76 px) -
   148 px of 240 - while the view on the block uses the whole window, so at a small window the seated one
