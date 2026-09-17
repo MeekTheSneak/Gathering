@@ -314,6 +314,13 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // Left-click moves a card across, as it does on the deck screen. Any button used to: a
+        // right-click or a side button on a mouse moved a card between the deck and the sideboard
+        // too, which is not a gesture anybody expects to change a deck between games.
+        if (button != 0) {
+            return mainboard.contains((int) mouseX, (int) mouseY) || sideboard.contains((int) mouseX, (int) mouseY)
+                    || super.mouseClicked(mouseX, mouseY, button);
+        }
         if (clickColumn(mainboard, DeckComponent.Section.MAINBOARD, DeckComponent.Section.SIDEBOARD,
                 mainScroll, (int) mouseX, (int) mouseY)) {
             return true;

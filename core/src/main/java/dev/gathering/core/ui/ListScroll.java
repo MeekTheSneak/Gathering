@@ -70,4 +70,14 @@ public final class ListScroll {
         int down = Math.round((float) (track - tall) * Math.clamp(first, 0, deepest) / deepest);
         return new int[] {trackTop + down, tall};
     }
+
+    /**
+     * A page of a list, kept to a page the list has.
+     * <p>For a list that can shrink under whoever is reading it: an event list refreshed while on
+     * its fourth page, with two pages' worth left, drew nothing and read "page 4 of 2".
+     */
+    public static int pageWithin(int page, int total, int perPage) {
+        int pages = perPage <= 0 ? 1 : Math.max(1, (Math.max(0, total) + perPage - 1) / perPage);
+        return Math.max(0, Math.min(page, pages - 1));
+    }
 }

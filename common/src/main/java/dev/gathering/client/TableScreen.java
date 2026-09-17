@@ -3348,12 +3348,15 @@ public final class TableScreen extends Screen {
         // way past the panel and off the side of the screen, cut mid-sentence. Columns only
         // come off while what is left still has room for every line, so this can narrow the
         // list but never lose a line of it.
-        int leastColumn = Math.round(widestKeyLine() * dev.gathering.core.ui.TextScale.SMALLEST) + 14;
+        // Measured once: every line of the key list through the font, which this used to do twice
+        // a frame for as long as the list was up.
+        int widest = widestKeyLine();
+        int leastColumn = Math.round(widest * dev.gathering.core.ui.TextScale.SMALLEST) + 14;
         int acrossThatFit = Math.max(1, (this.width - margin * 2 - 10) / Math.max(1, leastColumn));
         while (columns > acrossThatFit && (columns - 1) * perColumn >= linesOfKeyHelp()) {
             columns--;
         }
-        int columnWidth = widestKeyLine() + 14;
+        int columnWidth = widest + 14;
         int wanted = Math.min(this.width - margin * 2, columns * columnWidth + 10);
         columnWidth = Math.max(40, (wanted - 10) / columns);
 
@@ -4006,7 +4009,9 @@ public final class TableScreen extends Screen {
         if (button == 2 && gesture.endPan()) {
             return true;
         }
-        TableGesture.Start from = gesture.endBox();
+        // Only the button that drew the box ends it. Letting go of a right-click - the table's menu,
+        // pressed while a box was out - used to select whatever the half-drawn box covered.
+        TableGesture.Start from = button == 0 ? gesture.endBox() : null;
         if (from != null) {
             view().ifPresent(board ->
                     selectWithin(board, boxBetween(from.x(), from.y(), (int) mouseX, (int) mouseY)));
@@ -4689,10 +4694,13 @@ public final class TableScreen extends Screen {
         // permanent mark saying which cards are commanders - where a card started is all the
         // game knows - and refusing the move would be it inventing a rule.
         if (pileCount() > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
+            // Which command slot is free is read off the board as it is when the entry is pressed,
+            // as the cards are. It was read off the board the menu opened on, so a commander put down
+            // while the menu was up sent the next one to a slot that was already taken.
             entries.add(entry("to_command", () -> eachCard(board, targets, seen ->
                     new GameEvent.CardMoved(me, seen.id(),
                             ZoneRef.of(seen.owner(),
-                                    CommandSlots.homeFor(board.seat(seen.owner()))),
+                                    CommandSlots.homeFor(view().orElse(board).seat(seen.owner()))),
                             Placement.TOP))));
         }
         entries.add(entry("to_library_top", () -> eachCard(board, targets, seen ->

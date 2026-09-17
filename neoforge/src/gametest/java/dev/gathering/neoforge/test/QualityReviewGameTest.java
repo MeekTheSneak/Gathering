@@ -156,6 +156,11 @@ public final class QualityReviewGameTest {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         BlockPos origin = table(helper);
         boolean offeredBefore = ClientSettings.tutorialOffered();
+        // Somewhere for the lesson to tell the server it began. A game test server has no client
+        // sender, and this used to pass only because another test had left a silent one bound.
+        var sender = dev.gathering.client.ClientNetworking.boundSender();
+        dev.gathering.client.ClientNetworking.bindSender(payload -> {
+        });
         try {
             start(helper, player, origin);
             var session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
@@ -181,6 +186,7 @@ public final class QualityReviewGameTest {
             }
             helper.succeed();
         } finally {
+            dev.gathering.client.ClientNetworking.restoreSender(sender);
             Tutorial.clear();
             ClientSettings.tutorialOffered(offeredBefore);
             LegacyPracticeTables.stop(helper.getLevel(), origin);

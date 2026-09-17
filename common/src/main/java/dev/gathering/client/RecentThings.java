@@ -59,6 +59,20 @@ public final class RecentThings {
      */
     private static final int MOST_SERVERS = 64;
 
+    /**
+     * How many lines one server can have: recent tokens, recent counters, pinned of each, and the
+     * token variants picked.
+     */
+    private static final int LINES_PER_SERVER = 5;
+
+    /**
+     * The bound on lines, which is what is counted.
+     * <p>It was the server count, set against a count of lines - so the real ceiling was about
+     * thirteen servers, and past it a server kept whichever of its five lines happened to be used
+     * first. Reading the file used a third figure again.
+     */
+    private static final int MOST_LINES = MOST_SERVERS * LINES_PER_SERVER;
+
     /** Every line, by key. Read once, written back whole. */
     private static final Map<String, List<String>> LINES = new LinkedHashMap<>();
 
@@ -265,7 +279,7 @@ public final class RecentThings {
         if (next.equals(had)) {
             return;
         }
-        if (!LINES.containsKey(key) && LINES.size() >= MOST_SERVERS) {
+        if (!LINES.containsKey(key) && LINES.size() >= MOST_LINES) {
             return;
         }
         if (next.isEmpty()) {
@@ -290,7 +304,7 @@ public final class RecentThings {
         if (next.isEmpty() || next.equals(LINES.get(key))) {
             return;
         }
-        if (!LINES.containsKey(key) && LINES.size() >= MOST_SERVERS) {
+        if (!LINES.containsKey(key) && LINES.size() >= MOST_LINES) {
             // Losing the offer of a shortcut on a new server is nothing. An unbounded file is
             // not, and this is the only place the number of lines can grow.
             return;
@@ -321,7 +335,7 @@ public final class RecentThings {
                 }
                 String key = text.substring(0, equals).strip();
                 List<String> names = Recents.unpack(text.substring(equals + 1).strip());
-                if (!key.isEmpty() && !names.isEmpty() && LINES.size() < MOST_SERVERS * 2) {
+                if (!key.isEmpty() && !names.isEmpty() && LINES.size() < MOST_LINES) {
                     LINES.put(key, names);
                 }
             }

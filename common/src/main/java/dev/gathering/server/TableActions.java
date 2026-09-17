@@ -194,7 +194,7 @@ public final class TableActions {
 
         GameEvent event;
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes))) {
-            event = EventCodec.read(in);
+            event = EventCodec.readFromAClient(in);
         } catch (IOException | RuntimeException e) {
             // Unreadable is refused rather than guessed at.
             return Optional.empty();

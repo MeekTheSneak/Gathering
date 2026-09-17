@@ -167,4 +167,21 @@ class EveryEventRoundTripsTest {
     private static CardIdentity anIdentity() {
         return CardIdentity.ofPrinting(UUID.nameUUIDFromBytes("printing".getBytes()), false);
     }
+
+    /** A client cannot name a card after the redaction's stand-in, which everything downstream destroys. */
+    @org.junit.jupiter.api.Test
+    void aClientCannotSendTheStandIn() throws Exception {
+        GameEvent named = new GameEvent.TokenCreated(SeatId.of(0), SeatId.of(0),
+                CardIdentity.ofCustom(CardIdentity.STAND_IN, false), 1);
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (java.io.DataOutputStream out = new java.io.DataOutputStream(bytes)) {
+            EventCodec.write(out, named);
+        }
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> EventCodec.readFromAClient(
+                        new java.io.DataInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))))
+                .isInstanceOf(java.io.IOException.class);
+        // A stored game reads it back as written.
+        assertThat(EventCodec.read(new java.io.DataInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray())), true))
+                .isEqualTo(named);
+    }
 }

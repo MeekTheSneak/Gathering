@@ -546,7 +546,10 @@ public final class DeckBuilderScreen extends ChildScreen {
                     .isPresent()
                     ? build.led(null).with(card)
                     : build.led(card);
-            askFor(0);
+            // The page the player was on. Naming a commander changes which cards are legal, so the
+            // page is asked for again - but it was asked for as page one, and choosing a commander
+            // from page four threw the list back to the start.
+            askFor(page);
             GatheringButtons.clickSound();
         });
     }

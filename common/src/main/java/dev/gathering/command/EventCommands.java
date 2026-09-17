@@ -6,6 +6,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.gathering.server.events.EventRecords;
 import dev.gathering.server.events.EventViews;
 import dev.gathering.server.events.Events;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -136,7 +137,10 @@ public final class EventCommands {
 
     private static int official(CommandSourceStack source, String event, boolean isOfficial) {
         UUID id = eventId(event);
-        if (id == null) {
+        // An event this server knows: one being run, or one whose results were written down. Any id
+        // at all used to be accepted and marked, which wrote a tournament nobody ever held into the
+        // records as official.
+        if (id == null || (Events.get(id).isEmpty() && !EventRecords.knows(id))) {
             source.sendFailure(Component.translatable("message.gathering.event.no_such_event"));
             return 0;
         }
@@ -146,15 +150,31 @@ public final class EventCommands {
         return 1;
     }
 
-    /** An event by its id, or the first whose name starts with what was typed. */
+    /**
+     * An event by its id, or by its name.
+     * <p>The whole name if one matches it, and otherwise a beginning that only one event's name has.
+     * It was the first event whose name began with what was typed, out of an unordered list - so with
+     * a "Friday" and a "Friday Finals" on the server, voiding "friday" voided whichever came first.
+     */
     private static UUID eventId(String typed) {
         try {
             return UUID.fromString(typed);
         } catch (IllegalArgumentException notAnId) {
-            return Events.all().stream()
-                    .filter(state -> state.tournament().name().replace(' ', '_').toLowerCase(java.util.Locale.ROOT)
-                            .startsWith(typed.toLowerCase(java.util.Locale.ROOT)))
-                    .map(state -> state.tournament().id()).findFirst().orElse(null);
+            String wanted = typed.toLowerCase(java.util.Locale.ROOT);
+            List<UUID> exactly = new java.util.ArrayList<>();
+            List<UUID> beginning = new java.util.ArrayList<>();
+            for (var state : Events.all()) {
+                String name = state.tournament().name().replace(' ', '_').toLowerCase(java.util.Locale.ROOT);
+                if (name.equals(wanted)) {
+                    exactly.add(state.tournament().id());
+                } else if (name.startsWith(wanted)) {
+                    beginning.add(state.tournament().id());
+                }
+            }
+            if (exactly.size() == 1) {
+                return exactly.get(0);
+            }
+            return exactly.isEmpty() && beginning.size() == 1 ? beginning.get(0) : null;
         }
     }
 }

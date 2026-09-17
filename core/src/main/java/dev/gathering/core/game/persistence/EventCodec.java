@@ -282,6 +282,23 @@ public final class EventCodec {
         return read(in, true);
     }
 
+    /** Set while a client's event is being read, which is held to what a client may say. */
+    private static final ThreadLocal<Boolean> FROM_A_CLIENT = new ThreadLocal<>();
+
+    /**
+     * Reads an event a client sent.
+     * <p>The same format, held to one more rule: no card in it may carry the redaction's stand-in
+     * id. See {@link CardIdentity#STAND_IN}.
+     */
+    public static GameEvent readFromAClient(DataInput in) throws IOException {
+        FROM_A_CLIENT.set(Boolean.TRUE);
+        try {
+            return read(in, true);
+        } finally {
+            FROM_A_CLIENT.remove();
+        }
+    }
+
     /**
      * Reads an event, told whether the stream is new enough to carry a deck's sleeve.
      *
@@ -454,6 +471,13 @@ public final class EventCodec {
             return CardIdentity.ofPrinting(id, in.readBoolean());
         }
         String custom = in.readUTF();
+        if (Boolean.TRUE.equals(FROM_A_CLIENT.get()) && CardIdentity.isStandIn(custom)) {
+            // Only the redaction writes this, and never into an event. One arriving from a client
+            // was written by somebody, and would be a card everything downstream destroys. Asked of
+            // a client's event only: a stored game is read however it was written, because a game
+            // that will not reopen over one odd card is a worse outcome than the card.
+            throw new IOException("A card cannot be called " + CardIdentity.STAND_IN);
+        }
         return CardIdentity.ofCustom(custom, in.readBoolean());
     }
 

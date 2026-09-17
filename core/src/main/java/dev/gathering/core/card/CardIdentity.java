@@ -37,6 +37,21 @@ public record CardIdentity(UUID scryfallId, boolean foil, String customId) {
         return ofPrinting(scryfallId, false);
     }
 
+    /**
+     * The custom id the redacted stand-in carries, which no real card may.
+     * <p>A deck is sent to other clients with every card replaced by this, and everything that
+     * reads a deck treats a card with this id as "not a real card" - it drops it, or goes to look
+     * the real one up. A card of anybody's that happened to be called this would be destroyed on
+     * the way through. Nothing makes one today; every door a custom id comes in by refuses it, so
+     * nothing can later either.
+     */
+    public static final String STAND_IN = "hidden";
+
+    /** Whether this custom id is the stand-in's, which only the redaction may write. */
+    public static boolean isStandIn(String customId) {
+        return STAND_IN.equals(customId);
+    }
+
     public static CardIdentity ofCustom(String customId, boolean foil) {
         return new CardIdentity(null, foil, Objects.requireNonNull(customId, "customId"));
     }

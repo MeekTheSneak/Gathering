@@ -327,31 +327,6 @@ public final class ClientSettings {
         }
     }
 
-    /**
-     * Puts one section back the way it shipped.
-     * <p>Per category rather than all at once, because a player who wants their motion
-     * settings back should not lose their theme to get them.
-     */
-    public static void resetAccessibility() {
-        load();
-        textScale = 100;
-        controlScale = 100;
-        reducedMotion = false;
-        effectIntensity = 100;
-        holdToInspect = true;
-        changed();
-    }
-
-    /** The same, for the noises and the waiting notice. */
-    public static void resetFeedback() {
-        load();
-        tableSounds = true;
-        soundVolume = 100;
-        turnNotification = true;
-        waitingAfterMillis = 300;
-        changed();
-    }
-
     // ----------------------------------------------------------------- disk
 
     /**
@@ -465,7 +440,16 @@ public final class ClientSettings {
             // to fail a game over it.
             return;
         }
-        if (!Files.isRegularFile(where)) {
+        boolean there;
+        try {
+            there = Files.isRegularFile(where);
+        } catch (RuntimeException notAllowed) {
+            // A security manager or a locked-down folder. Every screen asks a setting on every
+            // frame, and a getter that throws takes the screen down with it; the defaults do not.
+            LOGGER.warn("Could not look for {}: {}. Using the defaults.", FILE_NAME, notAllowed.toString());
+            return;
+        }
+        if (!there) {
             writeFresh(where);
             return;
         }
@@ -705,22 +689,36 @@ public final class ClientSettings {
         boolean inSection = false;
         boolean done = false;
         String here = "";
+        // Where the section's last written line is, so a missing key can join it.
+        int lastInSection = -1;
         for (String line : text.split("\n", -1)) {
             String trimmed = line.strip();
             if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
                 here = trimmed.substring(1, trimmed.length() - 1).strip().toLowerCase(Locale.ROOT);
                 inSection = here.equals(section);
+                if (inSection) {
+                    lastInSection = out.size();
+                }
             } else if (inSection && !done && startsWithKey(trimmed, name)) {
                 out.add(name + " = " + value);
                 done = true;
                 continue;
+            } else if (inSection && !trimmed.isEmpty()) {
+                lastInSection = out.size();
             }
             out.add(line);
         }
         if (done) {
             return String.join("\n", out);
         }
-        // No such line. Appended under its own heading, which is what a file written by an
+        if (lastInSection >= 0) {
+            // The section is there and the key is not: it goes at the end of that section. It
+            // used to go under a fresh copy of the heading every time, so a file that grew three
+            // settings had the same heading three times.
+            out.add(lastInSection + 1, name + " = " + value);
+            return String.join("\n", out);
+        }
+        // No such section. Appended under its own heading, which is what a file written by an
         // older build looks like for every setting that build had never heard of.
         StringBuilder grown = new StringBuilder(String.join("\n", out));
         if (grown.length() > 0 && grown.charAt(grown.length() - 1) != '\n') {

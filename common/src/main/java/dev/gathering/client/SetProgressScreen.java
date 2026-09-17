@@ -259,6 +259,17 @@ public final class SetProgressScreen extends ChildScreen {
         }
     }
 
+    /** Which set's row is at this point, or -1. */
+    private int rowUnder(double mouseX, double mouseY) {
+        int showing = Math.min(rowsThatFit(), sets.size() - scroll);
+        for (int index = 0; index < showing; index++) {
+            if (rowAt(index).contains((int) mouseX, (int) mouseY)) {
+                return scroll + index;
+            }
+        }
+        return -1;
+    }
+
     /**
      * The set the cursor is on, for the scripted run.
      * <p>Which row that is depends on what the server answered, and the scripted run cannot
@@ -279,9 +290,13 @@ public final class SetProgressScreen extends ChildScreen {
      */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (hovered >= 0 && hovered < sets.size() && (button == 0 || button == 1)) {
+        // The row under the press, worked out now. It was the row under the cursor when the last
+        // frame was drawn, and a list that refreshed or scrolled between that frame and the click
+        // opened a different set than the one pointed at.
+        int under = rowUnder(mouseX, mouseY);
+        if (under >= 0 && (button == 0 || button == 1)) {
             GatheringButtons.clickSound();
-            SetCompletion set = sets.get(hovered);
+            SetCompletion set = sets.get(under);
             if (button == 1) {
                 Minecraft.getInstance().setScreen(collection);
                 collection.showOnly(set.code());

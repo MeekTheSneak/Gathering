@@ -73,7 +73,10 @@ public class SealedItem extends Item {
             // asked to try again - which is what a box bought a fortnight ago needs. Only a
             // box whose set really cannot be looked up says so. Nothing is destroyed and
             // nothing is invented either way.
-            boolean reading = CardShop.learn(box.setCode());
+            // Budgeted: a read that failed is forgotten so the next press tries again, which made
+            // holding right-click on a box of an unreachable set a network request a tick.
+            boolean reading = dev.gathering.server.ActionBudget.TABLE_REQUESTS.spend(buyer.getUUID(), 1)
+                    && CardShop.learn(box.setCode());
             buyer.sendSystemMessage(Component.translatable(
                     reading ? "message.gathering.sealed_looking_up" : "message.gathering.sealed_unknown",
                     box.setCode().toUpperCase(java.util.Locale.ROOT)));

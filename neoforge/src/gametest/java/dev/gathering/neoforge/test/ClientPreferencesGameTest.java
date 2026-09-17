@@ -39,6 +39,7 @@ public final class ClientPreferencesGameTest {
         abrokenfilefallsbackratherthanfailing(helper);
         impossiblevaluesareclamped(helper);
         aquoteinthethemedoesnotcostthewholefile(helper);
+        amissingsettingjoinsitsownsection(helper);
         writingbackkeepswhatthisversiondoesnotknow(helper);
         asimilarlynamedlineisleftalone(helper);
         thesamenameunderanotherheadingisleftalone(helper);
@@ -192,6 +193,34 @@ public final class ClientPreferencesGameTest {
                 dev.gathering.core.config.Toml.read(written);
             } catch (dev.gathering.core.config.TomlException unreadable) {
                 helper.fail("the settings file written back does not parse: " + unreadable.getMessage());
+            }
+        });
+    }
+
+    /**
+     * A setting missing from a section that is there goes into that section, once.
+     * <p>It went under a fresh copy of the heading every time, so a file two settings short came
+     * back with the same heading written two more times.
+     */
+    private static void amissingsettingjoinsitsownsection(GameTestHelper helper) throws Exception {
+        withFile("""
+                [file]
+                schema = 2
+
+                [accessibility]
+                text_scale = 150
+                """, helper, where -> {
+            boolean was = ClientSettings.reducedMotion();
+            ClientSettings.reducedMotion(!was);
+            ClientSettings.flush();
+            String written = Files.readString(where, StandardCharsets.UTF_8);
+            int headings = written.split("\\[accessibility\\]", -1).length - 1;
+            if (headings != 1) {
+                helper.fail("the file came back with [accessibility] written " + headings + " times:\n" + written);
+                return;
+            }
+            if (ClientSettings.textScale() != 150 || !written.contains("reduced_motion = " + !was)) {
+                helper.fail("growing a section lost what was in it or what was added:\n" + written);
             }
         });
     }

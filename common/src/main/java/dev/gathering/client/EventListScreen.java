@@ -64,6 +64,8 @@ public final class EventListScreen extends Screen {
         int width = Math.min(PANEL_WIDTH, this.width - 20);
         panel = new Rect((this.width - width) / 2, Math.max(4, (this.height - height) / 2), width, Math.min(height, this.height - 8));
         int y = panel.y() + MARGIN + 16;
+        // Kept to a page the list has: a refresh can leave fewer events than the page being read.
+        page = dev.gathering.core.ui.ListScroll.pageWithin(page, events.size(), PER_PAGE);
         int from = page * PER_PAGE;
         for (int index = from; index < Math.min(events.size(), from + PER_PAGE); index++) {
             EventListPayload.Summary event = events.get(index);

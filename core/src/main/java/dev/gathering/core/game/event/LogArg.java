@@ -55,7 +55,12 @@ public sealed interface LogArg {
             case Zone zone -> new Where(zone);
             case Integer number -> new Amount(number);
             case Long number -> new Amount(number.intValue());
-            default -> new Text(String.valueOf(raw));
+            case CharSequence words -> new Text(words.toString());
+            // Text only. This used to write anything else's toString into the line, which is the
+            // one shape a public log could carry a secret in: the next event to pass a card's
+            // identity here would have printed it to the table, and nothing would have failed.
+            default -> throw new IllegalArgumentException(
+                    "A log line cannot carry a " + raw.getClass().getSimpleName() + "; pass words, a seat, a card reference, a zone or a number");
         };
     }
 }

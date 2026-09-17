@@ -391,19 +391,26 @@ public final class GameFold {
      * and a scry of one became knowledge of two without a second look. Shuffling and
      * deciding already closed their own looks; this is the same rule for every other way the
      * top of a library can change, including the ways nobody has written yet.
-     * <p>A search is left alone, and that is not an exception to the rule but the rule
+     * <p>A search survives cards leaving, and that is not an exception to the rule but the rule
      * reaching its edge: a search is the whole library, so there is no card behind the ones
      * being looked at for a window to slide onto. Taking a card out of a deck you are holding
      * and going on looking through it is what searching is.
+     * <p>It does not survive a card arriving. A card put into a library from outside it - an
+     * opponent's, off the battlefield, out of a hand - is a card the search never looked at, and
+     * leaving the search open handed the searcher that card too, for as long as the search stayed
+     * open, which nothing but closing it by hand ever ended.
      */
     private static GameState closeLooksAtDisturbedLibraries(GameState before, GameState after) {
         GameState updated = after;
         for (Map.Entry<SeatId, Peek> looking : after.peeks().entrySet()) {
             Peek peek = looking.getValue();
+            ZoneRef library = ZoneRef.of(peek.at(), Zone.LIBRARY);
             if (peek.isWholeLibrary()) {
+                if (!before.contents(library).containsAll(after.contents(library))) {
+                    updated = updated.withoutPeekBy(looking.getKey());
+                }
                 continue;
             }
-            ZoneRef library = ZoneRef.of(peek.at(), Zone.LIBRARY);
             if (!before.contents(library).equals(after.contents(library))) {
                 updated = updated.withoutPeekBy(looking.getKey());
             }

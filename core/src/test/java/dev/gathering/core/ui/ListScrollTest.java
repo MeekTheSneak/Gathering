@@ -94,4 +94,13 @@ class ListScrollTest {
         // A window taller than the list: every row is showing, so the first one is showing.
         assertThat(ListScroll.within(7, 3, 99)).isZero();
     }
+
+    /** A page past the end of a list that shrank comes back to the last page it has. */
+    @org.junit.jupiter.api.Test
+    void aPageIsKeptToAPageTheListHas() {
+        org.assertj.core.api.Assertions.assertThat(ListScroll.pageWithin(3, 12, 6)).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(ListScroll.pageWithin(3, 0, 6)).isZero();
+        org.assertj.core.api.Assertions.assertThat(ListScroll.pageWithin(-2, 12, 6)).isZero();
+        org.assertj.core.api.Assertions.assertThat(ListScroll.pageWithin(1, 13, 6)).isEqualTo(1);
+    }
 }

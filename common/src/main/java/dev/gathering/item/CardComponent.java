@@ -61,11 +61,11 @@ public record CardComponent(
      * is what a thickness of cards is, and says nothing about what they are.
      */
     public static final CardComponent HIDDEN =
-            new CardComponent(Optional.empty(), false, Optional.of("hidden"), false);
+            new CardComponent(Optional.empty(), false, Optional.of(CardIdentity.STAND_IN), false);
 
     /** Whether this is the stand-in above rather than a card this client may name. */
     public boolean isHidden() {
-        return customId.filter("hidden"::equals).isPresent();
+        return customId.filter(CardIdentity::isStandIn).isPresent();
     }
 
     public static CardComponent of(CardIdentity identity) {

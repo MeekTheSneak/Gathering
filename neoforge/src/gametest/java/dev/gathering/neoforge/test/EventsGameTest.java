@@ -872,4 +872,51 @@ public final class EventsGameTest {
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
         return TestTables.place(helper, x, y, z);
     }
+
+    /**
+     * An operator naming an event gets that event or none.
+     * <p>It was the first event whose name began with what was typed, out of an unordered list, so
+     * with a "Friday" and a "Friday Finals" running, "fri" marked whichever came first - and any
+     * id at all was marked official, including one no event ever had.
+     */
+    @GameTest(template = "empty")
+    public static void anEventIsNamedExactlyOrNotAtAll(GameTestHelper helper) {
+        var host = helper.makeMockServerPlayerInLevel();
+        Tournament friday = Tournament.create(UUID.randomUUID(), "Friday", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        Tournament finals = Tournament.create(UUID.randomUUID(), "Friday Finals", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        EventState one = Events.stateForTesting(friday, helper.getLevel(), List.of());
+        EventState two = Events.stateForTesting(finals, helper.getLevel(), List.of());
+        Events.putForTesting(one);
+        Events.putForTesting(two);
+        UUID nobody = UUID.randomUUID();
+        try {
+            var source = helper.getLevel().getServer().createCommandSourceStack().withSuppressedOutput();
+            var commands = helper.getLevel().getServer().getCommands().getDispatcher();
+            commands.execute("gathering events official fri true", source);
+            if (EventRecords.isOfficial(friday.id()) || EventRecords.isOfficial(finals.id())) {
+                helper.fail("a name two events begin with marked one of them");
+                return;
+            }
+            commands.execute("gathering events official friday true", source);
+            if (!EventRecords.isOfficial(friday.id()) || EventRecords.isOfficial(finals.id())) {
+                helper.fail("the whole name of one event did not mark exactly that event");
+                return;
+            }
+            commands.execute("gathering events official " + nobody + " true", source);
+            if (EventRecords.isOfficial(nobody)) {
+                helper.fail("an id no event ever had was marked official");
+                return;
+            }
+            helper.succeed();
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException wrongShape) {
+            helper.fail("fixture: the command did not parse: " + wrongShape.getMessage());
+        } finally {
+            EventRecords.setOfficial(friday.id(), false);
+            EventRecords.setOfficial(nobody, false);
+            Events.removeForTesting(one);
+            Events.removeForTesting(two);
+        }
+    }
 }

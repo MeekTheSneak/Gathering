@@ -70,6 +70,22 @@ public final class JoinTableScreen extends Screen {
         super.onClose();
     }
 
+    /**
+     * And so does its being replaced.
+     * <p>The game calls {@code onClose} only when the player closes a screen. A second prompt, a
+     * death screen or anything the server pushes replaces this one instead, and that left the
+     * server waiting on an answer to a question nobody could see any more - with the player neither
+     * seated nor watching.
+     */
+    @Override
+    public void removed() {
+        if (!answered) {
+            answered = true;
+            ClientNetworking.send(new JoinTableAnswerPayload(table, false));
+        }
+        super.removed();
+    }
+
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);

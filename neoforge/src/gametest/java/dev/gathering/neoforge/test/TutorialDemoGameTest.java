@@ -53,12 +53,12 @@ public final class TutorialDemoGameTest {
      */
     private static List<CustomPacketPayload> watchingTheWire(Runnable what) {
         List<CustomPacketPayload> seen = new ArrayList<>();
+        var was = ClientNetworking.boundSender();
         ClientNetworking.bindSender(seen::add);
         try {
             what.run();
         } finally {
-            ClientNetworking.bindSender(payload -> {
-            });
+            ClientNetworking.restoreSender(was);
         }
         return seen;
     }
@@ -70,11 +70,13 @@ public final class TutorialDemoGameTest {
         boolean skipped = ClientSettings.tutorialSkipped();
         // A client always has somewhere to send: the lesson tells the server it began and was finished, which is
         // what the starter boosters are for. A test that is not watching the wire lets those go nowhere.
+        var was = ClientNetworking.boundSender();
         ClientNetworking.bindSender(payload -> {
         });
         try {
             what.run();
         } finally {
+            ClientNetworking.restoreSender(was);
             Tutorial.clear();
             TutorialDemo.clear();
             ClientSettings.tutorialOffered(offered);

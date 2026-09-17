@@ -21,6 +21,20 @@ public final class ClientNetworking {
         sender = Objects.requireNonNull(newSender, "sender");
     }
 
+    /**
+     * Whatever is bound now, or null, so a test that binds its own can put this one back.
+     * <p>Put back rather than replaced with a sender that drops everything: on an integrated
+     * server that would have muted the client for the rest of the session.
+     */
+    public static Consumer<CustomPacketPayload> boundSender() {
+        return sender;
+    }
+
+    /** Puts back what {@link #boundSender} returned, including nothing at all. */
+    public static void restoreSender(Consumer<CustomPacketPayload> was) {
+        sender = was;
+    }
+
     public static void send(CustomPacketPayload payload) {
         // The guided first game is not at a table, and nothing done to it may leave this
         // machine. Its board is filed at a position no table can occupy, so a payload that

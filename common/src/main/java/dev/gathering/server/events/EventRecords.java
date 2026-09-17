@@ -463,6 +463,12 @@ public final class EventRecords {
         save();
     }
 
+    /** Whether this server has written down the results of this event. */
+    public static boolean knows(UUID event) {
+        load();
+        return effects.containsKey(event) || official.contains(event);
+    }
+
     public static void setOfficial(UUID event, boolean isOfficial) {
         load();
         if (isOfficial) {

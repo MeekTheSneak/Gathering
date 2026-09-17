@@ -117,6 +117,33 @@ class LibraryPeekTest {
     class Closing {
 
         @Test
+        @DisplayName("a search closes when a card it never looked at arrives in the library")
+        void aSearchClosesWhenACardArrives() {
+            GameSession session = GameFixtures.twoPlayerTable(20);
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.BOB, GameFixtures.BOB, 1));
+            CardInstanceId bobs = GameFixtures.firstInHand(session, GameFixtures.BOB);
+            session.submit(new GameEvent.LibrarySearched(GameFixtures.ALICE, GameFixtures.ALICE));
+
+            session.submit(new GameEvent.CardMoved(GameFixtures.BOB, bobs,
+                    ZoneRef.of(GameFixtures.ALICE, Zone.LIBRARY), Placement.TOP));
+
+            assertThat(openTo(session, GameFixtures.ALICE, GameFixtures.ALICE)).isZero();
+        }
+
+        @Test
+        @DisplayName("a search survives a card being taken out of it, which is what searching is")
+        void aSearchSurvivesTakingACard() {
+            GameSession session = GameFixtures.twoPlayerTable(20);
+            session.submit(new GameEvent.LibrarySearched(GameFixtures.ALICE, GameFixtures.ALICE));
+            CardInstanceId found = GameFixtures.topOfLibrary(session, GameFixtures.ALICE);
+
+            session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, found,
+                    ZoneRef.of(GameFixtures.ALICE, Zone.HAND), Placement.TOP));
+
+            assertThat(openTo(session, GameFixtures.ALICE, GameFixtures.ALICE)).isEqualTo(19);
+        }
+
+        @Test
         @DisplayName("closing it closes it")
         void closingClosesIt() {
             GameSession session = GameFixtures.twoPlayerTable(20);
