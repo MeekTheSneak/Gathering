@@ -153,6 +153,34 @@ public final class ReplayGameTest {
         });
     }
 
+    /**
+     * A game still being played is never put on the shelf.
+     * <p>A replay is read as a historian, the one viewer entitled to every hand and the library
+     * order, and this refusal is all that keeps that view from existing for a game in progress.
+     * Every other test here keeps a finished game, so deleting the check broke nothing.
+     */
+    @GameTest(template = "empty")
+    public static void aGameStillBeingPlayedIsNotKept(GameTestHelper helper) {
+        withReplaysOn(helper, () -> {
+            GameSession unfinished = GameSession.create(
+                    List.of(ALICE, BOB), 40, seed(), UndoMode.shippedDefault());
+            unfinished.submit(new GameEvent.SeatTaken(ALICE, new PlayerRef(UUID.randomUUID(), "Alice")));
+            unfinished.submit(new GameEvent.SeatTaken(BOB, new PlayerRef(UUID.randomUUID(), "Bob")));
+            unfinished.submit(new GameEvent.DeckLoaded(ALICE, deck(20), List.of()));
+            unfinished.submit(new GameEvent.CardsDrawn(ALICE, ALICE, DRAWN));
+            String before = newest().map(Replays.Record::id).orElse("");
+            if (Replays.keep(unfinished, 40, twoPlayers())) {
+                helper.fail("a game still being played was kept as a replay");
+                return;
+            }
+            if (!newest().map(Replays.Record::id).orElse("").equals(before)) {
+                helper.fail("a game still being played reached the shelf anyway");
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
     /** Where one run of bytes sits inside another, or -1. */
     private static int indexOf(byte[] haystack, byte[] needle) {
         outer:

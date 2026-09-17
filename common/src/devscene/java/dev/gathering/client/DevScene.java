@@ -188,7 +188,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 381;
+    private static final int LAST_STEP = 385;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -216,10 +216,41 @@ public final class DevScene {
 
     private static int step;
     private static int waited;
+
+    /** Where -PdevsceneTo cut the run off, or 0. Reported, so a short run does not read as a full one. */
+    private static int stoppedAt;
+
+    /** Where -PdevsceneFrom started the run, or 0. Reported for the same reason. */
+    private static int skippedTo;
+
+    /** Set by the -PdevsceneFrom jump, cleared once what it skipped has been checked for. */
+    private static boolean afterTheJump;
+
+    /**
+     * Waits inside one step, rather than moving to the next.
+     * <p>The stuck clock is per step and {@link #advance} is what resets it, so a step that
+     * waits by setting {@code waited} and returning spends its whole budget on its own phases.
+     * Step 8 has four of them and they came to 720 ticks against the 800 the clock allows -
+     * four seconds of room, on the step that imports a deck over the network. On a cold cache
+     * it was declared stopped, skipped, and the game never started, which turned the ~370
+     * steps after it into noise. A phase of a step is a step as far as the clock goes.
+     */
+    private static void waitHere(int ticksToWait) {
+        waited = ticksToWait;
+        ticks = 0;
+    }
     private static final List<String> TAKEN = new ArrayList<>();
 
-    /** Everything the run expected and did not get. Empty is the only passing answer. */
-    private static final List<String> FAILURES = new ArrayList<>();
+    /**
+     * Everything the run expected and did not get. Empty is the only passing answer.
+     * <p>Synchronized because thirty-one of the calls to {@link #fail} are inside
+     * {@code server.execute} lambdas, which run on the integrated server thread while
+     * {@link #finish} reads this list on the client thread. A concurrent add to a plain
+     * ArrayList can drop an entry, and "failures: 0" is the headline of the whole run - the
+     * one direction of this race that loses is the one that reads as a pass.
+     */
+    private static final List<String> FAILURES =
+            java.util.Collections.synchronizedList(new ArrayList<>());
 
     /** How full the graveyard was before a card was dragged back out of it. */
     private static int inTheGraveyard;
@@ -288,6 +319,19 @@ public final class DevScene {
             waited--;
             return;
         }
+        if (afterTheJump) {
+            // What the skipped steps were there to establish. Checked once, the first tick
+            // after the wait the jump set, so the run says -PdevsceneFrom in one line rather
+            // than three hundred lines about a board that is not there.
+            afterTheJump = false;
+            if (table == null || ClientTableState.viewOf(table).isEmpty()) {
+                fail("-PdevsceneFrom=" + skippedTo + " skipped the steps that sit down, choose"
+                        + " a format, import a deck and start the game, so there is no board"
+                        + " for the steps after it; run from a step before 9");
+                finish(client, "nothing after the jump could run");
+                return;
+            }
+        }
         // Where a seat goes missing, rather than only that it has. The claim is taken when the
         // player sits - the chat line says so - and gone by the time the board is drawn, so
         // what matters is which step in between drops it.
@@ -349,7 +393,13 @@ public final class DevScene {
                     int from = Integer.getInteger("gathering.devscene.from", 0);
                     if (from > step) {
                         System.out.println("[devscene] going straight to step " + from + "; the steps before it are skipped");
+                        skippedTo = from;
                         step = from;
+                        // The jump lands before the steps that sit down, choose a format,
+                        // import a deck and start the game, and every step from 10 on needs a
+                        // seat and a session. Without this the run produced a wall of failures
+                        // about missing boards and nothing named -PdevsceneFrom as the cause.
+                        afterTheJump = true;
                     }
                 }
             }
@@ -397,13 +447,13 @@ public final class DevScene {
                         client.setScreen(null);
                     }
                     importADeck(client);
-                    waited = SETTLE * 8;
+                    waitHere(SETTLE * 8);
                     return;
                 }
                 if (opening == 0) {
                     opening = 1;
                     putTheDeckDown(client);
-                    waited = SETTLE * 2;
+                    waitHere(SETTLE * 2);
                     return;
                 }
                 if (opening == 1) {
@@ -414,7 +464,7 @@ public final class DevScene {
                     }
                     press(client, "Free play");
                     press(client, "Start");
-                    waited = SETTLE * 4;
+                    waitHere(SETTLE * 4);
                     return;
                 }
                 if (!committed) {
@@ -430,7 +480,7 @@ public final class DevScene {
                             press(client, picker.rows().get(0).label().getString());
                         }
                     }
-                    waited = SETTLE * 4;
+                    waitHere(SETTLE * 4);
                     return;
                 }
                 boolean playing = table != null && ClientTableState.viewOf(table).isPresent();
@@ -466,7 +516,7 @@ public final class DevScene {
                         ClientTableState.acceptAway(table, java.util.List.of(
                                 new dev.gathering.network.TableAwayPayload.Away(0, 7 * 60 + 42, 1, 3, false)));
                     }
-                    waited = A_MOMENT;
+                    waitHere(A_MOMENT);
                     return;
                 }
                 shoot(client, "05a-a-seat-kept-while-away");
@@ -1798,7 +1848,7 @@ public final class DevScene {
                     // down. A model that will not load draws as black and purple, which only a picture shows.
                     collectionShown = true;
                     lookAtTheCollectionBlock(client);
-                    waited = SETTLE;
+                    waitHere(SETTLE);
                     return;
                 }
                 if (!woodsShown) {
@@ -1806,7 +1856,7 @@ public final class DevScene {
                     shoot(client, "41b-a-collection-block");
                     woodsShown = true;
                     lookAtTheTablesInEveryWood(client);
-                    waited = SETTLE;
+                    waitHere(SETTLE);
                     return;
                 }
                 shoot(client, "41c-tables-in-every-wood");
@@ -4166,7 +4216,7 @@ public final class DevScene {
                     // the client's copy of every slot it touches.
                     inCreative = true;
                     step = 363;
-                    waited = SETTLE / 2;
+                    waitHere(SETTLE / 2);
                     return;
                 }
                 advance(SETTLE / 2);
@@ -4257,6 +4307,29 @@ public final class DevScene {
             case 381 -> {
                 shoot(client, "115-a-pack-held-and-dropped");
                 client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+                advance(SETTLE / 2);
+            }
+            // The paste box itself, which nothing else in this run touches. Every deck this
+            // scene imports goes through DecklistImport on the server, so for 382 steps the
+            // screen a player actually types into - the mod's way in - was the one screen the
+            // scene never built.
+            case 382 -> {
+                Minecraft.getInstance().setScreen(new DecklistImportScreen());
+                advance(SETTLE);
+            }
+            case 383 -> {
+                theImportScreenTakesAList(client);
+                advance(SETTLE * 4);
+            }
+            case 384 -> {
+                theImportScreenNamedWhatItCouldNotRead(client);
+                shoot(client, "116-a-decklist-with-a-typo-in-it");
+                advance(SETTLE / 2);
+            }
+            case 385 -> {
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
                 advance(SETTLE / 2);
             }
             default -> {
@@ -5193,6 +5266,9 @@ public final class DevScene {
             return;
         }
         BlockPos where = client.player.blockPosition().offset(-4, -1, -14);
+        if (!roomForATableAt(client, where, 3, 3, "the table sat at from the east")) {
+            return;
+        }
         turnedTable = where;
         java.util.UUID mine = client.player.getUUID();
         server.execute(() -> {
@@ -5222,14 +5298,14 @@ public final class DevScene {
             boolean turned = TableBlock.entityAt(level, where).map(dev.gathering.block.TableBlockEntity::turned).orElse(false);
             System.out.println("[devscene] a table sat at from the east: " + east + ", opposite " + west + ", turned " + turned);
             if (east != TableSeats.Claim.TAKEN || west != TableSeats.Claim.TAKEN || !turned) {
-                System.out.println("[devscene] FAIL sitting at the east edge of a table on its own did not turn it");
+                fail("sitting at the east edge of a table on its own did not turn it");
                 return;
             }
             TableSessions.start(level, where, dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.COMMANDER));
             GameSession session = TableSessions.sessionAt(level, where).orElse(null);
             SeatId me = TableSessions.seatIdOf(level, where, mine).orElse(null);
             if (session == null || me == null) {
-                System.out.println("[devscene] FAIL the turned table did not start a game");
+                fail("the turned table did not start a game");
                 return;
             }
             List<CardIdentity> library = new ArrayList<>();
@@ -5689,6 +5765,9 @@ public final class DevScene {
         }
         java.util.UUID who = client.player.getUUID();
         BlockPos where = client.player.blockPosition().offset(-6, -1, -6);
+        if (!roomForATableAt(client, where, 3, 3, "the best-of-three table")) {
+            return;
+        }
         server.execute(() -> {
             ServerLevel level = server.overworld();
             ServerPlayer player = server.getPlayerList().getPlayer(who);
@@ -5761,6 +5840,9 @@ public final class DevScene {
         }
         java.util.UUID who = client.player.getUUID();
         BlockPos where = client.player.blockPosition().offset(6, -1, -6);
+        if (!roomForATableAt(client, where, 3, 3, "the table of the game worth watching back")) {
+            return;
+        }
         server.execute(() -> {
             ServerLevel level = server.overworld();
             ServerPlayer player = server.getPlayerList().getPlayer(who);
@@ -5884,6 +5966,16 @@ public final class DevScene {
             fail("there was no replay to try to play on");
             return;
         }
+        // The board as it stands, before any of it. Seats and the turn marker are records, so
+        // this is every card, which zone it is in, which way up and whether it is tapped. The
+        // step after this one used to be the whole check, and it read ClientReplay.step() -
+        // which none of these gestures moves whether the guards are there or not, so deleting
+        // all four of them left the run green.
+        String before = boardAsItStands(client);
+        if (before.isEmpty()) {
+            fail("there was no replay frame to compare a watcher's gestures against");
+            return;
+        }
         double middleX = client.getWindow().getGuiScaledWidth() / 2.0;
         double middleY = client.getWindow().getGuiScaledHeight() / 2.0;
         table.mouseClicked(middleX, middleY, 0);
@@ -5892,6 +5984,22 @@ public final class DevScene {
         table.mouseReleased(middleX + 20, middleY + 20, 0);
         table.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_E, 0, 0);
         table.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_P, 0, 0);
+        String after = boardAsItStands(client);
+        if (!before.equals(after)) {
+            fail("a watcher's gestures changed the board: " + before + " became " + after);
+        }
+    }
+
+    /**
+     * The replay frame's board, as one string to compare against itself later.
+     * <p>Seats and the turn marker rather than the whole view: the log grows on its own and
+     * the viewer is who is asking, neither of which is the board. Empty when there is no
+     * frame, which the caller treats as a fault rather than as nothing to check.
+     */
+    private static String boardAsItStands(Minecraft client) {
+        return ClientReplay.frame()
+                .map(frame -> frame.seats().toString() + " turn " + frame.turn())
+                .orElse("");
     }
 
     /** A sideboard screen shows the deck and the sideboard, not one of them. */
@@ -6705,6 +6813,36 @@ public final class DevScene {
         return false;
     }
 
+    /**
+     * Whether a table of this size can go down here without landing on one already standing.
+     * <p>The seven scenes that stand tables up all work out a corner as a fixed offset from
+     * wherever the player is, and the player moves throughout the run - teleported four times,
+     * walked the rest. {@link #roomForFurnitureNear} exists for exactly this and is used by the
+     * three scenes that put a block down; the seven that put a table down were not routed
+     * through anything, so one landing on the run's own table took it, and every later step
+     * wanting a board failed without saying which block did it.
+     * <p>This names the block rather than moving it: a table these scenes place is photographed
+     * from a fixed camera, and quietly sliding one four blocks north would spoil the picture it
+     * was stood up for.
+     *
+     * @param across how far east the table reaches from the corner, in blocks
+     * @param down   how far south it reaches
+     */
+    private static boolean roomForATableAt(Minecraft client, BlockPos corner, int across, int down,
+            String what) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null) {
+            fail("there was no server to stand " + what + " up on");
+            return false;
+        }
+        if (noTableWithin(server.overworld(), corner.offset(-1, 0, -1),
+                corner.offset(across, 0, down))) {
+            return true;
+        }
+        fail(what + " would have gone down at " + corner + " on a table already standing there");
+        return false;
+    }
+
     /** Whether the box between these two corners holds no part of any table. */
     private static boolean noTableWithin(ServerLevel level, BlockPos from, BlockPos to) {
         for (BlockPos each : BlockPos.betweenClosed(from, to)) {
@@ -7033,6 +7171,7 @@ public final class DevScene {
             return;
         }
         java.util.List<String> waiting = new java.util.ArrayList<>();
+        java.util.List<String> gaveUp = new java.util.ArrayList<>();
         for (int slot = 0; slot < 4; slot++) {
             var pack = dev.gathering.item.PackItem.packOf(client.player.getInventory().getItem(slot));
             if (pack.isEmpty()) {
@@ -7042,14 +7181,21 @@ public final class DevScene {
             String set = pack.get().setCode();
             int color = dev.gathering.core.ui.PackWrapper.symbolColor(pack.get().kind());
             if (ClientSetSymbols.get().symbol(set, color, 64).isEmpty()) {
-                waiting.add(set + (ClientSetSymbols.get().hasFailed(set) ? " (gave up)" : ""));
+                (ClientSetSymbols.get().hasFailed(set) ? gaveUp : waiting).add(set);
             }
+        }
+        // Giving up is a defect; still fetching is a run that cannot check this. The two used
+        // to be one list, printed and passed - so a client that had abandoned every symbol
+        // read exactly like one on a machine with no network, and the step could not fail.
+        if (!gaveUp.isEmpty()) {
+            fail("the client gave up fetching a set symbol for " + gaveUp);
+            return;
         }
         if (waiting.isEmpty()) {
             System.out.println("[devscene] every pack in the hotbar drew its own set's symbol");
             return;
         }
-        System.out.println("[devscene] still without a symbol: " + waiting
+        System.out.println("[devscene] still fetching a symbol for " + waiting
                 + "; the picture shows plain wrappers for those");
     }
 
@@ -7138,6 +7284,10 @@ public final class DevScene {
         step++;
         // And straight to the end after a later step, when asked - see -PdevsceneTo in the build.
         if (step > Integer.getInteger("gathering.devscene.to", Integer.MAX_VALUE) && step <= LAST_STEP) {
+            // Remembered, because the line finish() prints is what shots.sh reads to decide
+            // the run completed: without this a -PdevsceneTo=50 run and a full one were the
+            // same two lines in the log.
+            stoppedAt = step;
             step = LAST_STEP + 1;
         }
         waited = settle;
@@ -7701,6 +7851,9 @@ public final class DevScene {
             return;
         }
         BlockPos where = client.player.blockPosition().offset(10, -1, -8);
+        if (!roomForATableAt(client, where, 3, 3, "the practice table")) {
+            return;
+        }
         practiceTable = where;
         server.execute(() -> {
             ServerLevel level = server.overworld();
@@ -8187,6 +8340,9 @@ public final class DevScene {
         // scene stands on the block above it, and copying that here buried three tables up to
         // their felt - which photographed as three green squares lying in a field.
         BlockPos where = client.player.blockPosition().offset(-8, 0, 6);
+        if (!roomForATableAt(client, where, 20, 3, "the row of tables in every wood")) {
+            return;
+        }
         otherTables = where;
         server.execute(() -> {
             ServerLevel level = server.overworld();
@@ -8476,6 +8632,9 @@ public final class DevScene {
             return;
         }
         BlockPos where = client.player.blockPosition().offset(-6, -1, 2);
+        if (!roomForATableAt(client, where, 8, 3, "the draft pod's tables")) {
+            return;
+        }
         draftTables = where;
         java.util.UUID me = client.player.getUUID();
         server.execute(() -> {
@@ -8509,7 +8668,7 @@ public final class DevScene {
             dev.gathering.block.DraftPods.Outcome outcome =
                     dev.gathering.block.DraftPods.start(level, where, cube, true);
             if (outcome != dev.gathering.block.DraftPods.Outcome.STARTED) {
-                System.out.println("[devscene] FAIL a draft would not start: " + outcome);
+                fail("a draft would not start: " + outcome);
                 return;
             }
             dev.gathering.server.DraftBroadcast.sendToPod(level, where, true);
@@ -9925,6 +10084,54 @@ public final class DevScene {
         System.out.println("[devscene] FAIL " + what);
     }
 
+    /** A list with one line in it that is not a card, so the named error has something to name. */
+    private static final String A_LIST_WITH_A_TYPO =
+            "4 Forest\n4 Island\n1 Sol Rong\n";
+
+    /**
+     * Types a decklist into the real import screen and presses Import.
+     * <p>The line that is not a card is deliberate: the screen's job is not only to build a
+     * deck but to say which line it could not read, and a clean list proves only the half
+     * that already works everywhere else in this run.
+     */
+    private static void theImportScreenTakesAList(Minecraft client) {
+        if (!(client.screen instanceof DecklistImportScreen paste)) {
+            fail("the import screen did not open");
+            return;
+        }
+        paste.typeForTesting("Typed in", A_LIST_WITH_A_TYPO);
+        paste.importForTesting();
+    }
+
+    /**
+     * The import screen came back with a deck and said which line it could not read.
+     * <p>Both halves: a partial import still makes a deck, and telling somebody it failed
+     * would be wrong in the useful half.
+     */
+    private static void theImportScreenNamedWhatItCouldNotRead(Minecraft client) {
+        if (!(client.screen instanceof DecklistImportScreen paste)) {
+            fail("the import screen closed before it answered");
+            return;
+        }
+        String said = paste.saidForTesting();
+        if (said.isEmpty()) {
+            System.out.println("[devscene] the import screen has no answer yet;"
+                    + " this run has no card pipeline to answer it");
+            return;
+        }
+        java.util.List<String> problems = paste.problemsForTesting();
+        if (problems.isEmpty()) {
+            fail("a list with a line that is not a card imported without naming it: " + said);
+            return;
+        }
+        if (problems.stream().noneMatch(line -> line.contains("Sol Rong"))) {
+            fail("the import screen named " + problems + " and not the line it could not read");
+            return;
+        }
+        System.out.println("[devscene] the import screen said \"" + said + "\" and named "
+                + problems);
+    }
+
     /** Whether the table has a context menu up, which is how a right-click shows it worked. */
     private static boolean menuIsOpen(Minecraft client) {
         return client.screen instanceof TableScreen board && board.menuIsOpen();
@@ -10321,6 +10528,9 @@ public final class DevScene {
             return;
         }
         BlockPos corner = client.player.blockPosition().offset(20, 0, -12);
+        if (!roomForATableAt(client, corner, 12, 3, "the table of eight")) {
+            return;
+        }
         java.util.UUID mine = client.player.getUUID();
         server.execute(() -> {
             ServerLevel level = server.overworld();
@@ -10338,7 +10548,7 @@ public final class DevScene {
             player.connection.teleport(corner.getX() + 1.5, corner.getY(), corner.getZ() - 1.5, 0f, 30f);
             List<dev.gathering.core.table.SeatAnchor> seats = dev.gathering.block.TableClusters.at(level, corner).seats();
             if (seats.size() != 8) {
-                System.out.println("[devscene] FAIL four tables in a row made " + seats.size() + " seats, not eight");
+                fail("four tables in a row made " + seats.size() + " seats, not eight");
                 return;
             }
             dev.gathering.block.TableSeats.take(level, corner, seats.get(0).cell(), seats.get(0).side(), mine);
@@ -10350,7 +10560,7 @@ public final class DevScene {
             TableSessions.start(level, corner, dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.COMMANDER));
             GameSession session = TableSessions.sessionAt(level, corner).orElse(null);
             if (session == null) {
-                System.out.println("[devscene] FAIL the table of eight did not start");
+                fail("the table of eight did not start");
                 return;
             }
             dev.gathering.core.card.Sleeve[] sleeves = dev.gathering.core.card.Sleeve.values();
@@ -11597,7 +11807,8 @@ public final class DevScene {
         TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
         TableTop.Spot ours = TablePointer.at(top, width / 2.0, height / 2.0).orElse(null);
         if (ours == null) {
-            System.out.println("[devscene] the crosshair was not over the felt; picker unchecked");
+            fail("the crosshair at the center of the screen was not over the felt, so the"
+                    + " board's picker was checked against nothing");
             return;
         }
         // The camera's own forward axis, dropped onto the felt by hand. The exact center of
@@ -11608,14 +11819,16 @@ public final class DevScene {
         var eye = camera.getPosition();
         var look = camera.getLookVector();
         if (look.y() >= -1.0e-4f) {
-            System.out.println("[devscene] the camera was not looking down; picker unchecked");
+            fail("the camera was not looking down at the table, so the board's picker was"
+                    + " checked against nothing");
             return;
         }
         double toTheFelt = (top.topY() - eye.y) / look.y();
         TableTop.Spot theirs = top.at(
                 eye.x + look.x() * toTheFelt, eye.z + look.z() * toTheFelt).orElse(null);
         if (theirs == null) {
-            System.out.println("[devscene] the camera's own ray missed the felt; unchecked");
+            fail("the camera's own ray missed the felt, so the board's picker was checked"
+                    + " against nothing");
             return;
         }
         // A tenth of a card. Anything smaller is rounding and the one frame between the
@@ -11699,12 +11912,16 @@ public final class DevScene {
                 return;
             }
         }
+        // A check that finds nothing fails rather than passes - DIALECT.md's rule from the
+        // gesturecheck incident. This had the floor and printed it, so a camera framing that
+        // put the board off these sample points would have retired the check without a word.
         if (checked < 2) {
-            System.out.println("[devscene] too little felt on screen to check the picker across");
-        } else {
-            System.out.println("[devscene] the picker agrees at " + checked
-                    + " places across the screen");
+            fail("the picker could be checked at only " + checked + " of these points, so"
+                    + " nothing was checked across the screen");
+            return;
         }
+        System.out.println("[devscene] the picker agrees at " + checked
+                + " places across the screen");
     }
 
     /** Which turn of the game the table thinks it is on, or zero if there is no board. */
@@ -11795,6 +12012,15 @@ public final class DevScene {
         }
         int width = client.getWindow().getGuiScaledWidth();
         int height = client.getWindow().getGuiScaledHeight();
+        // The board before any of it, so "none of them may do anything" is asserted rather
+        // than assumed. Without this the only checks were that nothing closed the screen and
+        // that everything opened closes again - both of which a client that could tap, exile
+        // and pass the turn would also satisfy.
+        String standing = liveBoardAsItStands();
+        if (standing.isEmpty()) {
+            fail("there was no board to compare a seatless player's gestures against");
+            return;
+        }
         int[] card = cardPoint(client);
         for (int button : new int[] {0, 1}) {
             board.mouseClicked(card[0], card[1], button);
@@ -11848,7 +12074,25 @@ public final class DevScene {
         if (!(client.screen instanceof TableScreen)) {
             fail("a gesture with no seat opened something that would not close back to the board");
         }
+        String afterwards = liveBoardAsItStands();
+        if (!standing.equals(afterwards)) {
+            fail("a gesture with no seat changed the board: " + standing + " became " + afterwards);
+        }
         System.out.println("[devscene] poked every gesture with no seat");
+    }
+
+    /**
+     * The live board this run is watching, as one string to compare against itself later.
+     * <p>Seats and the turn marker: every card, its zone, its facing and whether it is tapped,
+     * plus whose turn it is. Empty when there is no view, which callers treat as a fault.
+     */
+    private static String liveBoardAsItStands() {
+        if (table == null) {
+            return "";
+        }
+        return ClientTableState.viewOf(table)
+                .map(view -> view.seats().toString() + " turn " + view.turn())
+                .orElse("");
     }
 
     /**
@@ -11887,7 +12131,11 @@ public final class DevScene {
             CardDataService service = CardDataService.active().orElse(null);
             ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
             if (service == null || player == null) {
-                System.out.println("[devscene] no card pipeline; the board will be empty");
+                // The most cascade-prone condition in the run: an empty deck turns the three
+                // hundred steps after this one into noise about missing cards. It used to be
+                // a printed line.
+                fail("there is no card pipeline, so the deck could not be imported and every"
+                        + " step after this one is about an empty board");
                 return;
             }
             DecklistImport.importFor(player, service, DECK);
@@ -12285,7 +12533,10 @@ public final class DevScene {
         // anything alongside it. A run that stopped a third of the way through and found
         // nothing wrong has found nothing; shots.sh reads this line and says so.
         System.out.println("[devscene] reached step "
-                + Math.min(step, LAST_STEP + 1) + " of " + (LAST_STEP + 1));
+                + (stoppedAt > 0 ? stoppedAt : Math.min(step, LAST_STEP + 1))
+                + " of " + (LAST_STEP + 1)
+                + (stoppedAt > 0 ? " (stopped early by -PdevsceneTo)" : "")
+                + (skippedTo > 0 ? " (started at " + skippedTo + " by -PdevsceneFrom)" : ""));
         for (String failure : FAILURES) {
             System.out.println("[devscene] FAIL " + failure);
         }

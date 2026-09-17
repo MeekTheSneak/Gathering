@@ -55,7 +55,8 @@ tools/shots.sh      # DevScene drives a real client under Xvfb and photographs i
 tools/preview       # renders pure layout to PNG, no game needed
 ```
 
-`tools/shots.sh` takes about 18 minutes and writes to `neoforge/run/screenshots/`. **Look at
+`tools/shots.sh` waits about 13 minutes on purpose and takes longer than that in practice;
+its budget is 30. It writes to `neoforge/run/screenshots/`. **Look at
 the pictures.** The scripted client has repeatedly caught what the headless gate cannot: an
 unreachable offer, overlapping text, a bad text scale, a mis-timed screenshot, a palette that
 drew correctly and pressed nothing.

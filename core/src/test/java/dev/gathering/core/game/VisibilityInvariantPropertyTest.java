@@ -211,6 +211,45 @@ class VisibilityInvariantPropertyTest {
         }
     }
 
+    /**
+     * Every card is in exactly one zone, and every zone entry is a real card - after a game,
+     * and again after rewinding half of it.
+     * <p>Nothing checked this. The property above walks the zones and checks placement, so a
+     * card duplicated into two zones is simply checked twice and a card that vanished is never
+     * visited; and {@code locationOf} returns the first zone holding an id, so every assertion
+     * built on it is blind to a duplicate by construction. Drafts and the ante pot each have a
+     * conservation property. The session, where steal, mill, exile and undo actually move
+     * cards, had none.
+     */
+    @Property(tries = 300)
+    void noCardIsEverInTwoPlacesOrNone(@ForAll("actionScripts") List<Integer> script) {
+        GameSession session = GameFixtures.twoPlayerTable(25);
+
+        for (int action : script) {
+            perform(session, action);
+        }
+        assertEveryCardIsSomewhereOnce(session.state());
+
+        int back = session.records().size() / 2;
+        if (back > 0) {
+            session.undo(session.state().seats().get(0), back, session.state().seats());
+            assertEveryCardIsSomewhereOnce(session.state());
+        }
+    }
+
+    private static void assertEveryCardIsSomewhereOnce(GameState state) {
+        List<CardInstanceId> everywhere = new java.util.ArrayList<>();
+        for (List<CardInstanceId> contents : state.zones().values()) {
+            everywhere.addAll(contents);
+        }
+        assertThat(everywhere)
+                .as("a card sits in more than one zone")
+                .doesNotHaveDuplicates();
+        assertThat(everywhere)
+                .as("the zones and the card registry disagree about which cards exist")
+                .containsExactlyInAnyOrderElementsOf(state.cards().keySet());
+    }
+
     @Provide
     Arbitrary<List<Integer>> actionScripts() {
         return Arbitraries.integers()

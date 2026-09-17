@@ -202,12 +202,29 @@ class AnteTest {
         AnteDraw.Taken taken = AnteDraw.from(
                 library, wanted, AnteExclusions.of(List.of("basic lands")).exclusions(), lookup());
 
-        assertThat(taken.staked().size()).isLessThanOrEqualTo(wanted);
-        assertThat(library).containsAll(taken.staked());
-        assertThat(library).containsAll(taken.passedOver());
-        // Nothing is both staked and left behind.
-        assertThat(taken.staked().size() + taken.passedOver().size())
-                .isLessThanOrEqualTo(library.size());
+        // What it walked through is a prefix of the library, card for card. A size sum said
+        // nothing about this: the same card staked and passed over, or a card taken from the
+        // bottom, both fit under "no more than the library holds". Printings repeat in these
+        // libraries, so this compares as counts rather than as sets.
+        int walked = taken.staked().size() + taken.passedOver().size();
+        assertThat(walked).isLessThanOrEqualTo(library.size());
+        List<CardIdentity> both = new ArrayList<>(taken.staked());
+        both.addAll(taken.passedOver());
+        assertThat(sorted(both)).isEqualTo(sorted(library.subList(0, walked)));
+
+        // And it took exactly as many as it could, not merely no more than it was asked for:
+        // a draw that staked nothing satisfied every assertion here.
+        long stakeable = library.stream().filter(card -> !isBasic(card)).count();
+        assertThat(taken.staked()).hasSize((int) Math.min(wanted, stakeable));
+        assertThat(taken.staked()).noneMatch(AnteTest::isBasic);
+        assertThat(taken.passedOver()).allMatch(AnteTest::isBasic);
+    }
+
+    /** Whether the lookup this suite uses calls a card a basic land, which the list protects. */
+    private static boolean isBasic(CardIdentity card) {
+        return lookup().of(card)
+                .map(metadata -> metadata.typeLine().startsWith("Basic Land"))
+                .orElse(true);
     }
 
     @Provide

@@ -34,16 +34,26 @@ fi
 # The gallery adds five pictures a look on top of the tour, so it needs longer than the
 # tour's own budget - and a run cut off by the timer is a gallery missing whichever looks
 # came last, which is not obvious from the pictures that did arrive.
+# The tour's own scripted waiting - every advance() and every waited= in DevScene - comes to
+# about thirteen minutes on its own, before world generation, the deck import, the GUI-scale
+# sweeps, or any frame dropped under software GL. The default here was twelve, so the command
+# both CLAUDE.md and TESTING.md document could not finish at its own defaults: every run was
+# killed by the timer and reported as "the scripted run never finished".
+# tools/scenecheck.py adds the scene's waiting up and fails if it outgrows this again.
 EXTRA=""
-BUDGET="${SHOT_SECONDS:-720}"
+BUDGET="${SHOT_SECONDS:-1800}"
 if [ "${GALLERY:-}" = 1 ]; then
     EXTRA="-Pgallery"
-    BUDGET="${SHOT_SECONDS:-2400}"
+    BUDGET="${SHOT_SECONDS:-3000}"
 fi
 
+STARTED=$(date +%s)
 timeout "$BUDGET" xvfb-run -a -s "-screen 0 1280x800x24" \
     env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
     ./gradlew ":$LOADER:runClient" -Pdevscene $EXTRA > /tmp/gathering-shots.log 2>&1
+# Printed every time, so the budget drifting under the run is visible rather than inferred
+# from a timeout three documents disagree about.
+echo "the scripted run took $(( $(date +%s) - STARTED ))s of a ${BUDGET}s budget"
 
 # The world goes with it. It holds a table with a live game in it, and the game test server
 # runs in this same directory: left behind, that table ticks on a server with no client to

@@ -33,6 +33,36 @@ public final class GameFixtures {
         return cards;
     }
 
+    /**
+     * A deck of {@code size} cards whose printings no other deck from {@link #deckFrom} shares.
+     * <p>{@link #deck} numbers from zero every time, so two seats dealt from it hold the same
+     * printings - which is fine for counting and fatal for any test asking whether a printing
+     * in one player's hand turned up in another player's view. It cannot: it was in both to
+     * begin with.
+     *
+     * @param from the first card number, far enough from any other deck's not to overlap
+     */
+    public static List<CardIdentity> deckFrom(int from, int size) {
+        List<CardIdentity> cards = new ArrayList<>(size);
+        for (int index = 0; index < size; index++) {
+            cards.add(card(from + index));
+        }
+        return cards;
+    }
+
+    /** A two-player table whose seats share no printing at all. See {@link #deckFrom}. */
+    public static GameSession twoPlayersWithDifferentCards(int librarySize) {
+        GameSession session = GameSession.create(
+                List.of(ALICE, BOB), 40, FIXED_SEED, UndoMode.shippedDefault());
+        session.submit(new GameEvent.SeatTaken(ALICE, new PlayerRef(UUID.randomUUID(), "Alice")));
+        session.submit(new GameEvent.SeatTaken(BOB, new PlayerRef(UUID.randomUUID(), "Bob")));
+        session.submit(new GameEvent.DeckLoaded(
+                ALICE, deckFrom(1_000, librarySize), List.of(card(1_900))));
+        session.submit(new GameEvent.DeckLoaded(
+                BOB, deckFrom(2_000, librarySize), List.of(card(2_900))));
+        return session;
+    }
+
     /** A two-player table with decks already loaded, which is where most tests want to start. */
     public static GameSession twoPlayerTable(int librarySize) {
         GameSession session = GameSession.create(

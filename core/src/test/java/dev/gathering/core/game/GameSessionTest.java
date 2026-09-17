@@ -363,12 +363,32 @@ class GameSessionTest {
         @Test
         @DisplayName("no undo mode rewinds past a revealed card, because a seen card cannot be un-seen")
         void informationBoundariesAreHardInEveryMode() {
-            GameSession session = GameFixtures.twoPlayerTable(40);
-            session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 1));
+            // Every mode, as the name says, and the door as well as the advice. This used to
+            // build one table in the shipped default and ask only evaluateUndo, so a mode that
+            // skipped the boundary - or an undo() that ignored its own advice - passed.
+            for (UndoMode mode : UndoMode.values()) {
+                GameSession session = GameSession.create(List.of(GameFixtures.ALICE, GameFixtures.BOB),
+                        40, GameFixtures.FIXED_SEED, mode);
+                session.submit(new GameEvent.SeatTaken(GameFixtures.ALICE,
+                        new PlayerRef(java.util.UUID.randomUUID(), "Alice")));
+                session.submit(new GameEvent.SeatTaken(GameFixtures.BOB,
+                        new PlayerRef(java.util.UUID.randomUUID(), "Bob")));
+                session.submit(new GameEvent.DeckLoaded(GameFixtures.ALICE, GameFixtures.deck(40), List.of()));
+                session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 1));
 
-            assertThat(session.evaluateUndo(GameFixtures.ALICE, 1))
-                    .isInstanceOfSatisfying(UndoDecision.NeedsUnanimousConsent.class, needed ->
-                            assertThat(needed.reason()).contains("revealed information"));
+                if (mode != UndoMode.OFF) {
+                    assertThat(session.evaluateUndo(GameFixtures.ALICE, 1))
+                            .as("in %s", mode)
+                            .isInstanceOfSatisfying(UndoDecision.NeedsUnanimousConsent.class, needed ->
+                                    assertThat(needed.reason()).contains("revealed information"));
+                }
+                assertThat(session.undo(GameFixtures.ALICE, 1, List.of()).isAccepted())
+                        .as("one player alone rewound a draw in %s", mode)
+                        .isFalse();
+                assertThat(session.state().count(ZoneRef.of(GameFixtures.ALICE, Zone.HAND)))
+                        .as("the drawn card went back in %s", mode)
+                        .isEqualTo(1);
+            }
         }
 
         @Test

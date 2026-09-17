@@ -25,9 +25,11 @@ import org.junit.jupiter.api.Test;
  */
 class TestHygieneTest {
 
-    /** jqwik's own label annotation. {@code @DisplayName} is JUnit Jupiter's, and is not it. */
-    private static final Pattern PROPERTY_WITH_DISPLAY_NAME = Pattern.compile(
-            "@(?:Property|DisplayName\\([^)]*\\))\\s*\\n\\s*@(?:Property|DisplayName\\([^)]*\\))");
+    /** A {@code @Property}, bare or with arguments, possibly fully qualified. */
+    private static final Pattern PROPERTY = Pattern.compile("^@(?:net\\.jqwik\\.api\\.)?Property\\b");
+
+    /** JUnit Jupiter's label, which is not jqwik's and makes the engine skip the property. */
+    private static final Pattern DISPLAY_NAME = Pattern.compile("^@(?:[\\w.]+\\.)?DisplayName\\b");
 
     private static final Pattern NAMED_FOR_ALL = Pattern.compile("@ForAll\\(\"([^\"]+)\"\\)");
 
@@ -41,18 +43,62 @@ class TestHygieneTest {
     void noPropertyCarriesADisplayName() throws IOException {
         List<String> offenders = new ArrayList<>();
         for (Path file : testSources()) {
-            String text = Files.readString(file);
-            Matcher found = PROPERTY_WITH_DISPLAY_NAME.matcher(text);
-            while (found.find()) {
-                String both = found.group();
-                if (both.contains("@Property") && both.contains("@DisplayName")) {
-                    offenders.add(file.getFileName() + ": " + both.replaceAll("\\s+", " "));
-                }
+            for (String block : propertiesWithADisplayName(Files.readString(file))) {
+                offenders.add(file.getFileName() + ": " + block);
             }
         }
         assertThat(offenders)
                 .as("@DisplayName on a jqwik @Property makes the engine skip it: use @Label")
                 .isEmpty();
+    }
+
+    /**
+     * The shapes the check has to see, checked against the check.
+     * <p>It was a regex that allowed no arguments on {@code @Property}, and 93 of this module's
+     * 146 properties are written {@code @Property(tries = 500)}. It also missed a third
+     * annotation between the two and a {@code @DisplayName} with a bracket in its text - so in
+     * the form the original defect would most likely come back, it did not fire.
+     */
+    @Test
+    @DisplayName("the display-name check sees every way the two annotations are written together")
+    void theDisplayNameCheckSeesEveryShape() {
+        for (String shape : List.of(
+                "@Property\n@DisplayName(\"x\")\nvoid a() {}",
+                "@Property(tries = 500)\n@DisplayName(\"x\")\nvoid a() {}",
+                "@DisplayName(\"x\")\n@Property(tries = 500)\nvoid a() {}",
+                "@Property\n@Tag(\"slow\")\n@DisplayName(\"x\")\nvoid a() {}",
+                "@DisplayName(\"x (y)\")\n@Property\nvoid a() {}",
+                "    @net.jqwik.api.Property(tries = 50)\n    @org.junit.jupiter.api.DisplayName(\"x\")\n    void a() {}")) {
+            assertThat(propertiesWithADisplayName(shape)).as(shape).hasSize(1);
+        }
+        assertThat(propertiesWithADisplayName(
+                "@Property(tries = 5)\n@Label(\"x\")\nvoid a() {}\n@Test\n@DisplayName(\"y\")\nvoid b() {}"))
+                .as("a labeled property and a displayed test are both fine")
+                .isEmpty();
+    }
+
+    /**
+     * Every run of annotations in this source that holds both a {@code @Property} and a
+     * {@code @DisplayName}, as one line each.
+     * <p>A run is consecutive lines that start with {@code @}, which is how every annotation in
+     * this module is written: one per line, directly above what it annotates.
+     */
+    private static List<String> propertiesWithADisplayName(String source) {
+        List<String> found = new ArrayList<>();
+        List<String> run = new ArrayList<>();
+        for (String raw : (source + "\n").split("\n", -1)) {
+            String line = raw.strip();
+            if (line.startsWith("@")) {
+                run.add(line);
+                continue;
+            }
+            if (run.stream().anyMatch(each -> PROPERTY.matcher(each).find())
+                    && run.stream().anyMatch(each -> DISPLAY_NAME.matcher(each).find())) {
+                found.add(String.join(" ", run));
+            }
+            run.clear();
+        }
+        return found;
     }
 
     @Test

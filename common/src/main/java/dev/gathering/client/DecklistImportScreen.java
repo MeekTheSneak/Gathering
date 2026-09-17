@@ -268,6 +268,29 @@ public final class DecklistImportScreen extends Screen {
         this.rebuildWidgets();
     }
 
+    /** Types a name and a list into this screen, for the scripted run. */
+    public void typeForTesting(String name, String decklist) {
+        this.nameField.setValue(name);
+        this.decklistField.setValue(decklist);
+    }
+
+    /** Presses Import, for the scripted run. */
+    public void importForTesting() {
+        if (this.importButton.active) {
+            this.importButton.onPress();
+        }
+    }
+
+    /** What this screen says happened, for the scripted run. Empty until an answer arrives. */
+    public String saidForTesting() {
+        return this.status.getString();
+    }
+
+    /** The named problems this screen is showing, for the scripted run. */
+    public List<String> problemsForTesting() {
+        return this.problems.stream().map(Component::getString).toList();
+    }
+
     /**
      * The panel goes here, not in {@link #render}.
      * <p>{@code Screen#render} calls this itself and it applies a full-screen blur, so

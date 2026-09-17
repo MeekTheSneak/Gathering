@@ -656,7 +656,7 @@ Two of these are cheap and two are not, and the cheap two catch most of it.
 | `:neoforge:runGameTestServer` | ~20s | every change |
 | `:fabric:runGametest` | ~20s | anything in `:fabric` - the loot hook, registration, the break rules. Its own source set, so none of it ships. |
 | `tools/smoke.sh` | ~10 min | a new registration, a new model or texture, or a loader entry point - the things that can boot wrong. Not for a string added to the language file. |
-| `tools/shots.sh` | ~11 min | on demand, and once at the end of a piece of visual work rather than after each fix |
+| `tools/shots.sh` | 13 min of scripted waiting, more in practice; 30 min budget | on demand, and once at the end of a piece of visual work rather than after each fix |
 | `LOADER=fabric tools/shots.sh` | ~6 min | when anything crosses the loader boundary - a payload, a registration, an entry point. The scene lives in `:common`, so both loaders drive it; smoke.sh proves Fabric boots, and only this proves Fabric plays. |
 
 To work on one late section of the scripted client without the steps before it, add

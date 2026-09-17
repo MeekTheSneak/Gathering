@@ -11,6 +11,7 @@ import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.VisibilityRules;
 import dev.gathering.core.game.visibility.Viewer;
 import dev.gathering.core.game.visibility.ZoneView;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -188,16 +189,44 @@ class VisibilityInvariantTest {
                 Viewer.seat(GameFixtures.ALICE), Viewer.seat(GameFixtures.BOB),
                 Viewer.SPECTATOR)) {
             GameView view = VisibilityRules.viewFor(session.state(), viewer);
-            Set<UUID> shown = view.allCardViews().stream()
-                    .filter(CardView.Visible.class::isInstance)
-                    .map(CardView.Visible.class::cast)
-                    .map(visible -> visible.identity().scryfallId())
-                    .collect(Collectors.toSet());
 
-            assertThat(ArtToSend.wanted(view, Set.of()))
-                    .describedAs("%s is told about a printing their view did not show", viewer)
-                    .isSubsetOf(shown);
+            // Against the board, not against the view. Both halves used to be read out of the
+            // same view - wanted(view) is the visible printings in view - so the assertion was
+            // f(x) subset of f(x) and could not fail for any implementation that reads a view.
+            for (UUID printing : ArtToSend.wanted(view, Set.of())) {
+                assertThat(everywhereItSits(session.state(), printing))
+                        .describedAs("%s is told about %s, which sits only where they may not look",
+                                viewer, printing)
+                        .anyMatch(where -> mayLookAt(viewer, where));
+            }
         }
+    }
+
+    /** Every zone the state puts a printing in, whoever may look at it. */
+    private static List<ZoneRef> everywhereItSits(GameState state, UUID printing) {
+        List<ZoneRef> where = new ArrayList<>();
+        for (Map.Entry<CardInstanceId, CardInstance> card : state.cards().entrySet()) {
+            if (printing.equals(card.getValue().identity().scryfallId())) {
+                state.locationOf(card.getKey()).ifPresent(where::add);
+            }
+        }
+        return where;
+    }
+
+    /**
+     * Whether this viewer is entitled to the identity of a card sitting in this zone.
+     * <p>Written out here rather than asked of the rules under test: a public zone is public,
+     * a seat sees its own hand, and nothing else is anybody's business. A face-down card is
+     * not excluded, because its printing is still the one the picture is for and the caller is
+     * asking a coarser question - whether the card is somewhere the viewer may look at all.
+     */
+    private static boolean mayLookAt(Viewer viewer, ZoneRef where) {
+        if (where.zone().isPublic()) {
+            return true;
+        }
+        return viewer instanceof Viewer.Seated seated
+                && seated.seat().equals(where.seat())
+                && where.zone() == Zone.HAND;
     }
 
     /**
@@ -209,29 +238,36 @@ class VisibilityInvariantTest {
     @DisplayName("a rival's hand is never named in the art sent to somebody else")
     void aRivalsHandIsNeverNamedInSomebodyElsesArt() {
         GameSession session = playARepresentativeGame();
-        GameView mine = VisibilityRules.viewFor(session.state(), Viewer.seat(GameFixtures.ALICE));
-        Set<UUID> inAlicesHand = mine.seat(GameFixtures.ALICE).zone(Zone.HAND).cards().stream()
-                .filter(CardView.Visible.class::isInstance)
-                .map(CardView.Visible.class::cast)
-                .map(visible -> visible.identity().scryfallId())
-                .collect(Collectors.toSet());
-        assertThat(inAlicesHand).isNotEmpty();
+        GameState board = session.state();
+
+        // Printings that are in Alice's hand and nowhere anybody else may look. Worked out
+        // from the board rather than from a view, and the two seats share no printing, so
+        // this set is genuinely hers. Both used to be read out of the other player's own
+        // view, which is the set being checked - so a leak would have been in both sides of
+        // the assertion and it passed either way.
+        Set<UUID> hersAlone = new java.util.HashSet<>();
+        for (CardInstanceId card : board.contents(GameFixtures.ALICE, Zone.HAND)) {
+            board.card(card)
+                    .map(instance -> instance.identity().scryfallId())
+                    .ifPresent(hersAlone::add);
+        }
+        assertThat(hersAlone).isNotEmpty();
+        for (UUID printing : Set.copyOf(hersAlone)) {
+            if (everywhereItSits(board, printing).stream()
+                    .anyMatch(where -> where.zone().isPublic())) {
+                hersAlone.remove(printing);
+            }
+        }
+        assertThat(hersAlone)
+                .describedAs("the fixture put every card in Alice's hand somewhere public too,"
+                        + " so there is nothing here that could leak")
+                .isNotEmpty();
 
         for (Viewer other : List.of(Viewer.seat(GameFixtures.BOB), Viewer.SPECTATOR)) {
-            GameView theirs = VisibilityRules.viewFor(session.state(), other);
-            Set<UUID> onTheBattlefield = theirs.allCardViews().stream()
-                    .filter(CardView.Visible.class::isInstance)
-                    .map(CardView.Visible.class::cast)
-                    .map(visible -> visible.identity().scryfallId())
-                    .collect(Collectors.toSet());
-            // Only printings that also sit somewhere public may repeat; the hand alone never
-            // puts one into somebody else's list.
-            for (UUID printing : ArtToSend.wanted(theirs, Set.of())) {
-                assertThat(onTheBattlefield)
-                        .describedAs("%s was told about %s, which is only in a hand",
-                                other, printing)
-                        .contains(printing);
-            }
+            GameView theirs = VisibilityRules.viewFor(board, other);
+            assertThat(ArtToSend.wanted(theirs, Set.of()))
+                    .describedAs("%s was told about a printing that is only in Alice's hand", other)
+                    .doesNotContainAnyElementsOf(hersAlone);
         }
     }
 
@@ -666,7 +702,10 @@ class VisibilityInvariantTest {
 
     /** A short game that touches every zone and both facings. */
     private static GameSession playARepresentativeGame() {
-        GameSession session = GameFixtures.twoPlayerTable(40);
+        // Seats that share no printing. Dealt from one deck they held the same cards, and any
+        // question of the form "did one player's card turn up in another player's view" was
+        // answered yes before the game started.
+        GameSession session = GameFixtures.twoPlayersWithDifferentCards(40);
         session.submit(new GameEvent.LibraryShuffled(GameFixtures.ALICE, GameFixtures.ALICE));
         session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 7));
         session.submit(new GameEvent.CardsDrawn(GameFixtures.BOB, GameFixtures.BOB, 7));

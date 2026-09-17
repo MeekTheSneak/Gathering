@@ -46,8 +46,21 @@ class ViewCodecTest {
         }
     }
 
+    /** How many verbs {@link #perform} knows. */
+    private static final int VERBS = 12;
+
+    /** Seats in the fixture every game here starts from. */
+    private static final int SEATS = 2;
+
     @Property(tries = 500)
     void nothingGainsIdentityOnTheWay(@ForAll("games") GameSession session) throws IOException {
+        // And this property is only worth anything on boards that have an anonymous card on
+        // them, so the run fails unless a fair share of them do.
+        boolean anyFaceDown = session.state().cards().values().stream()
+                .anyMatch(dev.gathering.core.game.CardInstance::isFaceDown);
+        net.jqwik.api.statistics.Statistics.label("a card is face down")
+                .collect(anyFaceDown)
+                .coverage(checker -> checker.check(true).percentage(share -> share >= 10.0));
         for (Viewer viewer : viewers(session)) {
             GameView view = VisibilityRules.viewFor(session.state(), viewer);
 
@@ -116,7 +129,7 @@ class ViewCodecTest {
     /** Short scripted games, so the views under test are boards somebody could reach. */
     @Provide
     Arbitrary<GameSession> games() {
-        return Arbitraries.integers().between(0, 11).list().ofMinSize(1).ofMaxSize(18)
+        return Arbitraries.integers().between(0, VERBS * SEATS - 1).list().ofMinSize(1).ofMaxSize(18)
                 .map(script -> {
                     GameSession session = GameFixtures.twoPlayerTable(20);
                     script.forEach(action -> perform(session, action));
@@ -124,8 +137,18 @@ class ViewCodecTest {
                 });
     }
 
-    private static void perform(GameSession session, int action) {
-        SeatId actor = session.state().seats().get(action % session.state().seats().size());
+    /**
+     * Interprets one number as a verb and a seat.
+     * <p>Two factors, not one. The seat used to be the verb modulo the seat count, so with two
+     * seats every even verb was Alice's and every odd one Bob's: only Alice ever drew or put a
+     * card down, and only Bob ever turned one face down - on a battlefield that was always
+     * empty. Not one card in any generated game was ever face down, so the two properties about
+     * anonymous cards ran five hundred times on boards with no anonymous cards in them. The
+     * property suite next door documents this exact mistake; it had not been carried over.
+     */
+    private static void perform(GameSession session, int choice) {
+        int action = choice % VERBS;
+        SeatId actor = session.state().seats().get((choice / VERBS) % session.state().seats().size());
         switch (action) {
             case 0 -> session.submit(new GameEvent.CardsDrawn(actor, actor, 1));
             case 1 -> session.submit(new GameEvent.LibraryShuffled(actor, actor));
@@ -167,6 +190,12 @@ class ViewCodecTest {
         }
     }
 
+    /**
+     * Turns a card on this seat's battlefield face down, or plays one face down to do it.
+     * <p>The second half is a morph, and it is what makes face-down cards common enough here to
+     * test: needing a draw, then a play, then a flip, all by the same seat and in that order,
+     * left them in under one generated game in ten.
+     */
     private static void flip(GameSession session, SeatId seat) {
         for (CardInstanceId id : session.state().contents(seat, Zone.BATTLEFIELD)) {
             if (session.state().requireCard(id).facing() != Facing.FACE_DOWN) {
@@ -174,5 +203,16 @@ class ViewCodecTest {
                 return;
             }
         }
+        if (session.state().contents(seat, Zone.HAND).isEmpty()) {
+            session.submit(new GameEvent.CardsDrawn(seat, seat, 1));
+        }
+        List<CardInstanceId> hand = session.state().contents(seat, Zone.HAND);
+        if (hand.isEmpty()) {
+            return;
+        }
+        CardInstanceId card = hand.get(0);
+        session.submit(new GameEvent.CardMoved(
+                seat, card, ZoneRef.of(seat, Zone.BATTLEFIELD), Placement.BOTTOM));
+        session.submit(new GameEvent.CardFacingSet(seat, card, Facing.FACE_DOWN));
     }
 }
