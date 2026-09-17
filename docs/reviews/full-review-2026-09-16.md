@@ -33,10 +33,10 @@ Status column: **fixed** / **open** / **rejected** (with the reason).
 - `block/TableBlockEntity.java:880-901` - `endSession` clears held decks with none of the loud backstop its javadoc promises (the pot gets one).
 
 **Tournaments**
-- `Events.java:568-571` vs `Tournament.beginPreparing` vs `HostActions.playersIfBegunNow` - "who will actually play" defined three times, two ways.
-- `Events.java:594`, `:597-599` - `begin` discards a `TablesApart.set` refusal the sibling call site checks, and warns it cannot seat everybody while proceeding anyway, into a phase with no way back.
-- `Tournament.MOST_PLAYERS` vs `PodSettings.mostPlayers()` - limited events accept 256 sign-ups and enforce 8 only at Begin.
-- `Events.java:1188-1192` - `turnPassed` mutates and returns without saving.
+- **[fixed]** `Events.java:568-571` vs `Tournament.beginPreparing` vs `HostActions.playersIfBegunNow` - "who will actually play" defined three times, two ways.
+- **[fixed]** `Events.java:594`, `:597-599` - `begin` discards a `TablesApart.set` refusal the sibling call site checks, and warns it cannot seat everybody while proceeding anyway, into a phase with no way back.
+- **[fixed]** `Tournament.MOST_PLAYERS` vs `PodSettings.mostPlayers()` - limited events accept 256 sign-ups and enforce 8 only at Begin.
+- **[fixed]** `Events.java:1188-1192` - `turnPassed` mutates and returns without saving.
 
 **Client**
 - `ClientTableState.java:37-46` - `POTS`, `TERMS`, `AWAY` unbounded and not cleaned on eviction; a server can drive the growth.
@@ -51,9 +51,9 @@ Status column: **fixed** / **open** / **rejected** (with the reason).
 - `EventScreen.java:657` - translation key built by concatenation from a wire string, per frame; unknown phase renders the raw key as UI.
 
 **Data and economy**
-- `core/.../booster/BoosterOpener.java:77` - slot count from external data sizes an array with no bound.
-- `core/.../scryfall/ScryfallClient.java:111-124` - `everyPrintingIn` truncates at 8 pages and says nothing, so the Archive Pack's completeness guarantee has a silent hole.
-- `core/.../scryfall/DiskCardMetadataStore.java:115-125` - non-atomic cache write, while the collation cache five files away is atomic.
+- **[fixed]** `core/.../booster/BoosterOpener.java:77` - slot count from external data sizes an array with no bound.
+- **[fixed]** `core/.../scryfall/ScryfallClient.java:111-124` - `everyPrintingIn` truncates at 8 pages and says nothing, so the Archive Pack's completeness guarantee has a silent hole.
+- **[fixed]** `core/.../scryfall/DiskCardMetadataStore.java:115-125` - non-atomic cache write, while the collation cache five files away is atomic.
 - `core/.../deck/ArchidektDeckSource.java:56` - deck-site fetch bypasses `HttpFetcher`, so no limiter, no retry, no `Retry-After`.
 - `InMemoryCardMetadataStore.java:20-23` - unbounded heap growth, contradicting `DiskCardMetadataStore`'s "costs disk and not heap".
 

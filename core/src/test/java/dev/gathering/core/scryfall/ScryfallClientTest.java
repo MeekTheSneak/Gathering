@@ -272,6 +272,11 @@ class ScryfallClientTest {
         List<ScryfallCardCodec.ParsedCard> found = client(transport).everyPrintingIn("LTC");
 
         assertThat(found).hasSize(2);
+        assertThat(client(new FakeHttpTransport()
+                .reply(200, page(true, "sol_ring"))
+                .reply(200, page(false, "sol_ring"))).everyPrintingOf("LTC").allOfThem())
+                .withFailMessage("a search that read every page said it had not")
+                .isTrue();
         assertThat(found.get(0).raw()).isNotNull();
         assertThat(transport.requests()).hasSize(2);
         // Built from the set code and the page number, never from anything the reply carried.
@@ -283,13 +288,19 @@ class ScryfallClientTest {
     @DisplayName("a search that never says it is finished stops anyway")
     void aSearchThatNeverEndsIsStillBounded() throws Exception {
         FakeHttpTransport transport = new FakeHttpTransport();
-        for (int page = 0; page < 40; page++) {
+        for (int page = 0; page < 200; page++) {
             transport.reply(200, page(true, "sol_ring"));
         }
 
-        client(transport).everyPrintingIn("ltc");
+        // Bounded, and it says so rather than quietly coming back short: this list is what the
+        // coverage audit computes from, so a set read short is a set with unobtainable cards in it
+        // that nothing will ever report.
+        var printings = client(transport).everyPrintingOf("ltc");
 
-        assertThat(transport.requestCount()).isLessThanOrEqualTo(8);
+        assertThat(transport.requestCount()).isLessThanOrEqualTo(40);
+        assertThat(printings.allOfThem())
+                .withFailMessage("a search that ran out of pages said it had read all of them")
+                .isFalse();
     }
 
     @Test

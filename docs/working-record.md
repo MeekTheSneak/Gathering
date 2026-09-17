@@ -2738,6 +2738,37 @@ payload carries rather than only ones called `table`, which found two that were 
 Verified: gate green (628/16). The duplication guard fails without its fix, saying a deck of four
 came back holding eight.
 
+### Forty-second batch: the tournament and data Importants (2026-09-16)
+
+- **"Who will play" had three definitions and two answers.** `beginPreparing` and the host screen
+  asked the phase; the seat check before a limited event asked whether it was a large event, which is
+  a different question with nothing tying them together. A large event whose host never opened
+  check-in counted nobody, so the check that refuses a pod too big for its table passed every time.
+  One accessor on `Tournament` now, and all three ask it.
+- **`begin` warned and carried on.** The join of the home table threw its answer away and the seat
+  count was a message rather than a refusal - both after the event had already been moved into
+  preparing, which has no way back to sign-up. A home table with anything on it left the line split,
+  reported half its seats, stood most of the pod up, and the only exit was to call the event off.
+  Both are asked before anything is committed now.
+- **A limited event took two hundred and fifty-six sign-ups** and found out at Begin that a pod holds
+  eight. Refused at the ninth, which is one message to one person at the moment they ask.
+- **`turnPassed` counted an extra turn and returned without saving it** on one branch.
+- **A booster slot count came off somebody else's file and sized an array.** A tampered or corrupted
+  set file saying two billion was an eight-gigabyte allocation the first time anybody opened that
+  pack. Bounded at 256, the way the sealed reader beside it already bounds its counts.
+- **The card list for a set stopped at eight pages and said nothing.** That list is what the coverage
+  auditor computes the completeness guarantee from, so a set past fourteen hundred printings - Secret
+  Lair, the list-shaped sets - had cards that were never reported as unobtainable and never swept
+  into the Archive Pack. Simply unreachable, with nothing anywhere saying so, which the faucet code
+  names as the worse of the two ways to be wrong. Forty pages now, and it returns whether that was
+  all of them, because `:core` has no logger and is not getting one: the caller that has one says it.
+- **The card cache wrote straight into its file**, so a crash mid-write left half a card and two
+  workers could interleave into one. Written whole and moved into place, like the collation cache
+  five files away. And a cache that cannot be written no longer fails the import whose data already
+  arrived.
+
+Verified: gate green (628/16).
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

@@ -125,7 +125,7 @@ public record Tournament(
         if (isRegistered(entrant.id())) {
             throw new IllegalArgumentException("message.gathering.event.already_registered");
         }
-        if (entrants.size() >= MOST_PLAYERS) {
+        if (entrants.size() >= mostPlayers()) {
             throw new IllegalArgumentException("message.gathering.event.full");
         }
         List<Entrant> more = new ArrayList<>(entrants);
@@ -170,13 +170,42 @@ public record Tournament(
         if (phase != Phase.SIGNUP && phase != Phase.CHECK_IN) {
             throw new IllegalArgumentException("message.gathering.event.not_signing_up");
         }
-        List<Entrant> playing = phase == Phase.CHECK_IN
-                ? entrants.stream().filter(entrant -> checkedIn.contains(entrant.id())).toList()
-                : entrants;
+        List<Entrant> playing = playingIfBegunNow();
         if (playing.size() < fewestPlayers()) {
             throw new IllegalArgumentException("message.gathering.event.too_few");
         }
         return with(Phase.PREPARING, playing, checkedIn, Set.of(), rounds, plannedRounds);
+    }
+
+    /**
+     * Who would play if registration closed now: at check-in, only those who checked in.
+     * <p>One answer, because there were three. {@code beginPreparing} asked the phase, the host
+     * screen's refusal asked the phase, and the seat check before a limited event asked whether the
+     * event was a large one - which is a different question, and nothing ties the two together. A
+     * large event whose host never opened check-in counted nobody, so the check that refuses a pod
+     * too big for its table passed every time; a small event whose host opened it anyway counted
+     * players who were never going to play, and refused a pod that fitted.
+     */
+    public List<Entrant> playingIfBegunNow() {
+        return phase == Phase.CHECK_IN
+                ? entrants.stream().filter(entrant -> checkedIn.contains(entrant.id())).toList()
+                : List.copyOf(entrants);
+    }
+
+    /**
+     * The most players this event can take, which for a draft or a sealed pod is the pod's own
+     * ceiling rather than the tournament's.
+     * <p>Asked at sign-up, and it was not: a limited event took registrations up to two hundred and
+     * fifty-six and found out at Begin that a pod holds eight. Sixteen people would sign up for a
+     * sealed event, be refused as one, and the host's only way forward was to drop eight of them by
+     * hand. Refusing the ninth is one message to one person at the moment they ask.
+     */
+    public int mostPlayers() {
+        int most = MOST_PLAYERS;
+        if (settings.kind().isLimited() && settings.pod() != null) {
+            most = Math.min(most, settings.pod().mostPlayers());
+        }
+        return most;
     }
 
     /** The fewest players this event can be played with. */

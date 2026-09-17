@@ -40,11 +40,16 @@ public final class ScryfallClient {
     public static final int COLLECTION_BATCH_SIZE = 75;
 
     /**
-     * As far as a paged search is followed: 175 a page, so well past the largest set printed.
-     * <p>A bound rather than a limit anybody will meet. A search that kept saying there was
-     * more would otherwise be an unbounded loop against somebody else's server.
+     * How many pages of a set's printings are read before giving up.
+     * <p>At a hundred and seventy-five a page, eight pages is fourteen hundred printings - which
+     * several real sets are past. Secret Lair and the two list-shaped sets are the obvious ones, and
+     * they are exactly the sets somebody would notice a hole in.
+     * <p>Raised, and no longer silent about running out: what this list is for is telling the
+     * coverage auditor which cards exist, and a printing that never appears in it is never reported
+     * as unobtainable and never swept into the Archive Pack. It is simply unreachable, and nothing
+     * anywhere says so - which the faucet code names as the worse of the two ways to be wrong.
      */
-    private static final int MOST_SEARCH_PAGES = 8;
+    private static final int MOST_SEARCH_PAGES = 40;
 
     private final HttpFetcher fetcher;
     private final String baseUrl;
@@ -105,9 +110,10 @@ public final class ScryfallClient {
      *
      * @param setCode the set as Scryfall writes it, letters and digits only
      */
-    public List<ScryfallCardCodec.ParsedCard> everyPrintingIn(String setCode) throws IOException {
+    public Printings everyPrintingOf(String setCode) throws IOException {
         String code = checkedSetCode(setCode);
         List<ScryfallCardCodec.ParsedCard> found = new ArrayList<>();
+        boolean allOfIt = true;
         for (int page = 1; page <= MOST_SEARCH_PAGES; page++) {
             JsonObject json = getJson("/cards/search?unique=prints&order=set&page=" + page
                     + "&q=" + encode("set:" + code));
@@ -119,10 +125,31 @@ public final class ScryfallClient {
             found.addAll(ScryfallCardCodec.parseCollectionEntries(json));
             JsonElement more = json.get("has_more");
             if (more == null || !more.isJsonPrimitive() || !more.getAsBoolean()) {
+                allOfIt = true;
                 break;
             }
+            allOfIt = false;
         }
-        return List.copyOf(found);
+        return new Printings(List.copyOf(found), allOfIt);
+    }
+
+    /**
+     * Every printing in a set, and whether that is all of them.
+     * <p>The second half is the point. This list is what the coverage auditor computes the
+     * completeness guarantee from, so a set read short is a set with cards in it that nothing can
+     * ever give a player - and a short list that does not say it is short reports no such thing.
+     * Everything else here that truncates says so; this did not, because it had nowhere to say it:
+     * {@code :core} has no logger and is not going to get one. So it is returned, and the caller
+     * that does have one says it.
+     *
+     * @param allOfThem false when the pages ran out with more still to read
+     */
+    public record Printings(List<ScryfallCardCodec.ParsedCard> cards, boolean allOfThem) {
+    }
+
+    /** The same, for callers that only want the cards. */
+    public List<ScryfallCardCodec.ParsedCard> everyPrintingIn(String setCode) throws IOException {
+        return everyPrintingOf(setCode).cards();
     }
 
     /**

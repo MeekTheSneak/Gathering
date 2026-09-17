@@ -115,11 +115,24 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
         try {
             Path file = fileFor(card.scryfallId());
             Files.createDirectories(file.getParent());
-            Files.writeString(file, raw.toString(), StandardCharsets.UTF_8);
+            // Written whole and then moved into place, the way the collation cache does it. Written
+            // straight into the file, a crash or a full disk mid-write left half a card behind, and
+            // two workers storing the same printing at once could interleave into one. A reader
+            // recovers from that by treating it as a miss, so nothing is lost - but the miss is
+            // permanent until something fetches that printing again.
+            Path part = Files.createTempFile(file.getParent(), card.scryfallId().toString(), ".part");
+            try {
+                Files.writeString(part, raw.toString(), StandardCharsets.UTF_8);
+                Files.move(part, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } finally {
+                Files.deleteIfExists(part);
+            }
             // Remembered as of now rather than read back off the file, so a refresh that
             // actually happened is visible to the next freshness check without a stat.
             cachedWhen.put(card.scryfallId(), java.time.Instant.now());
         } catch (IOException e) {
+            // Logged by the caller rather than thrown at it: the cache is an optimisation, and an
+            // import whose data arrived should not fail because one file could not be written.
             throw new UncheckedIOException("Could not write card cache entry for " + card.scryfallId(), e);
         }
     }

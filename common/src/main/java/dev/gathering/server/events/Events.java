@@ -585,11 +585,20 @@ public final class Events {
             // Asked before anything changes: a draft or sealed event is one pod at its home long
             // table, and a pod that cannot seat everybody registered is refused here rather
             // than begun with some of them left standing.
-            int seats = TableClusters.touching(level, state.tables.get(0)).seats().size();
-            int players = (int) state.tournament.entrants().stream()
-                    .filter(entrant -> !state.tournament.settings().largeEvent()
-                            || state.tournament.checkedIn().contains(entrant.id()))
-                    .count();
+            //
+            // The line is joined first, and refused if it will not join. Both were done after the
+            // event had already been moved into preparing - the join's answer was thrown away and
+            // the seat count was a message rather than a refusal - so a home table with anything on
+            // it left the line split, reported half the seats, stood most of the pod up, and put the
+            // event in a phase with no way back to sign-up. The only exit was to call it off.
+            BlockPos home = state.tables.get(0);
+            if (TablesApart.set(level, home, false) == TablesApart.Result.IN_USE) {
+                host.sendSystemMessage(Component.translatable(
+                        "message.gathering.event.tables_in_use", state.numberOf(home)));
+                return;
+            }
+            int seats = TableClusters.at(level, home).seats().size();
+            int players = state.tournament.playingIfBegunNow().size();
             var pod = state.tournament.settings().pod();
             int most = pod == null ? seats : Math.min(seats, pod.mostPlayers());
             if (players > most) {
@@ -610,14 +619,11 @@ public final class Events {
             startPlay(server, state);
             return;
         }
-        // Everybody together at the home table, which is one surface for the draft.
+        // Everybody together at the home table, which is one surface for the draft. Already joined
+        // and already counted, above, before this event was moved into preparing.
         BlockPos home = state.tables.get(0);
-        TablesApart.set(level, home, false);
         List<Entrant> players = state.tournament.stillIn();
         int seats = TableClusters.at(level, home).seats().size();
-        if (players.size() > seats) {
-            host.sendSystemMessage(Component.translatable("message.gathering.event.not_enough_seats", seats, players.size()));
-        }
         for (int index = 0; index < Math.min(seats, players.size()); index++) {
             seatAt(level, home, index, players.get(index).id(), true);
         }
@@ -1222,6 +1228,10 @@ public final class Events {
         state.playedAtTable.add(round.number() + ":" + table);
         Pairing pairing = state.tournament.currentRound().flatMap(r -> r.atTable(table)).orElse(null);
         if (pairing == null) {
+            // The pairing was confirmed between the turn passing and this lookup. The count has
+            // still gone up, and leaving without saving it is the one thing this file's own comment
+            // says cannot happen: every change goes through a method that applies it and saves it.
+            changed(level.getServer(), state);
             return;
         }
         int taken = pairing.turnsAfterTime();

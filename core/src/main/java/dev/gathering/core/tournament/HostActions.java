@@ -57,10 +57,8 @@ public final class HostActions {
         return answers;
     }
 
-    /** How many would play if registration closed now: at a large event, only those checked in. */
+    /** How many would play if registration closed now. See {@link Tournament#playingIfBegunNow()}. */
     private static int playersIfBegunNow(Tournament tournament) {
-        return tournament.phase() == Tournament.Phase.CHECK_IN
-                ? (int) tournament.entrants().stream().filter(entrant -> tournament.checkedIn().contains(entrant.id())).count()
-                : tournament.entrants().size();
+        return tournament.playingIfBegunNow().size();
     }
 }

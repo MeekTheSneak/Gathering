@@ -15,6 +15,16 @@ import java.util.Map;
  */
 public record BoosterVariant(String name, int weight, Map<String, Integer> slots) {
 
+    /**
+     * The most cards one slot may ask for.
+     * <p>A slot count comes off somebody else's file - published collation, or a booster JSON an
+     * operator wrote - and it sized an array before anything looked at it, so {@code "common":
+     * 2000000000} in a tampered or corrupted set file was an eight-gigabyte allocation the first
+     * time anybody opened that pack. A real booster is under forty cards. The sealed reader beside
+     * this one bounds its counts the same way and for the same reason.
+     */
+    public static final int MOST_PER_SLOT = 256;
+
     public BoosterVariant {
         name = name == null ? "" : name;
         if (weight < 0) {
@@ -24,7 +34,7 @@ public record BoosterVariant(String name, int weight, Map<String, Integer> slots
         if (slots != null) {
             slots.forEach((sheet, count) -> {
                 if (sheet != null && !sheet.isBlank() && count != null && count > 0) {
-                    kept.put(sheet, count);
+                    kept.put(sheet, Math.min(count, MOST_PER_SLOT));
                 }
             });
         }

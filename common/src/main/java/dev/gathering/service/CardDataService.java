@@ -249,9 +249,26 @@ public final class CardDataService implements AutoCloseable {
     public CompletableFuture<List<CardMetadata>> everyPrintingIn(String setCode) {
         return supply(() -> {
             List<CardMetadata> found = new java.util.ArrayList<>();
-            for (var parsed : client.everyPrintingIn(setCode)) {
-                store.store(parsed.metadata(), parsed.raw());
+            var printings = client.everyPrintingOf(setCode);
+            for (var parsed : printings.cards()) {
+                try {
+                    store.store(parsed.metadata(), parsed.raw());
+                } catch (java.io.UncheckedIOException couldNotCache) {
+                    // The cache is an optimisation. Failing the whole request because one file
+                    // could not be written throws away data that arrived, and told the player the
+                    // import could not reach Scryfall - which it had.
+                    LOGGER.warn("Could not cache {}: {}",
+                            parsed.metadata().scryfallId(), couldNotCache.getMessage());
+                }
                 found.add(parsed.metadata());
+            }
+            if (!printings.allOfThem()) {
+                // Said where there is somewhere to say it. A set read short is a set whose coverage
+                // audit is computed from an incomplete list, so cards in it can be unobtainable and
+                // never reported as such - which is the one way of being wrong the faucet code names
+                // as worse than the other.
+                LOGGER.warn("The card list for set {} came back short at {} printings, so what is "
+                        + "obtainable in it cannot be audited properly.", setCode, found.size());
             }
             return List.copyOf(found);
         });
