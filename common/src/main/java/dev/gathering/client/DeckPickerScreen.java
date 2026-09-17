@@ -73,7 +73,7 @@ public final class DeckPickerScreen extends Screen {
         readTheInventory();
         int width = Math.min(PANEL_WIDTH, this.width - MARGIN * 2);
         int showing = rowsThatFit();
-        scroll = Math.max(0, Math.min(scroll, decks.size() - showing));
+        scroll = ListScroll.within(scroll, decks.size(), showing);
         int listed = Math.max(1, showing);
         int height = PADDING * 2 + this.font.lineHeight + GAP + listed * (ROW + GAP) + GAP * 2 + ROW;
         panel = new Rect((this.width - width) / 2, Math.max(4, (this.height - height) / 2), width,

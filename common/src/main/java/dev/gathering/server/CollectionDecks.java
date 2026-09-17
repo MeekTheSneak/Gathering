@@ -237,11 +237,20 @@ public final class CollectionDecks {
                 }
             }
         }
-        String chosen = deckName == null || deckName.isBlank()
+        String wanted = deckName == null || deckName.isBlank()
                 ? list.deckName().orElse("Collection Deck")
-                : deckName.strip();
+                : deckName;
+        // Cleaned and cut to length, the way the two sibling paths that build the same object do.
+        // Both of these are drawn for other players - the name on the item, the description in its
+        // tooltip - and a name carrying formatting codes can recolor, hide or scramble what is drawn
+        // after it, or pass itself off as the server speaking. A decklist's own "Name:" line reaches
+        // here, so this is text one player typed and another reads. Stripping was all this did.
+        String chosen = dev.gathering.core.game.PlayerText.oneLine(
+                wanted, dev.gathering.network.ImportDecklistPayload.MAX_NAME_LENGTH);
         return new Assembled(
-                new DeckComponent(chosen, description == null ? "" : description.strip(),
+                new DeckComponent(chosen == null ? "" : chosen,
+                        dev.gathering.core.game.PlayerText.lines(description,
+                                dev.gathering.network.ImportDecklistPayload.MAX_DESCRIPTION_LENGTH),
                         Optional.of(owner), mainboard, commanders, sideboard),
                 leftBehind);
     }

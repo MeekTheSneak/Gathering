@@ -377,7 +377,15 @@ public final class CollectionView {
      */
     public static int take(ServerPlayer player, BlockPos where, CardComponent card, int howMany) {
         CollectionBlockEntity collection = at(player, where);
-        if (collection == null || card == null) {
+        if (collection == null) {
+            // Walked out of reach, or somebody broke it. Said, the way building out of the box says
+            // it: the screen has no tick and nothing closes it, so without this the grid went on
+            // showing its last page, every click played the sound that means it worked, and nothing
+            // happened for as long as the player kept trying.
+            player.sendSystemMessage(Component.translatable("message.gathering.collection_gone"));
+            return 0;
+        }
+        if (card == null) {
             return 0;
         }
         if (!collection.rights().mayTake(player.getUUID())) {

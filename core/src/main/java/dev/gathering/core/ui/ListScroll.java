@@ -33,6 +33,18 @@ public final class ListScroll {
     }
 
     /**
+     * The scroll a list can actually be at, for a window that may have changed size.
+     * <p>How many rows fit is worked out from the window, so growing the window - or dropping the
+     * GUI scale - raises it while the scroll stays where the player left it. A row loop then reads
+     * past the end of the list, which throws out of a screen's layout, which nothing catches.
+     * <p>Here rather than in each screen because there were three of them and only two clamped. The
+     * one that did not took the client down when a scrolled sharing screen was resized.
+     */
+    public static int within(int scroll, int total, int showing) {
+        return Math.max(0, Math.min(scroll, Math.max(0, total) - Math.max(0, showing)));
+    }
+
+    /**
      * Whether a list is long enough to scroll at all.
      * <p>A list that fits in its window has nothing to scroll to, and a wheel over it should be
      * left for whatever is underneath rather than swallowed.

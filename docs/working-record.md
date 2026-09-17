@@ -2847,6 +2847,48 @@ claiming a large cache costs disk and not heap.
 Verified: gate green (628/16), and **both loaders reach step 382 of 382 with zero failures**, which
 is the first time that has been true of Fabric.
 
+### Forty-sixth batch: the second review round begins (2026-09-17)
+
+The first round read about a seventh of the mod. Ten reviewers were sent over all of it, every file
+assigned to exactly one of them. Three came back before the rest hit a rate limit; this is their
+first crop.
+
+- **A resized sharing screen crashed the client.** How many rows fit is worked out from the window,
+  so growing it - or dropping the GUI scale - raised the count while the scroll stayed where the
+  player left it, and the row loop read past the end of the list, out of `Screen#init`, which nothing
+  catches. Two sibling list screens clamped for this reason and the third did not. The clamp is one
+  rule in `ListScroll` now, used by all four call sites, with a test that fails without it.
+- **The deck builder could be left with a dead Finish button.** Its outstanding request was dropped
+  on `removed`, which also fires for a detour - opening Sleeves puts a screen in front and comes back
+  to the same builder. So the answer to a Finish already in flight was thrown away, and the builder
+  returned with Finish greyed out, a full selection and nothing said, the deck having in fact been
+  built. Dropped on `onClose` now, and neither button that leaves the screen is offered while an
+  answer is owed.
+- **Taking from a collection failed silently once the box was gone.** No message, no page, and the
+  click still played the sound that means it worked - for as long as the player kept trying. It says
+  so now, the way building from the box already did.
+- **A click on the action palette's heading ran the first action in the list.** The row arithmetic
+  subtracted in doubles and cast to int, which truncates toward zero, so the band above the first row
+  read as row nought. For a seated player that is a random discard, with no gesture behind it.
+- **Walking back to a table replayed everything missed at once** - every library rattling together,
+  every pointed-at card ringing, every sound on top of the others. Only the *first* board was guarded
+  against that. A resumed watch is now told apart from the next moment by the same measure the card
+  flights beside it use.
+- **A deck built from a list into a collection skipped the text cleaning** the two sibling paths
+  apply, so a decklist's own `Name:` line reached other players raw - and a name carrying formatting
+  codes can hide what is drawn after it or pass itself off as the server speaking.
+- **Two settings the server reads were not settable.** `collection.starter_set` and
+  `starter_product` are read, consumed and documented, and were in neither the known-keys list nor
+  the default file - so the command said no such setting, they never listed, and the config reader
+  printed a note at every start saying a line the server was reading was not a setting. An operator
+  following the design brief was told twice that a working feature did not exist.
+- **Two lists were written in place** beside two that are written whole and moved, one of them in a
+  class whose own doc says it does the safe thing.
+- **Three handlers had missed the rate-limiting sweep**, including one that broadcasts to every
+  seated player per packet.
+
+Verified: gate green (628/16).
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).

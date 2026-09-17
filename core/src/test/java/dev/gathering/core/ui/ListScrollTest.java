@@ -66,4 +66,32 @@ class ListScrollTest {
         // A long list keeps a thumb to see.
         org.assertj.core.api.Assertions.assertThat(ListScroll.thumb(0, 100, 0, 5, 5000)[1]).isEqualTo(ListScroll.SHORTEST_THUMB);
     }
+
+    /**
+     * A window that grew must not leave the scroll past the end of the list.
+     * <p>How many rows fit is worked out from the window, so growing it - or dropping the GUI scale
+     * - raises the count while the scroll stays where the player left it. Three screens do this and
+     * only two clamped; the one that did not read past the end of its list inside layout, which
+     * throws out of a screen's init and takes the client down rather than being caught anywhere.
+     */
+    @Test
+    @DisplayName("a window that grew does not leave the scroll past the end")
+    void awindowThatGrewClampsTheScroll() {
+        // Eight rows, five fitting, scrolled to the deepest it can be.
+        assertThat(ListScroll.within(3, 8, 5)).isEqualTo(3);
+        // The window grows and all eight fit: there is nothing left to scroll past.
+        assertThat(ListScroll.within(3, 8, 8)).isZero();
+        // And somewhere in between it settles on the new deepest.
+        assertThat(ListScroll.within(3, 8, 7)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("nothing to show is scrolled to nought rather than to a negative")
+    void anemptyListScrollsToNought() {
+        assertThat(ListScroll.within(4, 0, 5)).isZero();
+        assertThat(ListScroll.within(0, 0, 0)).isZero();
+        assertThat(ListScroll.within(-2, 8, 3)).isZero();
+        // A window taller than the list: every row is showing, so the first one is showing.
+        assertThat(ListScroll.within(7, 3, 99)).isZero();
+    }
 }

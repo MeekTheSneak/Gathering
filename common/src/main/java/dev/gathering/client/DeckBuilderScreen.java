@@ -216,15 +216,22 @@ public final class DeckBuilderScreen extends ChildScreen {
             this.searchBox.setResponder(text -> typedAt = System.currentTimeMillis());
             addRenderableWidget(this.searchBox);
 
-            addRenderableWidget(GatheringButtons.of(footer.fromList(),
+            // Not while Finish is owed an answer. Stepping off the screen mid-request is how the
+            // answer used to go missing, and there is nothing to choose sleeves for once the deck
+            // has been handed over.
+            net.minecraft.client.gui.components.Button fromList = GatheringButtons.of(footer.fromList(),
                     Component.translatable("screen.gathering.builder.from_list"),
-                    () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
+                    () -> this.minecraft.setScreen(new DecklistImportScreen(where)));
+            fromList.active = !waiting;
+            addRenderableWidget(fromList);
             // Chosen while the deck is being built rather than after it exists, because a deck
             // handed over in somebody else's sleeves is a deck they have to go and fix.
-            addRenderableWidget(GatheringButtons.of(footer.sleeves(),
+            net.minecraft.client.gui.components.Button sleeves = GatheringButtons.of(footer.sleeves(),
                     Component.translatable("screen.gathering.deck.sleeves"),
                     () -> this.minecraft.setScreen(
-                            new SleeveScreen(sleeve, picked -> sleeve = picked, this))));
+                            new SleeveScreen(sleeve, picked -> sleeve = picked, this)));
+            sleeves.active = !waiting;
+            addRenderableWidget(sleeves);
         }
         addRenderableWidget(GatheringButtons.of(footer.cancel(),
                 Component.translatable("gui.cancel"), this::onClose));
@@ -393,10 +400,21 @@ public final class DeckBuilderScreen extends ChildScreen {
      * Drops this screen's outstanding request, which is not the same as cancelling it.
      * <p>Whatever was asked for is still being done; there is simply nowhere left to show the
      * answer once this screen has gone.
+     * <p>On {@code onClose} rather than on {@code removed}, because {@code removed} also fires for a
+     * detour: opening Sleeves or From a list puts another screen in front of this one and comes back
+     * to this same instance. Forgetting there threw away the answer to a Finish that was already in
+     * flight, and the builder came back with Finish greyed out for ever, a full selection, and
+     * nothing said - the deck having in fact been built. The only way out was Cancel.
      */
     @Override
-    public void removed() {
+    public void onClose() {
         PendingWork.forget(pressed);
+        super.onClose();
+    }
+
+    @Override
+    public void removed() {
+        ClientHoverState.clear();
         super.removed();
     }
 

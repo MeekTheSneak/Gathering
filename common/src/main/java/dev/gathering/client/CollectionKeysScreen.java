@@ -80,7 +80,7 @@ public final class CollectionKeysScreen extends Screen {
             screen.everyone = keys.everyone();
             screen.keys.clear();
             screen.keys.addAll(keys.keys());
-            screen.scroll = Math.max(0, Math.min(screen.scroll, screen.keys.size() - screen.rowsThatFit()));
+            screen.scroll = ListScroll.within(screen.scroll, screen.keys.size(), screen.rowsThatFit());
             screen.rebuildWidgets();
         }
     }
@@ -89,6 +89,11 @@ public final class CollectionKeysScreen extends Screen {
     protected void init() {
         int width = Math.min(PANEL_WIDTH, this.width - MARGIN * 2);
         int showing = rowsThatFit();
+        // Clamped here, not only where a new list arrives. How many rows fit is worked out from the
+        // window, so growing it - or dropping the GUI scale - raises the count while the scroll
+        // stays where the player left it, and the row loops below would read past the end of the
+        // list. That threw out of Screen#init, which nothing catches.
+        scroll = ListScroll.within(scroll, keys.size(), showing);
         int listed = Math.max(1, showing);
         int height = PADDING * 2 + this.font.lineHeight + GAP + ROW + GAP
                 + ROW + GAP + listed * (ROW + GAP) + GAP + ROW;
@@ -129,7 +134,7 @@ public final class CollectionKeysScreen extends Screen {
         int scrollbar = scrolls
                 ? dev.gathering.core.ui.ListScreenLayout.SCROLLBAR + dev.gathering.core.ui.ListScreenLayout.SCROLLBAR_GAP
                 : 0;
-        for (int index = 0; index < showing; index++) {
+        for (int index = 0; index < Math.min(showing, keys.size() - scroll); index++) {
             CollectionKeysPayload.Key key = keys.get(scroll + index);
             int top = listTop + index * (ROW + GAP);
             int rowEnd = panel.right() - PADDING - scrollbar;
@@ -243,7 +248,7 @@ public final class CollectionKeysScreen extends Screen {
         int scrollbar = track == Rect.NONE ? 0
                 : dev.gathering.core.ui.ListScreenLayout.SCROLLBAR + dev.gathering.core.ui.ListScreenLayout.SCROLLBAR_GAP;
         int names = panel.width() - PADDING * 2 - scrollbar - CROSS - (GAP + rightButton) * 3 - GAP;
-        for (int index = 0; index < showing; index++) {
+        for (int index = 0; index < Math.min(showing, keys.size() - scroll); index++) {
             CollectionKeysPayload.Key key = keys.get(scroll + index);
             GuiText.draw(graphics, this.font, Component.literal(key.name()), panel.x() + PADDING,
                     listTop + index * (ROW + GAP) + (ROW - this.font.lineHeight) / 2, names, TEXT);

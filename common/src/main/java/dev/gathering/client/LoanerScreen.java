@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.core.ui.ListScroll;
 import dev.gathering.network.OpenLoanersPayload;
 import dev.gathering.network.TakeLoanerPayload;
 import java.util.List;
@@ -91,7 +92,7 @@ public final class LoanerScreen extends Screen {
         int width = panelWidth() - PADDING * 2;
         int left = panelLeft() + PADDING;
         int showing = rowsThatFit();
-        this.scroll = Math.max(0, Math.min(this.scroll, names.size() - showing));
+        this.scroll = ListScroll.within(this.scroll, names.size(), showing);
 
         for (int row = 0; row < showing; row++) {
             String name = names.get(this.scroll + row);

@@ -310,6 +310,15 @@ public final class ActionPalette {
             return -1;
         }
         int top = firstRowY(font, where);
+        // Above the first row is not row nought. The subtraction is a double, so a point anywhere in
+        // the band over the first row gave a quotient between minus one and nought, which casting to
+        // int truncates toward zero - so clicking the heading, which is inside the panel and so
+        // passes the test above, ran whatever was at the top of the list. For a seated player that
+        // is the first table action, with no gesture behind it. The card menu beside this one has
+        // the same guard for the same reason.
+        if (mouseY < top) {
+            return -1;
+        }
         int index = (int) ((mouseY - top) / ROW_HEIGHT);
         int at = firstShown + index;
         return index >= 0 && index < VISIBLE_ROWS && at < showing.size() ? at : -1;

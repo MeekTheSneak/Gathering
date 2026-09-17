@@ -62,6 +62,9 @@ public final class ClientTableNews {
     /** The last log line each table had already been seen to produce. */
     private static final Map<BlockPos, Long> READ_UP_TO = new HashMap<>();
 
+    /** When each table last sent a board, so a gap can be told from one moment to the next. */
+    private static final Map<BlockPos, Long> LAST_SEEN = new HashMap<>();
+
     /** Which log keys mean what, in one table so a new line cannot be given two meanings. */
     private static final String SHUFFLED = "log.gathering.library_shuffled";
 
@@ -113,7 +116,23 @@ public final class ClientTableNews {
         boolean passed = false;
         synchronized (ClientTableNews.class) {
             Long readTo = READ_UP_TO.get(key);
+            Long lastSeen = LAST_SEEN.put(key, now);
+            // A gap means the log ran on without this client watching. A table stops pushing to
+            // anybody who walks out of range, so coming back arrives holding a board whose log has
+            // moved on - and reading all of it at once rattled every library on the table at the
+            // same instant, rang every card that had been pointed at, and played every sound one on
+            // top of another. The first board was already handled this way; a resumed one was not.
+            // The card flights beside this make the same judgement with the same measure.
+            boolean resumed = lastSeen != null
+                    && now - lastSeen > dev.gathering.core.ui.CardTravel.WORTH_COMPARING;
             long highest = readTo == null ? -1 : readTo;
+            if (resumed) {
+                for (LogEntry entry : board.log()) {
+                    highest = Math.max(highest, entry.sequence());
+                }
+                READ_UP_TO.put(key, highest);
+                return;
+            }
             for (LogEntry entry : board.log()) {
                 highest = Math.max(highest, entry.sequence());
                 if (readTo == null || entry.sequence() <= readTo || entry.undone()) {
@@ -271,6 +290,7 @@ public final class ClientTableNews {
     public static void forget(BlockPos table) {
         synchronized (ClientTableNews.class) {
             READ_UP_TO.remove(table);
+            LAST_SEEN.remove(table);
             SHAKING.keySet().removeIf(stirred -> stirred.table().equals(table));
             POINTING.keySet().removeIf(pointed -> pointed.table().equals(table));
             WAS_ACTIVE.remove(table);
@@ -281,6 +301,7 @@ public final class ClientTableNews {
     public static void clear() {
         synchronized (ClientTableNews.class) {
             READ_UP_TO.clear();
+            LAST_SEEN.clear();
             SHAKING.clear();
             POINTING.clear();
             WAS_ACTIVE.clear();

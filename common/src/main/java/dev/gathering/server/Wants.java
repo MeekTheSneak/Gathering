@@ -171,7 +171,17 @@ public final class Wants {
             List<String> lines = new java.util.ArrayList<>();
             lines.add(HEADING);
             lines.addAll(wants.lines());
-            Files.write(where, lines, StandardCharsets.UTF_8);
+            // Written whole and moved into place, the way what a server owes is written. In place, a
+            // crash or a full disk between the truncate and the flush left a list cut in half - and
+            // the reader parses whatever survived and hands back the prefix, saying nothing.
+            Path partly = where.resolveSibling(where.getFileName() + ".writing");
+            Files.write(partly, lines, StandardCharsets.UTF_8);
+            try {
+                Files.move(partly, where, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException notHere) {
+                Files.move(partly, where, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException couldNotWrite) {
             LOGGER.warn("Could not save the wants list to {}: {}", where, couldNotWrite.getMessage());
         }

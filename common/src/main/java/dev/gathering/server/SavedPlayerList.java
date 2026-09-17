@@ -101,7 +101,17 @@ final class SavedPlayerList {
                 }
             }
             if (found) {
-                Files.write(list, kept, StandardCharsets.UTF_8);
+                // Through a temporary file and a move, which is what this class's own doc says it
+                // does - and what adding to the list does. Taking somebody off wrote in place, so a
+                // crash mid-write left half a list rather than the old one.
+                Path partly = list.resolveSibling(list.getFileName() + ".writing");
+                Files.write(partly, kept, StandardCharsets.UTF_8);
+                try {
+                    Files.move(partly, list, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                            java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                } catch (java.nio.file.AtomicMoveNotSupportedException notHere) {
+                    Files.move(partly, list, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
             }
             return found;
         } catch (IOException couldNotWrite) {

@@ -215,6 +215,13 @@ public record GatheringConfig(
                 "collection.village_shop_weight",
                 "collection.current_set",
                 "collection.booster_model",
+                // Both read a few lines below and consumed by the starter boosters. They
+                // were not here, so the settings command answered "no setting called that",
+                // they never listed or completed, and the config reader printed a note at
+                // every start telling the operator that a line the server was in fact
+                // reading was not a setting this version knows.
+                "collection.starter_set",
+                "collection.starter_product",
                 "table.max_tables_loaded",
                 "table.max_cluster_tables",
                 "table.max_cards_per_session",
@@ -526,6 +533,10 @@ public record GatheringConfig(
                 # a server left alone stays current; name a set code to stay where you are.
                 current_set = "auto"
                 booster_model = "play"
+                # The two boosters a player is given the first time they finish the lesson.
+                # An empty starter_set turns the gift off.
+                starter_set = "j25"
+                starter_product = "jumpstart"
 
                 [table]
                 # Not enforced yet; the shapes and counts here are what they will be enforced at.
