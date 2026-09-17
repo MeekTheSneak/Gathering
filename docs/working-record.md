@@ -3067,14 +3067,19 @@ Chased on 2026-09-17, after the bulk-data work:
 - **The tables were a world left over from the last run.** The run makes a world of its own with a fixed
   name and Minecraft kept it between runs, so last run's tables were still standing and the scenes that
   check for room refused. The run now throws that world away before making it.
+- **The tables within one run** were the run's own, from a scene an hour earlier: the scenes work out a
+  corner from wherever the player is, and the player walks. A scene now takes away any of its own tables
+  standing in the way rather than refusing, and the run starts from a fresh world.
 - **Two views, two sizes** (block 158x72, screen 131x59, at a window of 427x240): not a regression. The
   seated view fits the whole table into what is left after the life totals (16 px) and the hand (76 px) -
   148 px of 240 - while the view on the block uses the whole window, so at a small window the seated one
   cannot be within a tenth of it without cropping. It needs the owner's call: let the board run under the
   hand when framing everything, or accept the difference at small windows.
-- **The ring when pointing** is still unexplained; the run now prints the log's last lines and the shape of
-  their arguments at that step. A card face down in a public zone is logged by marker rather than by id,
-  and `ClientTableNews.cardOf` only reads ids, which would explain it - to be confirmed from that line.
+- **The ring when pointing** was the client taking a quiet table for a rejoin. The run printed
+  `log.gathering.pinged(Seat,Card:ById)` - the line and its card were there - and the client threw the
+  news away: it read "no board for more than eight seconds" as "this log ran on without us", and a table
+  where nothing is happening sends nothing. The rule is now how much is unread rather than how long it has
+  been (`LogCatchUp`, tested): a handful of lines is news, dozens are a history to take in quietly.
 - A run where the machine's real mouse is used at the same time fails wholesale (114 failures, cascading
   from a hover that landed nowhere): the run parks the real cursor. Runs must be left alone.
 

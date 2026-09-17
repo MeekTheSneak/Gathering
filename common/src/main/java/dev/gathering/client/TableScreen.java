@@ -6718,7 +6718,9 @@ public final class TableScreen extends Screen {
         for (int at = Math.max(0, log.size() - howMany); at < log.size(); at++) {
             var entry = log.get(at);
             said.add(entry.key() + entry.args().stream()
-                    .map(arg -> arg.getClass().getSimpleName())
+                    .map(arg -> arg instanceof dev.gathering.core.game.event.LogArg.Card card
+                            ? "Card:" + card.card().getClass().getSimpleName()
+                            : arg.getClass().getSimpleName())
                     .collect(java.util.stream.Collectors.joining(",", "(", ")")));
         }
         return said;

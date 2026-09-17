@@ -6995,6 +6995,7 @@ public final class DevScene {
         int woods = dev.gathering.item.GatheringContent.WOODS.size();
         BlockPos from = where.offset(-9, 0, 5);
         BlockPos to = where.offset((woods - 1) * 4 - 8 + 3, 0, 9);
+        clearTablesWithin(server.overworld(), from, to);
         if (noTableWithin(server.overworld(), from, to)) {
             return true;
         }
@@ -7025,6 +7026,7 @@ public final class DevScene {
             fail("there was no server to stand " + what + " up on");
             return false;
         }
+        clearTablesWithin(server.overworld(), corner.offset(-1, 0, -1), corner.offset(across, 0, down));
         if (noTableWithin(server.overworld(), corner.offset(-1, 0, -1),
                 corner.offset(across, 0, down))) {
             return true;
@@ -7034,6 +7036,39 @@ public final class DevScene {
     }
 
     /** Whether the box between these two corners holds no part of any table. */
+    /**
+     * Takes away any table of this run's own standing in the way.
+     * <p>The scenes that stand tables up work out a corner as a fixed offset from wherever the player is,
+     * and the player walks, so two of them an hour apart can want the same ground. Refusing meant every
+     * later step that wanted a board failed. The run's world is its own and is made fresh each time, so
+     * what is standing there is something this run put down and is finished with.
+     *
+     * @return how many tables were taken away
+     */
+    private static int clearTablesWithin(ServerLevel level, BlockPos from, BlockPos to) {
+        MinecraftServer server = level.getServer();
+        if (!server.isSameThread()) {
+            try {
+                return server.submit(() -> clearTablesWithin(level, from, to))
+                        .get(10, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception couldNotClear) {
+                fail("could not clear the ground for a table: " + couldNotClear);
+                return 0;
+            }
+        }
+        int taken = 0;
+        for (BlockPos each : BlockPos.betweenClosed(from, to)) {
+            if (level.getBlockState(each).getBlock() instanceof TableBlock) {
+                level.removeBlock(each, false);
+                taken++;
+            }
+        }
+        if (taken > 0) {
+            System.out.println("[devscene] took away " + taken + " block(s) of this run's own tables to make room");
+        }
+        return taken;
+    }
+
     private static boolean noTableWithin(ServerLevel level, BlockPos from, BlockPos to) {
         // Walked on the server's own thread, in one go. Called from a client step, every block read
         // was a blocking trip to the server thread and back - a couple of hundred for the wood row -
