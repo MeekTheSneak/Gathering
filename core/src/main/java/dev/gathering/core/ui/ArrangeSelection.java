@@ -95,19 +95,19 @@ public final class ArrangeSelection {
     }
 
     /**
-     * Where each of these cards would go if they were tidied into rows.
-     * <p>Never moves a card that is attached to another, never returns a spot for a card that
-     * was not passed in, and returns exactly one spot per card it does place.
-     *
-     * @return the plan, in reading order; empty when there is nothing worth tidying
-     */
-    /**
      * How far down from the first card in a row another may sit and still be in it.
      * <p>A tenth of a mat, which is well under half a card on any board: close enough that
      * nobody looking would call them two rows, far enough apart that a second row never is.
      */
     private static final int ONE_ROW = TablePosition.SPAN / 10;
 
+    /**
+     * Where each of these cards would go if they were tidied into rows.
+     * <p>Never moves a card that is attached to another, never returns a spot for a card that
+     * was not passed in, and returns exactly one spot per card it does place.
+     *
+     * @return the plan, in reading order; empty when there is nothing worth tidying
+     */
     public static List<Spot> plan(List<Card> cards) {
         if (cards == null || cards.isEmpty()) {
             return List.of();
