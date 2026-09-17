@@ -65,6 +65,12 @@ public final class CreativeDecks {
         }
         ItemStack restored = real.copy();
         restored.setCount(incoming.getCount());
+        // What the deck holds now, which is the vault's to say. The copy remembered when the deck left
+        // its slot is the deck as it was then, and a card put into it while it sat on the creative
+        // cursor - a gesture the server is told about and does itself, see DeckSweeps - happened after
+        // that. Putting the remembered copy back dropped the card that had just gone in.
+        DeckVault.deckOf(player.getUUID(), handle).ifPresent(
+                now -> restored.set(GatheringComponents.DECK.get(), now));
         return withCardsAddedTo(restored, incoming);
     }
 

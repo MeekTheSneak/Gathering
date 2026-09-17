@@ -35,6 +35,10 @@ public final class Settings {
     /** Every setting this version reads, for listing and for completing a command. */
     public static List<String> names() {
         List<String> known = new ArrayList<>(GatheringConfig.knownKeys());
+        // Not the file's own version. It is a setting of the file rather than of the game - nothing
+        // reads it while playing, and a command that offered it would be offering to break the one
+        // thing that brings an old file up to date.
+        known.remove(dev.gathering.core.config.SettingsUpgrade.VERSION_KEY);
         java.util.Collections.sort(known);
         return List.copyOf(known);
     }

@@ -110,6 +110,70 @@ public final class CreativeDeckGameTest {
         helper.succeed();
     }
 
+    /**
+     * The whole gesture as it really happens, both ways round, with the tick that repairs a deck running
+     * afterwards: pick the deck up, right-click a card onto it, and the creative inventory sends the two
+     * slots it changed in whichever order it changed them.
+     */
+    @GameTest(template = "empty")
+    public static void thecardSurvivesWhicheverSlotIsSentFirst(GameTestHelper helper) {
+        for (boolean deckFirst : new boolean[] {true, false}) {
+            var player = helper.makeMockServerPlayerInLevel();
+            player.setGameMode(GameType.CREATIVE);
+            DeckComponent deck = new DeckComponent("Creative", "", Optional.of(player.getUUID()),
+                    List.of(card(1), card(2)), List.of(), List.of());
+            ItemStack real = DeckItem.of(deck);
+            player.getInventory().setItem(0, real);
+            CardComponent putIn = card(9);
+            player.getInventory().setItem(1, dev.gathering.item.CardItem.of(putIn));
+            // A tick first, the way a deck in somebody's hand is ticked: that is where a deck is given
+            // its handle and where the vault first hears about it.
+            real.inventoryTick(helper.getLevel(), player, 0, true);
+
+            ItemStack held = asAClientSeesIt(helper, player.getInventory().getItem(0));
+            DeckComponent hidden = DeckItem.deckOf(held).orElseThrow();
+            List<CardComponent> withTheCard = new java.util.ArrayList<>(hidden.entries());
+            withTheCard.add(putIn);
+            held.set(dev.gathering.registry.GatheringComponents.DECK.get(),
+                    new DeckComponent(hidden.name(), hidden.description(), hidden.owner(), withTheCard,
+                            hidden.commanders(), hidden.sideboard(), hidden.color(), hidden.sleeve(), hidden.stories()));
+
+            if (deckFirst) {
+                player.connection.handleSetCreativeModeSlot(new ServerboundSetCreativeModeSlotPacket(36, held));
+                player.connection.handleSetCreativeModeSlot(new ServerboundSetCreativeModeSlotPacket(37, ItemStack.EMPTY));
+            } else {
+                player.connection.handleSetCreativeModeSlot(new ServerboundSetCreativeModeSlotPacket(37, ItemStack.EMPTY));
+                player.connection.handleSetCreativeModeSlot(new ServerboundSetCreativeModeSlotPacket(36, held));
+            }
+            // And the ticks that follow, which is where a deck is put back together.
+            ItemStack landed = player.getInventory().getItem(0);
+            for (int tick = 0; tick < 3; tick++) {
+                landed.inventoryTick(helper.getLevel(), player, 0, true);
+            }
+
+            DeckComponent after = DeckItem.deckOf(landed).orElse(null);
+            String order = deckFirst ? "deck slot first" : "card slot first";
+            if (after == null) {
+                helper.fail(order + ": the deck itself is gone");
+                return;
+            }
+            if (!after.entries().contains(putIn)) {
+                helper.fail(order + ": the card put in is not in the deck afterwards: " + after.entries());
+                return;
+            }
+            if (!after.entries().containsAll(deck.entries())) {
+                helper.fail(order + ": the deck lost the cards it already had: " + after.entries());
+                return;
+            }
+            if (after.entries().stream().filter(putIn::equals).count() != 1) {
+                helper.fail(order + ": the card went in " + after.entries().stream().filter(putIn::equals).count()
+                        + " times");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
     /** One stack through the network codec, which is how a client comes by its copy. */
     private static ItemStack asAClientSeesIt(GameTestHelper helper, ItemStack stack) {
         var buffer = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), helper.getLevel().registryAccess());

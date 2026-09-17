@@ -40,7 +40,7 @@ public final class DeckSweepGameTest {
         player.getInventory().setItem(1, CardItem.of(card(2)));
         player.getInventory().setItem(2, new ItemStack(net.minecraft.world.item.Items.DIRT));
 
-        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
+        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId, Optional.empty(),
                 List.of(InventorySlots.inTheirOwnMenu(0), InventorySlots.inTheirOwnMenu(1),
                         InventorySlots.inTheirOwnMenu(2))));
 
@@ -67,7 +67,7 @@ public final class DeckSweepGameTest {
         player.inventoryMenu.setCarried(new ItemStack(net.minecraft.world.item.Items.DIRT));
         player.getInventory().setItem(0, CardItem.of(card(3)));
 
-        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
+        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId, Optional.empty(),
                 List.of(InventorySlots.inTheirOwnMenu(0))));
 
         if (player.getInventory().getItem(0).isEmpty()) {
@@ -85,11 +85,61 @@ public final class DeckSweepGameTest {
                 List.of(), List.of(), List.of())));
         player.getInventory().setItem(0, CardItem.of(card(4)));
 
-        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId + 7,
+        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId + 7, Optional.empty(),
                 List.of(InventorySlots.inTheirOwnMenu(0))));
 
         if (player.getInventory().getItem(0).isEmpty()) {
             helper.fail("a sweep naming another menu moved a card out of this one");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The creative inventory's cursor is the client's alone, so the client names the deck and the server
+     * uses the one it kept. A card right-clicked into a deck held there used to be destroyed: the copy the
+     * client sent back had the card hidden by the wire, and the slot it came from arrived empty.
+     */
+    @GameTest(template = "empty")
+    public static void adeckOnTheCreativeCursorTakesTheCard(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        UUID handle = UUID.randomUUID();
+        DeckComponent deck = new DeckComponent("Creative", "", Optional.of(player.getUUID()),
+                List.of(card(5)), List.of(), List.of());
+        dev.gathering.server.DeckVault.remember(player.getUUID(), handle, deck);
+        player.getInventory().setItem(0, CardItem.of(card(6)));
+
+        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
+
+        var kept = dev.gathering.server.DeckVault.deckOf(player.getUUID(), handle).orElse(null);
+        if (kept == null || !kept.entries().contains(card(6)) || !kept.entries().contains(card(5))) {
+            helper.fail("the deck on the creative cursor holds " + (kept == null ? "nothing" : kept.entries()));
+            return;
+        }
+        if (!player.getInventory().getItem(0).isEmpty()) {
+            helper.fail("the card is still in the inventory as well as in the deck");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** And nobody who is not in creative can name a deck they are not holding. */
+    @GameTest(template = "empty")
+    public static void namingaDeckOnlyWorksInCreative(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        UUID handle = UUID.randomUUID();
+        dev.gathering.server.DeckVault.remember(player.getUUID(), handle,
+                new DeckComponent("Survival", "", Optional.of(player.getUUID()), List.of(card(7)), List.of(), List.of()));
+        player.getInventory().setItem(0, CardItem.of(card(8)));
+
+        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(0))));
+
+        if (player.getInventory().getItem(0).isEmpty()) {
+            helper.fail("a player who is not in creative took a card into a deck they were not holding");
             return;
         }
         helper.succeed();

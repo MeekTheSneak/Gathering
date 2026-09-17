@@ -47,10 +47,14 @@ public final class GatheringVillagers {
      * anybody would recognize. Searched from a block away, like every other workstation.
      */
     public static PoiType createCounterPoi() {
-        return new PoiType(
-                ImmutableSet.copyOf(
-                        GatheringContent.SHOP_COUNTER.get().getStateDefinition().getPossibleStates()),
-                1, 1);
+        // Every counter, in every wood. It used to be the plain dark oak one alone, so a shop built out of
+        // spruce or birch was a shop no villager would ever take a job at - and nothing said why, because
+        // the block is the same block in every other respect.
+        ImmutableSet.Builder<net.minecraft.world.level.block.state.BlockState> counters = ImmutableSet.builder();
+        for (var counter : GatheringContent.allOf(GatheringContent.Woodwork.SHOP_COUNTER)) {
+            counters.addAll(counter.get().getStateDefinition().getPossibleStates());
+        }
+        return new PoiType(counters.build(), 1, 1);
     }
 
     /**

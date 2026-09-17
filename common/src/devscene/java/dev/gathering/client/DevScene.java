@@ -188,7 +188,10 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 386;
+    private static final int LAST_STEP = 390;
+
+    /** The first step that needs no table, seat or game: everything from here makes what it needs. */
+    private static final int FIRST_STEP_WITHOUT_A_BOARD = 386;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -324,7 +327,11 @@ public final class DevScene {
             // after the wait the jump set, so the run says -PdevsceneFrom in one line rather
             // than three hundred lines about a board that is not there.
             afterTheJump = false;
-            if (table == null || ClientTableState.viewOf(table).isEmpty()) {
+            // Except the steps that need nothing but a world. The creative-menu steps at the end make
+            // their own deck and their own card, and a jump straight to them is how the card a deck
+            // destroyed was chased down - refusing that jump made the shortest way to it a twenty-minute run.
+            if (step < FIRST_STEP_WITHOUT_A_BOARD
+                    && (table == null || ClientTableState.viewOf(table).isEmpty())) {
                 fail("-PdevsceneFrom=" + skippedTo + " skipped the steps that sit down, choose"
                         + " a format, import a deck and start the game, so there is no board"
                         + " for the steps after it; run from a step before 9");
@@ -4515,6 +4522,30 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 386 -> {
+                // A card put into a deck in the creative menu, the way the owner does it: the deck comes
+                // onto the cursor, a card is right-clicked into it, and the deck goes back down. The
+                // creative menu sends slots and never the cursor, so what the server ends up holding is
+                // the whole question - it deleted the card twice before this step existed.
+                client.setScreen(null);
+                aDeckAndACardInTheHotbar(client);
+                advance(SETTLE);
+            }
+            case 387 -> {
+                openTheCreativeInventory(client);
+                advance(SETTLE / 2);
+            }
+            case 388 -> {
+                cardsIntoTheDeckOnTheCursor(client);
+                advance(SETTLE);
+            }
+            case 389 -> {
+                theServerKeptTheCard(client);
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                advance(SETTLE / 2);
+            }
+            case 390 -> {
                 if (client.screen != null) {
                     client.screen.onClose();
                 }
@@ -6662,6 +6693,118 @@ public final class DevScene {
 
     /** How long the run has waited for the cards to start turning after the top came off. */
     private static int waitedForTheCards;
+
+
+    /** A deck of two cards in the first hotbar slot and a loose card in the second, made by the server. */
+    private static void aDeckAndACardInTheHotbar(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to make a deck on");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        onTheServer(server, player -> {
+            player.getInventory().clearContent();
+            dev.gathering.item.CardComponent first = dev.gathering.item.CardComponent.of(
+                    dev.gathering.core.card.CardIdentity.ofPrinting(new java.util.UUID(81L, 1L)));
+            dev.gathering.item.CardComponent second = dev.gathering.item.CardComponent.of(
+                    dev.gathering.core.card.CardIdentity.ofPrinting(new java.util.UUID(81L, 2L)));
+            dev.gathering.item.DeckComponent deck = new dev.gathering.item.DeckComponent(
+                    "Creative", "", java.util.Optional.of(who),
+                    java.util.List.of(first), java.util.List.of(), java.util.List.of());
+            player.getInventory().setItem(0, dev.gathering.item.DeckItem.of(deck));
+            player.getInventory().setItem(1, dev.gathering.item.CardItem.of(second));
+            player.inventoryMenu.broadcastChanges();
+        });
+    }
+
+    /** The creative menu, on the tab that shows the player's own pockets. */
+    private static void openTheCreativeInventory(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player to open the creative menu for");
+            return;
+        }
+        var creative = new net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen(
+                client.player, client.player.connection.enabledFeatures(), false);
+        client.setScreen(creative);
+        try {
+            var select = net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class
+                    .getDeclaredMethod("selectTab", net.minecraft.world.item.CreativeModeTab.class);
+            select.setAccessible(true);
+            select.invoke(creative, net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB
+                    .getOrThrow(net.minecraft.world.item.CreativeModeTabs.INVENTORY));
+        } catch (ReflectiveOperationException couldNotSelect) {
+            fail("could not open the creative menu's inventory: " + couldNotSelect);
+        }
+    }
+
+    /**
+     * Picks the deck up and right-clicks the card into it, through the screen's own clicks - which is
+     * what a player's mouse reaches - and then puts the deck back in its slot.
+     */
+    private static void cardsIntoTheDeckOnTheCursor(Minecraft client) {
+        if (!(client.screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen creative)) {
+            fail("the creative menu was not open to put a card into a deck");
+            return;
+        }
+        try {
+            var click = net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class
+                    .getDeclaredMethod("slotClicked", net.minecraft.world.inventory.Slot.class, int.class, int.class,
+                            net.minecraft.world.inventory.ClickType.class);
+            click.setAccessible(true);
+            var slots = creative.getMenu().slots;
+            // Hotbar slots as the creative menu numbers them: the deck, then the card beside it.
+            click.invoke(creative, slots.get(36), 36, 0, net.minecraft.world.inventory.ClickType.PICKUP);
+            click.invoke(creative, slots.get(37), 37, 1, net.minecraft.world.inventory.ClickType.PICKUP);
+            click.invoke(creative, slots.get(36), 36, 0, net.minecraft.world.inventory.ClickType.PICKUP);
+            System.out.println("[devscene] in the creative menu: deck up, card right-clicked in, deck down");
+        } catch (ReflectiveOperationException couldNotClick) {
+            fail("could not click in the creative menu: " + couldNotClick);
+        }
+    }
+
+    /** What the server is holding afterwards, which is the only copy that counts. */
+    private static void theServerKeptTheCard(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to ask what it kept");
+            return;
+        }
+        onTheServer(server, player -> {
+            var deck = dev.gathering.item.DeckItem.deckOf(player.getInventory().getItem(0)).orElse(null);
+            long loose = 0;
+            for (var stack : player.getInventory().items) {
+                if (stack.getItem() instanceof dev.gathering.item.CardItem) {
+                    loose += stack.getCount();
+                }
+            }
+            System.out.println("[devscene] after putting a card into a deck in the creative menu: deck holds "
+                    + (deck == null ? "no deck" : deck.entries().size() + " " + deck.entries())
+                    + ", loose cards " + loose);
+            if (deck == null) {
+                fail("the deck itself is gone from the creative menu");
+                return;
+            }
+            if (deck.entries().size() != 2 || loose != 0) {
+                fail("a card right-clicked into a deck in the creative menu left the deck with "
+                        + deck.entries().size() + " card(s) and " + loose + " loose: the card was destroyed");
+            }
+        });
+    }
+
+    /** Runs something on the server thread with this client's own player, and waits for it. */
+    private static void onTheServer(MinecraftServer server, java.util.function.Consumer<net.minecraft.server.level.ServerPlayer> what) {
+        try {
+            server.submit(() -> {
+                var player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+                if (player != null) {
+                    what.accept(player);
+                }
+            }).get(5, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception couldNotAsk) {
+            fail("could not ask the server: " + couldNotAsk);
+        }
+    }
 
     /** Where the collection block is, once it has been put down. */
     private static BlockPos collectionBlock;

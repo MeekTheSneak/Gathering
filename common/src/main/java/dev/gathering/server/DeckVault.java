@@ -54,6 +54,16 @@ public final class DeckVault {
         }).put(handle, deck);
     }
 
+    /**
+     * The deck this player's vault holds under that handle, if it holds one.
+     * <p>For the one gesture the server cannot see for itself: a deck on the cursor of a creative
+     * inventory, which is the client's alone. Their own decks only - the vault is per player.
+     */
+    public static Optional<DeckComponent> deckOf(UUID player, UUID handle) {
+        LinkedHashMap<UUID, DeckComponent> theirs = player == null ? null : KEPT.get(player);
+        return Optional.ofNullable(theirs == null || handle == null ? null : theirs.get(handle));
+    }
+
     /** Everything this player's vault knows, for a test to read. */
     public static java.util.Set<UUID> handlesFor(UUID player) {
         LinkedHashMap<UUID, DeckComponent> theirs = KEPT.get(player);

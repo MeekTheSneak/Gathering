@@ -120,6 +120,33 @@ public final class ServerSettings {
         active = GatheringConfig.defaults();
     }
 
+    /**
+     * The settings file brought up to this version, where it was written for an older one.
+     * <p>A settings file is written once and kept, so a default this project changes afterwards never
+     * reaches a server that has played a session: the owner's shop went on asking for emeralds and his
+     * villages went on hardly building a shop, both because his file still said what it said the day it
+     * was written. Only values still sitting at the old default are moved, and every one is said out
+     * loud - see {@link dev.gathering.core.config.SettingsUpgrade}.
+     */
+    private static String upgraded(Path file, String text) throws IOException {
+        int was = dev.gathering.core.config.SettingsUpgrade.versionOf(text);
+        if (was >= dev.gathering.core.config.SettingsUpgrade.VERSION) {
+            return text;
+        }
+        var upgrade = dev.gathering.core.config.SettingsUpgrade.upgrade(text, was);
+        Files.writeString(file, upgrade.text(), StandardCharsets.UTF_8);
+        if (upgrade.changed().isEmpty()) {
+            LOGGER.info("{} was written for an older version of these settings; nothing in it had to move",
+                    FILE_NAME);
+        } else {
+            for (String moved : upgrade.changed()) {
+                LOGGER.warn("{}: {} was still this version's predecessor's default, so it was brought up to "
+                        + "date: {}", FILE_NAME, moved.substring(0, moved.indexOf(' ')), moved);
+            }
+        }
+        return upgrade.text();
+    }
+
     private static GatheringConfig readOrDefault(Path file) {
         String text;
         try {
@@ -129,6 +156,7 @@ public final class ServerSettings {
                 LOGGER.info("Wrote a fresh {} with everything explained in it", FILE_NAME);
             }
             text = Files.readString(file, StandardCharsets.UTF_8);
+            text = upgraded(file, text);
         } catch (IOException couldNotRead) {
             LOGGER.error("Could not read {}, so this server is running on the defaults: {}",
                     FILE_NAME, couldNotRead.getMessage());

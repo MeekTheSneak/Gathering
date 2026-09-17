@@ -18,6 +18,7 @@ public abstract class ContainerSweepMixin implements DeckSweep.Sweepable {
     @Shadow
     protected Slot hoveredSlot;
 
+
     @Shadow
     protected boolean isQuickCrafting;
 
@@ -34,6 +35,11 @@ public abstract class ContainerSweepMixin implements DeckSweep.Sweepable {
     }
 
     @Override
+    public boolean gathering$isTheCreativeInventory() {
+        return (AbstractContainerScreen<?>) (Object) this instanceof CreativeModeInventoryScreen;
+    }
+
+    @Override
     public int gathering$serverContainerId() {
         // The creative inventory's own menu is the client's alone; the slots in its inventory tab stand
         // for the player's own menu, which is the one the server has.
@@ -46,10 +52,11 @@ public abstract class ContainerSweepMixin implements DeckSweep.Sweepable {
 
     @Override
     public int gathering$serverSlotId(Slot slot) {
-        // Its slots stand in front of the player's own and are numbered differently, so the place in the
-        // inventory is what both sides can agree on.
+        // Its slots stand in front of the player's own, and each one says which of those it stands for:
+        // that is what its container slot is here, not a place in the inventory. Vanilla reads the same
+        // number out of the wrapper before it clicks.
         return (AbstractContainerScreen<?>) (Object) this instanceof CreativeModeInventoryScreen
-                ? dev.gathering.core.ui.InventorySlots.inTheirOwnMenu(slot.getContainerSlot())
+                ? slot.getContainerSlot()
                 : slot.index;
     }
 

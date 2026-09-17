@@ -239,6 +239,8 @@ public record GatheringConfig(
     /** Every setting name this understands, so a typo in the file can be spotted. */
     public static Set<String> knownKeys() {
         return new LinkedHashSet<>(List.of(
+                // Which version of the settings this file was written for; see SettingsUpgrade.
+                SettingsUpgrade.VERSION_KEY,
                 "modes.import_enabled",
                 "modes.collection_enabled",
                 "modes.replays",
@@ -322,8 +324,8 @@ public record GatheringConfig(
                         clamped(toml.number("collection.sealed_price_booster", 1), 1, 512,
                                 "collection.sealed_price_booster", notes), 1, notes),
                 noted("collection.sealed_rotation_hours",
-                        clamped(toml.number("collection.sealed_rotation_hours", 4), 1, 24 * 7,
-                                "collection.sealed_rotation_hours", notes), 4, notes),
+                        clamped(toml.number("collection.sealed_rotation_hours", 1), 1, 24 * 7,
+                                "collection.sealed_rotation_hours", notes), 1, notes),
                 noted("collection.village_shop_weight",
                         clamped(toml.number("collection.village_shop_weight", 20), 0, 64,
                                 "collection.village_shop_weight", notes), 20, notes),
@@ -515,6 +517,13 @@ public record GatheringConfig(
                 # rather not have packs about at all.
                 #
                 # Delete this file to get it back with the defaults.
+                #
+                # Which version of these settings this file was written for. A default that changes
+                # afterwards is brought up to date here, but only where the value is still the old
+                # default - anything set on purpose is left exactly as it is.
+
+                [settings]
+                version = 2
 
                 [modes]
                 import_enabled = true
@@ -596,8 +605,10 @@ public record GatheringConfig(
                 sealed_price_booster = 1
                 # How often the shelf turns over, in hours of a running server. Every card shop
                 # in the world stocks the same thing at the same time and moves on together, so
-                # what is on the counter this evening is not what was there this morning.
-                sealed_rotation_hours = 4
+                # what is on the counter after lunch is not what was there before it. Four hours
+                # meant a session saw one shelf and never watched it move, which read as a shop
+                # whose stock never changed at all.
+                sealed_rotation_hours = 1
                 # How often a card shop turns up among a village's buildings, weighed against
                 # the eighty-seven the plains pool already holds. Twenty is about nine villages
                 # in ten, which is what "villages have a card shop" should mean; it was eight,

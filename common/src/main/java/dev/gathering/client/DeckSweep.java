@@ -31,6 +31,9 @@ public final class DeckSweep {
         /** The slot under the cursor, or null. */
         Slot gathering$hovered();
 
+        /** Whether this is the creative inventory, which keeps its cursor and its clicks to itself. */
+        boolean gathering$isTheCreativeInventory();
+
         /** Which menu this screen's slots belong to on the server, and how they are numbered there. */
         int gathering$serverContainerId();
 
@@ -83,9 +86,30 @@ public final class DeckSweep {
                 swept.add(sweepable.gathering$serverSlotId(slots.get(index)));
             }
             ClientNetworking.send(new dev.gathering.network.DeckSweepPayload(
-                    sweepable.gathering$serverContainerId(), swept));
+                    sweepable.gathering$serverContainerId(), DeckItem.handleOf(screen.getMenu().getCarried()), swept));
         }
         return step.ours();
+    }
+
+    /**
+     * One right-click of a deck onto a card, in the creative inventory only.
+     * <p>Everywhere else the click reaches the server as an ordinary container click and the server does
+     * the work on its own stacks. The creative inventory does not: it clicks on the client and sends the
+     * slots afterwards, and a deck crosses the wire with its cards hidden - so the card the client put in
+     * arrived as a stand-in and the card itself, taken out of its slot in the same breath, was destroyed.
+     * The gesture is sent instead, and the server does it.
+     *
+     * @return whether the click was sent, and so must not also be done here
+     */
+    public static boolean clickedInCreative(AbstractContainerScreen<?> screen, Slot slot, int button) {
+        if (button != 1 || !(screen instanceof Sweepable sweepable) || !sweepable.gathering$isTheCreativeInventory()
+                || slot == null || !carryingADeck(screen) || !takes(screen, slot)) {
+            return false;
+        }
+        ClientNetworking.send(new dev.gathering.network.DeckSweepPayload(
+                sweepable.gathering$serverContainerId(), DeckItem.handleOf(screen.getMenu().getCarried()),
+                java.util.List.of(sweepable.gathering$serverSlotId(slot))));
+        return true;
     }
 
     /** The button coming up, which ends any sweep. */

@@ -3357,3 +3357,35 @@ OWED list is the way to name art that is promised but not drawn.
 The scripted run after the whole list: 387 of 387, one failure - the two views' framing, which the
 owner has left alone for now.
 
+## 2026-09-17: the card a deck really was destroying
+
+The owner reported it twice, and the first fix missed it. Chased with a step of the scripted run
+(386-390: a deck and a card in the hotbar, the creative menu, the deck picked up, the card right-clicked
+into it, the deck put back, and then the *server's* inventory read) - which reproduced it at once and is
+now the guard.
+
+**What was happening.** The creative inventory does its clicks on the client and sends the slots it
+changed afterwards. A deck crosses the wire with its cards hidden - and `DeckComponent`'s public codec
+hides them in *both* directions, so the card the client put in came back to the server as a stand-in,
+while the slot the card came from arrived empty in the same breath. The card was destroyed by being put
+into a deck. Nothing in the server ever saw the real card, which is why keeping "what the client added"
+could not work.
+
+**The fix.** The gesture is told to the server, which does it against its own copy: `DeckSweepPayload`
+now carries the deck's handle for the one case where the server cannot see the cursor - the creative
+inventory keeps it to itself - and `DeckSweeps` inserts from the named slots into the deck the vault
+holds under that handle, for a player who is actually in creative. `CreativeDecks` then restores a
+hidden copy from the vault rather than from the stack it remembered when the deck left its slot, which
+is the deck as it was before the card went in.
+
+Two things this turned up on the way: the sweep's mixin was never registered in either loader's
+`gathering.mixins.json` - lost in a merge - so sweeping a deck over cards did nothing at all; and the
+creative screen overrides `slotClicked` without calling the one the ordinary container screen has, so a
+hook there never fires. Both fixed, with the click hook on the creative screen itself.
+
+**Also from the owner's playtest:** every wooden shop counter is a shopkeeper's job site, not only the
+dark oak one; a settings file written by an older version is brought up to date where a value is still
+the old default (`SettingsUpgrade`, tested) - which is why his shop still wanted emeralds and his
+villages still hardly built a shop; and the shelf turns over every hour rather than every four, so a
+session sees it move.
+
