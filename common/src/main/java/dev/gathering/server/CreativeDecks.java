@@ -1,11 +1,13 @@
 package dev.gathering.server;
 
 import dev.gathering.item.CardComponent;
+import dev.gathering.item.DeckComponent;
 import dev.gathering.item.DeckItem;
 import dev.gathering.item.DraftedPool;
 import dev.gathering.registry.GatheringComponents;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
@@ -63,6 +65,42 @@ public final class CreativeDecks {
         }
         ItemStack restored = real.copy();
         restored.setCount(incoming.getCount());
+        return withCardsAddedTo(restored, incoming);
+    }
+
+    /**
+     * The server's own deck, plus whatever real cards the client put into its hidden copy.
+     * <p>A creative player holding a deck and right-clicking a card puts the card in on their own
+     * screen - the creative inventory does its clicks locally and sends the slots afterwards - and the
+     * copy they are holding has the deck's own cards hidden. Restoring the server's deck whole then
+     * threw the new card away, and the slot it came from arrived empty in the same breath: the card was
+     * destroyed by putting it in a deck, which the owner found at once.
+     * <p>A card in the hidden copy that is not a stand-in was put there by the player, so it is added to
+     * the real deck rather than dropped. Nothing else of the copy is trusted.
+     */
+    private static ItemStack withCardsAddedTo(ItemStack restored, ItemStack incoming) {
+        DeckComponent theirs = DeckItem.deckOf(incoming).orElse(null);
+        DeckComponent mine = DeckItem.deckOf(restored).orElse(null);
+        if (theirs == null || mine == null) {
+            return restored;
+        }
+        List<CardComponent> put = theirs.entries().stream().filter(card -> !card.isHidden()).toList();
+        List<CardComponent> putAside = theirs.sideboard().stream().filter(card -> !card.isHidden()).toList();
+        if (put.isEmpty() && putAside.isEmpty()) {
+            return restored;
+        }
+        List<CardComponent> entries = new java.util.ArrayList<>(mine.entries());
+        entries.addAll(put);
+        List<CardComponent> sideboard = new java.util.ArrayList<>(mine.sideboard());
+        sideboard.addAll(putAside);
+        if (entries.size() + sideboard.size() > DeckComponent.MAX_CARDS) {
+            // A deck cannot hold more than this, and a creative menu is not the place to find out
+            // sideways. What the server had stands, and the card stays where it was.
+            return restored;
+        }
+        restored.set(dev.gathering.registry.GatheringComponents.DECK.get(),
+                new DeckComponent(mine.name(), mine.description(), mine.owner(), entries, mine.commanders(),
+                        sideboard, mine.color(), mine.sleeve(), mine.stories(), mine.loaner()));
         return restored;
     }
 

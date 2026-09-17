@@ -24,6 +24,19 @@ import pathlib
 import re
 import sys
 
+#: Where a check never looks: a helper's copy of the repository.
+#: Work is sometimes done in a git worktree under .claude/worktrees, which is a second checkout of this
+#: same project sitting inside it. Walking the tree found both copies, so a file being written in one of
+#: them failed the checks of the other - a lang key from a worktree, missing from the real lang file.
+NOT_THIS_REPOSITORY = ("/.claude/", "\\.claude\\")
+
+
+def ours(path):
+    """Whether a path is this checkout's own, rather than a worktree's inside it."""
+    said = str(path).replace("\\", "/")
+    return "/.claude/" not in said
+
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 SIDES = {
@@ -70,6 +83,8 @@ def holders(side):
         # Every package under it, not only the top one: server/events holds a tournament's whole
         # world, and a holder there with a clear() nobody called would have passed unread.
         for path in sorted((ROOT / folder).rglob("*.java")):
+            if not ours(path):
+                continue
             if CLEARS.search(path.read_text(encoding="utf-8")):
                 found.add(path.stem)
     return found
@@ -91,6 +106,8 @@ def unclearable(side):
     found = []
     for folder in SIDES[side]["holders"]:
         for path in sorted((ROOT / folder).rglob("*.java")):
+            if not ours(path):
+                continue
             text = path.read_text(encoding="utf-8")
             if CLEARS.search(text):
                 continue
@@ -137,6 +154,8 @@ def main():
     for folder in LOADERS:
         called = set()
         for path in (ROOT / folder).rglob("*.java"):
+            if not ours(path):
+                continue
             text = path.read_text(encoding="utf-8")
             for side, call in (("client", "ClientState.forgetTheServer()"),
                                ("server", "ServerState.forgetTheWorld()")):

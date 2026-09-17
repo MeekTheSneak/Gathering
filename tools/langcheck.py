@@ -20,6 +20,19 @@ import pathlib
 import re
 import sys
 
+#: Where a check never looks: a helper's copy of the repository.
+#: Work is sometimes done in a git worktree under .claude/worktrees, which is a second checkout of this
+#: same project sitting inside it. Walking the tree found both copies, so a file being written in one of
+#: them failed the checks of the other - a lang key from a worktree, missing from the real lang file.
+NOT_THIS_REPOSITORY = ("/.claude/", "\\.claude\\")
+
+
+def ours(path):
+    """Whether a path is this checkout's own, rather than a worktree's inside it."""
+    said = str(path).replace("\\", "/")
+    return "/.claude/" not in said
+
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LANG = ROOT / "common/src/main/resources/assets/gathering/lang/en_us.json"
 SOUNDS = ROOT / "common/src/main/resources/assets/gathering/sounds.json"
@@ -82,6 +95,8 @@ SPLICED = re.compile(
 
 def sources():
     for path in ROOT.rglob("*.java"):
+        if not ours(path):
+            continue
         text = path.as_posix()
         if "/build/" in text or "/src/test/" in text:
             continue
@@ -191,6 +206,8 @@ def translatedInData():
         return {}
     named = {}
     for file in sorted(DATA.rglob("*.json")):
+        if not ours(file):
+            continue
         text = file.read_text(encoding="utf-8")
         for key in TRANSLATED.findall(text):
             named.setdefault(key, file.relative_to(ROOT).as_posix())

@@ -24,6 +24,19 @@ import hashlib
 import os
 import sys
 
+#: Where a check never looks: a helper's copy of the repository.
+#: Work is sometimes done in a git worktree under .claude/worktrees, which is a second checkout of this
+#: same project sitting inside it. Walking the tree found both copies, so a file being written in one of
+#: them failed the checks of the other - a lang key from a worktree, missing from the real lang file.
+NOT_THIS_REPOSITORY = ("/.claude/", "\\.claude\\")
+
+
+def ours(path):
+    """Whether a path is this checkout's own, rather than a worktree's inside it."""
+    said = str(path).replace("\\", "/")
+    return "/.claude/" not in said
+
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIST = os.path.join(ROOT, "docs", "art-hashes.txt")
 
@@ -34,13 +47,14 @@ SUFFIXES = (".png", ".mcmeta", ".ogg", ".wav")
 #: Run directories, whose pictures are output rather than art. Both spellings: the scripted client writes to
 #: neoforge/run, and the runs against another mod's jars to neoforge/runs/<name>. Signing those in put sixteen
 #: screenshots on the list, which the next clone would report as missing.
-SKIP = ("/build/", "/.git/", "/neoforge/run/", "/neoforge/runs/", "/fabric/run/", "/fabric/runs/", "/.gradle/")
+SKIP = ("/build/", "/.git/", "/neoforge/run/", "/neoforge/runs/", "/fabric/run/", "/fabric/runs/", "/.gradle/",
+        "/.claude/")
 
 
 def art():
     found = {}
     for where, folders, files in os.walk(ROOT):
-        folders[:] = [f for f in folders if f not in (".git", "build", ".gradle", "run")]
+        folders[:] = [f for f in folders if f not in (".git", "build", ".gradle", "run", ".claude")]
         for name in files:
             if not name.endswith(SUFFIXES):
                 continue

@@ -13,11 +13,14 @@ import net.minecraft.world.item.ItemStack;
  * right-clicks each one, but only for the vanilla bundle, so a deck dragged over a row of cards did
  * nothing - and a drag that crossed an empty slot dropped the deck into it. Done here, for every
  * inventory screen, with Mouse Tweaks or without it.
- * <p>Nothing new reaches the server: each card is one ordinary right-click of the deck on its slot,
- * the same click a player makes by hand, and the server inserts it as it always has. What this adds
- * is only which slots are clicked. Once a sweep has started, the rest of the drag is the sweep's -
- * vanilla's own right-drag, which would spread the deck over empty slots, and the release click,
- * which would drop it in the last slot swept, are both stood down.
+ * <p>What the cursor crossed is sent to the server, which puts each card in through the same method a
+ * single right-click uses; the client changes nothing itself. It used to click each slot on the client
+ * instead, which the creative inventory answers by doing the work locally and sending the slots back -
+ * and the copy of a deck a client holds has its cards hidden, so the card went into a copy the server
+ * then threw away while its own slot arrived empty. That destroyed the card.
+ * <p>Once a sweep has started, the rest of the drag is the sweep's - vanilla's own right-drag, which
+ * would spread the deck over empty slots, and the release click, which would drop it in the last slot
+ * swept, are both stood down.
  * <p>Client-only.
  */
 public final class DeckSweep {
@@ -28,8 +31,11 @@ public final class DeckSweep {
         /** The slot under the cursor, or null. */
         Slot gathering$hovered();
 
-        /** One ordinary right-click on a slot, as the screen would send it. */
-        void gathering$rightClick(Slot slot);
+        /** Which menu this screen's slots belong to on the server, and how they are numbered there. */
+        int gathering$serverContainerId();
+
+        /** That slot's number on the server, which the creative inventory renumbers. */
+        int gathering$serverSlotId(Slot slot);
 
         /** Stands vanilla's own right-drag down and swallows the release that ends it. */
         void gathering$standDownTheDrag();
@@ -71,8 +77,13 @@ public final class DeckSweep {
         if (step.standDown()) {
             sweepable.gathering$standDownTheDrag();
         }
-        for (int index : step.clicks()) {
-            sweepable.gathering$rightClick(slots.get(index));
+        if (!step.clicks().isEmpty()) {
+            java.util.List<Integer> swept = new java.util.ArrayList<>(step.clicks().size());
+            for (int index : step.clicks()) {
+                swept.add(sweepable.gathering$serverSlotId(slots.get(index)));
+            }
+            ClientNetworking.send(new dev.gathering.network.DeckSweepPayload(
+                    sweepable.gathering$serverContainerId(), swept));
         }
         return step.ours();
     }

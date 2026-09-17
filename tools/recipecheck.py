@@ -21,6 +21,19 @@ import json
 import pathlib
 import sys
 
+#: Where a check never looks: a helper's copy of the repository.
+#: Work is sometimes done in a git worktree under .claude/worktrees, which is a second checkout of this
+#: same project sitting inside it. Walking the tree found both copies, so a file being written in one of
+#: them failed the checks of the other - a lang key from a worktree, missing from the real lang file.
+NOT_THIS_REPOSITORY = ("/.claude/", "\\.claude\\")
+
+
+def ours(path):
+    """Whether a path is this checkout's own, rather than a worktree's inside it."""
+    said = str(path).replace("\\", "/")
+    return "/.claude/" not in said
+
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BLOCKSTATES = ROOT / "common/src/main/resources/assets/gathering/blockstates"
 RECIPES = ROOT / "common/src/main/resources/data/gathering/recipe"
@@ -108,6 +121,8 @@ def main() -> int:
 
     granted = set()
     for path in UNLOCKS.rglob("*.json"):
+        if not ours(path):
+            continue
         for recipe in json.loads(path.read_text(encoding="utf-8")).get("rewards", {}).get("recipes", []):
             granted.add(recipe.split(":")[-1])
     unfindable = sorted(name for name in recipes if name not in granted)

@@ -401,23 +401,51 @@ public final class PackCloth {
     }
 
     /**
-     * Once most of the seam has gone, the rest of it goes at once.
+     * Once most of the seam has gone, the rest of it goes at once - and the strip comes away whole.
      * <p>A crimp does not come off a booster one centimetre at a time and then hang by a corner: past the
      * point where it is plainly off, it is off. Leaving the last few links to be worried apart is what
      * made the moment it comes away unsatisfying - there was no moment, only a gradual giving up.
+     * <p>Every link across the seam, not only the straight ones. The two diagonals of each column cross
+     * it too, and leaving them meant the strip hung off the pack by twenty-eight threads: the owner
+     * asked for the whole top to come off as one solid piece. Cut here, at the moment it opens, rather
+     * than weakened from the start - weak diagonals let the gentlest pull unzip the whole wrapper.
      */
     private void letTheRestGo() {
-        if (seamTorn >= seamLinks || torn() < OPEN_AT) {
+        if (torn() < OPEN_AT) {
             return;
         }
         int seam = seamRow();
         for (int at = 0; at < links; at++) {
-            if (linkAlive[at] && linkB[at] == linkA[at] + ACROSS && linkA[at] / ACROSS == seam) {
-                linkAlive[at] = false;
-                downAlive[linkA[at]] = false;
-                seamTorn++;
+            if (!linkAlive[at]) {
+                continue;
+            }
+            int a = linkA[at];
+            int b = linkB[at];
+            boolean straight = b == a + ACROSS && a / ACROSS == seam;
+            boolean crossing = a / ACROSS == seam && b / ACROSS == seam + 1;
+            if (!straight && !crossing) {
+                continue;
+            }
+            linkAlive[at] = false;
+            if (b == a + ACROSS) {
+                downAlive[a] = false;
+                if (straight) {
+                    seamTorn++;
+                }
             }
         }
+    }
+
+    /** How many links still join the torn strip to the pack, which past opening is none. For the tests. */
+    public int linksAcrossTheSeam() {
+        int seam = seamRow();
+        int joined = 0;
+        for (int at = 0; at < links; at++) {
+            if (linkAlive[at] && linkA[at] / ACROSS == seam && linkB[at] / ACROSS == seam + 1) {
+                joined++;
+            }
+        }
+        return joined;
     }
 
     /** Whether anything has happened to it yet. */

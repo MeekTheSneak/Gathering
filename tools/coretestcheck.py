@@ -17,6 +17,19 @@ import re
 import sys
 import xml.etree.ElementTree as ElementTree
 
+#: Where a check never looks: a helper's copy of the repository.
+#: Work is sometimes done in a git worktree under .claude/worktrees, which is a second checkout of this
+#: same project sitting inside it. Walking the tree found both copies, so a file being written in one of
+#: them failed the checks of the other - a lang key from a worktree, missing from the real lang file.
+NOT_THIS_REPOSITORY = ("/.claude/", "\\.claude\\")
+
+
+def ours(path):
+    """Whether a path is this checkout's own, rather than a worktree's inside it."""
+    said = str(path).replace("\\", "/")
+    return "/.claude/" not in said
+
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCES = ROOT / "core/src/test/java"
 RESULTS = ROOT / "core/build/test-results/test"
@@ -47,6 +60,8 @@ def main():
     classes = 0
     missing = []
     for source in sorted(SOURCES.rglob("*.java")):
+        if not ours(source):
+            continue
         if not DECLARES.search(source.read_text(encoding="utf-8")):
             continue
         classes += 1

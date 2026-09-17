@@ -18,6 +18,19 @@ a note, not documentation for the thing after it, and several of those exist on 
 import pathlib
 import sys
 
+#: Where a check never looks: a helper's copy of the repository.
+#: Work is sometimes done in a git worktree under .claude/worktrees, which is a second checkout of this
+#: same project sitting inside it. Walking the tree found both copies, so a file being written in one of
+#: them failed the checks of the other - a lang key from a worktree, missing from the real lang file.
+NOT_THIS_REPOSITORY = ("/.claude/", "\\.claude\\")
+
+
+def ours(path):
+    """Whether a path is this checkout's own, rather than a worktree's inside it."""
+    said = str(path).replace("\\", "/")
+    return "/.claude/" not in said
+
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCES = [
     "common/src/main/java",
@@ -71,6 +84,8 @@ def main() -> int:
     checked = 0
     for source in SOURCES:
         for path in sorted((ROOT / source).rglob("*.java")):
+            if not ours(path):
+                continue
             checked += 1
             for line, text in orphansIn(path):
                 orphans.append(f"{path.relative_to(ROOT)}:{line}  {text}")

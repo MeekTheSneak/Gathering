@@ -76,6 +76,24 @@ class PackClothTest {
     }
 
     @Test
+    @DisplayName("when it opens, the top comes away whole - nothing at all still joins it to the pack")
+    void theTopComesOffInOnePiece() {
+        PackCloth cloth = new PackCloth(99L);
+        assertThat(cloth.grab(0.5f, 0.05f)).isTrue();
+        for (int frame = 0; frame < 240 && !cloth.isOpen(); frame++) {
+            float along = frame / 240f;
+            cloth.dragTo(0.5f + along * 2.5f, 0.05f - along * 1.2f);
+            cloth.advance(1f / 60f);
+        }
+        cloth.advance(1f / 60f);
+
+        assertThat(cloth.isOpen()).isTrue();
+        assertThat(cloth.linksAcrossTheSeam())
+                .describedAs("the strip is still joined to the pack by %s link(s)", cloth.linksAcrossTheSeam())
+                .isZero();
+    }
+
+    @Test
     @DisplayName("a short pull at the crimp moves the foil and does not open the pack")
     void aShortPullDoesNotOpenIt() {
         // The scripted run's gentle pull: from the middle of the crimp, a seventh of the pack's width across

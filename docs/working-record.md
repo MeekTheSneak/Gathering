@@ -3130,3 +3130,25 @@ rather than the collection endpoint's choice - the same rule the in-memory store
 server will download the file into its own run directory on first start, which the gate has never done.
 The real download is not exercised by any test. Windows file deletion of a replaced index that is still
 open is best-effort and retried at the next start, never seen.
+
+## 2026-09-17: the owner's second playtest list
+
+**Cards destroyed by putting them in a deck (his 1), fixed.** In the creative inventory the client does
+its clicks itself and sends the slots afterwards, and the copy of a deck a client holds has the deck's
+own cards hidden - so the server put its own deck back over the client's, dropping the card that had
+just gone in, while the slot the card came from arrived empty in the same breath. `CreativeDecks` now
+keeps any real card the client added to a hidden copy (`CreativeDeckGameTest.acardPutIntoaDeckInCreativeSurvives`,
+proven failing without it: "1 required tests failed"). The sweep gesture no longer clicks slots on the
+client at all: it sends the slots it crossed (`DeckSweepPayload`) and the server does the inserts through
+the same method a single right-click uses (`DeckSweeps`, three in-world tests). The creative inventory
+renumbers its slots, so the client maps them through `InventorySlots` (pure, tested).
+
+**The pack ceremony (his 5).** The whole top now comes away as one piece - every link across the seam is
+cut at the moment it opens, rather than the strip hanging by its diagonals (`PackClothTest.theTopComesOffInOnePiece`);
+the cards wait 900 ms after the top comes off before the first one turns; and the rarity glow is brighter
+while the pack stands open, which is the moment it is for.
+
+Still to do from that list: the display case glass edge at joins, loot and the Mana Coin, the village
+shop, tournament settings and hosting, the labels above blocks, notices over an open screen, the camera,
+the sideboard in the deck builder, the chair backs and the creative menu order.
+

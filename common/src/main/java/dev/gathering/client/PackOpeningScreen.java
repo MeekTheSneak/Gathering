@@ -207,7 +207,7 @@ public final class PackOpeningScreen extends Screen {
         // Done is never behind the pack or anything that came out of it.
         renderBackground(graphics, mouseX, mouseY, partialTick);
         runTheWrapper();
-        if (cloth.isOpen()) {
+        if (cloth.isOpen() && turning != null) {
             // Torn: the cards come out now, into the inventory, as the wrapper comes off.
             tellTheServerItIsOpen();
             if (turning != null && !turning.finished()) {
@@ -228,6 +228,12 @@ public final class PackOpeningScreen extends Screen {
             }
         }
     }
+
+    /** When the wrapper came apart, so the cards can wait a moment before they come out. */
+    private long openedAt;
+
+    /** How long the torn pack is left standing there before the first card turns. */
+    private static final long BEFORE_THE_CARDS = 900L;
 
     /** How far in front of the glow behind it a revealed card is drawn: more than a turned card leans back. */
     private static final float IN_FRONT_OF_ITS_GLOW = 60f;
@@ -264,9 +270,18 @@ public final class PackOpeningScreen extends Screen {
         // anywhere - a scripted hand does it outside the drawing entirely - so an edge that happened
         // between two frames is an edge nothing here ever saw, and the pack stayed shut for ever.
         if (cloth.isOpen()) {
-            PackSounds.opened();
-            // Built once, at the moment it comes apart. Doing it every frame would re-sort a list whose
-            // order is the whole point, as summaries arrive one packet at a time.
+            if (openedAt == 0L) {
+                PackSounds.opened();
+                openedAt = now;
+            }
+            // A moment with the top off before the first card. The owner asked for it: the tear is the
+            // thing being done, and a card arriving on the same frame the strip comes away takes the end
+            // of it away. The strip falls and the light from inside is all there is until then.
+            if (now - openedAt < BEFORE_THE_CARDS) {
+                return;
+            }
+            // Built once, when the cards come. Doing it every frame would re-sort a list whose order is
+            // the whole point, as summaries arrive one packet at a time.
             turning = PackTurning.of(cards);
             revealed = turning.inOrder();
         }
@@ -287,7 +302,11 @@ public final class PackOpeningScreen extends Screen {
         // The light out of the tear, under the foil, so what is coming through the hole is behind the
         // wrapper rather than painted over it.
         if (!cloth.isUntouched() && glow != PackGlow.NO_LIGHT) {
-            int alpha = Math.round(GLOW_ALPHA * Math.min(1f, 0.4f + cloth.torn()));
+            // Brightest once the top is off, while the pack stands open and nothing else is happening:
+            // this is the moment the light is for, and the owner could not find it at all.
+            int alpha = Math.round(GLOW_ALPHA * Math.min(1f, 0.4f + cloth.torn())
+                    * (cloth.isOpen() ? 1.6f : 1f));
+            alpha = Math.min(255, alpha);
             // Hugging the seam rather than haloing a wide band: a glow spread a quarter of the pack's
             // width around a short rectangle puts most of itself off the left and right ends, which
             // reads as two smudges beside the pack rather than light coming out of it.

@@ -3,7 +3,7 @@ package dev.gathering.fabric.mixin;
 import dev.gathering.client.DeckSweep;
 import java.util.Set;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.world.inventory.Slot;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -28,17 +28,29 @@ public abstract class ContainerSweepMixin implements DeckSweep.Sweepable {
     @Shadow
     private boolean skipNextRelease;
 
-    @Shadow
-    protected abstract void slotClicked(Slot slot, int slotId, int mouseButton, ClickType type);
-
     @Override
     public Slot gathering$hovered() {
         return hoveredSlot;
     }
 
     @Override
-    public void gathering$rightClick(Slot slot) {
-        slotClicked(slot, slot.index, 1, ClickType.PICKUP);
+    public int gathering$serverContainerId() {
+        // The creative inventory's own menu is the client's alone; the slots in its inventory tab stand
+        // for the player's own menu, which is the one the server has.
+        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        return screen instanceof CreativeModeInventoryScreen && player != null
+                ? player.inventoryMenu.containerId
+                : screen.getMenu().containerId;
+    }
+
+    @Override
+    public int gathering$serverSlotId(Slot slot) {
+        // Its slots stand in front of the player's own and are numbered differently, so the place in the
+        // inventory is what both sides can agree on.
+        return (AbstractContainerScreen<?>) (Object) this instanceof CreativeModeInventoryScreen
+                ? dev.gathering.core.ui.InventorySlots.inTheirOwnMenu(slot.getContainerSlot())
+                : slot.index;
     }
 
     @Override
