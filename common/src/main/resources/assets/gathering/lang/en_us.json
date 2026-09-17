@@ -848,6 +848,7 @@
   "screen.gathering.counters.extra_mana": "+%s",
   "screen.gathering.counters.grid_more": "%s - %s not shown, the window is too short",
   "screen.gathering.counters.more": "%s more - scroll",
+  "screen.gathering.trade.more": "%s more - scroll",
   "screen.gathering.counters.none": "No counters",
   "screen.gathering.counters.several": "%s cards",
   "screen.gathering.counters.somewhere_hidden": "a commander out of sight",

@@ -33,6 +33,12 @@ public final class GuiGlow {
     private GuiGlow() {
     }
 
+    /** Runs these fills as one flush rather than one each. See {@link GuiGraphics#drawManaged}. */
+    @SuppressWarnings("deprecation")
+    private static void batched(GuiGraphics graphics, Runnable fills) {
+        graphics.drawManaged(fills);
+    }
+
     /**
      * Draws a glow around something round.
      * <p>The band between the two radii is where the glow is: solid at {@code inner} and gone
@@ -46,6 +52,15 @@ public final class GuiGlow {
      * @param color the glow at its brightest, alpha included
      */
     public static void render(
+            GuiGraphics graphics, int centerX, int centerY, int inner, int outer, int color) {
+        // In one batch. Outside a batch every fill a screen makes is flushed as its own draw call
+        // with two depth-state changes, and a glow is hundreds of fills - a card glow at a 1080p
+        // window was over a thousand, twice over on the pack screen's reveal, on exactly the
+        // frames the ceremony is built around.
+        batched(graphics, () -> renderUnbatched(graphics, centerX, centerY, inner, outer, color));
+    }
+
+    private static void renderUnbatched(
             GuiGraphics graphics, int centerX, int centerY, int inner, int outer, int color) {
         int band = outer - inner;
         if (outer <= 0 || band <= 0) {
@@ -89,6 +104,14 @@ public final class GuiGlow {
      * @param color  the glow at its brightest, alpha included
      */
     public static void around(GuiGraphics graphics, int x, int y, int width, int height, int spread, int color) {
+        // In one batch. Outside a batch every fill a screen makes is flushed as its own draw call
+        // with two depth-state changes, and a glow is hundreds of fills - a card glow at a 1080p
+        // window was over a thousand, twice over on the pack screen's reveal, on exactly the
+        // frames the ceremony is built around.
+        batched(graphics, () -> aroundUnbatched(graphics, x, y, width, height, spread, color));
+    }
+
+    private static void aroundUnbatched(GuiGraphics graphics, int x, int y, int width, int height, int spread, int color) {
         float brightest = ((color >>> 24) & 0xFF) / 255f;
         if (spread <= 0 || brightest <= 0f || width <= 0 || height <= 0) {
             return;
@@ -126,6 +149,15 @@ public final class GuiGlow {
      * @param color  the glow at its brightest, alpha included
      */
     public static void aroundCard(
+            GuiGraphics graphics, int x, int y, int width, int height, int spread, int color) {
+        // In one batch. Outside a batch every fill a screen makes is flushed as its own draw call
+        // with two depth-state changes, and a glow is hundreds of fills - a card glow at a 1080p
+        // window was over a thousand, twice over on the pack screen's reveal, on exactly the
+        // frames the ceremony is built around.
+        batched(graphics, () -> aroundCardUnbatched(graphics, x, y, width, height, spread, color));
+    }
+
+    private static void aroundCardUnbatched(
             GuiGraphics graphics, int x, int y, int width, int height, int spread, int color) {
         float brightest = ((color >>> 24) & 0xFF) / 255f;
         if (spread <= 0 || brightest <= 0f || width <= 0 || height <= 0) {

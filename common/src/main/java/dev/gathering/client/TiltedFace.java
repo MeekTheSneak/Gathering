@@ -64,6 +64,27 @@ public final class TiltedFace {
     private static final int SHINE_COLUMNS = 26;
     private static final int SHINE_ROWS = 36;
 
+    /**
+     * How many pixels of drawn card each cell of shine should cover, at least.
+     * <p>The full mesh is for a card filling the reading screen. The same path draws every card
+     * of an opened pack, at about a hundred and fifty pixels tall, and there the full mesh was
+     * eleven hundred quads a card - some seventeen thousand a frame for a collector booster -
+     * in cells four pixels across. Thinned to cells no smaller than this, a card that small
+     * gets a mesh about the size a card in the hand does, and a card filling the screen keeps
+     * the whole of it.
+     */
+    private static final int SHINE_CELL_PIXELS = 12;
+
+    /** The shine's rows for a card drawn this tall, never finer than the full mesh. */
+    static int shineRowsFor(int drawnHeight) {
+        return Math.max(10, Math.min(SHINE_ROWS, drawnHeight / SHINE_CELL_PIXELS));
+    }
+
+    /** And its columns, in the full mesh's proportion. */
+    static int shineColumnsFor(int drawnHeight) {
+        return Math.max(7, Math.round(shineRowsFor(drawnHeight) * SHINE_COLUMNS / (float) SHINE_ROWS));
+    }
+
 
     /**
      * The shadow the card casts on the backdrop behind it, and how far it drops and slides.
@@ -111,7 +132,8 @@ public final class TiltedFace {
         // being read is a setting that half works, and the card being read is the biggest one
         // on the screen.
         if (foil && ClientSettings.effectIntensity() > 0) {
-            FoilSheen.paint(matrix, lens, shineX, shineY, grain, SHINE_COLUMNS, SHINE_ROWS,
+            FoilSheen.paint(matrix, lens, shineX, shineY, grain,
+                    shineColumnsFor(where.height()), shineRowsFor(where.height()),
                     Math.min(ClientSettings.effectIntensity(), 100) / 100f);
         }
     }

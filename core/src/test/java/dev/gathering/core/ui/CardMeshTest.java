@@ -107,4 +107,14 @@ class CardMeshTest {
                     .isNegative();
         }
     }
+
+    /** Width over height, so a card - taller than it is wide - is under one. */
+    @org.junit.jupiter.api.Test
+    void theAspectIsWidthOverHeight() {
+        float card = CardMesh.aspectOf(63f, 88f);
+        org.assertj.core.api.Assertions.assertThat(card).isCloseTo(63f / 88f,
+                org.assertj.core.data.Offset.offset(0.0001f));
+        org.assertj.core.api.Assertions.assertThat(CardMesh.cornerDown(card))
+                .isLessThan(CardMesh.cornerDown(88f / 63f));
+    }
 }

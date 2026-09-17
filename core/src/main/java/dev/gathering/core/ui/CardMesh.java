@@ -50,6 +50,18 @@ public final class CardMesh {
         return CORNER;
     }
 
+    /**
+     * The aspect every method here takes, from a card's drawn size: width over height.
+     * <p>One place, because the two foil paths each worked it out for themselves and the flat one
+     * wrote it upside down - so the shine on a card in the hand cut its corners twice as deep as
+     * the card's own and stretched its grain into ovals, while the same card held up to read
+     * was right. A comment on the lens path said "how much taller than wide" and was the likely
+     * source; it described the other ratio.
+     */
+    public static float aspectOf(float width, float height) {
+        return width <= 0f ? 1f : width / Math.max(0.0001f, height);
+    }
+
     /** And how far down, so that the two together are a circle rather than an oval. */
     public static float cornerDown(float aspect) {
         return Math.min(MOST, CORNER * Math.max(0f, aspect));

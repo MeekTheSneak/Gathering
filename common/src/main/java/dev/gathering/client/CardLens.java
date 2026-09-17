@@ -120,9 +120,9 @@ public final class CardLens {
         return new Rect(x, y, Math.max(1, Math.round(right) - x), Math.max(1, Math.round(bottom) - y));
     }
 
-    /** How much taller the card is than it is wide, for anything drawn square on it. */
+    /** The card's width over its height, as {@link dev.gathering.core.ui.CardMesh} takes it. */
     public float aspect() {
-        return width <= 0f ? 1f : width / Math.max(1f, height);
+        return dev.gathering.core.ui.CardMesh.aspectOf(width, Math.max(1f, height));
     }
 
     /**

@@ -133,8 +133,17 @@ public final class CardSleeves {
         return radius < 2 || height < radius * 2 || width < radius * 2 ? 0 : radius;
     }
 
-    /** The picture printed on a sleeve, as a resource. Vanilla's, named by the sleeve itself. */
+    /**
+     * The picture printed on a sleeve, as a resource. Vanilla's, named by the sleeve itself.
+     * <p>Parsed once per sleeve. This is asked for every face-down card with an emblem every
+     * frame, and parsing splits the string and validates every character of it - sixty cards
+     * face down was sixty of those a frame for an answer that never changes.
+     */
     public static ResourceLocation emblem(Sleeve sleeve) {
-        return ResourceLocation.parse(sleeve.emblem());
+        return EMBLEMS.computeIfAbsent(sleeve, each -> ResourceLocation.parse(each.emblem()));
     }
+
+    /** Each sleeve's emblem, parsed the first time it is drawn. */
+    private static final java.util.Map<Sleeve, ResourceLocation> EMBLEMS =
+            java.util.Collections.synchronizedMap(new java.util.EnumMap<>(Sleeve.class));
 }

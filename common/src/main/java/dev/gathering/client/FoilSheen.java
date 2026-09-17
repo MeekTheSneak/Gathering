@@ -349,7 +349,7 @@ public final class FoilSheen {
         Light light = Light.from(shineX, shineY);
         float width = halfWidth * 2f;
         float height = halfHeight * 2f;
-        float aspect = height / Math.max(0.0001f, width);
+        float aspect = dev.gathering.core.ui.CardMesh.aspectOf(width, height);
 
         CardMesh.walk(aspect, columns, rows, FLAT_ARC,
                 (u1, v1, u2, v2, u3, v3, u4, v4) -> {

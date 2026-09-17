@@ -273,8 +273,10 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
                     Component.translatable("screen.gathering.trade.nothing_carried"),
                     x, top + 3, width, DIM);
         }
-        for (int index = 0; index < mine.size() && index < rowsThatFit(); index++) {
-            Row row = mine.get(index);
+        mineScroll = scrolledWithin(mineScroll, mine.size());
+        int shown = rowsShown(mine.size());
+        for (int index = 0; index < shown && mineScroll + index < mine.size(); index++) {
+            Row row = mine.get(mineScroll + index);
             int y = top + index * ROW_HEIGHT;
             String count = row.up() + "/" + row.carried();
             int countWidth = this.font.width(count);
@@ -291,6 +293,7 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
             graphics.drawString(this.font, count, x + width - countWidth - COUNT_INSET, y + 3,
                     row.up() > 0 ? UP : DIM, false);
         }
+        drawMore(graphics, x, top, width, mine.size(), mineScroll);
         ClientHoverState.setHovered(hovered);
     }
 
@@ -301,8 +304,10 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
                     x, top + 3, width, DIM);
             return;
         }
-        for (int index = 0; index < view.theirs().size() && index < rowsThatFit(); index++) {
-            TradeViewPayload.Pile pile = view.theirs().get(index);
+        theirScroll = scrolledWithin(theirScroll, view.theirs().size());
+        int shown = rowsShown(view.theirs().size());
+        for (int index = 0; index < shown && theirScroll + index < view.theirs().size(); index++) {
+            TradeViewPayload.Pile pile = view.theirs().get(theirScroll + index);
             int y = top + index * ROW_HEIGHT;
             String count = String.valueOf(pile.count());
             int countWidth = this.font.width(count);
@@ -311,6 +316,58 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
             graphics.drawString(this.font, count, x + width - countWidth - COUNT_INSET, y + 3,
                     UP, false);
         }
+        drawMore(graphics, x, top, width, view.theirs().size(), theirScroll);
+    }
+
+    /** How far down each column is scrolled. */
+    private int mineScroll;
+    private int theirScroll;
+
+    /**
+     * How many rows of a list this long are drawn, leaving the last place for "N more".
+     * <p>The lists used to stop at what fit and say nothing. At GUI scale 4 that is eight rows,
+     * and a side may hold sixty-four different cards, so a player carrying twenty could offer
+     * only the first eight and had no way to know the others were there - they were not drawn
+     * and could not be clicked.
+     */
+    private int rowsShown(int total) {
+        int fit = rowsThatFit();
+        return total > fit ? Math.max(1, fit - 1) : fit;
+    }
+
+    private int scrolledWithin(int scroll, int total) {
+        return dev.gathering.core.ui.ListScroll.within(scroll, total, rowsShown(total));
+    }
+
+    /** The line under a list that does not all fit: how many more, and that it scrolls. */
+    private void drawMore(GuiGraphics graphics, int x, int top, int width, int total, int scroll) {
+        int shown = rowsShown(total);
+        int below = total - scroll - shown;
+        int above = scroll;
+        if (below <= 0 && above <= 0) {
+            return;
+        }
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.trade.more", below + above),
+                x, top + shown * ROW_HEIGHT + 3, width, DIM);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        int step = scrollY > 0 ? -1 : scrollY < 0 ? 1 : 0;
+        if (step == 0 || mouseY < rowsTop()) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        int column = columnWidth();
+        if (mouseX >= columnLeft() && mouseX < columnLeft() + column) {
+            mineScroll = scrolledWithin(mineScroll + step, mine.size());
+            return true;
+        }
+        if (mouseX >= theirColumnLeft() && mouseX < theirColumnLeft() + column) {
+            theirScroll = scrolledWithin(theirScroll + step, view.theirs().size());
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -321,9 +378,10 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
         if (mouseY < rowsTop()) {
             return super.mouseClicked(mouseX, mouseY, button);
         }
-        int index = (int) ((mouseY - rowsTop()) / ROW_HEIGHT);
+        int place = (int) ((mouseY - rowsTop()) / ROW_HEIGHT);
+        int index = mineScroll + place;
         if (mouseX >= columnLeft() && mouseX < columnLeft() + column
-                && index >= 0 && index < mine.size() && index < rowsThatFit()) {
+                && place >= 0 && place < rowsShown(mine.size()) && index < mine.size()) {
             Row row = mine.get(index);
             // Left puts one up, right takes one back down. The same two buttons the deck
             // screen uses for moving a card between piles, because it is the same gesture.
@@ -376,12 +434,12 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
 
     /** How many of my rows are drawn. For the scene that photographs this screen. */
     int listedMine() {
-        return Math.min(mine.size(), rowsThatFit());
+        return Math.min(mine.size(), rowsShown(mine.size()));
     }
 
     /** How many of their piles are drawn. */
     int listedTheirs() {
-        return Math.min(view.theirs().size(), rowsThatFit());
+        return Math.min(view.theirs().size(), rowsShown(view.theirs().size()));
     }
 
     private int rowsThatFit() {
