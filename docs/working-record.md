@@ -2969,3 +2969,25 @@ conversation, not built.
 3. CL-14: Create 6.0.10, Aeronautics 1.3.2 and Sable 2.0.5 are qualified by the pack tests and the
    pack scene; Cataclysm's version is still unknown, and the crowded-board timing matrix is not run.
 4. The owner decisions above (Appendix E for 9-16 players; starter boosters).
+
+## 2026-09-17: second minor batch, and the owner's playtest
+
+Committed through a green gate (641 NeoForge in-world tests, 16 Fabric): the second batch of minor
+fixes (core/ui layouts, pack-opening rendering, DevScene hardening, statecheck, tablecheck and
+texturecheck rules) and spellcheck rewritten onto a Java tokenizer, which found and renamed six
+British-spelled names that the old line matcher could not see.
+
+Still unverified: the scripted tour was stopped partway for the owner's playtest. Before it
+stopped it logged FAILs at "a click on the felt of a replay moved the game", "no two looked-up
+cards to put together" and "no inventory to put two cards together in". Not yet read.
+
+Found in the owner's playtest log (client closed normally after about 28 minutes): the Archive
+audit walk trips Scryfall's rate limit (32 "Could not audit <set> for the archive ... HTTP 429")
+and MTGJSON's collation fetch for CON answers HTTP 301.
+
+The owner's playtest list, being worked now: (1) report results the way the Companion app does,
+not a grid of every outcome; (2) archive packs hold precon cards; (3) display case glass stretched;
+(4) a detailed card view with its history in the collection block; (5) display case cards too close;
+(6) non-English printings appearing, maybe a default-language setting; (7) the Alt card view cuts
+text off; (8) Mouse Tweaks support; (9) collecting on with every set by default; (10) an archive
+pack per set.

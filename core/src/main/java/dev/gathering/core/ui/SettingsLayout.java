@@ -29,11 +29,13 @@ public final class SettingsLayout {
     private final Rect panel;
     private final int rowHeight;
     private final int rows;
+    private final int gap;
 
-    private SettingsLayout(Rect panel, int rowHeight, int rows) {
+    private SettingsLayout(Rect panel, int rowHeight, int rows, int gap) {
         this.panel = panel;
         this.rowHeight = rowHeight;
         this.rows = rows;
+        this.gap = gap;
     }
 
     /**
@@ -42,27 +44,48 @@ public final class SettingsLayout {
      * @param controlScale the player's control size as a percentage, as they set it
      */
     public static SettingsLayout of(int width, int height, int rows, int controlScale) {
+        return of(width, height, rows, controlScale, 9, 1f);
+    }
+
+    /**
+     * The same, with the text the rows have to hold.
+     * <p>Asked of the one rule every other screen sizes its rows by. This screen alone sized them
+     * from the control size, so small controls with large text gave rows shorter than the words
+     * written on them, one line touching the next - on the screen somebody opens to fix exactly that.
+     *
+     * @param lineHeight the font's line height
+     * @param textScale  the player's text size, as a multiplier
+     */
+    public static SettingsLayout of(int width, int height, int rows, int controlScale, int lineHeight,
+            float textScale) {
         int wanted = Math.max(SMALLEST_ROW,
-                Math.round(ROW * InterfaceScale.asFraction(controlScale)));
+                InterfaceScale.rowHeightFor(ROW, lineHeight, controlScale, textScale, ROW - lineHeight));
         int room = Math.max(0, height - MARGIN * 2);
         int rowHeight = wanted;
         // The title line, then a row each, then the way out. Squeezed a step at a time rather
         // than scrolled: a settings panel that has to be scrolled to reach "close" is worse at
         // every size than one whose rows are a little shorter.
-        while (rowHeight > SMALLEST_ROW && heightFor(rows, rowHeight) > room) {
+        while (rowHeight > SMALLEST_ROW && heightFor(rows, rowHeight, GAP) > room) {
             rowHeight--;
         }
-        int panelHeight = Math.min(heightFor(rows, rowHeight), Math.max(room, SMALLEST_ROW));
+        // And past the shortest a row may be, the gaps between rows go - rather than the rows
+        // running on under the way out, which is what a panel capped at the window did with rows
+        // that no longer fit in it.
+        int gap = GAP;
+        while (gap > 0 && heightFor(rows, rowHeight, gap) > room) {
+            gap--;
+        }
+        int panelHeight = Math.min(heightFor(rows, rowHeight, gap), Math.max(room, SMALLEST_ROW));
         int panelWidth = Math.min(PANEL_WIDTH, Math.max(SMALLEST_ROW, width - MARGIN * 2));
         return new SettingsLayout(new Rect(
                 (width - panelWidth) / 2,
                 Math.max(0, (height - panelHeight) / 2),
-                panelWidth, panelHeight), rowHeight, rows);
+                panelWidth, panelHeight), rowHeight, rows, gap);
     }
 
-    private static int heightFor(int rows, int rowHeight) {
+    private static int heightFor(int rows, int rowHeight, int gap) {
         // A title, the rows, a gap, and the way out.
-        return MARGIN * 2 + rowHeight + GAP + rows * (rowHeight + GAP) + rowHeight;
+        return MARGIN * 2 + rowHeight + gap + rows * (rowHeight + gap) + rowHeight;
     }
 
     public Rect panel() {
@@ -75,7 +98,7 @@ public final class SettingsLayout {
 
     /** The {@code index}th setting row. */
     public Rect row(int index) {
-        int top = panel.y() + MARGIN + rowHeight + GAP + index * (rowHeight + GAP);
+        int top = panel.y() + MARGIN + rowHeight + gap + index * (rowHeight + gap);
         return new Rect(panel.x() + MARGIN, top, panel.width() - MARGIN * 2, rowHeight);
     }
 

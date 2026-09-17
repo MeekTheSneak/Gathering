@@ -921,8 +921,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /** How much of the grid is off the bottom, which is how far a scroll can get. */
     private int hiddenBelow() {
-        int rows = (shown().size() + columns - 1) / columns;
-        return Math.max(0, rows * (cardHeight() + GAP) - GAP - grid.height());
+        return laidOut().hiddenBelow(shown().size());
     }
 
     /** Whether the table this pile belongs to has a command zone to send a card to. */

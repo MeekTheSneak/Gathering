@@ -143,6 +143,7 @@ public final class GameLogText {
      */
     private static GameView indexedFor;
 
+    // statecheck: log wording by key, the same on every server
     private static java.util.Map<CardInstanceId, CardView.Visible> index = java.util.Map.of();
 
     private static CardView.Visible visibleIn(GameView board, CardInstanceId id) {

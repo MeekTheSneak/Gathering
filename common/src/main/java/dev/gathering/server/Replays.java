@@ -212,6 +212,7 @@ public final class Replays {
      * <p>A replay file is written once and never edited, so a header read from it is true for
      * as long as the file exists. Bounded by the shelf's own cap.
      */
+    // statecheck: emptied by clearHeaders, which ReplayWatch.clear calls
     private static final java.util.Map<String, Record> HEADERS =
             new java.util.concurrent.ConcurrentHashMap<>();
 

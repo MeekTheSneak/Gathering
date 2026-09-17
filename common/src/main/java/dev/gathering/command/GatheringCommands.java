@@ -234,7 +234,7 @@ public final class GatheringCommands {
                 "message.gathering.rewards_count", all.size()), false);
         all.forEach((id, reward) -> source.sendSuccess(() -> Component.literal(
                 "  " + id + " = " + reward.count() + " x " + reward.set() + "/" + reward.product()
-                        + reward.color().map(colour -> "/" + colour).orElse("")
+                        + reward.color().map(color -> "/" + color).orElse("")
                         + (reward.requiredMods().isEmpty()
                                 ? ""
                                 : " (needs " + String.join(", ", reward.requiredMods()) + ")")),

@@ -116,13 +116,13 @@ class RewardDefinitionTest {
         @Test
         @DisplayName("catches a color that is not one")
         void colorsAreTheFive() {
-            for (String colour : List.of("W", "U", "B", "R", "G", "g")) {
-                assertThat(new RewardDefinition("x", "j25", "default", Optional.of(colour), 1,
-                        List.of()).problems()).as("%s", colour).isEmpty();
+            for (String color : List.of("W", "U", "B", "R", "G", "g")) {
+                assertThat(new RewardDefinition("x", "j25", "default", Optional.of(color), 1,
+                        List.of()).problems()).as("%s", color).isEmpty();
             }
-            for (String notAColour : List.of("Q", "WU", "", "1")) {
-                assertThat(new RewardDefinition("x", "j25", "default", Optional.of(notAColour), 1,
-                        List.of()).problems()).as("%s", notAColour).isNotEmpty();
+            for (String notAColor : List.of("Q", "WU", "", "1")) {
+                assertThat(new RewardDefinition("x", "j25", "default", Optional.of(notAColor), 1,
+                        List.of()).problems()).as("%s", notAColor).isNotEmpty();
             }
         }
 

@@ -145,6 +145,11 @@ public final class TiltedFace {
      * no state of its own.
      */
     private static void paint(Matrix4f matrix, CardLens lens, ResourceLocation texture) {
+        // With blending, as every other face in the mod is drawn. The shadow before this turns it off
+        // when it is done, so the face was being painted with it off and a picture with any
+        // transparency in it came out with black where the transparency was.
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderTexture(0, texture);
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         BufferBuilder buffer =
@@ -158,6 +163,7 @@ public final class TiltedFace {
                     textured(buffer, matrix, lens, corner, u4, v4);
                 });
         BufferUploader.drawWithShader(buffer.buildOrThrow());
+        RenderSystem.disableBlend();
     }
 
     private static void textured(

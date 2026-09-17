@@ -75,13 +75,25 @@ public record PileLayout(
         if (count <= 0) {
             return 0;
         }
+        // Below the last row of cards is past everything, whichever column it is under. Clamped to
+        // the last card instead, a drop in the empty space under a short last row landed before
+        // that card rather than after it.
+        int lastRow = (count - 1) / columns;
+        int row = Math.max(0, (y + scroll - grid.y()) / (cardHeight + gap));
+        if (row > lastRow) {
+            return count;
+        }
         int landing = Math.clamp(nearestSlot(x, y), 0, count - 1);
         Rect slot = slot(landing);
         boolean past = landing == count - 1 && !slot.isEmpty() && x > slot.centerX();
         return past ? count : landing;
     }
 
-    /** How far past the bottom of the grid the last row reaches, at this scroll. */
+    /**
+     * How far past the bottom of the grid the last row reaches, whatever the scroll - which is
+     * how far there is to scroll. The one answer to it: the pile screen worked it out again for
+     * itself.
+     */
     public int hiddenBelow(int count) {
         int rows = (count + columns - 1) / columns;
         int tall = rows * (cardHeight + gap) - gap;

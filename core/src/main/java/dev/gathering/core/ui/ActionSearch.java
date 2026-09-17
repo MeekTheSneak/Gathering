@@ -52,17 +52,21 @@ public final class ActionSearch {
         if (query == null || query.strip().isEmpty()) {
             return List.copyOf(rows);
         }
+        // Each row scored once. The sort used to score both rows of every comparison again, and a
+        // score strips and lower-cases its words each time - on every keystroke in the palette.
+        java.util.Map<Row, Integer> scored = new java.util.IdentityHashMap<>();
         List<Row> found = new ArrayList<>();
         for (Row row : rows) {
-            if (TableActions.rank(query, row.label(), row.aliases()) > 0) {
+            int score = TableActions.rank(query, row.label(), row.aliases());
+            if (score > 0) {
+                scored.put(row, score);
                 found.add(row);
             }
         }
         // Stable, so equal scores keep catalogue order. Sorting descending by score with a
         // stable sort is the whole of it - no tiebreak field is needed and adding one would
         // only be a second opinion about an order the catalogue has already given.
-        found.sort(Comparator.comparingInt(
-                (Row row) -> TableActions.rank(query, row.label(), row.aliases())).reversed());
+        found.sort(Comparator.comparingInt((Row row) -> scored.get(row)).reversed());
         return List.copyOf(found);
     }
 }

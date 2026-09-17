@@ -82,9 +82,9 @@ class HostActionsTest {
     @Test
     @DisplayName("once over, nothing is offered")
     void over() {
-        Tournament cancelled = signup(4).cancel();
+        Tournament canceled = signup(4).cancel();
         for (HostActions.Action action : HostActions.Action.values()) {
-            assertThat(offered(action, cancelled)).as(action.name()).isFalse();
+            assertThat(offered(action, canceled)).as(action.name()).isFalse();
         }
     }
 }

@@ -88,6 +88,9 @@ public final class EventScreenLayout {
 
     /** The {@code index}th of {@code tabs} tabs across the top. */
     public Rect tab(int index, int tabs) {
+        if (tabs <= 0) {
+            return Rect.NONE;
+        }
         int each = (panel.width() - MARGIN * 2 - gap * (tabs - 1)) / tabs;
         return new Rect(panel.x() + MARGIN + index * (each + gap), headerY() + line + 1, each, tabRow);
     }

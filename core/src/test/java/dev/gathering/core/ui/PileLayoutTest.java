@@ -82,6 +82,16 @@ class PileLayoutTest {
     }
 
     @Test
+    @DisplayName("a drop in the space under a short last row goes after everything")
+    void belowTheLastRowIsTheEnd() {
+        // Five across and seven cards: the second row holds two, and under the first column of
+        // that grid there is empty space. A drop there meant "before the last card".
+        PileLayout grid = new PileLayout(new Rect(0, 0, 5 * 34, 300), 5, 30, 42, 4, 0);
+        int underTheLastRow = 2 * (42 + 4) + 10;
+        assertThat(grid.gapAt(7, 5, underTheLastRow)).isEqualTo(7);
+    }
+
+    @Test
     @DisplayName("the far end of the row can be reached")
     void theFarEndIsReachable() {
         // Every point over the last card meaning "before it" leaves no way to say "after
@@ -125,8 +135,13 @@ class PileLayoutTest {
             @ForAll @IntRange(min = -50, max = 200) int y) {
         PileLayout row = aRowOf(cards);
 
-        assertThat(row.gapAt(cards, x, y)).isEqualTo(row.gapAt(cards, x, y));
+        // What the bar and the release share is gapAt itself; comparing a call with itself proved
+        // nothing. What can be said about its answer is where it lands.
         assertThat(row.gapAt(cards, x, y)).isBetween(0, cards);
+        Rect last = row.slot(cards - 1);
+        assertThat(row.gapAt(cards, last.right() + 1, (int) last.centerY())).isEqualTo(cards);
+        Rect first = row.slot(0);
+        assertThat(row.gapAt(cards, first.x() + 1, (int) first.centerY())).isZero();
     }
 
     @Property

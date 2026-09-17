@@ -67,6 +67,7 @@ public final class GuiThemes {
     /** Where a theme with nothing to say about its place in the list goes. */
     private static final int LAST = 1000;
 
+    // statecheck: the themes resource packs declare, not a server's
     private static List<GuiTheme> known = List.of();
 
     /** The atlas the list above was read for. A different object means the packs changed. */
@@ -117,7 +118,7 @@ public final class GuiThemes {
     }
 
     /** The default theme, built from nothing if no pack declares it. */
-    private static GuiTheme fallback() {
+    public static GuiTheme fallback() {
         for (GuiTheme theme : known) {
             if (theme.id().equals(DEFAULT)) {
                 return theme;

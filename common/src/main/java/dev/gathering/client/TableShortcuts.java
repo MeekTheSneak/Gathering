@@ -36,6 +36,7 @@ public final class TableShortcuts {
      * people press by accident all evening, which is why these are what they are - but the
      * player who disagrees can now say so.
      */
+    // statecheck: the shipped key bindings
     private static final Map<String, Integer> DEFAULTS = new LinkedHashMap<>();
 
     static {
@@ -99,6 +100,7 @@ public final class TableShortcuts {
         return key == null || key.getValue() == GLFW.GLFW_KEY_UNKNOWN ? null : key;
     }
 
+    // statecheck: this computer's key bindings
     private static final Map<String, KeyMapping> MAPPINGS = build();
 
     private static Map<String, KeyMapping> build() {

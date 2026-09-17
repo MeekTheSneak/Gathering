@@ -113,7 +113,7 @@ class TableGestureTest {
 
     /** Nothing half-done survives a cancel: no card, no box, no pan, no wandering. */
     @Test
-    void cancellingForgetsEverything() {
+    void cancelingForgetsEverything() {
         TableGesture gesture = new TableGesture();
         gesture.pickUp(offThePile(0L));
         gesture.dragged(900, 900);

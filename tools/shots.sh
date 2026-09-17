@@ -47,10 +47,13 @@ if [ "${GALLERY:-}" = 1 ]; then
     BUDGET="${SHOT_SECONDS:-3000}"
 fi
 
+# One log per loader. A NeoForge and a Fabric run at the same time wrote the same file, and each
+# read the other's steps back as its own.
+LOG="/tmp/gathering-shots-$LOADER.log"
 STARTED=$(date +%s)
 timeout "$BUDGET" xvfb-run -a -s "-screen 0 1280x800x24" \
     env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
-    ./gradlew ":$LOADER:runClient" -Pdevscene $EXTRA > /tmp/gathering-shots.log 2>&1
+    ./gradlew ":$LOADER:runClient" -Pdevscene $EXTRA > "$LOG" 2>&1
 # Printed every time, so the budget drifting under the run is visible rather than inferred
 # from a timeout three documents disagree about.
 echo "the scripted run took $(( $(date +%s) - STARTED ))s of a ${BUDGET}s budget"
@@ -65,13 +68,13 @@ rm -rf "$LOADER/run/saves/GatheringDevScene"
 # NeoForge's and silently found none of Fabric's - a run that had gone perfectly reported as
 # a run that never finished. So the marker is looked for wherever on the line it is.
 scene() {
-    grep -E '\[devscene\]' /tmp/gathering-shots.log
+    grep -E '\[devscene\]' "$LOG"
 }
 
 scene
 
 if [ ! -d "$OUT" ] || [ -z "$(ls -A "$OUT" 2>/dev/null)" ]; then
-    echo "no pictures taken; see /tmp/gathering-shots.log"
+    echo "no pictures taken; see $LOG"
     exit 1
 fi
 
@@ -94,7 +97,7 @@ fi
 REACHED=$(scene | grep -o '\[devscene\] reached step [0-9]* of [0-9]*' | tail -1)
 if [ -z "$REACHED" ]; then
     echo
-    echo "the scripted run never finished; see /tmp/gathering-shots.log"
+    echo "the scripted run never finished; see $LOG"
     exit 1
 fi
 if [ "$(echo "$REACHED" | awk '{print $4}')" != "$(echo "$REACHED" | awk '{print $6}')" ]; then

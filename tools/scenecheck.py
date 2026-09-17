@@ -33,7 +33,7 @@ LAST = re.compile(r"private static final int LAST_STEP = (\d+);")
 
 SHOTS = ROOT / "tools/shots.sh"
 
-CONSTANT = re.compile(r"private static final int ([A-Z_]+) = (\d+);")
+CONSTANT = re.compile(r"private static final int ([A-Z_]+) = ([^;]+);")
 #: A scene step moving on, and one waiting where it is. Named calls only, so a pack cloth's
 #: own advance(1f / 60f) - a simulation step, not a pause - is not counted as scene time.
 ADVANCE = re.compile(r"(?<![.\w])advance\(([^()]*)\)")
@@ -110,11 +110,48 @@ def main() -> int:
             f"LAST_STEP says {declared.group(1)} but the last case is {steps[-1]}")
 
     problems.extend(budgetProblems(source))
+    problems.extend(stuckFailures(source))
 
     for problem in problems:
         print(f"dev scene: {problem}")
     print(f"\n{len(steps)} scene steps checked, {len(problems)} problems")
     return 1 if problems else 0
+
+
+def stuckFailures(source):
+    """Steps that fail and return without moving on.
+
+    A step that fails and returns is run again on the next tick, and the next, until the stuck
+    clock gives up forty seconds later: the failure is logged some eight hundred times, whatever
+    the step did before it failed is done again each tick, and a dozen of them end the tour. A step
+    that fails moves on - advance, waitHere or finish - unless it means to wait.
+    """
+    start = source.find(DISPATCH)
+    end = source.find("            default -> {", start)
+    if start < 0 or end < 0:
+        return ["the scene's dispatcher could not be found to check its failures"]
+    region = source[start:end].split("\n")
+    first = source[:start].count("\n") + 1
+    problems = []
+    for index, line in enumerate(region):
+        if line.strip() != "return;":
+            continue
+        back = index - 1
+        failed = False
+        moved = False
+        while back >= 0 and index - back <= 10:
+            said = region[back].strip()
+            if "fail(" in said:
+                failed = True
+            if "advance(" in said or "finish(" in said or "waitHere(" in said:
+                moved = True
+            if said.startswith("case ") or said.endswith("-> {") or (said.startswith("if (") and said.endswith("{")):
+                break
+            back -= 1
+        if failed and not moved:
+            problems.append(f"DevScene.java:{first + index} fails and returns without moving on, so the step "
+                            "runs again every tick; advance, waitHere or finish before returning")
+    return problems
 
 
 def budgetProblems(source):
@@ -125,7 +162,18 @@ def budgetProblems(source):
     if not budgets:
         return ["tools/shots.sh no longer sets a budget this can be checked against"]
 
-    named = {name: int(value) for name, value in CONSTANT.findall(source)}
+    # Constants may be written as sums of others - STUCK_TICKS is 20 * 40 - so they are worked out
+    # in passes until nothing more resolves.
+    written = dict(CONSTANT.findall(source))
+    named = {}
+    for _ in range(4):
+        for name, expression in written.items():
+            if name in named:
+                continue
+            try:
+                named[name] = int(eval(expression, {"__builtins__": {}}, dict(named)))
+            except Exception:
+                continue
     ticks = 0
     counted = 0
     unreadable = []
@@ -149,10 +197,18 @@ def budgetProblems(source):
                 + ", which this cannot add up; write it from the scene's int constants"]
 
     seconds = ticks / A_SECOND
+    # And the worst a run is allowed to spend on steps that stopped moving before it gives up. A run
+    # with its full share of stuck steps is still a run that should finish and report, rather than be
+    # killed by the timer with nothing saying which steps were stuck.
+    stuck_ticks = named.get("STUCK_TICKS")
+    most_skipped = named.get("MOST_SKIPPED_STEPS")
+    if stuck_ticks is None or most_skipped is None:
+        return ["STUCK_TICKS or MOST_SKIPPED_STEPS is gone, so the worst case of stuck steps cannot be counted"]
+    stuck = stuck_ticks * most_skipped / A_SECOND
     room = min(budgets) * MOST_OF_IT
-    if seconds > room:
-        return [f"the scene waits {seconds:.0f}s on purpose, past the {room:.0f}s that leaves"
-                f" room inside the smallest budget in tools/shots.sh ({min(budgets)}s)"]
+    if seconds + stuck > room:
+        return [f"the scene waits {seconds:.0f}s on purpose and may spend {stuck:.0f}s on stuck steps, past"
+                f" the {room:.0f}s that leaves room inside the smallest budget in tools/shots.sh ({min(budgets)}s)"]
     return []
 
 

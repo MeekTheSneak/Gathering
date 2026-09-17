@@ -31,7 +31,9 @@ HEADER = re.compile(r"public record (\w+)\(([^)]*)\)\s*implements\s+([\w.,\s]+?)
 #: component `table` was the whole of the old test and a payload is free to call it anything:
 #: `DraftPickPayload` said `pod` and `EventActionPayload` said `at`, both were table positions,
 #: and neither was ever looked at by the check whose job is to look at them.
-POSITION = re.compile(r"\bBlockPos\s+(\w+)\b")
+#: Wrapped as well as bare: an Optional<BlockPos> or a List<BlockPos> names a table as surely as a
+#: BlockPos does, and the pattern that only matched the bare type let either through unasked.
+POSITION = re.compile(r"\bBlockPos\s*(?:>\s*)?(\w+)\b")
 
 #: Positions that are not a table's, each with the reason it is not. A payload naming one of
 #: these is passed over; anything else has to implement AtATable or say why here, which makes
@@ -41,6 +43,7 @@ NOT_A_TABLE = {
     "where": "a collection block, which is not a table and has no session",
     "desk": "a scorekeeper's desk, which stands beside tables rather than being one",
     "block": "whichever block was clicked, before anything has decided what it is",
+    "from": "the collection block a deck is built out of, which is not a table and has no session",
 }
 
 

@@ -8,13 +8,14 @@ nothing enforced it, so British forms drifted in: a public ``practising()``, "ce
 What this reads, and what it deliberately does not:
 
 * **Comments and javadoc** in every module's Java, and every value in ``en_us.json``.
-* **Identifiers**, by way of the same scan: a name is words run together, and the British
-  forms below are recognised inside one.
+* **Identifiers**, every one the code uses - fields, parameters, locals - read by a small
+  Java tokenizer: a name is words run together, and the British forms below are found inside one.
 * **Not string literals.** Some of them are phases written into a save or sent on the wire
   ("cancelled" is a tournament's), and renaming one is a migration rather than a spelling
   fix. Where a literal is player-facing it lives in the lang file, which is read.
 * **Not another project's names.** ``BlockBehaviour`` is Minecraft's and the ``*Behaviour``
-  classes are Create's; spelling them any other way does not compile.
+  classes are Create's; spelling them any other way does not compile. They are known by being
+  imported, or written out with their package, rather than by a list.
 """
 
 import json
@@ -52,10 +53,13 @@ INSTEAD = {
     "signalling": "signaling",
 }
 
-# Names that belong to Minecraft or to another mod, matched whole and case-sensitively.
-NOT_OURS = re.compile(
-    r"BlockBehaviour|BlockEntityBehaviour|DepotBehaviour|TransportedItemStackHandlerBehaviour"
-    r"|[A-Za-z]*Behaviour\b|CANCELLED|Cancelable|setCanceled")
+#: A name the mod spells the British way on purpose, with the reason. Everything else of another
+#: project's is found from the imports rather than listed, so a new Create behaviour needs nothing.
+KEPT = {
+    # A tournament phase, written by name into saves and sent to clients as a word; renaming it is
+    # a migration of every stored event, not a spelling fix.
+    "CANCELLED": "a stored tournament phase",
+}
 
 WORD = re.compile("|".join(sorted(INSTEAD, key=len, reverse=True)), re.IGNORECASE)
 
@@ -63,52 +67,87 @@ SOURCES = ["common/src", "core/src", "neoforge/src", "fabric/src"]
 
 LANG = ROOT / "common/src/main/resources/assets/gathering/lang/en_us.json"
 
+IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
-def commentary(text):
-    """Every comment and javadoc line, as (line number, text) - string literals removed."""
-    found = []
-    inside = False
-    for number, line in enumerate(text.splitlines(), start=1):
-        stripped = line.strip()
-        if inside:
-            found.append((number, line))
-            if "*/" in stripped:
-                inside = False
+#: A qualified name from outside the mod: its package root, then dotted names to the class.
+FOREIGN = re.compile(r"(?:com|net|org|io|java|javax)(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)+")
+
+
+def pieces(text):
+    """A Java file as (line, identifier) pairs from its code and (line, text) pairs from its comments.
+
+    Read as Java is: string and character literals are skipped with their escapes, text blocks
+    too, and a comment is a comment wherever on a line it starts. The first version read comments
+    by the line they began on and names only where a modifier stood in front of them, so a
+    parameter, a local, a package-private field, a comment after code and a line with an escaped
+    quote before its comment all went unread.
+    """
+    code, comments = [], []
+    at, line, size = 0, 1, len(text)
+    while at < size:
+        c = text[at]
+        ahead = text[at + 1] if at + 1 < size else ""
+        if c == "/" and ahead == "/":
+            end = text.find("\n", at)
+            end = size if end < 0 else end
+            comments.append((line, text[at + 2:end]))
+            at = end
             continue
-        if stripped.startswith("/*"):
-            found.append((number, line))
-            if "*/" not in stripped:
-                inside = True
+        if c == "/" and ahead == "*":
+            end = text.find("*/", at + 2)
+            end = size if end < 0 else end
+            body = text[at + 2:end]
+            for offset, part in enumerate(body.split("\n")):
+                comments.append((line + offset, part))
+            line += body.count("\n")
+            at = end + 2
             continue
-        at = line.find("//")
-        if at >= 0 and line.count('"', 0, at) % 2 == 0:
-            found.append((number, line[at:]))
-    return found
+        if text.startswith('"""', at):
+            end = text.find('"""', at + 3)
+            end = size if end < 0 else end
+            line += text.count("\n", at, end)
+            at = end + 3
+            continue
+        if c in "\"'":
+            at += 1
+            while at < size and text[at] != c and text[at] != "\n":
+                at += 2 if text[at] == "\\" else 1
+            at += 1
+            continue
+        if c == "\n":
+            line += 1
+            at += 1
+            continue
+        found = FOREIGN.match(text, at)
+        if found and (at == 0 or not (text[at - 1].isalnum() or text[at - 1] in "_.")):
+            # Another project's class written out in full rather than imported.
+            at = found.end()
+            continue
+        found = IDENTIFIER.match(text, at)
+        if found and (at == 0 or not (text[at - 1].isalnum() or text[at - 1] == "_")):
+            code.append((line, found.group(0)))
+            at = found.end()
+            continue
+        at += 1
+    return code, comments
 
 
-def declarations(text):
-    """Identifiers the mod declares, as (line number, name)."""
-    found = []
-    pattern = re.compile(
-        r"\b(?:class|interface|enum|record)\s+(\w+)"
-        r"|\b(?:public|private|protected|static|final)\s+[\w.<>\[\], ?]+\s+(\w+)\s*[(;=]")
-    for number, line in enumerate(text.splitlines(), start=1):
-        for match in pattern.finditer(line):
-            name = match.group(1) or match.group(2)
-            if name:
-                found.append((number, name))
-    return found
+def imported(text):
+    """Every name an import line mentions: another project's, spelled its own way."""
+    names = set()
+    for statement in re.findall(r"^\s*import\s+(?:static\s+)?([\w.]+)\s*;", text, re.MULTILINE):
+        names.update(statement.split("."))
+    return names
 
 
-def wrong(text):
+def wrong(text, theirs=frozenset()):
     """Every British form in one piece of text, with what to write instead."""
     problems = []
-    for match in WORD.finditer(text):
-        at = match.start()
-        window = text[max(0, at - 40):at + 40]
-        if NOT_OURS.search(window):
+    for word in IDENTIFIER.findall(text):
+        if word in theirs or word in KEPT:
             continue
-        problems.append((match.group(0), INSTEAD[match.group(0).lower()]))
+        for match in WORD.finditer(word):
+            problems.append((match.group(0), INSTEAD[match.group(0).lower()]))
     return problems
 
 
@@ -125,11 +164,17 @@ def main():
     for path in files:
         text = path.read_text(encoding="utf-8")
         where = path.relative_to(ROOT)
-        for number, line in commentary(text):
-            for found, instead in wrong(line):
+        theirs = frozenset(imported(text))
+        code, comments = pieces(text)
+        for number, said in comments:
+            for found, instead in wrong(said, theirs):
                 problems.append(f"{where}:{number}: \"{found}\" - write \"{instead}\"")
-        for number, name in declarations(text):
-            for found, instead in wrong(name):
+        seen = set()
+        for number, name in code:
+            if name in seen or name in theirs or name in KEPT:
+                continue
+            for found, instead in wrong(name, theirs):
+                seen.add(name)
                 problems.append(f"{where}:{number}: the name {name} spells \"{found}\";"
                                 f" write \"{instead}\"")
 

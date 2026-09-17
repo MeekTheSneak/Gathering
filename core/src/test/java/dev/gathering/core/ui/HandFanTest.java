@@ -26,7 +26,7 @@ class HandFanTest {
     class WhateverTheSize {
 
         @Property(tries = 400)
-        void theFanStaysOnTheScreen(@ForAll @IntRange(min = 1, max = 30) int count) {
+        void theFanStaysOnTheScreen(@ForAll @IntRange(min = 1, max = 600) int count) {
             for (int index = 0; index < count; index++) {
                 Rect where = HandFan.slot(AREA, count, index, -1).where();
                 assertThat(where.x())

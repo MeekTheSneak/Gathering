@@ -116,10 +116,18 @@ final class PackTurning {
             return;
         }
         if (!dragging) {
-            swipe -= swipe * SPRING;
+            // By the time that passed rather than by the frame: taken off once a frame, the spring
+            // snapped back three times as fast at a hundred and forty-four frames a second as at
+            // sixty, and dawdled at thirty. SPRING is what one sixtieth of a second takes off.
+            long at = net.minecraft.Util.getMillis();
+            float frames = springAt == 0L ? 1f : Math.min(10f, (at - springAt) / (1000f / 60f));
+            springAt = at;
+            swipe *= (float) Math.pow(1f - SPRING, frames);
             if (Math.abs(swipe) < 0.5f) {
                 swipe = 0f;
             }
+        } else {
+            springAt = 0L;
         }
         long now = net.minecraft.Util.getMillis();
 
@@ -241,18 +249,32 @@ final class PackTurning {
     }
 
     boolean grabbed(double mouseX, double mouseY, Rect where) {
-        if (reveal.finished() || !where.contains((int) mouseX, (int) mouseY)) {
+        // Where the card is drawn, which is moved by however far it is already swiped. Tested against
+        // where it rests, the card that could be seen and the card that could be grabbed were in two
+        // different places once a drag had begun and been let go short.
+        if (reveal.finished() || !where.contains((int) (mouseX - swipe), (int) mouseY)) {
             return false;
         }
         dragging = true;
         return true;
     }
 
-    void draggedTo(double dragX) {
+    /** Whether a drag of the front card is under way. */
+    boolean isDragging() {
+        return dragging;
+    }
+
+    void draggedTo(double dragX, Rect where) {
         if (dragging) {
-            swipe += (float) dragX;
+            // No further than a card and a half either way: past that it is taken whatever else
+            // happens, and an unbounded drag walked the card off the screen and out of reach.
+            float furthest = Math.max(1f, where.width() * 1.5f);
+            swipe = Math.clamp(swipe + (float) dragX, -furthest, furthest);
         }
     }
+
+    /** When the spring last ran, on the game's millisecond clock; nought while held. */
+    private long springAt;
 
     /**
      * Let go. Past the threshold the card comes off the stack and the next one arrives; short of it, it

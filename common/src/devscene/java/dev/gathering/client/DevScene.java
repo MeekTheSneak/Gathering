@@ -188,7 +188,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 385;
+    private static final int LAST_STEP = 386;
 
     /** How many cards a library search showed before anything was typed. */
     private static int librarySearched;
@@ -341,6 +341,56 @@ public final class DevScene {
         // taken in the first two minutes of a fresh world, which is exactly where the zone
         // column is. Nothing to do with the mod, and it hides the thing being photographed.
         client.getToasts().clear();
+        runTheStep(client);
+    }
+
+    /**
+     * The current step, and what it does.
+     * <p>Split from {@link #tick} so a step that throws is a failure named by its step rather than a
+     * crash. A null screen here, a missing board there, was the client going down with a stack trace
+     * and every step after it unrun - which is worse than any single failure it could have reported.
+     */
+    private static void runTheStep(Minecraft client) {
+        int running = step;
+        try {
+            if (waitingCheck != null && step != waitingCheckSetAt) {
+                Runnable due = waitingCheck;
+                waitingCheck = null;
+                due.run();
+            }
+            dispatch(client);
+        } catch (RuntimeException threw) {
+            fail("step " + running + " threw " + threw);
+            threw.printStackTrace(System.out);
+            if (step == running) {
+                advance(SETTLE / 2);
+            }
+        }
+    }
+
+    /** A check a step left for the next one, once the server has had time to answer; or null. */
+    private static Runnable waitingCheck;
+    private static int waitingCheckSetAt;
+
+    /**
+     * Checks something at the start of the next step rather than now.
+     * <p>For what the server has to answer first: the client changes nothing on a press, so a check
+     * in the same call as the press reads the board from before it.
+     */
+    private static void thenCheck(Runnable check) {
+        if (waitingCheck != null) {
+            Runnable earlier = waitingCheck;
+            waitingCheck = () -> {
+                earlier.run();
+                check.run();
+            };
+        } else {
+            waitingCheck = check;
+        }
+        waitingCheckSetAt = step;
+    }
+
+    private static void dispatch(Minecraft client) {
         switch (step) {
             case 0 -> {
                 // Not "wait for the title screen": a client that has never been run before
@@ -354,7 +404,21 @@ public final class DevScene {
                     // focus opens the pause menu over the world - which stops the card being
                     // read in the hand from being drawn, so the foil steps saw no tilt at all
                     // on a run where the machine was in use, and passed on one where it was not.
+                    // Kept to put back, as the lesson flags are: every one of these is this machine's
+                    // own settings file, and a tour that left them changed left somebody's game changed.
+                    playerSettingsWere = new Object[] {client.options.pauseOnLostFocus,
+                            client.options.guiScale().get(), ClientSettings.themeId(), ClientSettings.reducedMotion()};
                     client.options.pauseOnLostFocus = false;
+                    // Off for the tour. Reduced motion puts no card in the air and lights no pile, and a
+                    // run directory left with it on failed three steps with nothing saying why.
+                    ClientSettings.reducedMotion(false);
+                    // And the shortcuts written while playing go to a file of the tour's own.
+                    try {
+                        dev.gathering.client.RecentThings.fileForTesting(
+                                java.nio.file.Files.createTempFile("gathering-tour-recent-", ".txt"));
+                    } catch (java.io.IOException couldNotMake) {
+                        fail("could not give the tour a recent-things file of its own: " + couldNotMake);
+                    }
                     // The player's own settings change what several steps can see - reduced motion
                     // puts no card in the air - and this directory's are whatever the last scripted
                     // run left. Said at the start, so a run failing on them says why.
@@ -404,6 +468,13 @@ public final class DevScene {
                 }
             }
             case 3 -> {
+                if (table == null) {
+                    // No table stood up, and every step after this one reads it - one of them by
+                    // a lookup that throws on nothing, which took the client down at step 13.
+                    fail("step 2 did not stand a table up");
+                    finish(client, "there is no table, so nothing after step 2 can run");
+                    return;
+                }
                 // Sitting in a chair at a bare table is the way in: it takes the seat, and asks what
                 // kind of game this is going to be.
                 sitInTheChair(client);
@@ -443,11 +514,25 @@ public final class DevScene {
                 // game by itself when a deck was put on it, which the owner asked to go.
                 if (!asked) {
                     asked = true;
+                    waitedForTheDeck = 0;
                     if (client.screen != null) {
                         client.setScreen(null);
                     }
                     importADeck(client);
-                    waitHere(SETTLE * 8);
+                    waitHere(SETTLE);
+                    return;
+                }
+                if (opening == 0 && !carryingADeck(client)) {
+                    // Waited for rather than slept through. A fixed sixteen seconds passed on a
+                    // warm cache and failed on a cold one, and a deck that never came turned every
+                    // step after this one into noise about an empty board.
+                    if (!importRefused.isEmpty() || ++waitedForTheDeck > LONGEST_WAIT_FOR_THE_DECK / 10) {
+                        fail("the tour's deck never arrived"
+                                + (importRefused.isEmpty() ? " within a minute" : ": " + importRefused));
+                        finish(client, "there is no deck, so nothing after step 8 can run");
+                        return;
+                    }
+                    waitHere(10);
                     return;
                 }
                 if (opening == 0) {
@@ -494,6 +579,10 @@ public final class DevScene {
                     client.setScreen(new TableScreen(table));
                 } else {
                     fail("choosing free play and putting a deck down did not start a game");
+                    // Every step from here on needs this game. Stopped by name rather than run on
+                    // into three hundred failures about a board that is not there.
+                    finish(client, "no game started at step 8, so nothing after it can run");
+                    return;
                 }
                 advance(SETTLE);
             }
@@ -555,6 +644,9 @@ public final class DevScene {
                 advance(A_MOMENT);
             }
             case 14 -> {
+                if (stillWaitingFor(aCardIsFlying(), BRIEF_MOMENT)) {
+                    return;
+                }
                 aCardIsInTheAir(client, "drawing one");
                 shoot(client, "06b-a-card-in-the-air");
                 // A shuffle is the one move that changes nothing anybody may look at, so it
@@ -563,6 +655,9 @@ public final class DevScene {
                 advance(A_MOMENT);
             }
             case 15 -> {
+                if (stillWaitingFor(myLibraryIsShaking(), BRIEF_MOMENT)) {
+                    return;
+                }
                 aPileIsBeingShaken(client);
                 shoot(client, "06c-a-library-being-shuffled");
                 advance(SETTLE);
@@ -666,6 +761,7 @@ public final class DevScene {
                 expectScreen(client, "pressing escape on the game log", TableScreen.class);
                 if (client.screen instanceof TableScreen board && board.theLogIsShowing()) {
                     fail("escape left the game log open");
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] escape shuts the log without leaving the table");
@@ -707,6 +803,7 @@ public final class DevScene {
             case 30 -> {
                 if (!(client.screen instanceof TableScreen board) || !board.thePaletteIsShowing()) {
                     fail("the palette key opened no verb search");
+                    advance(SETTLE / 2);
                     return;
                 }
                 shoot(client, "12b-find-an-action");
@@ -716,11 +813,13 @@ public final class DevScene {
             case 31 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the verb search left the board");
+                    advance(SETTLE / 2);
                     return;
                 }
                 if (!"tap".equals(board.paletteQuery())) {
                     fail("typing into the verb search put '" + board.paletteQuery()
                             + "' in the box");
+                    advance(SETTLE / 2);
                     return;
                 }
                 java.util.List<String> showing = board.paletteShowing();
@@ -731,6 +830,7 @@ public final class DevScene {
                 if (showing.isEmpty() || !showing.get(0).equals("tap")) {
                     fail("searching for 'tap' put " + showing + " up, and Tap is not the"
                             + " first of them");
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] the verb search found " + showing + " for 'tap'");
@@ -758,12 +858,14 @@ public final class DevScene {
             case 33 -> {
                 if (client.screen instanceof TableScreen board && board.thePaletteIsShowing()) {
                     fail("taking a row left the verb search open");
+                    advance(SETTLE / 2);
                     return;
                 }
                 if (!everyOneOfThemIsTapped(client, table, cardsTheVerbSearchWillMove)) {
                     fail("Tap taken from the verb search tapped nothing: "
                             + cardsTheVerbSearchWillMove.size() + " card(s) were pointed at"
                             + " and none of them is sideways");
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] a verb taken from the search did the same thing"
@@ -857,6 +959,7 @@ public final class DevScene {
                 if (now != lifeWas + 1) {
                     fail("pressing the right end of the life counter moved it by "
                             + (now - lifeWas) + ", not one");
+                    advance(SETTLE / 2);
                     return;
                 }
                 theLifeCounterIsOnScreen(client);
@@ -869,6 +972,7 @@ public final class DevScene {
                 if (now != lifeWas) {
                     fail("the two ends of the life counter do not undo each other: "
                             + lifeWas + " to " + now);
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] the life counter goes up at one end and down"
@@ -899,6 +1003,7 @@ public final class DevScene {
                 if (now != lifeWas + 5) {
                     fail("typing five on the end marked plus moved life by "
                             + (now - lifeWas) + ", not five");
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] a typed amount goes the way the end is marked");
@@ -916,6 +1021,7 @@ public final class DevScene {
                 int now = myLife(client);
                 if (now != lifeWas) {
                     fail("five on each end did not cancel out: " + lifeWas + " to " + now);
+                    advance(SETTLE / 2);
                     return;
                 }
                 // The number under a commander is the tax, and it is a button. Pressed on the
@@ -936,6 +1042,7 @@ public final class DevScene {
                 if (now != taxPaid + 1) {
                     fail("pressing the tax on the mat recorded " + (now - taxPaid)
                             + " casts, not one");
+                    advance(SETTLE / 2);
                     return;
                 }
                 shoot(client, "14a-tax-on-the-mat");
@@ -949,6 +1056,7 @@ public final class DevScene {
                 if (backTo != taxPaid) {
                     fail("right-clicking the tax left it at " + backTo + ", not back at "
                             + taxPaid);
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] the tax under a commander goes up and back down");
@@ -984,10 +1092,12 @@ public final class DevScene {
                 if (held != drawnBack) {
                     fail("drawing back up from an empty hand gave " + held + ", not "
                             + drawnBack);
+                    advance(SETTLE / 2);
                     return;
                 }
                 if (held == 0) {
                     fail("there was nothing left to draw back into an empty hand");
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] an emptied hand fills again");
@@ -1221,6 +1331,9 @@ public final class DevScene {
                 advance(A_MOMENT);
             }
             case 71 -> {
+                if (stillWaitingFor(aCardIsFlying(), BRIEF_MOMENT)) {
+                    return;
+                }
                 // The same crossing, drawn by the world rather than by the window. Everyone
                 // at the table sees a card move, and most of them are not sitting at it.
                 aCardIsInTheAir(client, "drawing one on the block");
@@ -1252,6 +1365,7 @@ public final class DevScene {
                 if (now != lifeWas + 1) {
                     fail("pressing the end marked plus on the block moved life by "
                             + (now - lifeWas) + ", not one");
+                    advance(SETTLE / 2);
                     return;
                 }
                 pressMyLife(client, -1);
@@ -1262,6 +1376,7 @@ public final class DevScene {
                 if (now != lifeWas) {
                     fail("the ends of the life counter on the block do not undo each other: "
                             + lifeWas + " to " + now);
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] the life counter presses on the block too");
@@ -1282,6 +1397,7 @@ public final class DevScene {
                 if (paid != taxPaid + 1) {
                     fail("pressing the tax on the block recorded " + (paid - taxPaid)
                             + " casts, not one");
+                    advance(SETTLE / 2);
                     return;
                 }
                 shoot(client, "22c-the-tax-on-the-block");
@@ -1293,6 +1409,7 @@ public final class DevScene {
                 if (backTo != taxPaid) {
                     fail("right-clicking the tax on the block left it at " + backTo
                             + ", not back at " + taxPaid);
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] the tax presses on the block too");
@@ -1359,6 +1476,9 @@ public final class DevScene {
                 advance(A_MOMENT);
             }
             case 81 -> {
+                if (stillWaitingFor(aCardIsFlying(), BRIEF_MOMENT)) {
+                    return;
+                }
                 aCardIsInTheAir(client, "a rival sliding a card across their mat");
                 shoot(client, "23a-a-rivals-card-on-the-move");
                 // The turn goes over to the rival here and comes back in the next step - two
@@ -1366,10 +1486,15 @@ public final class DevScene {
                 // passes shows none.
                 HEARD.clear();
                 theTurnPasses(client, new SeatId(0), new SeatId(1));
-                // Half a second: the rival's graveyard is still lit when the next step looks.
-                advance(SETTLE / 4);
+                // A moment, and then the next step waits for the graveyard to light. A fixed half
+                // second of ticks could outrun the second and a half it stays lit on a slow machine.
+                advance(A_MOMENT);
             }
             case 82 -> {
+                if (stillWaitingFor(dev.gathering.core.ui.Arrival.strength(ClientCardFlights.arrivedSince(table, new SeatId(1),
+                        Zone.GRAVEYARD, ClientCardFlights.now()), ClientSettings.reducedMotion()) > 0f, BRIEF_MOMENT)) {
+                    return;
+                }
                 shoot(client, "23b-a-pile-lit-where-cards-landed");
                 float lit = dev.gathering.core.ui.Arrival.strength(ClientCardFlights.arrivedSince(
                         table, new SeatId(1), Zone.GRAVEYARD, ClientCardFlights.now()), ClientSettings.reducedMotion());
@@ -1538,6 +1663,7 @@ public final class DevScene {
             case 98 -> {
                 if (!(client.screen instanceof TableScreen board) || !board.menuIsOpen()) {
                     fail("the felt's menu did not open for the remembered token row");
+                    advance(SETTLE / 2);
                     return;
                 }
                 String wanted = net.minecraft.network.chat.Component
@@ -1546,6 +1672,7 @@ public final class DevScene {
                 if (!board.hasMenuEntry(wanted)) {
                     fail("a token used once is not offered on the felt's menu as '" + wanted
                             + "', so the row of remembered names is a thing nobody can reach");
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] a token used once is offered on the felt's menu");
@@ -1566,11 +1693,13 @@ public final class DevScene {
             case 100 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("no board to point at a card on");
+                    advance(SETTLE / 2);
                     return;
                 }
                 java.util.List<CardInstanceId> at = board.whatTheKeysWouldActOn();
                 if (at.isEmpty()) {
                     fail("nothing was under the cursor to point at");
+                    advance(SETTLE / 2);
                     return;
                 }
                 pointedAt = at.get(0);
@@ -1584,6 +1713,7 @@ public final class DevScene {
                         || !ringed.aCardIsBeingPointedAt(pointedAt)) {
                     fail("a card that was pointed at is not ringed, so pointing at the table"
                             + " still does nothing anybody can see");
+                    advance(SETTLE / 2);
                     return;
                 }
                 System.out.println("[devscene] a card pointed at is ringed for everyone");
@@ -1630,6 +1760,7 @@ public final class DevScene {
                                 .map(dev.gathering.core.game.PlayerRef::name).orElse(null);
                 if (whoWasSitting == null) {
                     fail("the client stood up from a seat that had no name on it");
+                    advance(SETTLE / 2);
                     return;
                 }
                 standUp(client);
@@ -1663,6 +1794,7 @@ public final class DevScene {
             case 107 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
+                theGesturesChangedNothing(liveBoardAsItStands(), "a gesture with no seat");
                 shoot(client, "31-still-watching");
                 hoverSomebodysLifeCounter(client);
                 advance(SETTLE / 2);
@@ -1885,6 +2017,7 @@ public final class DevScene {
             case 135 -> {
                 if (!(client.screen instanceof CollectionScreen box)) {
                     fail("the collection closed while a search was being typed into it");
+                    advance(SETTLE / 2);
                     return;
                 }
                 if (box.shown().isEmpty()) {
@@ -2024,6 +2157,7 @@ public final class DevScene {
                 MinecraftServer server = client.getSingleplayerServer();
                 if (server == null || table == null || client.player == null) {
                     fail("there was no table to reopen with a pot on it");
+                    advance(SETTLE / 2);
                     return;
                 }
                 java.util.UUID who = client.player.getUUID();
@@ -2875,9 +3009,15 @@ public final class DevScene {
             }
             case 234 -> {
                 flipACoin(client);
-                advance(SETTLE);
+                advance(A_MOMENT);
             }
             case 235 -> {
+                // Waited for, then read at once. The announcement is up for three and a half seconds of
+                // wall time, and two fixed seconds of ticks could be most of that on a slow machine.
+                if (stillWaitingFor(table != null && !ClientTableRolls.showingAt(table, System.currentTimeMillis()).isEmpty()
+                        && logSays(client, "flipped a coin"), 20 * 10)) {
+                    return;
+                }
                 if (!logSays(client, "rolled a d20")) {
                     fail("a d20 was rolled and the log does not say so");
                 }
@@ -3291,6 +3431,7 @@ public final class DevScene {
             }
             case 280 -> {
                 expectAReplay(client, "still watching after a watcher tried to play");
+                theGesturesChangedNothing(boardAsItStands(client), "a watcher's gestures");
                 if (ClientReplay.step() != 0) {
                     fail("a click on the felt of a replay moved the game to step "
                             + ClientReplay.step());
@@ -3407,6 +3548,13 @@ public final class DevScene {
                     dev.gathering.server.LessonRecords.unfinishForTesting(client.player.getUUID());
                 }
                 shoot(client, "92-the-zombie-shopkeeper");
+                // Peaceful again. The shopkeepers are not the end of the run as their step once said:
+                // nearly ninety steps follow, some in survival and after dark, and a world left on
+                // easy spawned mobs into them.
+                MinecraftServer calm = client.getSingleplayerServer();
+                if (calm != null) {
+                    calm.execute(() -> calm.setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true));
+                }
                 advance(SETTLE / 2);
             }
             // --------------------------------------------- the guided first game
@@ -3431,6 +3579,8 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 300 -> {
+                // Counted before the lesson begins, so step 314 can say the lesson handed nothing out.
+                decksAndCardsBeforeTheLesson = decksAndCardsCarried(client);
                 // Neither finished nor skipped yet, as far as this run is concerned, so that
                 // "finished" at the end of this section is something this run wrote. The run
                 // directory keeps its settings between runs, and a lesson finished last time
@@ -3842,11 +3992,20 @@ public final class DevScene {
                 settleRowFits(client);
                 shoot(client, "105a-settling-a-table");
                 press(client, "2-0");
-                advance(20 * 18);
+                advance(SETTLE);
             }
             case 341 -> {
                 // No round two: the opponent was never online, so the next round drops them, as
                 // anybody still gone at the next round is, and one player left finishes the event.
+                // Waited for rather than timed: the pause before the next round is counted in server
+                // ticks, and a fixed eighteen seconds of client ticks gave a lagging server three
+                // seconds of slack.
+                if (client.screen instanceof EventScreen event && !"finished".equals(event.view().phase())
+                        && ++waitedForTheEvent < 20 * 60 / 10) {
+                    waitHere(10);
+                    return;
+                }
+                waitedForTheEvent = 0;
                 advance(SETTLE / 4);
             }
             case 342 -> {
@@ -4243,23 +4402,28 @@ public final class DevScene {
                 expectScreen(client, "asked about a deck that is not legal", DeckNotLegalScreen.class);
                 shoot(client, "109-not-legal-use-anyway");
                 press(client, Component.translatable("screen.gathering.not_legal.another").getString());
+                // Photographed a step later. A picture asked for in the step that pressed the button
+                // is taken before the frame the new screen is drawn in, so it showed the last screen.
+                advance(SETTLE / 4);
+            }
+            case 372 -> {
                 expectScreen(client, "choosing another deck", DeckPickerScreen.class);
                 shoot(client, "110-choosing-another-deck");
                 press(client, Component.translatable("screen.gathering.deck_picker.not_now").getString());
                 client.setScreen(null);
                 advance(SETTLE / 2);
             }
-            case 372 -> {
+            case 373 -> {
                 // Who may use a collection: the owner's screen, and the one place the lock can be put on.
                 openTheCollectionWeOwn(client);
                 advance(SETTLE);
             }
-            case 373 -> {
+            case 374 -> {
                 expectScreen(client, "the collection we own", CollectionScreen.class);
                 press(client, Component.translatable("screen.gathering.collection.share").getString());
                 advance(SETTLE);
             }
-            case 374 -> {
+            case 375 -> {
                 expectScreen(client, "who may use this collection", CollectionKeysScreen.class);
                 shoot(client, "111-who-may-use-this-collection");
                 // The lock goes on: the Look toggle under Everyone, which starts on. It was one button
@@ -4272,39 +4436,39 @@ public final class DevScene {
                 press(client, Component.translatable("screen.gathering.collection_keys.look").getString());
                 advance(SETTLE);
             }
-            case 375 -> {
+            case 376 -> {
                 theCollectionIsLocked(client);
                 shoot(client, "112-a-locked-collection");
                 client.setScreen(null);
                 advance(SETTLE);
             }
-            case 376 -> {
+            case 377 -> {
                 // A card under glass, which is a block whose whole job is to be looked at.
                 aDisplayCaseWithACardInIt(client);
                 advance(SETTLE * 2);
             }
-            case 377 -> {
+            case 378 -> {
                 theCaseIsShowingItsCard(client);
                 shoot(client, "113-a-card-under-glass");
                 advance(SETTLE / 2);
             }
-            case 378 -> {
+            case 379 -> {
                 // The deck box itself, in the hand and in the hotbar. A model is a thing you look at.
                 deckBoxesInTheHotbar(client);
                 advance(SETTLE);
             }
-            case 379 -> {
+            case 380 -> {
                 theDeckBoxesAreColored(client);
                 shoot(client, "114-deck-boxes");
                 advance(SETTLE / 2);
             }
-            case 380 -> {
+            case 381 -> {
                 // How a pack is held when somebody else is looking at you, and how one lies on the floor.
                 // Neither is visible from the first person, which is the only view the rest of this uses.
                 aPackInHandAndOneOnTheFloor(client);
                 advance(SETTLE * 2);
             }
-            case 381 -> {
+            case 382 -> {
                 shoot(client, "115-a-pack-held-and-dropped");
                 client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
                 advance(SETTLE / 2);
@@ -4313,20 +4477,30 @@ public final class DevScene {
             // scene imports goes through DecklistImport on the server, so for 382 steps the
             // screen a player actually types into - the mod's way in - was the one screen the
             // scene never built.
-            case 382 -> {
+            case 383 -> {
                 Minecraft.getInstance().setScreen(new DecklistImportScreen());
                 advance(SETTLE);
             }
-            case 383 -> {
+            case 384 -> {
                 theImportScreenTakesAList(client);
                 advance(SETTLE * 4);
             }
-            case 384 -> {
+            case 385 -> {
+                // Waited for, while there is a pipeline to answer: step 8 already proved there is
+                // one, so an import screen that has said nothing is still working rather than a
+                // run that cannot check this. A fixed eight seconds read a slow answer as none.
+                if (client.screen instanceof DecklistImportScreen paste && paste.saidForTesting().isEmpty()
+                        && CardDataService.active().isPresent()
+                        && ++waitedForTheImportScreen < LONGEST_WAIT_FOR_THE_DECK / 10) {
+                    waitHere(10);
+                    return;
+                }
+                waitedForTheImportScreen = 0;
                 theImportScreenNamedWhatItCouldNotRead(client);
                 shoot(client, "116-a-decklist-with-a-typo-in-it");
                 advance(SETTLE / 2);
             }
-            case 385 -> {
+            case 386 -> {
                 if (client.screen != null) {
                     client.screen.onClose();
                 }
@@ -4950,7 +5124,7 @@ public final class DevScene {
     private static CardInstanceId loyal;
 
     /** The card the token-row steps are working on, and what it says it makes. */
-    private static CardInstanceId maker;
+    private static volatile CardInstanceId maker;
 
     /** How many cards were on the battlefield before a token row was pressed. */
     private static int onTheBattlefieldBeforeTheToken;
@@ -5984,10 +6158,8 @@ public final class DevScene {
         table.mouseReleased(middleX + 20, middleY + 20, 0);
         table.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_E, 0, 0);
         table.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_P, 0, 0);
-        String after = boardAsItStands(client);
-        if (!before.equals(after)) {
-            fail("a watcher's gestures changed the board: " + before + " became " + after);
-        }
+        // Compared in the next step, once the server has had time to answer. See pokeEverything.
+        boardBeforeTheGestures = before;
     }
 
     /**
@@ -6694,10 +6866,22 @@ public final class DevScene {
             // one - cannot check this rather than having found a fault. What it must never do is pass
             // quietly while the server has a card and this client does not.
             MinecraftServer server = client.getSingleplayerServer();
-            boolean serverHasOne = server != null
-                    && server.overworld().getBlockEntity(displayCase)
-                            instanceof dev.gathering.block.DisplayCaseBlockEntity theirs
-                    && !theirs.isEmpty();
+            // Asked on the server's own thread. Asked from this one, the server's level answers
+            // every block entity lookup with nothing, so this read "no card" whatever the case held
+            // and the check could never fail.
+            BlockPos where = displayCase;
+            boolean serverHasOne = false;
+            if (server != null) {
+                try {
+                    serverHasOne = server.submit(() -> server.overworld().getBlockEntity(where)
+                                    instanceof dev.gathering.block.DisplayCaseBlockEntity theirs
+                                    && !theirs.isEmpty())
+                            .get(2, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (Exception couldNotAsk) {
+                    fail("could not ask the server what the display case holds: " + couldNotAsk);
+                    return;
+                }
+            }
             if (serverHasOne) {
                 fail("the server put a card in the case and this client's copy is empty");
             } else {
@@ -6845,6 +7029,19 @@ public final class DevScene {
 
     /** Whether the box between these two corners holds no part of any table. */
     private static boolean noTableWithin(ServerLevel level, BlockPos from, BlockPos to) {
+        // Walked on the server's own thread, in one go. Called from a client step, every block read
+        // was a blocking trip to the server thread and back - a couple of hundred for the wood row -
+        // and what it said could be out of date by the time the placement ran there.
+        MinecraftServer server = level.getServer();
+        if (!server.isSameThread()) {
+            try {
+                return server.submit(() -> noTableWithin(level, from, to))
+                        .get(10, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception couldNotAsk) {
+                fail("could not ask the server whether there was room: " + couldNotAsk);
+                return false;
+            }
+        }
         for (BlockPos each : BlockPos.betweenClosed(from, to)) {
             if (level.getBlockState(each).getBlock() instanceof TableBlock) {
                 return false;
@@ -7250,7 +7447,7 @@ public final class DevScene {
     }
 
     /** Whether the run's table has already been reported gone, so it is said once and not every tick. */
-    private static boolean tableReportedGone;
+    private static volatile boolean tableReportedGone;
 
     /**
      * Says which step the run's table stopped existing at, the moment it does.
@@ -7600,6 +7797,8 @@ public final class DevScene {
         }
         System.out.println("[devscene] the wants list holds "
                 + dev.gathering.client.ClientWants.all().size() + " card(s)");
+        // Put back: the list lives in the world save and outlasts the run.
+        dev.gathering.client.ClientWants.mark(wanted, wasWanted);
     }
 
     /**
@@ -7970,13 +8169,29 @@ public final class DevScene {
     private static boolean expectingStep(dev.gathering.core.tutorial.TutorialStep wanted) {
         dev.gathering.core.tutorial.TutorialStep showing = Tutorial.showing().orElse(null);
         if (showing == wanted) {
+            waitedForTheLesson = 0;
             return true;
         }
+        // Given a couple of seconds to catch up. The lesson moves on when the server's answer
+        // arrives, which can be a tick after the step that acted - and failing on the first tick
+        // failed a lesson that was about to be right.
+        if (++waitedForTheLesson < LESSON_CATCHES_UP) {
+            return false;
+        }
+        waitedForTheLesson = 0;
         fail("the guided first game should be asking for " + wanted
                 + " and is asking for " + (showing == null ? "nothing" : showing.name())
                 + " - " + Tutorial.watching());
+        // Moved on, so the step is not tried again every tick for the rest of the stuck clock.
+        advance(SETTLE / 2);
         return false;
     }
+
+    /** How many ticks a lesson step has been waited for. */
+    private static int waitedForTheLesson;
+
+    /** How long a lesson step is waited for before it fails: two seconds. */
+    private static final int LESSON_CATCHES_UP = 40;
 
     /**
      * Presses whatever key that verb is currently bound to.
@@ -8181,22 +8396,40 @@ public final class DevScene {
             fail("no player to check the pockets of");
             return;
         }
-        int decks = 0;
+        int decks = decksAndCardsCarried(client);
+        // The tour has been playing with real decks all along, so what is asserted is that the
+        // lesson added none: the count from before step 300 against the count now. It used to be
+        // printed and nothing more, so a lesson that handed its practice deck over passed.
+        if (decksAndCardsBeforeTheLesson < 0) {
+            fail("nothing was counted before the guided first game to compare against");
+        } else if (decks > decksAndCardsBeforeTheLesson) {
+            fail("the guided first game left " + (decks - decksAndCardsBeforeTheLesson)
+                    + " more deck or card stack(s) in the inventory than there were before it");
+        }
+        System.out.println("[devscene] after the guided first game the player carries "
+                + decks + " deck or card stack(s), as before it");
+        if (Tutorial.running()) {
+            fail("the guided first game is still running after Leave");
+        }
+    }
+
+    /** Deck and card stacks carried before step 300, or -1 before it has run. */
+    private static int decksAndCardsBeforeTheLesson = -1;
+
+    /** How many stacks of decks and cards this player carries. */
+    private static int decksAndCardsCarried(Minecraft client) {
+        if (client.player == null) {
+            return -1;
+        }
+        int found = 0;
         for (int slot = 0; slot < client.player.getInventory().getContainerSize(); slot++) {
             var stack = client.player.getInventory().getItem(slot);
             if (stack.getItem() instanceof dev.gathering.item.DeckItem
                     || stack.getItem() instanceof dev.gathering.item.CardItem) {
-                decks++;
+                found++;
             }
         }
-        // The tour has been playing with real decks all along, so what matters is that the
-        // practice table added nothing: the count is reported rather than asserted at zero,
-        // and the in-world tests are what pin the boundary itself.
-        System.out.println("[devscene] after the guided first game the player carries "
-                + decks + " deck or card stack(s)");
-        if (Tutorial.running()) {
-            fail("the guided first game is still running after Leave");
-        }
+        return found;
     }
 
     /** How many cards the pool handed over for practice holds. */
@@ -8334,6 +8567,7 @@ public final class DevScene {
     private static void standTheOtherTablesUp(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
         if (server == null || client.player == null) {
+            fail("no server or player to stand the other tables up by");
             return;
         }
         // On the ground rather than in it: the main table is placed a block down because the
@@ -8382,6 +8616,7 @@ public final class DevScene {
     private static void theShopkeepers(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
         if (server == null || client.player == null) {
+            fail("no server or player to set the shopkeepers out by");
             return;
         }
         client.setScreen(null);
@@ -8392,8 +8627,7 @@ public final class DevScene {
             // The scene's world is peaceful, and peaceful does not merely stop zombies
             // spawning - it deletes the ones that exist, on the tick they arrive. So the
             // zombie shopkeeper was spawned, removed, and photographed as an empty patch of
-            // floor. These are the last three steps of the run, so nothing already
-            // photographed can be affected by changing it here.
+            // floor. Put back to peaceful at step 296, once they have been photographed.
             server.setDifficulty(net.minecraft.world.Difficulty.EASY, true);
             // A floor to stand on and a lit roof over it. The roof is not decoration: a zombie
             // under an open sky catches fire within a second or two of arriving, and a
@@ -8493,6 +8727,7 @@ public final class DevScene {
     private static void lookAtTheOtherTables(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
         if (server == null || otherTables == null || client.player == null) {
+            fail("no other tables stood up to look at");
             return;
         }
         client.setScreen(null);
@@ -8501,6 +8736,7 @@ public final class DevScene {
             ServerPlayer player = server.getPlayerList().getPlayers().stream()
                     .findFirst().orElse(null);
             if (player == null) {
+                fail("no player to walk over to the other tables");
                 return;
             }
             // Off to one side and above, which is how anybody looks at furniture they are
@@ -8535,11 +8771,12 @@ public final class DevScene {
             ServerPlayer player = server.getPlayerList().getPlayers().stream()
                     .findFirst().orElse(null);
             if (player == null) {
+                fail("no player to throw a card on the floor");
                 return;
             }
             net.minecraft.world.item.ItemStack card = someCardFromTheDeck(server);
             if (card.isEmpty()) {
-                System.out.println("[devscene] no card to throw on the floor");
+                fail("there was no card to throw on the floor");
                 return;
             }
             // In front of the player along the way they are actually facing, not along a
@@ -9013,7 +9250,7 @@ public final class DevScene {
         // Named rather than searched: this is the picture's subject, and a run that quietly
         // photographed some other card would be a gallery of the wrong thing.
         for (String name : List.of("Progenitus", "Cromat", "Sliver Queen", "Child of Alara")) {
-            var found = service.findByName(name).join().orElse(null);
+            var found = boundedLookup(service, name).orElse(null);
             if (found == null) {
                 continue;
             }
@@ -9163,6 +9400,25 @@ public final class DevScene {
      * <p>Out of the cache the collection was stocked from, so the deck screen photographs as
      * a list of card names rather than a list of "not looked up yet".
      */
+    /** How long a scripted card lookup may take before the step says so rather than waiting on. */
+    private static final int LOOKUP_SECONDS = 20;
+
+    /**
+     * A card by name, waited for no longer than {@value #LOOKUP_SECONDS} seconds.
+     * <p>These joined with no limit on the client thread, so a hung network stopped the tick that
+     * runs the stuck clock and the run ended as "never finished" with no step named.
+     */
+    private static java.util.Optional<dev.gathering.core.card.CardMetadata> boundedLookup(
+            dev.gathering.service.CardDataService service, String name) {
+        try {
+            return service.findByName(name)
+                    .completeOnTimeout(java.util.Optional.empty(), LOOKUP_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
+                    .join();
+        } catch (RuntimeException failed) {
+            return java.util.Optional.empty();
+        }
+    }
+
     private static List<dev.gathering.item.CardComponent> someCards(Minecraft client, int each) {
         List<dev.gathering.item.CardComponent> cards = new java.util.ArrayList<>();
         var service = dev.gathering.service.CardDataService.active().orElse(null);
@@ -9170,7 +9426,7 @@ public final class DevScene {
             return cards;
         }
         for (String name : List.of("Lightning Bolt", "Counterspell", "Grizzly Bears")) {
-            service.findByName(name).join().ifPresent(card -> {
+            boundedLookup(service, name).ifPresent(card -> {
                 var one = dev.gathering.item.CardComponent.of(
                         dev.gathering.core.card.CardIdentity.ofPrinting(card.scryfallId(), false));
                 for (int copy = 0; copy < each; copy++) {
@@ -9253,12 +9509,14 @@ public final class DevScene {
     private static void sitInTheChair(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
         if (server == null || table == null) {
+            fail("no server or table to sit down at");
             return;
         }
         BlockPos chair = table.offset(1, 0, -1);
         server.execute(() -> {
             ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
             if (player == null) {
+                fail("no player to sit in the chair");
                 return;
             }
             player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
@@ -9355,6 +9613,30 @@ public final class DevScene {
      * rays once a run, which is nothing, and it exercises the same pick the player's cursor
      * uses rather than a copy of it.
      */
+    /**
+     * How far, in surface units, the nearest pixel {@link #screenPointFor} can find is from the
+     * point asked for - so a caller can tell "on screen" from "the nearest pixel to somewhere off it".
+     * Infinite where no pixel of the window lands on the felt.
+     */
+    private static double screenDistanceFor(Minecraft client, double[] wanted) {
+        if (table == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        double nearest = Double.POSITIVE_INFINITY;
+        for (int y = 0; y < height; y += 4) {
+            for (int x = 0; x < width; x += 4) {
+                TableTop.Spot spot = TablePointer.at(top, x, y).orElse(null);
+                if (spot != null) {
+                    nearest = Math.min(nearest, Math.hypot(spot.x() - wanted[0], spot.y() - wanted[1]));
+                }
+            }
+        }
+        return nearest;
+    }
+
     private static int[] screenPointFor(Minecraft client, double[] wanted, int[] fallback) {
         if (table == null) {
             return fallback;
@@ -9403,14 +9685,29 @@ public final class DevScene {
     /** Drags the first card in hand onto the near mat, press and release, like a player. */
     private static void playACard(Minecraft client) {
         if (!(client.screen instanceof TableScreen board)) {
-            System.out.println("[devscene] no board to play onto; screen is "
+            fail("no board to play a card onto; the screen is "
                     + (client.screen == null ? "none" : client.screen.getClass().getSimpleName()));
             return;
         }
         int width = client.getWindow().getGuiScaledWidth();
         int height = client.getWindow().getGuiScaledHeight();
         TableScreenLayout layout = TableScreenLayout.of(width, height);
-        HandFan.Slot first = HandFan.slot(layout.hand(), 7, 0, -1);
+        // The hand as it is. The fan was laid out for seven cards whatever the hand held, and a
+        // hand of eighteen puts its first card somewhere else entirely.
+        int held = countIn(Zone.HAND);
+        if (held <= 0) {
+            fail("there was no card in the hand to play");
+            return;
+        }
+        HandFan.Slot first = HandFan.slot(layout.hand(), held, 0, -1);
+        // And whether it went, once the server has answered: nothing checked that the drag played
+        // anything, and four steps lean on it having done so.
+        thenCheck(() -> {
+            if (countIn(Zone.HAND) >= held) {
+                fail("dragging a card from the hand onto the table played nothing: the hand still holds "
+                        + countIn(Zone.HAND));
+            }
+        });
         // The middle of the mat, not wherever a card already is: cardPoint aims at a card,
         // and dropping onto one would stack them where the scene wants two side by side.
         int[] onto = {width / 2, height / 4};
@@ -9638,6 +9935,9 @@ public final class DevScene {
 
     /** How many cards are sitting in one of this player's zones, as the client sees it. */
     private static int countIn(Zone zone) {
+        if (table == null) {
+            return -1;
+        }
         SeatId seat = ClientTableState.seatAt(table).orElse(null);
         GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
         if (seat == null || view == null) {
@@ -9651,7 +9951,7 @@ public final class DevScene {
     private static void clickAZone(Minecraft client, int index, int button) {
         Rect zone = zoneRect(client, index);
         if (zone.isEmpty() || client.screen == null) {
-            System.out.println("[devscene] no zone " + index + " to click");
+            fail("there was no zone " + index + " to click");
             return;
         }
         client.screen.mouseClicked(zone.centerX(), zone.centerY(), button);
@@ -9801,6 +10101,41 @@ public final class DevScene {
      * the journey happens at all - and it has to be made while the journey is going on, which
      * is why the step before it waits a moment rather than settling.
      */
+    /** How long a step waits for something that should appear within a frame or two: three seconds. */
+    private static final int BRIEF_MOMENT = 60;
+
+    /** Ticks spent waiting in the current step for something to appear. */
+    private static int waitedToSee;
+
+    /**
+     * Whether to keep waiting for something the step is about to check.
+     * <p>For what lasts a fraction of a second - a card in the air, a shaking pile, a lit graveyard.
+     * These were checked a fixed number of ticks after the press, and ticks are not time: a slow
+     * frame handles the server's reply after several ticks have run, and at a couple of frames a
+     * second the window closes before the ticks have counted to it. So the step looks every tick
+     * from the press until it appears, and once it has, checks and photographs at once. Past the
+     * limit it stops waiting and lets the check fail as it would have.
+     *
+     * @return true while the step should return and look again next tick
+     */
+    private static boolean stillWaitingFor(boolean there, int mostTicks) {
+        if (there || ++waitedToSee >= mostTicks) {
+            waitedToSee = 0;
+            return false;
+        }
+        waitHere(1);
+        return true;
+    }
+
+    private static boolean aCardIsFlying() {
+        return table != null && !ClientCardFlights.at(table, ClientCardFlights.now()).isEmpty();
+    }
+
+    private static boolean myLibraryIsShaking() {
+        SeatId me = table == null ? null : ClientTableState.seatAt(table).orElse(null);
+        return me != null && ClientTableNews.shakingFor(table, me, Zone.LIBRARY, ClientCardFlights.now()) >= 0;
+    }
+
     private static void aCardIsInTheAir(Minecraft client, String after) {
         if (table == null) {
             fail("no table to watch a card cross");
@@ -10115,8 +10450,11 @@ public final class DevScene {
         }
         String said = paste.saidForTesting();
         if (said.isEmpty()) {
-            System.out.println("[devscene] the import screen has no answer yet;"
-                    + " this run has no card pipeline to answer it");
+            if (CardDataService.active().isPresent()) {
+                fail("the import screen had no answer after a minute, with a card pipeline running");
+            } else {
+                System.out.println("[devscene] the import screen has no answer; this run has no card pipeline");
+            }
             return;
         }
         java.util.List<String> problems = paste.problemsForTesting();
@@ -10255,8 +10593,7 @@ public final class DevScene {
                 }
             }
             if (partners.size() < 2) {
-                System.out.println(
-                        "[devscene] FAIL no two real printings to lend the rival as partners");
+                fail("no two real printings to lend the rival as partners");
                 return;
             }
             // In sleeves of their own, so every picture of a two-player board shows the one
@@ -11073,6 +11410,20 @@ public final class DevScene {
                 {box.x(), box.y()}, {box.right(), box.y()},
                 {box.x(), box.bottom()}, {box.right(), box.bottom()}};
         for (int index = 0; index < wanted.length; index++) {
+            // On the block, the nearest pixel to a corner is always a pixel inside the window, so
+            // the bounds test below could never trip there. How far that pixel lands from the corner
+            // is the real answer: more than a quarter of a card, and the corner is off screen. A
+            // quarter rather than less because the window is sampled every four pixels, and zoomed
+            // out on the block four pixels can be a fair slice of a card.
+            if (onTheBlock) {
+                double off = screenDistanceFor(client, wanted[index]);
+                if (off > TableSurface.CARD_WIDTH_UNITS / 4.0) {
+                    fail("this player's own life counter is not on screen: corner "
+                            + java.util.Arrays.toString(wanted[index]) + " is " + Math.round(off)
+                            + " surface units from the nearest pixel of the window");
+                    return;
+                }
+            }
             corners[index] = onTheBlock
                     ? screenPointFor(client, wanted[index], null)
                     : new int[] {(int) wanted[index][0], (int) wanted[index][1]};
@@ -12074,11 +12425,27 @@ public final class DevScene {
         if (!(client.screen instanceof TableScreen)) {
             fail("a gesture with no seat opened something that would not close back to the board");
         }
-        String afterwards = liveBoardAsItStands();
-        if (!standing.equals(afterwards)) {
-            fail("a gesture with no seat changed the board: " + standing + " became " + afterwards);
-        }
+        // Compared in the next step, not here. Nothing changes on the client until the server has
+        // answered, which is a tick at the earliest - so a comparison made in the same call as the
+        // gestures could not see a gesture that got through, and never failed.
+        boardBeforeTheGestures = standing;
         System.out.println("[devscene] poked every gesture with no seat");
+    }
+
+    /** The board as it stood before a round of gestures that must not change it; compared a step later. */
+    private static String boardBeforeTheGestures = "";
+
+    /** Whether the board is still what it was before the gestures, now the server has had time to answer. */
+    private static void theGesturesChangedNothing(String board, String who) {
+        String before = boardBeforeTheGestures;
+        boardBeforeTheGestures = "";
+        if (before.isEmpty()) {
+            fail("there was no board from before " + who + " to compare against");
+            return;
+        }
+        if (!before.equals(board)) {
+            fail(who + " changed the board: " + before + " became " + board);
+        }
     }
 
     /**
@@ -12138,9 +12505,42 @@ public final class DevScene {
                         + " step after this one is about an empty board");
                 return;
             }
-            DecklistImport.importFor(player, service, DECK);
+            String refused = DecklistImport.importFor(player, service, DECK);
+            if (refused != null) {
+                importRefused = refused;
+                fail("the server refused to import the tour's deck: " + refused);
+                return;
+            }
             System.out.println("[devscene] importing a deck");
         });
+    }
+
+    /** Why the tour's deck import was refused, from the server thread; empty while it was not. */
+    private static volatile String importRefused = "";
+
+    /** How many times step 341 has waited for the tournament to finish. */
+    private static int waitedForTheEvent;
+
+    /** How many times step 384 has waited for the import screen to answer. */
+    private static int waitedForTheImportScreen;
+
+    /** How many ticks step 8 has waited for the imported deck to arrive. */
+    private static int waitedForTheDeck;
+
+    /** The longest step 8 waits for the imported deck: a minute, for a cold cache on a slow line. */
+    private static final int LONGEST_WAIT_FOR_THE_DECK = 20 * 60;
+
+    /** Whether the player on this client is carrying a deck. */
+    private static boolean carryingADeck(Minecraft client) {
+        if (client.player == null) {
+            return false;
+        }
+        for (ItemStack stack : client.player.getInventory().items) {
+            if (DeckItem.deckOf(stack).isPresent()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -12174,9 +12574,29 @@ public final class DevScene {
                 fail("nobody was sitting where the token-making card had to go");
                 return;
             }
-            var known = service.findByName(MAKES_A_TOKEN).join().orElse(null);
+            // Looked up off the server thread and put down back on it. This joined the lookup on
+            // the server thread, so a slow or hung network stopped the integrated server - and the
+            // client's stuck clock, waiting on a server that no longer ticked, never fired either.
+            service.findByName(MAKES_A_TOKEN)
+                    .completeOnTimeout(java.util.Optional.empty(), LOOKUP_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
+                    .whenComplete((found, failure) -> server.execute(() -> putTheMakerDown(
+                            server, where, player.getUUID(), seat, failure == null ? found.orElse(null) : null)));
+        });
+    }
+
+    /** The token-making card, found, put on the table. Server thread. */
+    private static void putTheMakerDown(MinecraftServer server, BlockPos where, java.util.UUID who, SeatId seat,
+            dev.gathering.core.card.CardMetadata known) {
+        {
+            ServerLevel level = server.overworld();
+            GameSession session = TableSessions.sessionAt(level, where).orElse(null);
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (session == null || player == null) {
+                fail("the game or the player was gone by the time the token-making card was found");
+                return;
+            }
             if (known == null) {
-                fail("the card pipeline could not find " + MAKES_A_TOKEN);
+                fail("the card pipeline could not find " + MAKES_A_TOKEN + " within " + LOOKUP_SECONDS + "s");
                 return;
             }
             // The client is about to be told to draw a card it has never heard of, and the
@@ -12195,7 +12615,7 @@ public final class DevScene {
             TableBroadcast.sendToTable(level, where);
             System.out.println("[devscene] put " + known.name() + " on the table, which prints "
                     + THE_TOKEN_IT_MAKES + "s");
-        });
+        }
     }
 
     /**
@@ -12229,7 +12649,7 @@ public final class DevScene {
                 System.out.println("[devscene] put a deck down");
                 return;
             }
-            System.out.println("[devscene] no deck arrived to put down");
+            fail("there was no deck in the inventory to put down on the table");
         });
     }
 
@@ -12503,7 +12923,18 @@ public final class DevScene {
     /** Whether the lesson had been offered, finished and skipped before the tour played it, or null. */
     private static boolean[] lessonWas;
 
+    /** Pause on lost focus, the GUI scale, the look and reduced motion, as the run found them. */
+    private static Object[] playerSettingsWere;
+
     private static void finish(Minecraft client, String why) {
+        if (playerSettingsWere != null) {
+            client.options.pauseOnLostFocus = (Boolean) playerSettingsWere[0];
+            client.options.guiScale().set((Integer) playerSettingsWere[1]);
+            ClientSettings.themeId((String) playerSettingsWere[2]);
+            ClientSettings.reducedMotion((Boolean) playerSettingsWere[3]);
+            client.options.save();
+            dev.gathering.client.RecentThings.fileForTesting(null);
+        }
         if (lessonWas != null) {
             ClientSettings.tutorialOffered(lessonWas[0]);
             ClientSettings.tutorialFinished(lessonWas[1]);
@@ -12537,10 +12968,16 @@ public final class DevScene {
                 + " of " + (LAST_STEP + 1)
                 + (stoppedAt > 0 ? " (stopped early by -PdevsceneTo)" : "")
                 + (skippedTo > 0 ? " (started at " + skippedTo + " by -PdevsceneFrom)" : ""));
-        for (String failure : FAILURES) {
+        // A copy taken under the list's own lock: tasks queued on the server thread can still be adding
+        // to it, and walking a synchronized list without its lock can throw halfway through the report.
+        List<String> failures;
+        synchronized (FAILURES) {
+            failures = List.copyOf(FAILURES);
+        }
+        for (String failure : failures) {
             System.out.println("[devscene] FAIL " + failure);
         }
-        System.out.println("[devscene] failures: " + FAILURES.size());
+        System.out.println("[devscene] failures: " + failures.size());
         new File(client.gameDirectory, "screenshots").mkdirs();
         client.stop();
     }

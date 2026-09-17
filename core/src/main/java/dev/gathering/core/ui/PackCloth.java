@@ -237,21 +237,37 @@ public final class PackCloth {
 
     /** Takes hold of the piece of wrapper under here, if any of it is near enough to take hold of. */
     public boolean grab(float atX, float atY) {
+        return grab(atX, atY, 1f);
+    }
+
+    /**
+     * Takes hold of the wrapper here, on a pack this much taller than it is wide.
+     * <p>The sheet runs nought to one both ways, and a pack is not square, so a reach measured in the
+     * sheet was an ellipse on the screen - further down than across. Scaled by the pack's shape, it is
+     * the circle round the cursor it was meant to be.
+     *
+     * @param tallness the pack's height over its width
+     */
+    public boolean grab(float atX, float atY, float tallness) {
         java.util.Arrays.fill(grabbed, false);
         holding = false;
         float reach = GRABS_WITHIN * GRABS_WITHIN;
+        float down = tallness > 0f && Float.isFinite(tallness) ? tallness : 1f;
         for (int at = 0; at < x.length; at++) {
             if (pinned[at]) {
                 continue;
             }
             float dx = x[at] - atX;
-            float dy = y[at] - atY;
+            float dy = (y[at] - atY) * down;
             if (dx * dx + dy * dy < reach) {
                 grabbed[at] = true;
                 grabX[at] = dx;
-                grabY[at] = dy;
+                grabY[at] = y[at] - atY;
                 holding = true;
             }
+        }
+        if (holding) {
+            touched = true;
         }
         heldX = atX;
         heldY = atY;
@@ -334,7 +350,12 @@ public final class PackCloth {
                 continue;
             }
             boolean alongTheSeam = b == a + ACROSS && a / ACROSS == seam;
-            if (length > linkRest[at] * (alongTheSeam ? SEAM_TEARS_AT : TEARS_AT)) {
+            // Every link across the seam gives way there, not only the straight ones. The two
+            // diagonals in each column crossing it tore at the body's strength, so once every straight
+            // link had gone the strip still hung from twenty-eight diagonals - and "the strip peels
+            // off along the crimp" was true only because the screen stopped drawing it once opened.
+            boolean acrossTheSeam = a / ACROSS == seam && b / ACROSS == seam + 1;
+            if (length > linkRest[at] * (acrossTheSeam ? SEAM_TEARS_AT : TEARS_AT)) {
                 linkAlive[at] = false;
                 if (b == a + 1) {
                     rightAlive[a] = false;
@@ -402,8 +423,14 @@ public final class PackCloth {
 
     /** Whether anything has happened to it yet. */
     public boolean isUntouched() {
-        return seamTorn == 0 && !holding;
+        // Touched means taken hold of, ever - not only torn or held right now. A wrapper pulled and
+        // let go without tearing read as untouched, so a resize at that moment threw its creases
+        // away and put the "take hold" prompt back over a pack the player had already been pulling.
+        return !touched && seamTorn == 0 && !holding;
     }
+
+    /** Whether this wrapper has ever been taken hold of. */
+    private boolean touched;
 
     public float xOf(int at) {
         return x[at];

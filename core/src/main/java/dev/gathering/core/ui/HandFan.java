@@ -183,18 +183,18 @@ public final class HandFan {
 
     /**
      * How far apart two cards sit: side by side while they fit, overlapping once they do not.
-     * <p>No floor here, deliberately. The obvious way to keep a card from becoming a sliver is
-     * to clamp this, and it is dead code: {@link #widthFor} has already shrunk the card far
-     * enough that spreading the hand evenly leaves at least {@link #TIGHTEST_STEP} of each one
-     * showing. A clamp on top of that never fires, and a guard that cannot fire is worse than
-     * no guard - it reads as the thing keeping the fan honest while the real work happens
-     * somewhere else.
+     * <p>No floor that pushes the fan wider than its room. {@link #widthFor} shrinks the card so
+     * that spreading the hand evenly leaves {@link #TIGHTEST_STEP} of each one showing, down to a
+     * card six pixels wide; past that - several hundred cards in a narrow window - the cards pile
+     * closer than a pixel apart rather than march off the side of the screen. This used to hold a
+     * floor of one pixel, which at four hundred and fifty cards put the fan's first card fourteen
+     * pixels off the left edge.
      */
     private static int stepFor(Rect area, int count, int width) {
         if (count <= 1) {
             return 0;
         }
         int room = Math.max(width, room(area));
-        return Math.max(1, Math.min(width + 4, (room - width) / (count - 1)));
+        return Math.max(0, Math.min(width + 4, (room - width) / (count - 1)));
     }
 }

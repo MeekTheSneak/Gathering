@@ -54,6 +54,11 @@ public final class TableTalk {
     private TableTalk() {
     }
 
+    /** Forgets who spoke when, for a world that has closed. */
+    public static void clear() {
+        LAST_SPOKE.clear();
+    }
+
     public static void handle(ServerPlayer player, TableChatPayload payload) {
         BlockPos origin = TableReach.originFor(player, payload.table()).orElse(null);
         if (origin == null) {

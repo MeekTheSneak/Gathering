@@ -95,6 +95,36 @@ public final class CounterText {
         if (card == null || card.counters().isEmpty()) {
             return List.of();
         }
+        // The same answer for the same counters, which is what an unchanged card hands the renderer
+        // every frame. Worked out afresh, this built a list, a line per counter and their words for every
+        // card with counters on every frame, in two renderers.
+        boolean inTheCorner = card.writtenStrength().isEmpty();
+        Remembered known = LAST.get(card.counters());
+        if (known != null && known.loyaltyInTheCorner() == inTheCorner) {
+            return known.lines();
+        }
+        List<Line> worked = workOut(card);
+        LAST.put(card.counters(), new Remembered(inTheCorner, worked));
+        return worked;
+    }
+
+    /** Lines already worked out, by the counters they were worked out from. */
+    private record Remembered(boolean loyaltyInTheCorner, List<Line> lines) {
+    }
+
+    /**
+     * The last few hundred, by what the counters are: the lines depend on nothing else but where
+     * loyalty is written, which is kept beside them.
+     */
+    private static final java.util.Map<Map<String, Integer>, Remembered> LAST = java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<>(64, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Map<String, Integer>, Remembered> eldest) {
+                    return size() > 512;
+                }
+            });
+
+    private static List<Line> workOut(CardView card) {
         // Asked once rather than once per counter. This runs for every card on the table
         // every frame, and writtenStrength answers with an Optional - a cheap thing to make
         // and a silly thing to make thirty times a frame for an answer that cannot change

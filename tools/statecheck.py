@@ -67,9 +67,39 @@ def holders(side):
     """Classes on one side that offer a static clear()."""
     found = set()
     for folder in SIDES[side]["holders"]:
-        for path in sorted((ROOT / folder).glob("*.java")):
+        # Every package under it, not only the top one: server/events holds a tournament's whole
+        # world, and a holder there with a clear() nobody called would have passed unread.
+        for path in sorted((ROOT / folder).rglob("*.java")):
             if CLEARS.search(path.read_text(encoding="utf-8")):
                 found.add(path.stem)
+    return found
+
+
+#: A static collection that is filled at run time: a map, set, list, deque or queue that is not a
+#: fixed List.of, Set.of or Map.of.
+FILLED = re.compile(
+    r"^\s*(?:private|public|protected)?\s*static\s+(?:final\s+)?(?:volatile\s+)?[\w.<>, ?]*"
+    r"(?:Map|Set|List|Deque|Queue|Collection)\b[\w.<>, ?]*\s+(\w+)\s*=\s*"
+    r"(?!(?:java\.util\.)?(?:List|Set|Map)\.(?:of|copyOf)\()", re.MULTILINE)
+
+#: Written on the line above a holder that is meant to outlive a world, with the reason.
+EXCUSED = "statecheck:"
+
+
+def unclearable(side):
+    """Static collections in classes that have no clear(), with nothing written saying why."""
+    found = []
+    for folder in SIDES[side]["holders"]:
+        for path in sorted((ROOT / folder).rglob("*.java")):
+            text = path.read_text(encoding="utf-8")
+            if CLEARS.search(text):
+                continue
+            lines = text.splitlines()
+            for match in FILLED.finditer(text):
+                number = text.count("\n", 0, match.start()) + 1
+                above = lines[number - 2] if number >= 2 else ""
+                if EXCUSED not in above:
+                    found.append(f"{path.relative_to(ROOT)}:{number} {match.group(1)}")
     return found
 
 
@@ -92,6 +122,15 @@ def main():
                     f"{holder} can be cleared and {aggregator.stem} never clears it; "
                     f"state from one {side} would outlive it"
                 )
+
+    # And a holder with no clear() at all, which the rule above cannot see: a static map in a class
+    # that never offered one is state that outlives every world. A holder meant to - a registry, a
+    # constant, this computer's own settings - says so on the line above it.
+    for side in SIDES:
+        for where in unclearable(side):
+            problems.append(f"{where} is {side} state that nothing clears; give its class a clear() "
+                            f"in {SIDES[side]['aggregator'].split('/')[-1]}, or say why it outlives "
+                            f"a world with a '{EXCUSED}' comment above it")
 
     # And every loader calls both of them. A loader that stops is the other way this goes
     # wrong: the list stays correct and nothing reads it.

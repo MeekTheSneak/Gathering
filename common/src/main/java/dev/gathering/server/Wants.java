@@ -50,9 +50,11 @@ public final class Wants {
     private static final String HEADING =
             "# Cards this player is chasing, one printing to a line.";
 
+    // statecheck: per player, dropped by left() through PlayerGone
     private static final Map<UUID, WantsList> HELD = new ConcurrentHashMap<>();
 
     /** Lists changed but not yet on disk, newest wins - one write per player, not per click. */
+    // statecheck: writes queued for the save, drained by the writer
     private static final Map<UUID, WantsList> PENDING = new ConcurrentHashMap<>();
 
     private static final java.util.concurrent.ExecutorService WRITER =

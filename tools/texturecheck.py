@@ -80,6 +80,53 @@ def texturesNamedByModels():
     return named
 
 
+#: Where Minecraft's own textures can be read, once the NeoForge build has unpacked them.
+VANILLA_JARS = "neoforge/build/moddev/artifacts/*-client-extra-aka-minecraft-resources.jar"
+
+
+def vanillaNamedByModels():
+    """Every minecraft:-namespaced texture a model asks for, which are most of them."""
+    named = {}
+    for root in MODEL_ROOTS:
+        folder = os.path.join(ROOT, root)
+        for where, _, files in os.walk(folder):
+            for name in files:
+                if not name.endswith(".json"):
+                    continue
+                path = os.path.join(where, name)
+                with open(path) as handle:
+                    model = json.load(handle)
+                for value in (model.get("textures") or {}).values():
+                    if not isinstance(value, str) or value.startswith("#"):
+                        continue
+                    if value.startswith("minecraft:") or ":" not in value:
+                        bare = value.split(":", 1)[-1]
+                        named.setdefault("assets/minecraft/textures/" + bare + ".png", []).append(
+                            os.path.relpath(path, ROOT))
+    return named
+
+
+def vanillaTexturesThatAreNotThere():
+    """Minecraft textures models name that this version of Minecraft does not have.
+
+    These were skipped entirely, five hundred and more of them: a model asking for a vanilla
+    texture that was renamed between versions draws the purple and black checkerboard, and
+    nothing said so. Read against the game's own resources, when a build has unpacked them."""
+    import glob
+    import zipfile
+    jars = sorted(glob.glob(os.path.join(ROOT, VANILLA_JARS)))
+    if not jars:
+        return [], False
+    with zipfile.ZipFile(jars[-1]) as jar:
+        have = set(jar.namelist())
+    missing = []
+    for texture, models in sorted(vanillaNamedByModels().items()):
+        if texture not in have:
+            missing.append(f"{texture.replace('assets/minecraft/textures/', 'minecraft:')[:-len('.png')]} is named by "
+                           f"{models[0]} and Minecraft has no such texture")
+    return missing, True
+
+
 def texturesOnDisk():
     found = set()
     folder = os.path.join(ROOT, TEXTURES)
@@ -131,8 +178,10 @@ def main():
     for reached, by in sorted(FROM_CODE.items()):
         if reached not in onDisk:
             problems.append(f"{reached} is reached from {by} and is not there")
-        elif NAMESPACE not in open(os.path.join(ROOT, by)).read():
-            problems.append(f"{by} no longer looks like it reaches {reached}")
+        elif reached[:-len(".png")] not in open(os.path.join(ROOT, by)).read():
+            # By the texture's own path, not the mod's name: every file that reaches a texture of
+            # this mod says "gathering" somewhere, so that asked nothing about this texture.
+            problems.append(f"{by} no longer names {reached[:-len('.png')]}, so nothing reaches {reached}")
 
     for texture in sorted(onDisk):
         if texture.replace("\\", "/").startswith(NOT_NAMED_BY_MODELS):
@@ -142,10 +191,18 @@ def main():
 
     problems.extend(modelsMissingTheirTint())
 
+    vanillaMissing, vanillaRead = vanillaTexturesThatAreNotThere()
+    problems.extend(vanillaMissing)
+
+    if not named or not onDisk:
+        problems.append("no textures named by models or none on disk, so nothing was checked")
+
     for line in problems:
         print("  " + line)
     print(f"{len(named)} textures named by models, {len(onDisk)} on disk, "
-          f"{len(problems)} problems")
+          + (f"{len(vanillaNamedByModels())} of Minecraft's checked, " if vanillaRead
+             else "Minecraft's own not checked (no build has unpacked them), ")
+          + f"{len(problems)} problems")
     return 1 if problems else 0
 
 

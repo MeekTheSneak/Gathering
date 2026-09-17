@@ -65,17 +65,22 @@ public record MenuFit(float scale, int columnWidth, int columns, int rowHeight) 
         int across = Math.max(leastWidth, roomAcross);
         int down = Math.max(1, roomDown);
 
-        float scale = Math.max(TextScale.SMALLEST, askedText);
+        // Kept to sizes a font can be before anything is worked out from it. Math.max with a NaN is
+        // NaN, and a NaN never compares as small enough to stop the loop below, which then ran for
+        // ever; a size in the millions was no better, since taking a tenth off it changed nothing.
+        float scale = Float.isFinite(askedText)
+                ? Math.max(TextScale.SMALLEST, Math.min(TextScale.LARGEST, askedText))
+                : 1f;
         // Step the size down until the whole menu fits, or until the font stops being letters.
-        // A tenth at a time, so a menu that only just overflows loses only a little.
-        while (true) {
-            MenuFit fit = shapedAt(scale, rows, widest, lineHeight, across, down,
-                    baseRow, controls, padding, leastWidth);
-            if (fit.fits(rows, across, down, padding) || scale <= TextScale.SMALLEST) {
-                return fit;
-            }
+        // A tenth at a time, so a menu that only just overflows loses only a little - and counted,
+        // so it ends however the sizes compare.
+        int steps = Math.round((scale - TextScale.SMALLEST) / 0.1f) + 1;
+        MenuFit fit = shapedAt(scale, rows, widest, lineHeight, across, down, baseRow, controls, padding, leastWidth);
+        for (int step = 0; step < steps && !fit.fits(rows, across, down, padding); step++) {
             scale = Math.max(TextScale.SMALLEST, scale - 0.1f);
+            fit = shapedAt(scale, rows, widest, lineHeight, across, down, baseRow, controls, padding, leastWidth);
         }
+        return fit;
     }
 
     private static MenuFit shapedAt(
@@ -94,10 +99,13 @@ public record MenuFit(float scale, int columnWidth, int columns, int rowHeight) 
         return new MenuFit(scale, columnWidth, columns, rowHeight);
     }
 
-    /** Whether a menu of this many entries is wholly on the screen at this fit. */
+    /**
+     * Whether a menu of this many entries is wholly on the screen at this fit.
+     * <p>Across and down, which is all of it: every entry has a column to go in by the way the
+     * columns are counted, so a third test here that said so could never be false.
+     */
     public boolean fits(int entries, int roomAcross, int roomDown, int padding) {
         return width() <= roomAcross
-                && height(entries, padding) <= roomDown + padding * 2
-                && columns() * perColumn(entries) >= entries;
+                && height(entries, padding) <= roomDown + padding * 2;
     }
 }

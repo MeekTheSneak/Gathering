@@ -62,9 +62,12 @@ public record ListScreenLayout(
         int footY = height - BOTTOM_BAR + 10;
         int rightEdge = done.x() - GAP;
         int wanted = Math.max(0, moreWidth);
+        // Narrowed to the room there is, not only moved into it: kept at its full width with its left
+        // edge held at the margin, a count wider than the space ran on under Done.
+        int moreX = Math.max(MARGIN, rightEdge - wanted);
         Rect more = wanted == 0
                 ? Rect.NONE
-                : new Rect(Math.max(MARGIN, rightEdge - wanted), footY, wanted, DONE_HEIGHT - 8);
+                : new Rect(moreX, footY, Math.max(0, Math.min(wanted, rightEdge - moreX)), DONE_HEIGHT - 8);
         int hintRight = more.isEmpty() ? rightEdge : more.x() - GAP;
         Rect hint = new Rect(MARGIN, footY, Math.max(0, hintRight - MARGIN), DONE_HEIGHT - 8);
 

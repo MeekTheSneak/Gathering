@@ -74,6 +74,7 @@ public final class RecentThings {
     private static final int MOST_LINES = MOST_SERVERS * LINES_PER_SERVER;
 
     /** Every line, by key. Read once, written back whole. */
+    // statecheck: this computer's shortcuts file, kept per server by key
     private static final Map<String, List<String>> LINES = new LinkedHashMap<>();
 
     private static boolean loaded;

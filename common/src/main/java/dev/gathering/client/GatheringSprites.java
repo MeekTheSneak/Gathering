@@ -363,7 +363,10 @@ public final class GatheringSprites {
         TextureAtlasSprite drawn = client.getGuiSprites().getSprite(wanted);
         if (drawn == null
                 || drawn.contents().name().equals(MissingTextureAtlasSprite.getLocation())) {
-            return GuiThemes.byId(GuiThemes.DEFAULT.toString()).spriteOf(element);
+            // Straight to the default theme. By name, this built the default's id as a string and
+            // then compared every theme's id as a string against it, for every rectangle a theme had
+            // not painted, every frame.
+            return GuiThemes.fallback().spriteOf(element);
         }
         return wanted;
     }

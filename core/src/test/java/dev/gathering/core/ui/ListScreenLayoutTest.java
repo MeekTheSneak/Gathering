@@ -88,4 +88,12 @@ class ListScreenLayoutTest {
         assertThat(layout.rowAt(layout.rowsThatFit())).isEqualTo(Rect.NONE);
         assertThat(layout.rowAt(-1)).isEqualTo(Rect.NONE);
     }
+
+    /** A count wider than the space beside Done is cut to that space, never drawn under the button. */
+    @org.junit.jupiter.api.Test
+    void aWideCountStaysOffDone() {
+        ListScreenLayout layout = ListScreenLayout.of(320, 240, 14, 250);
+        org.assertj.core.api.Assertions.assertThat(layout.more().right())
+                .isLessThanOrEqualTo(layout.done().x());
+    }
 }

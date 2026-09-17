@@ -5,7 +5,6 @@ import dev.gathering.core.card.Rarity;
 import dev.gathering.core.ui.PackGlow;
 import dev.gathering.core.ui.PackLayout;
 import dev.gathering.core.ui.Rect;
-import dev.gathering.core.ui.PackTear;
 import dev.gathering.core.ui.PackWrapper;
 import dev.gathering.item.CardComponent;
 import dev.gathering.network.CardSummary;
@@ -60,31 +59,6 @@ public final class PackOpeningScreen extends Screen {
     private net.minecraft.client.gui.components.Button doneButton;
     private static final int MARGIN_PIXELS = 16;
 
-    /**
-     * Which rows of the wrapper texture are which.
-     * <p>The item texture is one picture of a whole pack, and this screen draws two pieces of
-     * one - so it cuts them from where they are. Named here so a new wrapper is these four
-     * numbers rather than a hunt through the drawing.
-     * <p>All sixteen rows, and each piece laid along the same share of the pack it takes up in the
-     * picture. They used to start a row late and stop a row early - the white top of the crimp and the
-     * fold at the bottom were never drawn, the first row of the body was drawn as crimp, and the
-     * fourteen rows that were left were stretched over a pack the wrong shape for them.
-     */
-    private static final int WRAPPER_PIXELS = dev.gathering.core.ui.PackWrapper.PIXELS;
-    private static final int MARGIN = dev.gathering.core.ui.PackWrapper.MARGIN;
-    private static final int CRIMP_ROW = dev.gathering.core.ui.PackWrapper.CRIMP_ROW;
-    private static final int CRIMP_ROWS = dev.gathering.core.ui.PackWrapper.CRIMP_ROWS;
-    private static final int BODY_ROW = dev.gathering.core.ui.PackWrapper.BODY_ROW;
-    private static final int BODY_ROWS = dev.gathering.core.ui.PackWrapper.BODY_ROWS;
-
-    /**
-     * How many rows each piece is cut into down the pack, for the turn to be a curve.
-     * <p>The body gets more because it is most of the pack and because its top edge is the
-     * tear; the strip is a sixth of the height and two are plenty.
-     */
-    private static final int BODY_DOWN = 6;
-    private static final int STRIP_DOWN = 2;
-
     private final String setCode;
     private final String kind;
     private final List<CardComponent> cards;
@@ -109,23 +83,6 @@ public final class PackOpeningScreen extends Screen {
      */
     private PackTurning turning;
 
-    /**
-     * How far the pack is turned, and how far it is easing toward being turned.
-     * <p>Its own rather than {@link CardTilt}'s, which belongs to the inspect panel. Two
-     * things easing one value would fight over it the moment a card was hovered on top of a
-     * pack, and the numbers are not the same either: a pack held in front of you turns less
-     * than a card held up to read.
-     */
-    private float yaw;
-    private float pitch;
-
-    /** How far the pack turns, in degrees. Less than a card, because it is a heavier thing. */
-    private static final float MOST_YAW = 7f;
-    private static final float MOST_PITCH = 4.5f;
-
-    /** How much of the way to the wanted angle each frame, so it follows rather than snaps. */
-    private static final float EASE = 0.18f;
-
     // Named for the pack rather than for the screen: Screen has width and height of its own,
     // and a field here called either would shadow it silently.
     private int packX;
@@ -143,6 +100,16 @@ public final class PackOpeningScreen extends Screen {
      */
     private int glow;
     private boolean glowSettled;
+
+    /** When the glow was last worked out while some card was still unnamed. */
+    private long glowAskedAt;
+
+    /** How often, in milliseconds, an unsettled glow is worked out again. */
+    private static final long GLOW_ASKED_EVERY = 250L;
+
+    /** The card under the cursor in the spread, and the stack made for it, kept across frames. */
+    private CardComponent hoveredCard;
+    private net.minecraft.world.item.ItemStack hoveredStack = net.minecraft.world.item.ItemStack.EMPTY;
 
     /**
      * Where the revealed cards were last drawn.
@@ -307,7 +274,11 @@ public final class PackOpeningScreen extends Screen {
 
     /** The sealed pack, torn as far as it has been - which is wherever the hand has pulled it. */
     private void drawThePack(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!glowSettled) {
+        // Asked again at most a few times a second: a card whose details never arrive left this
+        // building a list and an Optional per card on every frame for as long as the pack was up.
+        long now = net.minecraft.Util.getMillis();
+        if (!glowSettled && now - glowAskedAt >= GLOW_ASKED_EVERY) {
+            glowAskedAt = now;
             settleGlow();
         }
         Matrix4f matrix = graphics.pose().last().pose();
@@ -424,9 +395,15 @@ public final class PackOpeningScreen extends Screen {
                         x + 2, y + 2, MARK_SIDE, MARK_SIDE);
             }
         }
-        ClientHoverState.setHovered(over == null
-                ? net.minecraft.world.item.ItemStack.EMPTY
-                : dev.gathering.item.CardItem.of(over));
+        // The same stack while the cursor stays on the same card, rather than a new one every frame.
+        if (over == null) {
+            hoveredStack = net.minecraft.world.item.ItemStack.EMPTY;
+            hoveredCard = null;
+        } else if (!over.equals(hoveredCard)) {
+            hoveredCard = over;
+            hoveredStack = dev.gathering.item.CardItem.of(over);
+        }
+        ClientHoverState.setHovered(hoveredStack);
 
         graphics.drawCenteredString(this.font, this.title, width() / 2, gridTop - 14, 0xFFBFC7D2);
         int chased = howManyWereWanted();
@@ -497,35 +474,8 @@ public final class PackOpeningScreen extends Screen {
         return Math.max(-1f, Math.min(1f, (at - center) / Math.max(1f, span / 2f)));
     }
 
-    /** How far the freed strip leans back as it comes away, in degrees at a whole tear. */
-    private static final float PEEL_BACK = 30f;
-
-    /** How far it lifts clear of the pack, as a multiple of its own height, at a whole tear. */
-    private static final float PEEL_LIFT = 1.15f;
-
-    /** How much of it has faded by the time the tear is across. */
-    private static final float PEEL_FADE = 0.55f;
-
-    /**
-     * What came out, worst first.
-     * <p>Sorted rather than left in collation order so the ceremony ends where it should. A
-     * pack's own order puts the rare somewhere in the middle, which is the one place it must
-     * not be.
-     */
-    private List<CardComponent> inRevealOrder() {
-        List<CardComponent> order = new ArrayList<>(cards);
-        order.sort(java.util.Comparator.comparingInt(card ->
-                PackGlow.rankOf(ClientCardCache.get().summary(card)
-                        .map(CardSummary::rarity)
-                        .orElse(Rarity.UNKNOWN))));
-        return List.copyOf(order);
-    }
-
     /** How brightly the light comes out where it meets the paper. */
     private static final int GLOW_ALPHA = 190;
-
-    /** How many bands the light is faded over. Enough to read as light rather than as a bar. */
-    private static final int GLOW_STEPS = 7;
 
     /**
      * The set's symbol on the body of the wrapper, creasing and tearing with it.
@@ -550,10 +500,15 @@ public final class PackOpeningScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // The left button. Any button took hold, so a right-click tore a pack open.
+        if (button != 0) {
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
         if (turning != null && !turning.finished() && turning.grabbed(mouseX, mouseY, cardInHand())) {
             return true;
         }
-        if (!cloth.isOpen() && cloth.grab(acrossSheet(mouseX), downSheet(mouseY))) {
+        if (!cloth.isOpen() && cloth.grab(acrossSheet(mouseX), downSheet(mouseY),
+                packHeight / (float) Math.max(1, packWidth))) {
             PackSounds.gripped();
             return true;
         }
@@ -562,8 +517,10 @@ public final class PackOpeningScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (turning != null && !turning.finished()) {
-            turning.draggedTo(dragX);
+        // Only while a card is actually held. This answered every drag while the stack was up, held or
+        // not, so nothing underneath ever heard one.
+        if (turning != null && !turning.finished() && turning.isDragging()) {
+            turning.draggedTo(dragX, cardInHand());
             return true;
         }
         if (cloth.isHeld()) {
@@ -575,7 +532,7 @@ public final class PackOpeningScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (turning != null && !turning.finished()) {
+        if (turning != null && !turning.finished() && turning.isDragging()) {
             turning.letGo(cardInHand());
             return true;
         }

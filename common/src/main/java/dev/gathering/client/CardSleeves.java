@@ -144,6 +144,7 @@ public final class CardSleeves {
     }
 
     /** Each sleeve's emblem, parsed the first time it is drawn. */
+    // statecheck: parsed resource names, the same on every server
     private static final java.util.Map<Sleeve, ResourceLocation> EMBLEMS =
             java.util.Collections.synchronizedMap(new java.util.EnumMap<>(Sleeve.class));
 }

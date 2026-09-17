@@ -81,4 +81,24 @@ class SettingsLayoutTest {
                     .isGreaterThanOrEqualTo(layout.row(row - 1).bottom());
         }
     }
+
+    /** A row holds its own words, whatever the controls are set to, while there is room. */
+    @Test
+    @DisplayName("keeps rows tall enough for large text with small controls")
+    void rowsHoldLargeText() {
+        SettingsLayout layout = SettingsLayout.of(854, 1080, ROWS, InterfaceScale.SMALLEST_PERCENT, 9, 2f);
+        assertThat(layout.rowHeight()).isGreaterThanOrEqualTo(18);
+    }
+
+    /** Rows that cannot fit at their shortest stop short of the way out rather than running under it. */
+    @Test
+    @DisplayName("never lays a row under the way out, however many rows in however small a window")
+    void rowsNeverRunUnderTheWayOut() {
+        for (int rows : new int[] {9, 11, 14}) {
+            SettingsLayout layout = SettingsLayout.of(427, 240, rows, 100, 9, 1f);
+            assertThat(layout.row(rows - 1).bottom())
+                    .as("%d rows", rows)
+                    .isLessThanOrEqualTo(layout.wayOut().y());
+        }
+    }
 }

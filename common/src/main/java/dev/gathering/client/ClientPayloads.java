@@ -49,6 +49,7 @@ public final class ClientPayloads {
     }
 
     /** Every payload a client applies, and how. Must match the protocol's clientbound list. */
+    // statecheck: the payload routes, fixed at start
     public static final List<Route<?>> ROUTES = List.of(
             route(dev.gathering.network.CardMetadataPayload.TYPE,
                     dev.gathering.network.CardMetadataPayload.class,
@@ -155,6 +156,7 @@ public final class ClientPayloads {
                     sideboard -> SideboardScreen.open(sideboard.table(), sideboard.deck(),
                             sideboard.gameNumber(), sideboard.bestOf())));
 
+    // statecheck: the payload routes, fixed at start
     private static final Map<ResourceLocation, Route<?>> BY_ID = byId();
 
     private static Map<ResourceLocation, Route<?>> byId() {

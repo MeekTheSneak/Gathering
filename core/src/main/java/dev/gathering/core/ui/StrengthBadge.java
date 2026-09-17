@@ -67,7 +67,9 @@ public final class StrengthBadge {
 
         int drawn = Math.round(wide * scale);
         int width = drawn + PADDING * 2;
-        int height = Math.round(lineHeight * scale) + PADDING;
+        // On every side, as the constant says: this added it once, top and bottom together, so the
+        // badge had a pixel above its numbers and a pixel below where it meant two of each.
+        int height = Math.round(lineHeight * scale) + PADDING * 2;
         return new Fit(width, height, scale, width / 2,
                 Math.round((height - lineHeight * scale) / 2f));
     }

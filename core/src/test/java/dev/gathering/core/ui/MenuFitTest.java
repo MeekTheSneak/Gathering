@@ -51,9 +51,11 @@ class MenuFitTest {
                 assertThat(fit.width())
                         .as("width at text %d%%, controls %d%%", text, controls)
                         .isLessThanOrEqualTo(VIEWPORT);
-                assertThat(fit.columns() * fit.perColumn(ENTRIES))
-                        .as("room for every row at text %d%%, controls %d%%", text, controls)
-                        .isGreaterThanOrEqualTo(ENTRIES);
+                // The height, which is the half that can fail. This asserted that the columns had
+                // room for every row, and the columns are counted from the rows, so it could not.
+                assertThat(fit.fits(ENTRIES, VIEWPORT, 240, PADDING))
+                        .as("the whole menu on screen at text %d%%, controls %d%%", text, controls)
+                        .isTrue();
             }
         }
     }
@@ -94,8 +96,21 @@ class MenuFitTest {
         // long ones squeezed to fit, which reads as unfinished however correct each row is.
         // There is one scale here by construction, and this is the test that says so.
         MenuFit fit = fitFor(75, 2.0f, VIEWPORT, 240);
-        assertThat(fit.scale()).isPositive();
+        assertThat(fit.scale()).isBetween(TextScale.SMALLEST, 2.0f);
         assertThat(fit.columnWidth()).isGreaterThanOrEqualTo(LEAST_WIDTH);
+        assertThat(fit.fits(ENTRIES, VIEWPORT, 240, PADDING)).isTrue();
+    }
+
+    @Test
+    @DisplayName("answers for a text size that is not a number, or is absurd, rather than never answering")
+    void anImpossibleTextSizeStillEnds() {
+        // A NaN never compared small enough to stop the shrinking loop, and a size in the
+        // millions did not change when a tenth was taken off it. Both ran for ever.
+        for (float asked : new float[] {Float.NaN, Float.POSITIVE_INFINITY, 5_000_000f, -3f, 0f}) {
+            MenuFit fit = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                    java.time.Duration.ofSeconds(2), () -> fitFor(100, asked, VIEWPORT, 240));
+            assertThat(fit.scale()).as("for %s", asked).isBetween(TextScale.SMALLEST, TextScale.LARGEST);
+        }
     }
 
     @Test

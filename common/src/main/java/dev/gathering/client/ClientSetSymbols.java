@@ -6,9 +6,7 @@ import dev.gathering.core.card.SetCode;
 import dev.gathering.core.svg.SetSymbol;
 import dev.gathering.core.svg.SvgException;
 import java.io.IOException;
-import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -70,7 +68,7 @@ public final class ClientSetSymbols {
      * session that wanders through hundreds of sets rather than a working eviction policy -
      * and redrawing one costs nothing, because the outline it is drawn from is still here.
      */
-    private final Map<String, ResourceLocation> drawn = new java.util.HashMap<>();
+    private final Map<String, ResourceLocation> drawn = new java.util.LinkedHashMap<>(16, 0.75f, true);
 
     /** As many drawn symbols as are kept before the lot are released and drawn again. */
     private static final int MOST_DRAWN = 64;
@@ -105,7 +103,7 @@ public final class ClientSetSymbols {
     }
 
     /** Answers for calls that have been made before, which on a steady frame is all of them. */
-    private final Map<Ready, ResourceLocation> ready = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Ready, String> ready = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * The symbol for a set, in this color and this many pixels across, if it is ready.
@@ -120,9 +118,15 @@ public final class ClientSetSymbols {
         // three-part string concatenation to build a key, before looking anything up with it - five
         // allocations to re-ask a question whose answer was already sitting there.
         Ready asking = new Ready(setCode, color, size);
-        ResourceLocation alreadyDrawn = ready.get(asking);
-        if (alreadyDrawn != null) {
-            return Optional.of(alreadyDrawn);
+        String readyKey = ready.get(asking);
+        if (readyKey != null) {
+            // Through the drawn map rather than around it, so asking for a symbol counts as using it
+            // and the one given up when the cache is full is the one used longest ago.
+            ResourceLocation alreadyDrawn = drawn.get(readyKey);
+            if (alreadyDrawn != null) {
+                return Optional.of(alreadyDrawn);
+            }
+            ready.remove(asking);
         }
         String code = checked(setCode);
         if (code == null || failed.contains(code)) {
@@ -134,7 +138,7 @@ public final class ClientSetSymbols {
         }
         ResourceLocation alreadyThere = drawn.get(key);
         if (alreadyThere != null) {
-            ready.put(asking, alreadyThere);
+            ready.put(asking, key);
             return Optional.of(alreadyThere);
         }
         SetSymbol outline = outlines.get(code);
@@ -219,9 +223,10 @@ public final class ClientSetSymbols {
     /** Client thread only: registering a texture touches GL. */
     private Optional<ResourceLocation> draw(String key, SetSymbol outline, int color, int size) {
         int across = Math.max(1, size);
+        NativeImage image = null;
         try {
             byte[] mask = outline.mask(across);
-            NativeImage image = new NativeImage(NativeImage.Format.RGBA, across, across, false);
+            image = new NativeImage(NativeImage.Format.RGBA, across, across, false);
             int red = (color >> 16) & 0xFF;
             int green = (color >> 8) & 0xFF;
             int blue = color & 0xFF;
@@ -234,15 +239,19 @@ public final class ClientSetSymbols {
                 }
             }
             if (drawn.size() >= MOST_DRAWN) {
-                for (ResourceLocation old : drawn.values()) {
-                    Minecraft.getInstance().getTextureManager().release(old);
-                }
-                drawn.clear();
-                // With it, or the fast path hands out a texture that has just been released.
-                ready.clear();
+                // One given up, the one used longest ago. The whole cache used to go at once, in the
+                // middle of a frame - releasing a texture a pack drawn earlier in that frame had
+                // already been handed to draw with.
+                var eldest = drawn.entrySet().iterator().next();
+                Minecraft.getInstance().getTextureManager().release(eldest.getValue());
+                String gone = eldest.getKey();
+                drawn.remove(gone);
+                ready.values().removeIf(gone::equals);
             }
             ResourceLocation id = Gathering.id("set_symbol/" + textureCounter.incrementAndGet());
-            Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
+            DynamicTexture texture = new DynamicTexture(image);
+            image = null;
+            Minecraft.getInstance().getTextureManager().register(id, texture);
             drawn.put(key, id);
             return Optional.of(id);
         } catch (SvgException | RuntimeException couldNotDraw) {
@@ -252,6 +261,12 @@ public final class ClientSetSymbols {
             LOGGER.warn("Could not draw the set symbol {}: {}", key, couldNotDraw.toString());
             undrawable.add(key);
             return Optional.empty();
+        } finally {
+            // Still ours only if it never became a texture, which then owns it. A symbol whose
+            // registration threw kept its native memory for the rest of the session.
+            if (image != null) {
+                image.close();
+            }
         }
     }
 

@@ -7,7 +7,6 @@ import java.io.IOException;
 import dev.gathering.core.net.ArtHosts;
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -85,9 +84,6 @@ public final class ClientCardImages {
 
     /** What the resident textures add up to, kept as they come and go rather than summed. */
     private long residentBytes;
-
-    /** How many of them are the large tier, which has a much smaller allowance of its own. */
-    private int residentCrisp;
 
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
 
@@ -273,9 +269,6 @@ public final class ClientCardImages {
             Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
             resident.put(url, new Held(id, size, crisp));
             residentBytes += size;
-            if (crisp) {
-                residentCrisp++;
-            }
             evictDownToCap();
         } catch (RuntimeException e) {
             // Loud rather than debug: a card that will not draw is the single most visible
@@ -348,9 +341,6 @@ public final class ClientCardImages {
             }
             Minecraft.getInstance().getTextureManager().release(held.id());
             residentBytes -= held.bytes();
-            if (held.crisp()) {
-                residentCrisp--;
-            }
         }
     }
 

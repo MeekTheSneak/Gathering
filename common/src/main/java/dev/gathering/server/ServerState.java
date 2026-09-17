@@ -51,6 +51,7 @@ public final class ServerState {
         ActionBudget.clearShared();
         CreativeDecks.clear();
         DecklistImport.clear();
+        TableTalk.clear();
         dev.gathering.server.events.Events.clear();
         dev.gathering.server.events.EventRecords.clear();
     }

@@ -52,6 +52,7 @@ public final class PackOpening {
      * rule about any set - every one of these is a name in somebody else's data, and a set
      * with none of them falls through to whatever it does publish.
      */
+    // statecheck: a constant list of product names, the same in every world
     private static final List<String> USUAL_KINDS = List.of("play", "draft", "set");
 
 

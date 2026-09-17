@@ -126,7 +126,7 @@ public final class SettingsScreen extends ChildScreen {
     protected void init() {
         List<Row> rows = rows();
         layout = SettingsLayout.of(this.width, this.height, rows.size(),
-                ClientSettings.controlScale());
+                ClientSettings.controlScale(), this.font.lineHeight, GuiText.askedScale());
 
         for (int index = 0; index < rows.size(); index++) {
             Row row = rows.get(index);

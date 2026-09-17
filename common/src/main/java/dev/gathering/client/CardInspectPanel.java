@@ -136,13 +136,15 @@ public final class CardInspectPanel {
         // Art per printed side, text per face: a split card is one picture and two rules
         // boxes. The side is the one the card is showing - a transformed permanent read from
         // the table used to be described by its front, which is a different card.
-        List<CardFaceSummary> faces = List.of(summary.sideShown(flipped));
+        // One picture: the side the card is showing. It was a one-element list, built per call and
+        // looped over, left from when both sides were drawn side by side.
+        CardFaceSummary shown = summary.sideShown(flipped);
         Font font = Minecraft.getInstance().font;
 
         int artHeight = Mth.clamp(
                 Math.round(screenHeight * CURSOR_ART_FRACTION), CURSOR_ART_MIN, CURSOR_ART_MAX);
         int artWidth = CardShape.widthFor(artHeight);
-        int content = Math.max(artWidth * faces.size() + GAP * (faces.size() - 1), CURSOR_TEXT_WIDTH);
+        int content = Math.max(artWidth, CURSOR_TEXT_WIDTH);
 
         // A narrow screen, or a double-faced card, can want more width than there is.
         int available = screenWidth - SCREEN_EDGE * 2 - PADDING * 2;
@@ -184,17 +186,12 @@ public final class CardInspectPanel {
 
         GatheringSprites.panel(graphics, x, y, width, height);
 
-        int artRow = artWidth * faces.size() + GAP * (faces.size() - 1);
-        int face = x + PADDING + (content - artRow) / 2;
-        for (CardFaceSummary summaryFace : faces) {
-            // The shine, on the small panel too. It moves with the cursor rather than with a
-            // turn, because this panel is already following the cursor and turning it as well
-            // would be two things answering one hand. Same drawing either way, so a foil
-            // looks like a foil wherever it is met.
-            drawFace(graphics, summaryFace, Holding.inspected(foil, grainOf(summary)),
-                    face, y + PADDING, artWidth, artHeight, true);
-            face += artWidth + GAP;
-        }
+        // The shine, on the small panel too. It moves with the cursor rather than with a
+        // turn, because this panel is already following the cursor and turning it as well
+        // would be two things answering one hand. Same drawing either way, so a foil
+        // looks like a foil wherever it is met.
+        drawFace(graphics, shown, Holding.inspected(foil, grainOf(summary)),
+                x + PADDING + (content - artWidth) / 2, y + PADDING, artWidth, artHeight, true);
         int textTop = y + PADDING + artHeight + GAP;
         int textBottom = y + height - PADDING - creditHeight;
         draw(graphics, font, text, x + PADDING, textTop, textBottom);
@@ -261,13 +258,12 @@ public final class CardInspectPanel {
 
     private static void renderArt(GuiGraphics graphics, CardSummary summary, boolean flipped,
             int x, int y, int width, int height, Holding held) {
-        List<CardFaceSummary> faces = List.of(summary.sideShown(flipped));
-        int count = 1;
+        CardFaceSummary shown = summary.sideShown(flipped);
         if (width <= 0 || height <= 0) {
             return;
         }
 
-        int artWidth = (width - GAP * (count - 1)) / count;
+        int artWidth = width;
         int artHeight = CardShape.heightFor(artWidth);
         if (artHeight > height) {
             artHeight = height;
@@ -277,12 +273,9 @@ public final class CardInspectPanel {
             return;
         }
 
-        int row = x + (width - (artWidth * count + GAP * (count - 1))) / 2;
+        int row = x + (width - artWidth) / 2;
         int top = y + (height - artHeight) / 2;
-        for (CardFaceSummary face : faces) {
-            drawFace(graphics, face, held, row, top, artWidth, artHeight);
-            row += artWidth + GAP;
-        }
+        drawFace(graphics, shown, held, row, top, artWidth, artHeight);
     }
 
     /**

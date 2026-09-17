@@ -61,6 +61,8 @@ final class PackClothRenderer {
             // entirely away has no squares left.
             buffer.build();
         }
+        // Put back, as it was found: turned on here and left on, it was on for whatever drew next.
+        RenderSystem.disableBlend();
     }
 
     /**
@@ -98,10 +100,27 @@ final class PackClothRenderer {
                 if (!cloth.stillThere(sideways, down) || !within(sideways, down, left, right, top, bottom)) {
                     continue;
                 }
-                printed(buffer, matrix, cloth, where, sideways, down, left, right, top, bottom, color);
-                printed(buffer, matrix, cloth, where, sideways, down + 1, left, right, top, bottom, color);
-                printed(buffer, matrix, cloth, where, sideways + 1, down + 1, left, right, top, bottom, color);
-                printed(buffer, matrix, cloth, where, sideways + 1, down, left, right, top, bottom, color);
+                // Trimmed to the symbol's rectangle rather than stretched to the square: a square
+                // straddling its edge used to clamp its outer corners' texture to the edge, smearing
+                // the symbol's last column of texels across the rest of the square. Here the square
+                // is cut at the edge and the cut corners are placed on the sheet where the edge
+                // falls, between the solver's four.
+                float x1 = sideways / (float) (PackCloth.ACROSS - 1);
+                float x2 = (sideways + 1) / (float) (PackCloth.ACROSS - 1);
+                float y1 = down / (float) (PackCloth.DOWN - 1);
+                float y2 = (down + 1) / (float) (PackCloth.DOWN - 1);
+                float fromX = Math.max(x1, left);
+                float toX = Math.min(x2, right);
+                float fromY = Math.max(y1, top);
+                float toY = Math.min(y2, bottom);
+                printed(buffer, matrix, cloth, where, sideways, down, fromX, fromY, x1, x2, y1, y2,
+                        left, right, top, bottom, color);
+                printed(buffer, matrix, cloth, where, sideways, down, fromX, toY, x1, x2, y1, y2,
+                        left, right, top, bottom, color);
+                printed(buffer, matrix, cloth, where, sideways, down, toX, toY, x1, x2, y1, y2,
+                        left, right, top, bottom, color);
+                printed(buffer, matrix, cloth, where, sideways, down, toX, fromY, x1, x2, y1, y2,
+                        left, right, top, bottom, color);
                 anything = true;
             }
         }
@@ -110,6 +129,7 @@ final class PackClothRenderer {
         } else {
             buffer.build();
         }
+        RenderSystem.disableBlend();
     }
 
     /** Whether any corner of this square falls inside the symbol's rectangle on the flat sheet. */
@@ -121,16 +141,31 @@ final class PackClothRenderer {
         return x2 > left && x1 < right && y2 > top && y1 < bottom;
     }
 
-    /** One corner of the symbol, at the solver's position, with the symbol's own texture across it. */
+    /**
+     * One corner of the symbol, at a point inside one square of the sheet, with the symbol's texture
+     * across it.
+     * <p>The point is given as where it sits on the flat sheet, and placed where the solver has moved
+     * that part of the square to, between the square's four corners.
+     */
     private static void printed(BufferBuilder buffer, Matrix4f matrix, PackCloth cloth, Rect where,
-            int across, int down, float left, float right, float top, float bottom, int color) {
-        int at = PackCloth.at(across, down);
-        float x = where.x() + cloth.xOf(at) * where.width();
-        float y = where.y() + cloth.yOf(at) * where.height();
-        float u = (across / (float) (PackCloth.ACROSS - 1) - left) / Math.max(1.0e-4f, right - left);
-        float v = (down / (float) (PackCloth.DOWN - 1) - top) / Math.max(1.0e-4f, bottom - top);
+            int across, int down, float sheetX, float sheetY, float x1, float x2, float y1, float y2,
+            float left, float right, float top, float bottom, int color) {
+        float s = (sheetX - x1) / Math.max(1.0e-6f, x2 - x1);
+        float r = (sheetY - y1) / Math.max(1.0e-6f, y2 - y1);
+        int topLeft = PackCloth.at(across, down);
+        int topRight = PackCloth.at(across + 1, down);
+        int bottomLeft = PackCloth.at(across, down + 1);
+        int bottomRight = PackCloth.at(across + 1, down + 1);
+        float ax = cloth.xOf(topLeft) + (cloth.xOf(topRight) - cloth.xOf(topLeft)) * s;
+        float bx = cloth.xOf(bottomLeft) + (cloth.xOf(bottomRight) - cloth.xOf(bottomLeft)) * s;
+        float ay = cloth.yOf(topLeft) + (cloth.yOf(topRight) - cloth.yOf(topLeft)) * s;
+        float by = cloth.yOf(bottomLeft) + (cloth.yOf(bottomRight) - cloth.yOf(bottomLeft)) * s;
+        float x = where.x() + (ax + (bx - ax) * r) * where.width();
+        float y = where.y() + (ay + (by - ay) * r) * where.height();
+        float u = (sheetX - left) / Math.max(1.0e-4f, right - left);
+        float v = (sheetY - top) / Math.max(1.0e-4f, bottom - top);
         buffer.addVertex(matrix, x, y, 0f)
-                .setUv(Math.clamp(u, 0f, 1f), Math.clamp(v, 0f, 1f))
+                .setUv(u, v)
                 .setColor(color);
     }
 

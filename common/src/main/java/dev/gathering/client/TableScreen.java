@@ -3474,6 +3474,7 @@ public final class TableScreen extends Screen {
      * draw onto Z reads "Z - draw a card", which is the only version of that sentence worth
      * printing.
      */
+    // statecheck: a constant list of keys
     private static final java.util.Map<String, List<String>> KEY_LIST_ACTIONS =
             java.util.Map.ofEntries(
                     java.util.Map.entry("screen.gathering.table.key_untap", List.of("untap_all")),

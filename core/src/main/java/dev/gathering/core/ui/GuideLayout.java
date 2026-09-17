@@ -31,9 +31,11 @@ public final class GuideLayout {
     private final Rect previous;
     private final Rect current;
     private final Rect next;
+    private final int fontLine;
 
     private GuideLayout(Rect panel, List<Rect> topics, Rect page, Rect done, int row, int gap, boolean across,
-            Rect previous, Rect current, Rect next) {
+            Rect previous, Rect current, Rect next, int fontLine) {
+        this.fontLine = fontLine;
         this.panel = panel;
         this.topics = List.copyOf(topics);
         this.page = page;
@@ -99,11 +101,12 @@ public final class GuideLayout {
                 Rect current = new Rect(previous.right() + gap, top, Math.max(1, next.x() - gap - previous.right() - gap), row);
                 int switcherPage = top + row + gap * 2;
                 return new GuideLayout(panel, List.of(), new Rect(panel.x() + MARGIN, switcherPage, inside,
-                        Math.max(1, bottomRow - gap - switcherPage)), done, row, gap, true, previous, current, next);
+                        Math.max(1, bottomRow - gap - switcherPage)), done, row, gap, true, previous, current, next,
+                        fontLine);
             }
             page = new Rect(panel.x() + MARGIN, pageTop, inside, Math.max(1, bottomRow - gap - pageTop));
         }
-        return new GuideLayout(panel, topics, page, done, row, gap, across, Rect.NONE, Rect.NONE, Rect.NONE);
+        return new GuideLayout(panel, topics, page, done, row, gap, across, Rect.NONE, Rect.NONE, Rect.NONE, fontLine);
     }
 
     /**
@@ -111,7 +114,9 @@ public final class GuideLayout {
      * topic is chosen with {@link #previous()} and {@link #next()} either side of {@link #current()}.
      */
     public boolean oneAtATime() {
-        return topics.isEmpty();
+        // With a step either way to take, not merely no column: a guide with no topics has no
+        // column either, and nothing to step between.
+        return topics.isEmpty() && !previous.isEmpty();
     }
 
     public Rect previous() {
@@ -154,7 +159,9 @@ public final class GuideLayout {
 
     /** Where the title goes: in the top row of the panel. */
     public int titleY() {
-        return panel.y() + MARGIN / 2 + (row - 9) / 2;
+        // The font the layout was made for, rather than vanilla's nine: a larger font centered as
+        // if it were nine sat low in its row.
+        return panel.y() + MARGIN / 2 + (row - fontLine) / 2;
     }
 
     /** Whether the topics went across the top because the window was too narrow for a column. */

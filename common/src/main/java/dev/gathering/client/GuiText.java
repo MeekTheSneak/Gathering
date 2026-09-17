@@ -46,6 +46,7 @@ public final class GuiText {
      * which. Read by the scripted run at the end, which is the only place that sees the whole
      * mod drawn; a set, because a label too long is too long on every frame.
      */
+    // statecheck: a record of this session's text, read by the scripted run
     private static final java.util.Set<String> trimmedCopy =
             new java.util.LinkedHashSet<>();
 
