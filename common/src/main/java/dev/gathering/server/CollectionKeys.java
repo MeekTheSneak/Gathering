@@ -61,9 +61,9 @@ public final class CollectionKeys {
         }
         collection.setRights(collection.rights().allowingEveryone(
                 new CollectionRights.Everyone(payload.look(), payload.take(), payload.add())));
-        player.displayClientMessage(Component.translatable(collection.rights().open()
+        Notices.tell(player, Component.translatable(collection.rights().open()
                 ? "message.gathering.collection_opened_to_all"
-                : "message.gathering.collection_closed_to_all"), false);
+                : "message.gathering.collection_closed_to_all"));
         show(player, payload.where());
     }
 
@@ -81,8 +81,8 @@ public final class CollectionKeys {
         String name = payload.name().trim();
         UUID who = idOf(player, name).orElse(null);
         if (who == null) {
-            player.displayClientMessage(
-                    Component.translatable("message.gathering.collection_no_such_player", name), false);
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_no_such_player", name));
             return;
         }
         set(player, payload.where(), who, payload.look(), payload.take(), payload.add());
@@ -102,8 +102,8 @@ public final class CollectionKeys {
         }
         if (collection.rights().isOwner(who)) {
             // The owner's rights are not a list entry. Saying so beats a row that will not change.
-            player.displayClientMessage(
-                    Component.translatable("message.gathering.collection_owner_already"), false);
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_owner_already"));
             return;
         }
         CollectionRights rights = collection.rights();
@@ -111,9 +111,9 @@ public final class CollectionKeys {
         rights = take ? rights.allowingTake(who) : rights.refusingTake(who);
         rights = add ? rights.allowingAdd(who) : rights.refusingAdd(who);
         collection.setRights(rights);
-        player.displayClientMessage(Component.translatable(look || take || add
+        Notices.tell(player, Component.translatable(look || take || add
                 ? "message.gathering.collection_let_in"
-                : "message.gathering.collection_shut_out", nameOf(player, who)), false);
+                : "message.gathering.collection_shut_out", nameOf(player, who)));
         show(player, where);
     }
 
@@ -133,8 +133,8 @@ public final class CollectionKeys {
         String named = payload.name().trim();
         UUID who = idOf(player, named).orElse(null);
         if (who == null) {
-            player.displayClientMessage(Component.translatable(
-                    "message.gathering.collection_no_such_player", named), false);
+            Notices.tell(player, Component.translatable(
+                    "message.gathering.collection_no_such_player", named));
             return;
         }
         // Asked twice, because it cannot be undone and the collection is a player's cards. Every
@@ -146,8 +146,8 @@ public final class CollectionKeys {
                 || !who.equals(askedAbout.get(payload.where()))) {
             askedBefore.put(payload.where().immutable(), player.getUUID());
             askedAbout.put(payload.where().immutable(), who);
-            player.displayClientMessage(Component.translatable(
-                    "message.gathering.collection_hand_over_sure", nameOf(player, who)), false);
+            Notices.tell(player, Component.translatable(
+                    "message.gathering.collection_hand_over_sure", nameOf(player, who)));
             return;
         }
         askedBefore.remove(payload.where());
@@ -178,13 +178,13 @@ public final class CollectionKeys {
             return;
         }
         if (collection.rights().isOwner(who)) {
-            player.displayClientMessage(
-                    Component.translatable("message.gathering.collection_owner_already"), false);
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_owner_already"));
             return;
         }
         collection.setRights(collection.rights().ownedNowBy(who));
-        player.displayClientMessage(Component.translatable(
-                "message.gathering.collection_handed_over", nameOf(player, who)), false);
+        Notices.tell(player, Component.translatable(
+                "message.gathering.collection_handed_over", nameOf(player, who)));
         // And they are not its owner any more, so there is nothing left here to show them.
         Sending.to(player, new CollectionKeysPayload(where,
                 new CollectionKeysPayload.Key("", false, false, false), java.util.List.of()));
@@ -203,8 +203,8 @@ public final class CollectionKeys {
             return null;
         }
         if (!collection.rights().isOwner(player.getUUID())) {
-            player.displayClientMessage(
-                    Component.translatable("message.gathering.collection_not_yours"), true);
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_not_yours"));
             return null;
         }
         return collection;

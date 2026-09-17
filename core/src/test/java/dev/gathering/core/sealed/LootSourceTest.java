@@ -42,10 +42,53 @@ class LootSourceTest {
     }
 
     @Test
-    @DisplayName("entity and block drops are not chests")
-    void ordinaryDropsAreNotLoot() {
-        assertThat(LootSource.of("minecraft:entities/zombie")).isEmpty();
+    @DisplayName("a mob worth fighting drops packs and nothing else does")
+    void mobsAreNamedRatherThanMatched() {
+        assertThat(LootSource.of("minecraft:entities/zombie")).contains(LootSource.MOBS);
+        assertThat(LootSource.of("minecraft:entities/piglin_brute")).contains(LootSource.MOBS);
+        // A wool farm is not a booster faucet.
+        assertThat(LootSource.of("minecraft:entities/sheep")).isEmpty();
+        assertThat(LootSource.of("minecraft:entities/cow")).isEmpty();
+        assertThat(LootSource.of("minecraft:entities/villager")).isEmpty();
+        // The four the world is built around drop the archive pack instead, which is rarer
+        // and better; an ordinary booster out of the ender dragon would be an anticlimax.
+        assertThat(LootSource.of("minecraft:entities/ender_dragon")).isEmpty();
+        assertThat(LootSource.of("minecraft:entities/wither")).isEmpty();
+        assertThat(LootSource.of("minecraft:entities/warden")).isEmpty();
+        assertThat(LootSource.of("minecraft:entities/elder_guardian")).isEmpty();
         assertThat(LootSource.of("minecraft:blocks/stone")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("only mobs need a player to have done the killing")
+    void onlyMobsNeedAPlayer() {
+        assertThat(LootSource.MOBS.needsAPlayer()).isTrue();
+        assertThat(LootSource.STRUCTURES.needsAPlayer()).isFalse();
+        assertThat(LootSource.FISHING.needsAPlayer()).isFalse();
+        assertThat(LootSource.DIGGING.needsAPlayer()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a chest worth an expedition is never worse odds than an ordinary one")
+    void betterChestsAreNeverWorse() {
+        for (LootSource source : LootSource.values()) {
+            assertThat(source.oneIn(LootRichness.RICH)).as(source.configName())
+                    .isLessThanOrEqualTo(source.oneIn(LootRichness.PLAIN));
+            assertThat(source.oneIn(null)).as(source.configName())
+                    .isEqualTo(source.oneIn());
+        }
+    }
+
+    @Test
+    @DisplayName("an ordinary booster is common in chests, and a mob drop is not")
+    void chestsAreCommonAndMobsAreNot() {
+        // The owner's report, as numbers: a pack in one chest in eight was a pack somebody
+        // explored a whole evening without seeing. About half of ordinary chests now, and
+        // every chest at the end of something.
+        assertThat(LootSource.STRUCTURES.oneIn(LootRichness.PLAIN)).isEqualTo(2);
+        assertThat(LootSource.STRUCTURES.oneIn(LootRichness.RICH)).isEqualTo(1);
+        // And a mob is the one source that can be automated, so it is the long one.
+        assertThat(LootSource.MOBS.oneIn()).isGreaterThan(100);
     }
 
     @Test

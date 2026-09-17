@@ -145,8 +145,8 @@ public final class PackOpening {
         // server answering at its own pace - and a throttled one can now be waited on for half a minute.
         // The owner opened a pack, got nothing, and had no way of telling whether it was working, broken
         // or gone (2026-09-16). Over the hotbar: it is replaced by whatever happens next.
-        player.displayClientMessage(
-                Component.translatable("message.gathering.pack_opening", set.toUpperCase(Locale.ROOT)), true);
+        Notices.tell(player,
+                Component.translatable("message.gathering.pack_opening", set.toUpperCase(Locale.ROOT)));
         collation.collationFor(set)
                 // Async on the collation worker, not chained plainly: a set already read is
                 // an already-completed future, and a plain chain would draw the pack on
@@ -192,8 +192,8 @@ public final class PackOpening {
                                 .withStyle(net.minecraft.ChatFormatting.GOLD));
                         // And say where the pack went, because "it did not open" and "it is gone" look
                         // the same from the hotbar.
-                        player.displayClientMessage(
-                                Component.translatable("message.gathering.pack_handed_back"), true);
+                        Notices.tell(player,
+                                Component.translatable("message.gathering.pack_handed_back"));
                         handedBack.run();
                         return;
                     }

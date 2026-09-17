@@ -216,13 +216,38 @@ def stretchedFaces():
     return stretched
 
 
+#: Art the owner has still to draw, and what it is for.
+#: Textures are the owner's - this project never draws one - so a model can name a texture before it
+#: exists. Named here it is a line in the report rather than a failure, and the item shows the missing
+#: texture in game until the file lands, which is the honest thing for it to do. A name here whose file
+#: has arrived is a stale excuse, and that fails.
+OWED = {
+    "item/mana_coin.png": "the shop's currency, a swirl of the five mana colors (owner, 2026-09-17)",
+}
+
+
+def owedArt(onDisk):
+    """The owed textures, as lines to print - and a problem for any that has since arrived."""
+    said = []
+    problems = []
+    for texture, why in sorted(OWED.items()):
+        if texture in onDisk:
+            problems.append(f"{texture} is on disk now, so take it out of OWED in this file")
+        else:
+            said.append(f"{texture} is owed: {why}")
+    return said, problems
+
+
 def main():
     named = texturesNamedByModels()
     onDisk = texturesOnDisk()
     problems = []
 
+    owedSaid, owedProblems = owedArt(onDisk)
+    problems.extend(owedProblems)
+
     for texture, models in sorted(named.items()):
-        if texture not in onDisk:
+        if texture not in onDisk and texture not in OWED:
             problems.append(f"{texture} is named by {models[0]} and is not there")
 
     for reached, by in sorted(FROM_CODE.items()):
@@ -248,6 +273,8 @@ def main():
     if not named or not onDisk:
         problems.append("no textures named by models or none on disk, so nothing was checked")
 
+    for line in owedSaid:
+        print("  " + line)
     for line in problems:
         print("  " + line)
     print(f"{len(named)} textures named by models, {len(onDisk)} on disk, "

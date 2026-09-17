@@ -39,7 +39,7 @@ public final class EventViews {
             return;
         }
         // Shown by the desk taking it on.
-        Events.hostAtDesk(player, payload.desk(), payload.name(), payload.settings());
+        Events.hostAtDesk(player, payload.desk(), payload.name(), payload.settings(), payload.prizes());
     }
 
     public static void act(ServerPlayer player, EventActionPayload payload) {
@@ -63,11 +63,9 @@ public final class EventViews {
             case SETTLE -> result(player, payload).ifPresent(result -> Events.settle(player, id, payload.tableNumber(), result));
             case DROP_PLAYER -> Events.dropPlayer(player, id, payload.player());
             case CANCEL -> Events.cancel(player, id);
-            case ADD_TABLES -> {
-                if (dev.gathering.server.TableReach.within(player, payload.at())) {
-                    Events.addTables(player, id, payload.at());
-                }
-            }
+            // From where the host is standing, worked out on the server. There is nothing here to
+            // check a reach against, because nothing about the place came from the client.
+            case ADD_TABLES -> Events.addTables(player, id);
             case ADD_PRIZE -> EventPrizes.put(player, id, payload.tableNumber());
             case RECORD -> record(player, payload.player());
             case MARK_REGISTRATION -> Events.markRegistration(player, id);

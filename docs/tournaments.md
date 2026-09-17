@@ -80,7 +80,11 @@ above, and what is still limited. `docs/working-record.md` carries the evidence.
 **Playing.** `/gathering events`, or a free Scorekeeper's Desk, lists current and past events.
 At a desk, *Host one* opens the create screen (from the command it is grayed out): event kind, format, best of, round and build
 minutes, rounds (auto or fixed), top cut, deck registration (any / checked / locked), check-in,
-and for draft or sealed the full pack settings. The event screen has four tabs: overview (your
+prizes, and for draft or sealed the full pack settings. Everything chosen is kept while the screen
+is open, kept when a subscreen is opened and closed, and kept against that desk if the screen is
+closed and opened again - until Create, which starts the next one blank. Prizes put up here name a
+place and the hotbar slot holding the prize; the items are taken when the event is created. The
+event screen has four tabs: overview (your
 table, opponent, result buttons, practice), standings (records and rates, never a seed),
 pairings, and host.
 
@@ -104,6 +108,10 @@ time a game up with no game in progress (1-0), drawn at games apiece or with a g
 its buttons offer no draws. A cut match still tied on games when the extra turns end goes to the
 higher life total (MTR 2.4); tied on life as well, the host decides it.
 
+**Adding tables.** *Add this table* on the host tab adds the long table the host is standing at -
+the nearest within three blocks of them, worked out on the server from where they actually are.
+No chair needed, and only free tables with nothing on them are taken.
+
 **Registration point.** The host can press *Register here* on the host tab; from then on signing
 up only works within 8 blocks of that spot, and anybody further away is pointed to it.
 
@@ -112,8 +120,11 @@ two legs of planks), and the one place a tournament is hosted: a free desk lists
 and offers *Host one*, which plays at the free tables within 16 blocks across and 4 up or down of the
 desk, nearest long table first (the first is where a draft or sealed event opens its packs), and
 makes the desk that tournament's desk and registration point. A desk running an unfinished
-tournament refuses to host another. A host of a tournament elsewhere uses a free desk and it becomes
-that tournament's desk and its registration point, in one click. Anybody else using it is shown the tournament it runs - to sign
+tournament refuses to host another, which is the whole of the limit on how many tournaments there
+are: one per desk, however many one person runs. A host of a tournament that has nowhere to sign up -
+one made away from a desk, or one whose desk was broken - uses a free desk and it becomes that
+tournament's desk in one click. A free desk beside a tournament of theirs that already has a desk
+offers *Host one* instead, and says that using it again moves the other one here. Anybody else using it is shown the tournament it runs - to sign
 up, check in, see pairings and standings. A desk already running an unfinished tournament is taken
 over only by using it a second time within ten seconds of the first, which says whose desk it is,
 so no stray click moves somebody else's event; a host's own desk takes signing up back if it was
@@ -150,8 +161,8 @@ event keeps a log: `/gathering events log <event>` for its host or an admin.
 **Ratings and hosting rules.** A result counts toward ratings only when a game was played at the
 match's table; a result two players only typed in stays in the standings and the record. Events
 of fewer than `events.rated_min_players` (default 6) move no rating. An event an admin marks
-official counts at full weight, anybody else's at half. A host runs one event at a time, and
-`events.host_cooldown_minutes` (default 0) adds a wait between events. Admin commands:
+official counts at full weight, anybody else's at half. One person may run as many events as they
+have desks, and `events.host_cooldown_minutes` (default 0) adds a wait between creating them. Admin commands:
 `/gathering events record|rating|void|exclude|official`.
 
 **Limits known.**

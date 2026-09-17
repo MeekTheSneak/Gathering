@@ -19,7 +19,7 @@ import net.minecraft.world.item.ItemStack;
 public final class EventPrizes {
 
     /** The lowest place a prize can be put up for. */
-    public static final int LOWEST_PLACE = 16;
+    public static final int LOWEST_PLACE = dev.gathering.core.tournament.PrizeOffer.LOWEST_PLACE;
 
     private EventPrizes() {
     }
@@ -65,6 +65,64 @@ public final class EventPrizes {
         host.sendSystemMessage(Component.translatable("message.gathering.event.prize_added", held.getCount(),
                 held.getHoverName(), place));
         Events.changed(host.getServer(), state);
+    }
+
+    /**
+     * The prizes a host put up while making the tournament, taken from their hotbar now that there is
+     * an event to hold them.
+     * <p>A slot rather than a stack, because until this moment there was nowhere to keep one - see
+     * {@link dev.gathering.core.tournament.PrizeOffer}. The slot is read from the host's own
+     * inventory on the server, so nothing a client sent decides what is taken; a slot emptied between
+     * filling the screen in and pressing Create is passed over and said so, rather than taking
+     * whatever has since been put there.
+     * <p>Saved before anything leaves the hotbar, the same way a prize put up afterwards is: a prize
+     * the event holds only in memory is lost with a restart, and a save that fails leaves the host
+     * holding every one of them.
+     */
+    static void putUpAtCreation(ServerPlayer host, EventState state,
+            List<dev.gathering.core.tournament.PrizeOffer> offered) {
+        List<dev.gathering.core.tournament.PrizeOffer> offers =
+                dev.gathering.core.tournament.PrizeOffer.accepted(offered);
+        if (offers.isEmpty()) {
+            return;
+        }
+        List<Prize> put = new ArrayList<>();
+        List<Integer> slots = new ArrayList<>();
+        int missing = 0;
+        for (var offer : offers) {
+            ItemStack stack = host.getInventory().getItem(offer.slot());
+            if (stack.isEmpty()) {
+                missing++;
+                continue;
+            }
+            put.add(new Prize(offer.place(), stack.copy()));
+            slots.add(offer.slot());
+        }
+        if (missing > 0) {
+            host.sendSystemMessage(Component.translatable("message.gathering.event.prize_gone", missing));
+        }
+        if (put.isEmpty()) {
+            return;
+        }
+        int wasLogged = state.log.size();
+        state.prizes.addAll(put);
+        put.forEach(prize -> state.log(host.getUUID(), "prize", prize.place() + ": " + prize.stack().getCount()
+                + " x " + prize.stack().getHoverName().getString()));
+        if (!Events.save(state)) {
+            state.prizes.removeAll(put);
+            while (state.log.size() > wasLogged) {
+                state.log.remove(state.log.size() - 1);
+            }
+            host.sendSystemMessage(Component.translatable("message.gathering.event.prize_not_saved"));
+            return;
+        }
+        for (int slot : slots) {
+            host.getInventory().setItem(slot, ItemStack.EMPTY);
+        }
+        for (Prize prize : put) {
+            host.sendSystemMessage(Component.translatable("message.gathering.event.prize_added",
+                    prize.stack().getCount(), prize.stack().getHoverName(), prize.place()));
+        }
     }
 
     /** Prizes, in place order, as lines. */

@@ -41,7 +41,7 @@ public class TableBlockItem extends BlockItem {
             if (context.getPlayer() != null && !context.getLevel().isClientSide()) {
                 // Over the hotbar: holding the button down asks again every few ticks, and each answer
                 // in the chat would push the last off it.
-                context.getPlayer().displayClientMessage(Component.translatable(why), true);
+                dev.gathering.server.Notices.tell(context.getPlayer(), Component.translatable(why));
             }
             return false;
         }

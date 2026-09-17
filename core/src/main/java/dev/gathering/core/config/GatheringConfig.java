@@ -47,7 +47,8 @@ public record GatheringConfig(
      * Tournaments.
      *
      * @param hostCooldownMinutes how long after hosting one tournament a player waits to create
-     *                            another, on top of running only one at a time
+     *                            another. How many they run at once is not limited by this: a
+     *                            tournament is one per Scorekeeper's Desk, not one per host
      * @param ratedMinPlayers     the fewest distinct players a finished tournament needs for its
      *                            results to move ratings
      */
@@ -182,9 +183,30 @@ public record GatheringConfig(
      * absent from the file you were given is not.
      */
     private static final List<String> DEFAULT_LOOT_SOURCES = List.of(
-            LootSource.FISHING.configName(),
             LootSource.STRUCTURES.configName(),
+            LootSource.MOBS.configName(),
+            LootSource.FISHING.configName(),
             LootSource.DIGGING.configName());
+
+    /**
+     * What the shop takes for sealed product on a server that has not said otherwise.
+     * <p>The Mana Coin, and not emeralds. An emerald is farmed - a trading hall makes them by
+     * the stack without anybody leaving the village - so pricing in one made the shop the
+     * cheapest path to a collection and exploring an optional flourish. A coin is only ever
+     * found in a chest somewhere. A server that would rather sell for emeralds says so in this
+     * one line; any item works.
+     */
+    public static final String DEFAULT_PRICE_ITEM = "gathering:mana_coin";
+
+    /**
+     * And the larger denomination, which for the coin is the coin.
+     * <p>There is no block of Mana Coins and there will not be one. Naming the coin twice with
+     * a worth of one means a dear thing is paid for in two piles of coins rather than not at
+     * all - see {@link dev.gathering.core.sealed.ShopPrice} - which caps what a coin economy
+     * can buy at two stacks, on purpose: a case of six display boxes is not something you
+     * carry home from a cave.
+     */
+    public static final String DEFAULT_PRICE_BLOCK = DEFAULT_PRICE_ITEM;
 
     /** What {@code loot_sets} means by "whatever is current". */
     public static final String LOOT_SETS_CURRENT = "current";
@@ -194,6 +216,13 @@ public record GatheringConfig(
 
     /** And by "everything Wizards ever put in a booster". */
     public static final String LOOT_SETS_ALL = "all";
+
+    /**
+     * How often a village builds a card shop, against a plains house pool weighing eighty-seven.
+     * <p>Twenty is about one house in five, so nine villages in ten have one. Eight was one in eleven,
+     * which the owner found meant going looking for a shop rather than coming across one.
+     */
+    public static final int DEFAULT_VILLAGE_SHOP_WEIGHT = 20;
 
     /**
      * Which sets a server's packs come from when it has not said.
@@ -281,23 +310,23 @@ public record GatheringConfig(
                 noted("collection.sealed_store_enabled",
                         toml.flag("collection.sealed_store_enabled", true), true, notes),
                 noted("collection.sealed_price_item",
-                        toml.string("collection.sealed_price_item", "minecraft:emerald"),
-                        "minecraft:emerald", notes),
+                        toml.string("collection.sealed_price_item", DEFAULT_PRICE_ITEM),
+                        DEFAULT_PRICE_ITEM, notes),
                 noted("collection.sealed_price_block",
-                        toml.string("collection.sealed_price_block", "minecraft:emerald_block"),
-                        "minecraft:emerald_block", notes),
+                        toml.string("collection.sealed_price_block", DEFAULT_PRICE_BLOCK),
+                        DEFAULT_PRICE_BLOCK, notes),
                 noted("collection.sealed_price_block_worth",
-                        clamped(toml.number("collection.sealed_price_block_worth", 9), 1, 64,
-                                "collection.sealed_price_block_worth", notes), 9, notes),
+                        clamped(toml.number("collection.sealed_price_block_worth", 1), 1, 64,
+                                "collection.sealed_price_block_worth", notes), 1, notes),
                 noted("collection.sealed_price_booster",
-                        clamped(toml.number("collection.sealed_price_booster", 2), 1, 512,
-                                "collection.sealed_price_booster", notes), 2, notes),
+                        clamped(toml.number("collection.sealed_price_booster", 1), 1, 512,
+                                "collection.sealed_price_booster", notes), 1, notes),
                 noted("collection.sealed_rotation_hours",
                         clamped(toml.number("collection.sealed_rotation_hours", 4), 1, 24 * 7,
                                 "collection.sealed_rotation_hours", notes), 4, notes),
                 noted("collection.village_shop_weight",
-                        clamped(toml.number("collection.village_shop_weight", 8), 0, 64,
-                                "collection.village_shop_weight", notes), 8, notes),
+                        clamped(toml.number("collection.village_shop_weight", 20), 0, 64,
+                                "collection.village_shop_weight", notes), 20, notes),
                 noted("collection.current_set",
                         toml.string("collection.current_set", "auto").trim().toLowerCase(Locale.ROOT),
                         "auto", notes),
@@ -512,9 +541,28 @@ public record GatheringConfig(
                 # where it is, changing it says so in the log rather than doing nothing
                 # quietly.
                 #
-                # Where sealed product turns up: any of "fishing", "structures", "archaeology".
-                # Needs collection_enabled.
-                pack_loot_sources = ["fishing", "structures", "archaeology"]
+                # Where sealed product turns up: any of "structures", "mobs", "fishing",
+                # "archaeology". Needs collection_enabled.
+                #
+                # An ordinary booster is common. About half the loot chests in the world hold
+                # one, almost every chest at the end of something does, and a mob a player
+                # killed drops one about once in a hundred and fifty - call it seven boosters
+                # in an hour of exploring. What stays rare is which booster: a collector pack,
+                # a box topper or a promo is under one in two hundred out of an ordinary chest
+                # and about one in ten out of an end city, a bastion or an ancient city.
+                #
+                # "mobs" only pays for a kill a player had a hand in, and only ever pays an
+                # ordinary booster - never a Mana Coin. A mob farm makes commons and buys
+                # nothing.
+                #
+                # Mana Coins are found here too, in chests and nowhere else: one ordinary chest
+                # in five holds one to three, and one chest worth an expedition in two holds
+                # two to five. So an ordinary chest is thinner in coins than in packs and an
+                # end city is not, which is what makes the trip worth taking - a raid on one is
+                # about twenty coins, and two of those is a display box. Mixed through an hour
+                # of exploring it comes to seven or eight, against a booster costing one below.
+                # Coins follow "structures": a server that turns that source off finds none.
+                pack_loot_sources = ["structures", "mobs", "fishing", "archaeology"]
                 # Which sets those packs are from. "all" is every set anything was ever sold
                 # for - expansions, Masters sets, Commander decks, Jumpstart - and is the default, "current" is whatever is out now, "recent" is the last few
                 # releases, and a set code is exactly that set - so a seasonal server names its
@@ -528,23 +576,34 @@ public record GatheringConfig(
                 # bigger than a booster - a display box, a Commander deck, a case - is sold and
                 # never found, and how far up a shopkeeper stocks depends on their level.
                 sealed_store_enabled = true
-                sealed_price_item = "minecraft:emerald"
+                # What the shop takes. The Mana Coin is found in chests while exploring and
+                # cannot be made or farmed, which is the point: emeralds come out of a trading
+                # hall by the stack, and a shop that took them was a shop you never had to
+                # leave the village for. Name any item here to price in something else -
+                # "minecraft:emerald" is the old behavior.
+                sealed_price_item = "gathering:mana_coin"
                 # And what to take for the dear things. A trade holds two stacks of sixty-four,
-                # so a case is paid for in blocks and change rather than not at all.
-                sealed_price_block = "minecraft:emerald_block"
-                sealed_price_block_worth = 9
+                # so a case is paid for in blocks and change rather than not at all. There is
+                # no block of Mana Coins, so naming the coin again with a worth of one means a
+                # dear thing is two piles of coins - and nothing over a hundred and twenty-eight
+                # coins is on the counter at all. A server selling cases names a real block
+                # here, say "minecraft:emerald_block" with a worth of 9.
+                sealed_price_block = "gathering:mana_coin"
+                sealed_price_block_worth = 1
                 # What one booster costs, in the loose item. Everything else follows from what
                 # is inside it: a box of thirty costs thirty, a Commander deck costs what its
                 # hundred cards would. No real-world price is used anywhere, ever.
-                sealed_price_booster = 2
+                sealed_price_booster = 1
                 # How often the shelf turns over, in hours of a running server. Every card shop
                 # in the world stocks the same thing at the same time and moves on together, so
                 # what is on the counter this evening is not what was there this morning.
                 sealed_rotation_hours = 4
-                # How often a card shop turns up among a village's buildings, against the
-                # thirty-odd houses Minecraft already has - eight is about one shop per
-                # village. Zero builds none, for a server placing its own.
-                village_shop_weight = 8
+                # How often a card shop turns up among a village's buildings, weighed against
+                # the eighty-seven the plains pool already holds. Twenty is about nine villages
+                # in ten, which is what "villages have a card shop" should mean; it was eight,
+                # and eight was a shop you went looking for. Zero builds none, for a server
+                # placing its own.
+                village_shop_weight = 20
                 # What "current" means in loot_sets above, and nothing else: it does not limit
                 # what is found or sold unless loot_sets names "current". "auto" asks Scryfall
                 # for the newest release, so a server left alone stays current; a set code

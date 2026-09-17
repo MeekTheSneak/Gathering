@@ -158,7 +158,7 @@ public final class TableSetupScreen extends Screen {
                 sharedLearnRow ? panel.right() - MARGIN - half : panel.x() + MARGIN, eventTop,
                 sharedLearnRow ? half : whole, ROW_HEIGHT,
                 Component.translatable("screen.gathering.setup.event"),
-                () -> this.minecraft.setScreen(new PodCreateScreen(table))));
+                () -> this.minecraft.setScreen(new PodCreateScreen(table, this))));
 
         // A long table can be one surface or several tables side by side. Offered only where
         // there is more than one table to split, and said as what pressing it does.

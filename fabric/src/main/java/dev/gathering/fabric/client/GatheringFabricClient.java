@@ -189,18 +189,29 @@ public final class GatheringFabricClient implements ClientModInitializer {
                     graphics,
                     Minecraft.getInstance().getWindow().getGuiScaledWidth(),
                     Minecraft.getInstance().getWindow().getGuiScaledHeight());
+            // Last, so a notice said while a screen was open carries on being readable over
+            // the world once the screen that prompted it has gone.
+            dev.gathering.client.ScreenNotice.render(graphics,
+                    Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+                    Minecraft.getInstance().getWindow().getGuiScaledHeight());
         });
 
         // Over an open screen the inspect panel needs its own hook; drawn after the screen
         // so it sits above slots and the vanilla tooltip it replaces.
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
                 ScreenEvents.afterRender(screen).register(
-                        (rendered, graphics, mouseX, mouseY, tickDelta) -> CardZoomOverlay.renderAtCursor(
-                                graphics,
-                                client.getWindow().getGuiScaledWidth(),
-                                client.getWindow().getGuiScaledHeight(),
-                                mouseX,
-                                mouseY)));
+                        (rendered, graphics, mouseX, mouseY, tickDelta) -> {
+                            CardZoomOverlay.renderAtCursor(
+                                    graphics,
+                                    client.getWindow().getGuiScaledWidth(),
+                                    client.getWindow().getGuiScaledHeight(),
+                                    mouseX,
+                                    mouseY);
+                            // And over that: whatever the mod has just been asked and answered.
+                            dev.gathering.client.ScreenNotice.render(graphics,
+                                    client.getWindow().getGuiScaledWidth(),
+                                    client.getWindow().getGuiScaledHeight());
+                        }));
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             dev.gathering.client.ClientState.forgetTheServer();

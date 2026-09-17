@@ -26,6 +26,9 @@ public final class ClientTicks {
             ClientHoverState.clear();
         }
         ClientCardRequests.tick();
+        // Whose the window is, and whether a card is being read: the first decides
+        // whether a view is written down or put back, the second holds one still.
+        ViewKeeper.tick(client);
         // Settings are written from here rather than from the setter, so dragging a slider is
         // one write when the player lets go instead of one per frame while they choose.
         ClientSettings.tick();

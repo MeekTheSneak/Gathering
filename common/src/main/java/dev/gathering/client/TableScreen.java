@@ -4470,7 +4470,7 @@ public final class TableScreen extends Screen {
      */
     private void tellMe(Component what) {
         if (this.minecraft != null && this.minecraft.player != null) {
-            this.minecraft.player.displayClientMessage(what, false);
+            ScreenNotice.tell(what);
         }
     }
 
@@ -6363,8 +6363,8 @@ public final class TableScreen extends Screen {
                 && board.seats().stream().anyMatch(seat -> seat.seat().equals(me))) {
             int over = dev.gathering.core.game.HandSize.overBy(count(board.seat(me), Zone.HAND));
             if (over > 0) {
-                this.minecraft.player.displayClientMessage(
-                        Component.translatable("message.gathering.hand_over_maximum", over), true);
+                ScreenNotice.tell(
+                        Component.translatable("message.gathering.hand_over_maximum", over));
             }
         }
         send(new GameEvent.TurnPassed(me, board.nextSeatWithABoard(board.turn().activeSeat())));

@@ -27,18 +27,36 @@ import java.util.UUID;
  * list of these, and that is worth more than saving an allocation per click.
  * <p>Pure.
  */
-public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
+public record DeckBuild(
+        List<BuildCard> cards, List<BuildCard> sideboard, Optional<BuildCard> commander) {
+
+    /**
+     * Which pile of a build a card is in.
+     * <p>Named as the deck item's own sections are, so the one screen that shows both calls
+     * the same pile by the same word. {@code :core} cannot see the item, which is why this is
+     * a second enum rather than that one.
+     */
+    public enum Pile {
+        MAINBOARD,
+        SIDEBOARD,
+        COMMANDERS
+    }
 
     /** A deck is not unbounded. Far past any real one, and it is a clipboard away from a screen. */
     public static final int MOST_CARDS = 1024;
 
-    public static final DeckBuild EMPTY = new DeckBuild(List.of(), Optional.empty());
+    public static final DeckBuild EMPTY = new DeckBuild(List.of(), List.of(), Optional.empty());
 
     public DeckBuild {
         cards = cards == null ? List.of() : List.copyOf(cards);
+        sideboard = sideboard == null ? List.of() : List.copyOf(sideboard);
         commander = commander == null ? Optional.empty() : commander;
-        if (cards.size() > MOST_CARDS) {
-            throw new IllegalArgumentException("A deck of " + cards.size() + " is past " + MOST_CARDS);
+        // Both halves against one bound, because both halves become one deck item and that is
+        // what the item is bounded at. A sideboard counted separately would let a build past
+        // the limit in two pieces that each fit.
+        if (cards.size() + sideboard.size() > MOST_CARDS) {
+            throw new IllegalArgumentException(
+                    "A build of " + (cards.size() + sideboard.size()) + " is past " + MOST_CARDS);
         }
     }
 
@@ -49,44 +67,133 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
      * re-sorted itself on every click would move the card somebody was about to click again.
      */
     public DeckBuild with(BuildCard card) {
-        if (card == null || cards.size() >= MOST_CARDS) {
+        if (card == null || held() >= MOST_CARDS) {
             return this;
         }
         List<BuildCard> added = new ArrayList<>(cards);
         added.add(card);
-        return new DeckBuild(added, commander);
+        return new DeckBuild(added, sideboard, commander);
+    }
+
+    /**
+     * The same, into the sideboard.
+     * <p>A copy of its own rather than a card taken out of the deck: this is what a click on
+     * the box means, and somebody who owns four of a card may want three in the deck and the
+     * fourth beside it. Moving a copy already picked is {@link #moved}.
+     */
+    public DeckBuild aside(BuildCard card) {
+        if (card == null || held() >= MOST_CARDS) {
+            return this;
+        }
+        List<BuildCard> added = new ArrayList<>(sideboard);
+        added.add(card);
+        return new DeckBuild(cards, added, commander);
+    }
+
+    /** How many cards this build is holding in its two lists, which is what the bound is on. */
+    private int held() {
+        return cards.size() + sideboard.size();
     }
 
     /**
      * Takes one copy back out - the last one that went in, of that printing.
      * <p>The last rather than the first, so adding four and removing one leaves the three that
      * were already sitting in the list where they were.
+     * <p>Out of the deck where the deck has one, and out of the sideboard otherwise, so a
+     * caller that only knows the printing never has to ask which list it landed in.
      */
     public DeckBuild without(UUID printing) {
-        for (int index = cards.size() - 1; index >= 0; index--) {
-            if (cards.get(index).printing().equals(printing)) {
-                List<BuildCard> left = new ArrayList<>(cards);
+        DeckBuild left = without(printing, Pile.MAINBOARD);
+        return left == this ? without(printing, Pile.SIDEBOARD) : left;
+    }
+
+    /**
+     * Takes one copy out of the pile it was clicked in.
+     * <p>Named rather than searched for, because the screen knows which row was pressed and a
+     * search would take the deck's copy when somebody pointed at the sideboard's.
+     */
+    public DeckBuild without(UUID printing, Pile from) {
+        if (printing == null || from == null) {
+            return this;
+        }
+        if (from == Pile.COMMANDERS) {
+            return commander.filter(card -> card.printing().equals(printing)).isPresent()
+                    ? new DeckBuild(cards, sideboard, Optional.empty())
+                    : this;
+        }
+        List<BuildCard> pile = from == Pile.SIDEBOARD ? sideboard : cards;
+        for (int index = pile.size() - 1; index >= 0; index--) {
+            if (pile.get(index).printing().equals(printing)) {
+                List<BuildCard> left = new ArrayList<>(pile);
                 left.remove(index);
-                return new DeckBuild(left, commander);
+                return from == Pile.SIDEBOARD
+                        ? new DeckBuild(cards, left, commander)
+                        : new DeckBuild(left, sideboard, commander);
             }
         }
         return this;
     }
 
     /**
-     * Names the commander, and takes it out of the deck proper if it was in it.
+     * Moves one copy of a card already picked from one pile to another.
+     * <p>One operation in every direction, rather than a verb per destination: a builder whose
+     * right-click means "make commander" is a Commander deck builder, and the formats that
+     * live on their sideboard are the ones that would notice. The commander takes whatever is
+     * moved into the command zone and there is only room for one, so the card that was there
+     * goes back to the deck rather than vanishing.
+     */
+    public DeckBuild moved(BuildCard card, Pile from, Pile to) {
+        if (card == null || from == null || to == null || from == to) {
+            return this;
+        }
+        DeckBuild taken = without(card.printing(), from);
+        if (taken == this) {
+            // Nothing of that card in the pile it was said to be in. The list has moved under
+            // the click, and putting a copy in anyway would be the build conjuring a card.
+            return this;
+        }
+        return switch (to) {
+            case MAINBOARD -> taken.with(card);
+            case SIDEBOARD -> taken.aside(card);
+            case COMMANDERS -> taken.led(card);
+        };
+    }
+
+    /**
+     * Names the commander, and takes it out of the deck or the sideboard if it was in one.
      * <p>Out, because it is in the command zone now and a card cannot be in two places. This
      * is the one place the builder moves a card the player did not ask it to move, and it is
      * the move they meant.
+     * <p>Whoever was leading goes back to the deck rather than out of the build: a commander
+     * replaced is a card somebody owns and picked, and dropping it would be the builder
+     * quietly putting a card back in the box.
      */
     public DeckBuild led(BuildCard card) {
         if (card == null) {
-            return new DeckBuild(cards, Optional.empty());
+            return commander.map(this::backToTheDeck)
+                    .orElseGet(() -> new DeckBuild(cards, sideboard, Optional.empty()));
         }
-        return new DeckBuild(without(card.printing()).cards(), Optional.of(card));
+        DeckBuild without = without(card.printing());
+        DeckBuild room = without.commander()
+                .filter(already -> !already.printing().equals(card.printing()))
+                .map(without::backToTheDeck)
+                .orElse(without);
+        return new DeckBuild(room.cards(), room.sideboard(), Optional.of(card));
     }
 
-    /** How many copies of this card - by oracle id, because every copy limit in Magic is. */
+    /** The commander out of the command zone and into the ninety-nine, where it can be seen. */
+    private DeckBuild backToTheDeck(BuildCard leading) {
+        List<BuildCard> added = new ArrayList<>(cards);
+        if (cards.size() + sideboard.size() < MOST_CARDS) {
+            added.add(leading);
+        }
+        return new DeckBuild(added, sideboard, Optional.empty());
+    }
+
+    /**
+     * How many copies of this card - by oracle id, because every copy limit in Magic is.
+     * <p>The sideboard counted with the deck, because every copy limit in Magic counts it too.
+     */
     public int copiesOf(UUID oracle) {
         int found = 0;
         for (BuildCard card : cards) {
@@ -94,10 +201,19 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
                 found++;
             }
         }
+        for (BuildCard card : sideboard) {
+            if (card.oracle().equals(oracle)) {
+                found++;
+            }
+        }
         return found;
     }
 
-    /** How many copies of this exact printing, which is what a collection can hand over. */
+    /**
+     * How many copies of this exact printing, which is what a collection can hand over.
+     * <p>Both lists, because both come out of the same box. Counting the deck alone let a
+     * card moved to the sideboard be taken out of the collection a second time.
+     */
     public int printingsOf(UUID printing) {
         int found = 0;
         for (BuildCard card : cards) {
@@ -105,21 +221,37 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
                 found++;
             }
         }
+        for (BuildCard card : sideboard) {
+            if (card.printing().equals(printing)) {
+                found++;
+            }
+        }
         return found;
     }
 
-    /** The cards, plus the commander if there is one. What actually leaves the collection. */
+    /**
+     * The commander, the deck and the sideboard. What actually leaves the collection.
+     * <p>The sideboard among them, because a sideboard is real cards out of a real box - the
+     * deck that arrives holds them and the collection is that many lighter.
+     */
     public List<BuildCard> everything() {
-        if (commander.isEmpty()) {
+        if (commander.isEmpty() && sideboard.isEmpty()) {
             return cards;
         }
-        List<BuildCard> all = new ArrayList<>(cards.size() + 1);
-        all.add(commander.get());
+        List<BuildCard> all = new ArrayList<>(held() + 1);
+        commander.ifPresent(all::add);
         all.addAll(cards);
+        all.addAll(sideboard);
         return List.copyOf(all);
     }
 
+    /** Every card picked, wherever it is going. What the deck it becomes will weigh. */
     public int total() {
+        return held() + (commander.isPresent() ? 1 : 0);
+    }
+
+    /** The deck proper: the mainboard and the command zone, and never the sideboard. */
+    public int deckTotal() {
         return cards.size() + (commander.isPresent() ? 1 : 0);
     }
 
@@ -154,6 +286,26 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
             sorted.put(kind, List.copyOf(rows));
         });
         return sorted;
+    }
+
+    /**
+     * The sideboard, collapsed and sorted exactly as a pile of the deck is.
+     * <p>Its own list rather than a pile among the kinds, because it is a section of the list
+     * and not a kind of card: fifteen cards under one heading, in the order the piles above it
+     * are in, so the eye reads down the whole column the same way.
+     */
+    public List<Row> sideboardRows() {
+        Map<UUID, Row> gathered = new LinkedHashMap<>();
+        for (BuildCard card : sideboard) {
+            Row already = gathered.get(card.printing());
+            gathered.put(card.printing(),
+                    already == null ? new Row(card, 1) : new Row(card, already.count() + 1));
+        }
+        List<Row> rows = new ArrayList<>(gathered.values());
+        rows.sort(Comparator
+                .comparingDouble((Row row) -> row.card().manaValue())
+                .thenComparing(row -> row.card().name()));
+        return List.copyOf(rows);
     }
 
     /** One line of a laid-out deck: a card, and how many of it are in there. */

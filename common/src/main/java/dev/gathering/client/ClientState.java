@@ -21,6 +21,9 @@ public final class ClientState {
         CardZoomOverlay.clear();
         DeckPickerScreen.clear();
         EventHud.clear();
+        // Not something a server told us - it is what somebody typed into the create screen - but it
+        // is keyed by a desk in the world we are leaving, so it goes with that world.
+        EventDrafts.clear();
         ClientCardCache.get().clear();
         ClientCardFlights.clear();
         ClientCardRequests.clear();
@@ -33,6 +36,8 @@ public final class ClientState {
         ClientTableState.clear();
         ClientWants.clear();
         PendingWork.clear();
+        ScreenNotice.clear();
+        ViewKeeper.clear();
         Tutorial.clear();
         // A demonstration is this client's own and owes the server nothing, but a player who
         // disconnects halfway through one is not halfway through it any more. Dropped rather

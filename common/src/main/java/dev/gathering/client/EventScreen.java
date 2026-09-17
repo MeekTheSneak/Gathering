@@ -52,9 +52,17 @@ public final class EventScreen extends Screen {
     private EventScreenLayout layout = EventScreenLayout.of(854, 480, 100, 1f, 9);
     private final FocusKeeper focus = new FocusKeeper();
 
-    private EventScreen(EventViewPayload view) {
+    /**
+     * The screen this was opened over, which Done and Escape go back to. Null means out to the world,
+     * which is right for the one a Scorekeeper's Desk opens: there was a desk behind it and the
+     * player wanted the desk. Opened from the list of tournaments, it goes back to the list.
+     */
+    private final Screen openedFrom;
+
+    private EventScreen(EventViewPayload view, Screen openedFrom) {
         super(Component.literal(view.name()));
         this.view = view;
+        this.openedFrom = openedFrom;
     }
 
     public static void accept(EventViewPayload payload) {
@@ -63,8 +71,22 @@ public final class EventScreen extends Screen {
             open.view = payload;
             open.refresh();
         } else if (payload.show()) {
-            client.setScreen(new EventScreen(payload));
+            // One tournament's screen replaced by another's inherits where the first came from rather
+            // than stacking behind it: two of these on top of each other is two presses of Done to
+            // leave, and the one underneath is showing a tournament nobody asked about any more.
+            Screen from = client.screen instanceof EventScreen was ? was.openedFrom : client.screen;
+            client.setScreen(new EventScreen(payload, from));
         }
+    }
+
+    /** Back to whatever opened it: the list of tournaments, usually, and the world from a desk. */
+    @Override
+    public void onClose() {
+        if (openedFrom != null) {
+            this.minecraft.setScreen(openedFrom);
+            return;
+        }
+        super.onClose();
     }
 
     EventViewPayload view() {
@@ -385,7 +407,7 @@ public final class EventScreen extends Screen {
         var deck = player == null ? null : dev.gathering.item.DeckItem.deckOf(player.getMainHandItem()).orElse(null);
         if (deck == null) {
             if (player != null) {
-                player.displayClientMessage(Component.translatable("message.gathering.event.hold_a_deck_to_practice"), true);
+                ScreenNotice.tell(Component.translatable("message.gathering.event.hold_a_deck_to_practice"));
             }
             return;
         }
@@ -393,7 +415,7 @@ public final class EventScreen extends Screen {
         // sealed opening is all sideboard until the player builds from it.
         java.util.List<dev.gathering.item.CardComponent> source = deck.entries().isEmpty() ? deck.sideboard() : deck.entries();
         if (source.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.gathering.event.hold_a_deck_to_practice"), true);
+            ScreenNotice.tell(Component.translatable("message.gathering.event.hold_a_deck_to_practice"));
             return;
         }
         java.util.List<dev.gathering.core.card.CardIdentity> cards = source.stream()

@@ -103,8 +103,13 @@ public final class ShopTrades {
                 // to sell it can price a booster lower or its block higher.
                 return null;
             }
-            Item loose = itemNamed(collecting.sealedPriceItem(), Items.EMERALD);
-            Item block = itemNamed(collecting.sealedPriceBlock(), Items.EMERALD_BLOCK);
+            // Falling back to what the mod ships with rather than to emeralds. The fallback is
+            // for a server that typed an item name wrong, and quietly selling for emeralds
+            // instead is the farmable economy the Mana Coin replaced, running again with
+            // nothing anywhere to say so.
+            Item coin = dev.gathering.item.GatheringContent.MANA_COIN.get();
+            Item loose = itemNamed(collecting.sealedPriceItem(), coin);
+            Item block = itemNamed(collecting.sealedPriceBlock(), coin);
 
             // The bigger pile first, so the trade reads as a price rather than as change.
             ItemCost first = price.blocks() > 0

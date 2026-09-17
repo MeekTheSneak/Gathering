@@ -21,6 +21,10 @@ public record ShopPrice(int blocks, int loose) {
     /** The dearest thing that can be paid for at all: both slots full. */
     public static int dearest(int perBlock) {
         int block = Math.max(1, perBlock);
+        if (block <= 1) {
+            // One denomination, two slots of it. See of().
+            return 2 * MOST_IN_A_SLOT;
+        }
         return MOST_IN_A_SLOT * block + Math.min(MOST_IN_A_SLOT, block - 1);
     }
 
@@ -47,9 +51,15 @@ public record ShopPrice(int blocks, int loose) {
         }
         int block = Math.max(1, perBlock);
         if (block <= 1) {
-            // The server priced in something with no larger denomination. Anything past one
-            // slot simply cannot be paid.
-            return Optional.empty();
+            // A currency with no larger denomination - a Mana Coin has no block, and the
+            // default shop prices in one. Two slots of the same thing rather than nothing:
+            // the trade still holds two piles, and the arithmetic still adds up because a
+            // "block" worth one loose is one loose. Without this every product dearer than a
+            // single slot fell off the counter the moment a server priced in an item with no
+            // nine-of-it block, which is every shopkeeper above novice on a default server.
+            return price <= 2 * MOST_IN_A_SLOT
+                    ? Optional.of(new ShopPrice(MOST_IN_A_SLOT, price - MOST_IN_A_SLOT))
+                    : Optional.empty();
         }
         int blocks = price / block;
         int loose = price % block;

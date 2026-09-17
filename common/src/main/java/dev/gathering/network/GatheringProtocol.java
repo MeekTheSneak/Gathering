@@ -77,6 +77,9 @@ public final class GatheringProtocol {
      * <p>Twenty-three, for what anybody at all may do with a collection: three switches rather than one
      * lock, so "anyone may look and only I may take" is a thing its owner says rather than the default
      * they hope for.
+     * <p>Twenty-seven, for an answer the player can see: what the server refused, sent as a line
+     * rather than written onto the action bar, because the action bar is drawn under whichever
+     * screen asked the question.
      * <p>Twenty-six, for which deck a player meant: the picker's list is read once when it opens and
      * the screen does not pause the game, so a slot number alone named whatever happened to be there
      * when the packet landed. It carries the deck's handle now, and the server refuses a slot that
@@ -94,7 +97,7 @@ public final class GatheringProtocol {
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 26;
+    public static final int VERSION = 27;
 
     private GatheringProtocol() {
     }
@@ -311,7 +314,8 @@ public final class GatheringProtocol {
             toClient(ReplayListPayload.TYPE, ReplayListPayload.STREAM_CODEC),
             toClient(ReplayFramePayload.TYPE, ReplayFramePayload.STREAM_CODEC),
             toClient(OpenSideboardPayload.TYPE, OpenSideboardPayload.STREAM_CODEC),
-            toClient(TokenChoicesPayload.TYPE, TokenChoicesPayload.STREAM_CODEC));
+            toClient(TokenChoicesPayload.TYPE, TokenChoicesPayload.STREAM_CODEC),
+            toClient(NoticePayload.TYPE, NoticePayload.STREAM_CODEC));
 
     /**
      * A decklist to import, handed to the card pipeline's own executor.

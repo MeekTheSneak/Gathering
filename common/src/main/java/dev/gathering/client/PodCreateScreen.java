@@ -61,13 +61,18 @@ public final class PodCreateScreen extends Screen {
     private String saidLastFrame = "";
 
     public PodCreateScreen(BlockPos table) {
+        this(table, null);
+    }
+
+    /** The same, opened from a screen it goes back to - the table's own setup screen. */
+    public PodCreateScreen(BlockPos table, Screen parent) {
         super(Component.translatable("screen.gathering.pod.create"));
         this.table = table;
-        this.parent = null;
+        this.parent = parent;
         this.chosen = null;
     }
 
-    /** The screen to go back to, when the settings are chosen for a tournament rather than a pod. */
+    /** The screen this was opened from, which Cancel, Escape and Done go back to. */
     private final Screen parent;
 
     /** Where chosen settings go instead of creating a sign-up. */

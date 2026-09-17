@@ -167,7 +167,10 @@ public final class ClientPayloads {
             route(dev.gathering.network.OpenSideboardPayload.TYPE,
                     dev.gathering.network.OpenSideboardPayload.class,
                     sideboard -> SideboardScreen.open(sideboard.table(), sideboard.deck(),
-                            sideboard.gameNumber(), sideboard.bestOf())));
+                            sideboard.gameNumber(), sideboard.bestOf())),
+            route(dev.gathering.network.NoticePayload.TYPE,
+                    dev.gathering.network.NoticePayload.class,
+                    notice -> ScreenNotice.tell(notice.line())));
 
     // statecheck: the payload routes, fixed at start
     private static final Map<ResourceLocation, Route<?>> BY_ID = byId();

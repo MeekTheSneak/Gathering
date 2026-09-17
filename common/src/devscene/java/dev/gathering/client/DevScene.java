@@ -1943,6 +1943,14 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 129 -> {
+                // The cards wait a moment after the top comes away before the first one turns, so this
+                // waits for them rather than assuming the pause is shorter than a step.
+                if (client.screen instanceof PackOpeningScreen waiting && waiting.cloth().isOpen()
+                        && waiting.turnedSoFar() < 0 && ++waitedForTheCards < 40) {
+                    waitHere(5);
+                    return;
+                }
+                waitedForTheCards = 0;
                 aTornPackIsOpen(client);
                 // A pack is gone through one card at a time now, so the spread the next steps ask about
                 // is only reached at the end of it. The first card is photographed on the way past.
@@ -6651,6 +6659,9 @@ public final class DevScene {
                     + " rather than the mythic");
         }
     }
+
+    /** How long the run has waited for the cards to start turning after the top came off. */
+    private static int waitedForTheCards;
 
     /** Where the collection block is, once it has been put down. */
     private static BlockPos collectionBlock;
@@ -12358,10 +12369,13 @@ public final class DevScene {
     }
 
     /**
-     * Puts a couple of cards in the deck being built, and names one of them commander.
+     * Puts a couple of cards in the deck being built, names one of them commander, and sets
+     * one aside.
      * <p>Through the screen's own clicks rather than by reaching into its state, because what
      * is worth checking is that the cells are where the click test thinks they are - a grid
-     * drawn to one rule and hit-tested against another is the bug this catches.
+     * drawn to one rule and hit-tested against another is the bug this catches. The commander
+     * and the sideboard are taken off the right-click menu the same way a player takes them,
+     * which a call to what the entry would have done would not check at all.
      */
     private static void buildADeck(Minecraft client) {
         if (!(client.screen instanceof DeckBuilderScreen builder)) {
@@ -12373,13 +12387,38 @@ public final class DevScene {
             return;
         }
         builder.clickCard(0, 1);
+        if (!builder.pressMenuEntry(net.minecraft.network.chat.Component
+                .translatable("menu.gathering.move_to_commanders").getString())) {
+            fail("right-clicking a card in the deck builder offered no way to lead with it");
+        }
         builder.clickCard(1, 0);
         builder.clickCard(1, 0);
         if (builder.deckSize() < 3) {
             fail("three clicks in the deck builder put " + builder.deckSize() + " cards in the deck");
         }
         if (builder.commanderName().isEmpty()) {
-            fail("right-clicking a card in the deck builder did not name a commander");
+            fail("the deck builder's menu did not name a commander");
+        }
+        // A card there is still a copy of, because the sideboard entry is grayed for one the
+        // deck has already taken every copy of - which is the right answer and not one this
+        // step is here to photograph.
+        int spare = -1;
+        for (int card = 0; card < builder.showing() && spare < 0; card++) {
+            if (builder.leftOf(card) > 0) {
+                spare = card;
+            }
+        }
+        if (spare < 0) {
+            fail("nothing in the box had a copy left to set aside");
+            return;
+        }
+        builder.clickCard(spare, 1);
+        if (!builder.pressMenuEntry(net.minecraft.network.chat.Component
+                .translatable("menu.gathering.move_to_sideboard").getString())) {
+            fail("right-clicking a card in the deck builder offered no sideboard to put it in");
+        }
+        if (builder.sideboardSize() != 1) {
+            fail("taking the sideboard entry put " + builder.sideboardSize() + " cards beside the deck");
         }
         // And something the curve can draw. A curve leaves lands out - they are what a deck
         // spends mana with rather than on - so a deck of nothing but lands gives eight empty

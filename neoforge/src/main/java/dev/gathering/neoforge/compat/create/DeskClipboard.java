@@ -51,7 +51,7 @@ final class DeskClipboard {
             }
             held.set(AllDataComponents.CLIPBOARD_CONTENT, new ClipboardContent(ClipboardType.WRITTEN, pagesOf(board), false));
             level.playSound(null, event.getPos(), SoundEvents.BOOK_PAGE_TURN, SoundSource.BLOCKS, 1.0f, 1.2f);
-            event.getEntity().displayClientMessage(Component.translatable("message.gathering.desk.clipboard", board.name()), true);
+            dev.gathering.server.Notices.tell(event.getEntity(), Component.translatable("message.gathering.desk.clipboard", board.name()));
         } else if (!desk.label().isShown()) {
             // The client knows a desk runs something by its label; without one it is a lectern.
             return;

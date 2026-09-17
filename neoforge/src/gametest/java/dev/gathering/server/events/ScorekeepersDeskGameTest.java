@@ -54,7 +54,7 @@ public final class ScorekeepersDeskGameTest {
         EventState[] hosted = new EventState[2];
         try {
             EventViews.create(host, new dev.gathering.network.CreateEventPayload(desk, "Friday Night",
-                    EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern")));
+                    EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"), List.of()));
             hosted[0] = Events.all().stream().filter(state -> state.tournament.host().equals(host.getUUID()))
                     .findFirst().orElse(null);
             if (hosted[0] == null) {
@@ -71,7 +71,7 @@ public final class ScorekeepersDeskGameTest {
                 return;
             }
             EventViews.create(second, new dev.gathering.network.CreateEventPayload(desk, "Saturday",
-                    EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern")));
+                    EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"), List.of()));
             hosted[1] = Events.all().stream().filter(state -> state.tournament.host().equals(second.getUUID()))
                     .findFirst().orElse(null);
             if (hosted[1] != null || !runs(helper, desk, hosted[0])) {

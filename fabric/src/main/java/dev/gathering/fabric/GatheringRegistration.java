@@ -110,11 +110,15 @@ final class GatheringRegistration {
         Item sealed = Registry.register(
                 BuiltInRegistries.ITEM, Gathering.id(GatheringContent.SEALED_ID),
                 GatheringContent.createSealed());
+        Item manaCoin = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.MANA_COIN_ID),
+                GatheringContent.createManaCoin());
 
         GatheringContent.CARD.bindValue(card);
         GatheringContent.DECK.bindValue(deck);
         GatheringContent.PACK.bindValue(pack);
         GatheringContent.SEALED.bindValue(sealed);
+        GatheringContent.MANA_COIN.bindValue(manaCoin);
 
         GatheringComponents.CARD.bindValue(Registry.register(
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
@@ -246,34 +250,10 @@ final class GatheringRegistration {
                 FabricItemGroup.builder()
                         .title(Component.translatable("itemGroup." + Gathering.MOD_ID + ".main"))
                         .icon(() -> new ItemStack(deck))
-                        .displayItems((parameters, output) -> {
-                            output.accept(new ItemStack(card));
-                            output.accept(new ItemStack(deck));
-                            output.accept(new ItemStack(pack));
-                            output.accept(new ItemStack(sealed));
-                            output.accept(new ItemStack(counterItem));
-                            output.accept(new ItemStack(GatheringContent.TABLE_ITEM.get()));
-                            output.accept(new ItemStack(
-                                    GatheringContent.COBBLESTONE_TABLE_ITEM.get()));
-                            output.accept(new ItemStack(
-                                    GatheringContent.BLACKSTONE_TABLE_ITEM.get()));
-                            output.accept(new ItemStack(
-                                    GatheringContent.CRYING_OBSIDIAN_TABLE_ITEM.get()));
-                            output.accept(
-                                    new ItemStack(GatheringContent.COLLECTION_ITEM.get()));
-                            output.accept(
-                                    new ItemStack(GatheringContent.DISPLAY_CASE_ITEM.get()));
-                            output.accept(
-                                    new ItemStack(GatheringContent.SCOREKEEPERS_DESK_ITEM.get()));
-                            output.accept(new ItemStack(GatheringContent.CHAIR_ITEM.get()));
-                            output.accept(new ItemStack(GatheringContent.COBBLESTONE_CHAIR_ITEM.get()));
-                            output.accept(new ItemStack(GatheringContent.BLACKSTONE_CHAIR_ITEM.get()));
-                            output.accept(new ItemStack(GatheringContent.CRYING_OBSIDIAN_CHAIR_ITEM.get()));
-                            // And the same five things in the other woods, in the order the woods are listed.
-                            for (GatheringContent.WoodVariant variant : GatheringContent.woodVariants()) {
-                                output.accept(new ItemStack(variant.item().get()));
-                            }
-                        })
+                        // One order, shared with NeoForge, with every family whole and no plain
+                        // variant standing apart from its own woods. See creativeItems.
+                        .displayItems((parameters, output) -> GatheringContent.creativeItems()
+                                .forEach(item -> output.accept(new ItemStack(item.get()))))
                         .build());
     }
 }

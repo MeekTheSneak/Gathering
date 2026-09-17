@@ -19,14 +19,17 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param winsB  games won by the second player (or by the reporter's opponent)
  * @param draws  games drawn
  * @param player a player the host is acting on, or the nil UUID
- * @param at     the table the player is standing at, for adding tables
+ * @param at     where the sender says they are. Nothing acts on it: adding tables works from where
+ *               the host is standing on the server, because a position in a request is whatever a
+ *               client chose to put there. It is still what keeps the guided first game off the
+ *               wire - see {@link AtATable}.
  */
 public record EventActionPayload(
         UUID event, Action action, int tableNumber, int winsA, int winsB, int draws, UUID player, BlockPos at)
         implements AtATable {
 
     /**
-     * Where the host is standing, which for ADD_TABLES is the table they mean.
+     * Where the sender says they are.
      * <p>Said here because {@code ClientNetworking.send} asks every serverbound payload where it is
      * going, to keep the guided first game off the wire. This one carried a position called
      * {@code at} and was never asked. Null where the action is not about a place, which the guard

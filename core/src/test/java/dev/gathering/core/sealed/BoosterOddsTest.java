@@ -108,4 +108,90 @@ class BoosterOddsTest {
         assertThat(BoosterOdds.pick(weights, 9999)).isEqualTo("play");
         assertThat(BoosterOdds.pick(weights, -1)).isEqualTo("play");
     }
+
+    @Test
+    @DisplayName("a box topper and a promo pack are as rare as a collector booster")
+    void theOtherRareKindsAreRareToo() {
+        // They were not. The check was an equals against the one string "collector", so a
+        // box topper - which is the rarest thing in a real booster box - was priced as an
+        // ordinary draft booster and turned up as often as one.
+        for (String rare : List.of("collector", "box-topper", "topper", "promo", "vip",
+                "premium", "gift-bundle", "special-guest")) {
+            assertThat(BoosterOdds.weightOf(rare, LootRichness.PLAIN)).as(rare)
+                    .isEqualTo(BoosterOdds.RARE);
+            assertThat(BoosterOdds.weightOf(rare, LootRichness.RICH)).as(rare)
+                    .isEqualTo(BoosterOdds.RARE_WHERE_IT_IS_EARNED);
+        }
+        // And the ordinary ones stay ordinary wherever they came from.
+        for (String ordinary : List.of("play", "draft", "set", "jumpstart", "theme")) {
+            assertThat(BoosterOdds.weightOf(ordinary, LootRichness.PLAIN)).as(ordinary)
+                    .isEqualTo(BoosterOdds.ORDINARY);
+        }
+        // A sample of a collector booster is not a collector booster, and the word is in the
+        // name of both.
+        assertThat(BoosterOdds.weightOf("collector-sample", LootRichness.PLAIN))
+                .isEqualTo(BoosterOdds.SAMPLE);
+    }
+
+    /**
+     * The band the design brief and the config file both quote, held as a property.
+     * <p>Over every combination of kinds a real set could have sold, in either kind of chest.
+     * Written as a property rather than as one example because the numbers are what a balance
+     * argument moves, and the sentence "under one in two hundred out of an ordinary chest,
+     * about one in ten out of an end city" is the thing that must not quietly stop being true
+     * when somebody moves one of them.
+     */
+    @net.jqwik.api.Property(tries = 500)
+    @net.jqwik.api.Label("a rare pack stays inside the band the brief quotes")
+    void rareKindsStayInsideTheBand(
+            @net.jqwik.api.ForAll("whatASetSells") List<String> kinds,
+            @net.jqwik.api.ForAll boolean earned) {
+        LootRichness richness = earned ? LootRichness.RICH : LootRichness.PLAIN;
+        Map<String, Integer> weights = BoosterOdds.weightsFor(kinds, richness);
+        int total = BoosterOdds.totalOf(weights);
+
+        int rare = 0;
+        int sample = 0;
+        for (Map.Entry<String, Integer> offered : weights.entrySet()) {
+            if (offered.getKey().contains("sample")) {
+                sample += offered.getValue();
+            } else if (offered.getKey().contains("collector")) {
+                rare += offered.getValue();
+            }
+        }
+        double share = total == 0 ? 0 : (double) rare / total;
+        if (earned) {
+            // Out of an end city, a bastion or an ancient city: rare, and worth the trip.
+            assertThat(share).as("out of a chest worth an expedition").isLessThan(0.15);
+        } else {
+            // And out of a village barrel, barely ever.
+            assertThat(share).as("out of an ordinary chest").isLessThan(0.01);
+        }
+        // Whatever else a set sold, the pack a player actually opens is an ordinary one.
+        // Everything that is not rare and not a sample of the rare thing, because "ordinary"
+        // is a band rather than three names: jumpstart and theme are ordinary boosters too.
+        assertThat((total - rare - sample) / (double) total).as("an ordinary booster")
+                .isGreaterThan(earned ? 0.7 : 0.9);
+    }
+
+    /**
+     * Every combination of kinds a real set has been sold in.
+     * <p>Always with an ordinary booster among them, because the band is a statement about
+     * which pack comes out of a chest and there is nothing to choose between when a set only
+     * ever sold one thing. A set whose single booster is the collector booster - and MTGJSON
+     * publishes none - would drop collector boosters every time, correctly: the weights say
+     * which of what is on offer, never whether a set is offered at all.
+     */
+    @net.jqwik.api.Provide
+    net.jqwik.api.Arbitrary<List<String>> whatASetSells() {
+        return net.jqwik.api.Arbitraries.subsetOf(
+                        "collector", "collector-sample", "jumpstart", "theme")
+                .flatMap(extra -> net.jqwik.api.Arbitraries.of("play", "draft", "set")
+                        .map(ordinary -> {
+                            List<String> sold = new java.util.ArrayList<>();
+                            sold.add(ordinary);
+                            sold.addAll(extra);
+                            return List.copyOf(sold);
+                        }));
+    }
 }

@@ -179,6 +179,64 @@ public final class DeckBuilderGameTest {
         helper.succeed();
     }
 
+    /**
+     * A deck finished with a sideboard arrives holding both halves, and the box is lighter by
+     * both.
+     * <p>The half nobody was watching. A sideboard is real cards out of the same collection -
+     * it is not a note about which cards a player might have picked - so every one of them has
+     * to leave the box exactly as a deck card does, and land in the deck's own sideboard rather
+     * than in the ninety-nine. Cards in two places at once is the one failure collection mode
+     * must not have, and a pile the taking code skipped is the shape that failure takes.
+     */
+    @GameTest(template = "empty")
+    public static void aSideboardComesOutOfTheBoxToo(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        CollectionBlockEntity box = boxAt(helper, where);
+        box.claimFor(player.getUUID());
+        box.put(CardIdentity.ofPrinting(SOL_RING, false), 1);
+        box.put(CardIdentity.ofPrinting(BOLT, false), 3);
+
+        // One in the command zone, one in the deck, two beside it - and one asked for that
+        // nobody owns, which must come back short rather than conjured into the sideboard.
+        CollectionView.build(player, new BuildDeckPayload(where, "Boarded", "",
+                List.of(card(BOLT)),
+                List.of(card(BOLT), card(BOLT), card(NEVER_OWNED)),
+                Optional.of(card(SOL_RING)), dev.gathering.core.card.Sleeve.BLUE));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null) {
+            helper.fail("finishing a build with a sideboard handed over no deck");
+            return;
+        }
+        if (deck.sideboard().size() != 2) {
+            helper.fail("the deck came out with " + deck.sideboard().size()
+                    + " cards in its sideboard rather than the two the box could fill");
+            return;
+        }
+        if (deck.entries().size() != 1 || deck.commanders().size() != 1) {
+            helper.fail("the sideboard cards landed in the deck: " + deck.entries().size()
+                    + " cards and " + deck.commanders().size() + " commanders");
+            return;
+        }
+        if (deck.totalCards() != 4) {
+            helper.fail("a deck of one, one and two weighs " + deck.totalCards());
+            return;
+        }
+        // And every one of the four really left the box, the sideboard's two included.
+        if (box.cards().of(CardIdentity.ofPrinting(BOLT, false)) != 0
+                || box.cards().of(CardIdentity.ofPrinting(SOL_RING, false)) != 0) {
+            helper.fail("the collection still holds cards the deck and its sideboard took out:"
+                    + " " + box.cards().total() + " left");
+            return;
+        }
+        if (looseCards(player) != 0) {
+            helper.fail("a card the box could not fill was handed over anyway");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** How many loose cards the player is still carrying. */
     private static int looseCards(ServerPlayer player) {
         int loose = 0;

@@ -126,7 +126,7 @@ public final class CardZoomOverlay {
         }
         // Out here the mouse is the camera, so turning your head is what turns the card. It
         // is the same gesture the cursor makes over a screen, doing the same thing.
-        CardTilt.withTheHead(Minecraft.getInstance().player);
+        CardTilt.withTheHead();
         CardInspectPanel.renderFullScreen(graphics, held.summary(), held.foil(), held.flipped(),
                 held.story(), held.strength(), screenWidth, screenHeight);
     }

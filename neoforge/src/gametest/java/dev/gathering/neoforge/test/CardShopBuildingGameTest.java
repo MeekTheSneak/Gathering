@@ -219,6 +219,68 @@ public final class CardShopBuildingGameTest {
         });
     }
 
+    /**
+     * A village usually has a card shop.
+     * <p>The owner's report was that one almost never turned up, and the config comment claimed
+     * eight was "about one shop per village" - which nobody had ever put a number to. A plains
+     * village draws its houses from a pool weighing eighty-seven, so eight was one draw in
+     * eleven and a village of a dozen buildings missed as often as not.
+     * <p>Checked against the pool the server actually loaded rather than against the setting,
+     * because the setting is only half of it: the other half is the one line each loader uses
+     * to reach a list vanilla keeps to itself, and a shop that was never added is a shop with
+     * a weight nobody applied.
+     */
+    @GameTest(template = "empty")
+    public static void aVillageUsuallyHasOne(GameTestHelper helper) {
+        var pools = helper.getLevel().getServer().registryAccess()
+                .registry(net.minecraft.core.registries.Registries.TEMPLATE_POOL).orElse(null);
+        if (pools == null) {
+            helper.fail("fixture: no template pools on this server");
+            return;
+        }
+        var houses = pools.get(ResourceLocation.fromNamespaceAndPath(
+                "minecraft", "village/plains/houses"));
+        if (houses == null) {
+            helper.fail("fixture: the plains village has no house pool");
+            return;
+        }
+        var everything = houses.getShuffledTemplates(
+                net.minecraft.util.RandomSource.create(0L));
+        var ours = dev.gathering.village.LocalGameStore.found(
+                helper.getLevel().getServer());
+        var building = ours.stream().filter(shop -> shop.village().equals("plains"))
+                .findFirst().orElse(null);
+        if (building == null || building.buildings().isEmpty()) {
+            helper.fail("The plains village has no card shop to build");
+            return;
+        }
+        long shops = everything.stream()
+                .filter(one -> building.buildings().contains(one)).count();
+
+        // Against the weight this server is set to, and then against the shipped one. A run directory
+        // carries a settings file written by an earlier run, so the number in it is whatever somebody
+        // last played with - reading the pool against that says the weight was applied, and reading the
+        // shipped default says what a server nobody has touched gets.
+        int weight = dev.gathering.service.ServerSettings.get().collecting().villageShopWeight();
+        if (shops != weight) {
+            helper.fail("the plains pool carries the card shop " + shops + " times, not the "
+                    + weight + " this server is set to");
+            return;
+        }
+        long others = everything.size() - shops;
+        int shipped = dev.gathering.core.config.GatheringConfig.DEFAULT_VILLAGE_SHOP_WEIGHT;
+        // One draw in six or better. Over the ten-odd houses a plains village puts up that is
+        // about nine villages in ten with a shop in them, which is what the owner asked for.
+        double share = shipped / (double) (others + shipped);
+        if (share < 1 / 6.0) {
+            helper.fail("at the shipped weight a card shop would be one draw in "
+                    + Math.round(1 / share) + " of the " + (others + shipped)
+                    + " plains houses, which is a shop you go looking for rather than one a village has");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static <T extends Comparable<T>> String value(BlockState state, Property<T> property) {
         return property.getName(state.getValue(property));
     }

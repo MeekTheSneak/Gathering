@@ -457,8 +457,10 @@ public final class EventsGameTest {
 
         Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
         UUID host = fixture.players.get(0).getUUID();
-        if (!EventRecords.whyNotHost(host).equals(Optional.of("message.gathering.event.hosting_one"))) {
-            helper.fail("a host running an event may host another");
+        // One person books the draft in one corner and the constructed event in the other. What a
+        // tournament is one of is a desk, not a host, so running one is not a reason to refuse.
+        if (EventRecords.whyNotHost(host).isPresent()) {
+            helper.fail("a host running an event was refused another");
             return;
         }
         Events.removeForTesting(fixture.state);
@@ -853,7 +855,7 @@ public final class EventsGameTest {
         EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(free));
         Events.putForTesting(state);
         try {
-            Events.addTables(host, state.tournament().id(), busy);
+            Events.addTablesNear(host, state.tournament().id(), busy);
 
             if (state.tables().contains(busy)) {
                 helper.fail("a host added a table with somebody else's game on it");

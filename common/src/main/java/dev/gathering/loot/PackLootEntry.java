@@ -126,16 +126,19 @@ public final class PackLootEntry extends LootPoolSingletonContainer {
         // reach the archive. Asked the other way round, it never did.
         if (archiveTable != null) {
             // The same call NeoForge's loot modifier makes, rather than the same behavior
-            // written out again: it asks the archive first and skips the ordinary pack when
-            // the archive answers, and that ordering is the sort of thing that is copied
-            // once and then only fixed in one place. One function, both loaders.
-            SealedLoot.rollFor(archiveTable, lootContext.getRandom()).ifPresent(stackConsumer);
+            // written out again: it asks the archive first, skips the ordinary pack when the
+            // archive answers, reads whether a player did the killing, and lets a chest pay a
+            // coin beside its pack. That is four orderings, and the sort of thing that is
+            // copied once and then only fixed in one place. One function, both loaders.
+            SealedLoot.findsIn(archiveTable, lootContext).forEach(stackConsumer);
             return;
         }
         if (source == null) {
             SealedLoot.packFrom(richness, lootContext.getRandom()).ifPresent(stackConsumer);
             return;
         }
-        SealedLoot.rollFrom(source, richness, lootContext.getRandom()).ifPresent(stackConsumer);
+        // With the context rather than with its randomness alone: a data pack may name the mob
+        // source, and that source only pays for a kill a player had a hand in. See rollFrom.
+        SealedLoot.rollFrom(source, richness, lootContext).ifPresent(stackConsumer);
     }
 }

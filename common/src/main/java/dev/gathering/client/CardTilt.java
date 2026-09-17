@@ -2,7 +2,6 @@ package dev.gathering.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.player.Player;
 
 /**
  * Which way a card being read is turned.
@@ -16,9 +15,10 @@ import net.minecraft.world.entity.player.Player;
  * angle before it read as anything at all. A genuine perspective needs a small one.
  * <p>Two sources for the same number, because the read happens in two places. Over an open
  * screen there is a cursor, and where the cursor is relative to the card is the tilt. Out in
- * the world the mouse is turning the player's head, so the tilt is how far they have turned
- * it since they started reading - which is the same gesture producing the same result, and
- * the reason it reads as one feature rather than two.
+ * the world the mouse would be turning the player's head, so the tilt is how far it has asked
+ * to turn since they started reading - which is the same gesture producing the same result,
+ * and the reason it reads as one feature rather than two. Asked rather than turned: the view
+ * itself is held still while a card is up, and {@link ViewKeeper} is what holds it.
  * <p>Eased rather than followed. A card that snapped to the cursor would be a card being
  * dragged; a card that catches up over a few frames is a card with some weight to it, and the
  * lag is what makes the shine slide rather than jump.
@@ -42,15 +42,16 @@ public final class CardTilt {
     /** How much of the gap is closed each frame. Enough to feel attached, slow enough to lag. */
     private static final float EASE = 0.22f;
 
-    /** How far the head turns for a full tilt, in degrees. About a glance. */
-    private static final float LOOK_FOR_FULL = 22f;
+    /**
+     * How far the head turns for a full tilt, in degrees. About a glance.
+     * <p>Package-private because {@link ViewKeeper} counts the gesture now and has to know
+     * where it ends. One number: a count that ran past the tilt's own limit would be a card
+     * that stopped turning while the mouse carried on meaning something.
+     */
+    static final float LOOK_FOR_FULL = 22f;
 
     private static float yaw;
     private static float pitch;
-
-    /** Where the head was when this read started, or null between reads. */
-    private static Float lookYaw;
-    private static Float lookPitch;
 
     private CardTilt() {
     }
@@ -69,47 +70,23 @@ public final class CardTilt {
     }
 
     /**
-     * Aims the card by how far the player has turned their head since the read started, and
-     * will not let them turn it any further than the card answers to.
-     * <p>For the world, where there is no cursor because the mouse is the camera. The anchor
-     * is taken on the first frame of a read and dropped when it ends, so every card starts
-     * flat and turning your head tips the one you are holding.
-     * <p>The holding is the reported half: "holding Alt while holding a card doesn't lock
-     * your looking - it should". Past {@link #LOOK_FOR_FULL} degrees the card has already
-     * tipped as far as it tips, so every further degree turned the world and did nothing to
-     * the card - which meant reading a wordy card left you facing somewhere else, and reading
-     * one while walking up to a table meant losing the table. Inside the arc the mouse still
-     * moves the head, because that movement <em>is</em> the gesture; outside it the head is
-     * simply held, which is what a person does when they stop to read something.
+     * Aims the card by how far the mouse has asked to turn since the read started.
+     * <p>For the world, where there is no cursor because the mouse is the camera.
+     * <p>The reported half: "holding alt while holding a card in your hand needs to lock your
+     * camera movement". This used to be a fence rather than a lock - the head was free inside
+     * {@link #LOOK_FOR_FULL} degrees and stopped at the edge of it, so reading a card moved
+     * you, and reading a wordy one moved you as far as the fence and left you there. Now
+     * nothing reaches the world at all: {@link ViewKeeper} puts the view back on every frame
+     * and adds up what the mouse asked for, and that total is the tilt. The gesture is the
+     * same gesture; it simply no longer costs the player the room they were standing in.
      */
-    public static void withTheHead(Player player) {
-        if (player == null) {
-            return;
-        }
-        if (lookYaw == null) {
-            lookYaw = player.getYRot();
-            lookPitch = player.getXRot();
-        }
-        float turned = Mth.wrapDegrees(player.getYRot() - lookYaw);
-        float raised = Mth.wrapDegrees(player.getXRot() - lookPitch);
-        float heldYaw = Mth.clamp(turned, -LOOK_FOR_FULL, LOOK_FOR_FULL);
-        float heldPitch = Mth.clamp(raised, -LOOK_FOR_FULL, LOOK_FOR_FULL);
-        if (heldYaw != turned || heldPitch != raised) {
-            player.setYRot(lookYaw + heldYaw);
-            player.setXRot(lookPitch + heldPitch);
-            // The previous rotation too, or the camera spends the next tick interpolating
-            // from where the mouse got to toward where it was put back - which reads as the
-            // view shuddering rather than stopping.
-            player.yRotO = player.getYRot();
-            player.xRotO = player.getXRot();
-        }
-        ease(heldYaw / LOOK_FOR_FULL * MOST_YAW, heldPitch / LOOK_FOR_FULL * MOST_PITCH);
+    public static void withTheHead() {
+        ease(ViewKeeper.turnedYaw() / LOOK_FOR_FULL * MOST_YAW,
+                ViewKeeper.turnedPitch() / LOOK_FOR_FULL * MOST_PITCH);
     }
 
-    /** Drops the anchor and flattens the card, for when a read ends. */
+    /** Flattens the card, for when a read ends. */
     public static void forget() {
-        lookYaw = null;
-        lookPitch = null;
         yaw = 0f;
         pitch = 0f;
     }

@@ -215,6 +215,11 @@ public final class GatheringNeoForgeClient {
                 event.getGuiGraphics(),
                 Minecraft.getInstance().getWindow().getGuiScaledWidth(),
                 Minecraft.getInstance().getWindow().getGuiScaledHeight());
+        // Last, so a notice said while a screen was open carries on being readable over the
+        // world once the screen that prompted it has gone.
+        dev.gathering.client.ScreenNotice.render(event.getGuiGraphics(),
+                Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+                Minecraft.getInstance().getWindow().getGuiScaledHeight());
     }
 
     /**
@@ -269,6 +274,10 @@ public final class GatheringNeoForgeClient {
                 Minecraft.getInstance().getWindow().getGuiScaledHeight(),
                 event.getMouseX(),
                 event.getMouseY());
+        // And over that: whatever the mod has just been asked and answered.
+        dev.gathering.client.ScreenNotice.render(event.getGuiGraphics(),
+                Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+                Minecraft.getInstance().getWindow().getGuiScaledHeight());
     }
 
     /**

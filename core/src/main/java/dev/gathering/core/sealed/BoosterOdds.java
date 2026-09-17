@@ -7,44 +7,78 @@ import java.util.Map;
 
 /**
  * Which kind of booster comes out of a chest.
- * <p>Every kind a set really sold can turn up, and they are not equally likely. A collector
- * booster is the one worth finding, so it is the one you rarely find - and it is much more
- * likely out of the chests people build expeditions around than out of a village barrel,
+ * <p>Every kind a set really sold can turn up, and they are nowhere near equally likely. The
+ * ordinary booster - draft, set, play - is the pack the whole world is full of. The collector
+ * booster, the box topper and the promo pack are the ones worth finding, so they are the ones
+ * you almost never find out of a village barrel and stand a real chance at out of an end city,
  * which is the whole of what makes where you looked matter.
- * <p>The weights are a starting point rather than a balance pass, written down in one place
- * so they can be argued about. What they are not is a setting: a server owner picks which
- * sets and which chests, not whether a collector booster is rarer than a draft booster.
+ * <p>The gap is wide on purpose and it got wider. When a pack turned up in one chest in eight,
+ * a collector booster at one part in twenty-five of those was something a player saw in an
+ * evening. A pack now turns up in about half of them ({@link LootSource}), so the same ratio
+ * would have made the rare pack ordinary by volume alone - the two numbers have to move
+ * together or "rare" stops meaning anything.
+ * <p>Where it lands: out of an ordinary chest, under one pack in two hundred is a rare kind;
+ * out of a chest at the end of something, about one in ten. Against an hour of play that is a
+ * rare pack every four or five hours, and almost all of them out of somewhere somebody went on
+ * purpose. {@code BoosterOddsTest} holds that band as a property.
+ * <p>The weights are a balance decision written down in one place so it can be argued about.
+ * What they are not is a setting: a server owner picks which sets and which chests, not
+ * whether a collector booster is rarer than a draft booster.
  * <p>Pure.
  */
 public final class BoosterOdds {
 
     /** What an ordinary booster weighs - draft, set, play, and anything unrecognized. */
-    public static final int ORDINARY = 24;
+    public static final int ORDINARY = 200;
 
-    /** A collector booster out of a village chest. */
-    public static final int COLLECTOR = 1;
+    /** A collector booster, a box topper or a promo pack out of a village chest. */
+    public static final int RARE = 1;
 
     /** And out of an end city, a bastion, an ancient city. */
-    public static final int COLLECTOR_WHERE_IT_IS_EARNED = 8;
+    public static final int RARE_WHERE_IT_IS_EARNED = 25;
 
     /**
      * A sample pack: a collector booster's four best slots and none of the rest.
      * <p>Between the two, because that is what it is.
      */
-    public static final int SAMPLE = 4;
+    public static final int SAMPLE = 6;
+
+    /** And the same, out of a chest worth an expedition. */
+    public static final int SAMPLE_WHERE_IT_IS_EARNED = 30;
+
+    /**
+     * What makes a kind one of the rare ones, in the words the published data uses.
+     * <p>Matched on the word inside the name rather than on the whole of it. MTGJSON names a
+     * booster after what the box said, so the rare kinds arrive as {@code collector},
+     * {@code box-topper}, {@code topper}, {@code promo}, {@code vip} and a dozen spellings
+     * nobody can enumerate in advance - and the old check, an equals against the single string
+     * "collector", quietly priced every one of the others as an ordinary draft booster.
+     */
+    private static final java.util.List<String> RARE_WORDS = java.util.List.of(
+            "collector", "topper", "promo", "vip", "premium", "gift", "special");
 
     private BoosterOdds() {
     }
 
-    /** Whether a kind of booster is the rare one. */
-    private static boolean isCollector(String kind) {
+    /** Whether a kind of booster is one of the rare ones. */
+    private static boolean isRare(String kind) {
         String named = named(kind);
-        return named.equals("collector");
+        if (isSample(named)) {
+            // A sample of a collector booster is not a collector booster, and the word is in
+            // the name of both.
+            return false;
+        }
+        for (String word : RARE_WORDS) {
+            if (named.contains(word)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether a kind is a sample of the rare one. */
     private static boolean isSample(String kind) {
-        return named(kind).equals("collector-sample");
+        return named(kind).contains("sample");
     }
 
     /**
@@ -54,13 +88,12 @@ public final class BoosterOdds {
      * @param richness  how good the chest is
      */
     public static int weightOf(String kind, LootRichness richness) {
-        if (isCollector(kind)) {
-            return richness != null && richness.isRich()
-                    ? COLLECTOR_WHERE_IT_IS_EARNED
-                    : COLLECTOR;
+        boolean earned = richness != null && richness.isRich();
+        if (isRare(kind)) {
+            return earned ? RARE_WHERE_IT_IS_EARNED : RARE;
         }
         if (isSample(kind)) {
-            return SAMPLE;
+            return earned ? SAMPLE_WHERE_IT_IS_EARNED : SAMPLE;
         }
         return ORDINARY;
     }

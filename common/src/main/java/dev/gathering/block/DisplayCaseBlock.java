@@ -254,7 +254,7 @@ public class DisplayCaseBlock extends HorizontalDirectionalBlock implements Enti
     }
 
     private static void say(Player player, String message) {
-        player.displayClientMessage(Component.translatable(message), true);
+        dev.gathering.server.Notices.tell(player, Component.translatable(message));
     }
 
     /** Flush counter-height cabinet; the felt counter surface and case lid both finish at y=15. */

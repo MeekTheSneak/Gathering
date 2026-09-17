@@ -88,7 +88,11 @@ public final class GatheringFabric implements ModInitializer {
             java.util.Optional<dev.gathering.core.sealed.LootSource> from =
                     dev.gathering.core.sealed.LootSource.of(table);
             boolean archive = dev.gathering.core.sealed.ArchiveDrops.of(table).isPresent();
-            if (from.isEmpty() && !archive) {
+            // And the coin, which is a chest and therefore already a pack source - said out
+            // loud so that a coin rule which stopped overlapping the pack rule would not
+            // silently stop being wired up on this loader alone.
+            boolean coins = dev.gathering.core.sealed.CoinDrops.of(table).isPresent();
+            if (from.isEmpty() && !archive && !coins) {
                 return;
             }
             tableBuilder.withPool(LootPool.lootPool()

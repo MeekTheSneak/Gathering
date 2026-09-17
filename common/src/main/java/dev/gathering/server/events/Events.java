@@ -176,11 +176,16 @@ public final class Events {
      * event opens its packs - and the desk runs it, so signing up happens there from the start.
      * <p>A desk running a tournament that is not over is refused rather than taken: taking one over
      * is using it twice while hosting, and a sign-up screen is no place for a stray click to move an
-     * event. No free table nearby is not refused; the host adds tables later, standing at them.
+     * event. That refusal is the whole of the limit on how many tournaments there are - one per desk,
+     * however many one person runs. No free table nearby is not refused; the host adds tables later,
+     * standing at them.
      *
+     * @param prizes what the host put up while filling the screen in, taken from their hotbar once
+     *               the event exists to hold it
      * @return the event, or empty with the host told why
      */
-    public static Optional<EventState> hostAtDesk(ServerPlayer host, BlockPos deskPos, String name, EventSettings settings) {
+    public static Optional<EventState> hostAtDesk(ServerPlayer host, BlockPos deskPos, String name,
+            EventSettings settings, List<dev.gathering.core.tournament.PrizeOffer> prizes) {
         ServerLevel level = host.serverLevel();
         if (!(level.getBlockEntity(deskPos) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity desk)) {
             host.sendSystemMessage(Component.translatable("message.gathering.event.at_a_desk"));
@@ -202,6 +207,10 @@ public final class Events {
         host.sendSystemMessage(tables.isEmpty()
                 ? Component.translatable("message.gathering.event.created_no_tables", state.tournament.name())
                 : Component.translatable("message.gathering.event.created", state.tournament.name(), tables.size()));
+        // After the event exists and before anybody is told it is signing up: a prize promised on the
+        // create screen is only a prize once the event holds the item, and the host should find out
+        // which of them it took while they are still standing here.
+        EventPrizes.putUpAtCreation(host, state, prizes);
         runFromDesk(host, desk, state, false);
         return Optional.of(state);
     }
@@ -270,8 +279,25 @@ public final class Events {
         return state;
     }
 
-    /** Adds the long table this table is part of to an event's tables. Host only. */
-    public static void addTables(ServerPlayer host, UUID eventId, BlockPos clicked) {
+    /**
+     * Adds the long table the host is at to an event's tables. Host only.
+     * <p>The rule is the simplest one that does not need a chair: <em>the nearest long table within
+     * three blocks of where the host is standing</em> - the same search {@link #nearestTable} has
+     * always done, now asked from where the host actually is. A host who
+     * has just carried a table across the room adds it by walking up to it, and nobody has to sit
+     * down first.
+     * <p>Where they are comes from the player on the server and never from the request. The button
+     * used to send a position and the server used to check the host was within reach of it, which
+     * was two mistakes at once: the screen had nowhere to get a table from and sent the origin of
+     * the world, so the check refused every press - and had it sent one, a position in a request is
+     * whatever a client puts there.
+     */
+    public static void addTables(ServerPlayer host, UUID eventId) {
+        addTablesNear(host, eventId, host.blockPosition());
+    }
+
+    /** The same, from a position the server worked out. Never from one a client sent. */
+    public static void addTablesNear(ServerPlayer host, UUID eventId, BlockPos clicked) {
         EventState state = hosted(host, eventId).orElse(null);
         ServerLevel level = host.serverLevel();
         if (state == null || !level.dimension().location().toString().equals(state.dimension)) {
@@ -442,12 +468,18 @@ public final class Events {
 
     /**
      * Somebody uses a Scorekeeper's Desk.
-     * <p>The host of a tournament makes a free desk its desk, and the place signing up happens. A desk
-     * running a tournament already is taken over by another of the host's tournaments, or another
-     * host's, only with a second use soon after the first - which said whose desk it is - so no stray
-     * click moves an event. A host's own desk that signing up has moved away from takes it back.
-     * Anybody else is shown the tournament the desk runs; a desk running nothing, or a tournament that
-     * is over, shows what tournaments there are and offers hosting one here ({@link #hostAtDesk}).
+     * <p>A free desk is taken on one use by a tournament of theirs that has nowhere to sign up - one
+     * just made away from a desk, or one whose desk has been broken - because a tournament with
+     * nowhere to sign up has nothing to lose by being given somewhere.
+     * <p>A free desk beside a tournament of theirs that already has a desk shows what tournaments
+     * there are and offers hosting one here ({@link #hostAtDesk}) instead, and says that using it
+     * again moves the other one here. That is how a second tournament is hosted: somebody who puts a
+     * desk down beside a second row of tables means a second tournament far more often than they mean
+     * to pick the first one up and carry it over, and the two answers are one press apart rather than
+     * one of them being what a stray click gives.
+     * <p>A desk running somebody's unfinished tournament is taken over the same deliberate way, by a
+     * second use soon after the first. A host's own desk that signing up has moved away from takes it
+     * back on one use. Anybody else is shown the tournament the desk runs.
      */
     public static void useDesk(ServerPlayer player, BlockPos deskPos) {
         ServerLevel level = player.serverLevel();
@@ -456,21 +488,24 @@ public final class Events {
         }
         String dimension = level.dimension().location().toString();
         EventState running = desk.event().flatMap(Events::get).filter(state -> dimension.equals(state.dimension)).orElse(null);
-        // A host running more than one tournament means the one played beside this desk.
+        // A host running more than one tournament means the one with nowhere to sign up, and among
+        // those the one played beside this desk.
         Vec3 deskInWorld = WorldSpace.get().centerInWorld(level, deskPos);
         EventState hosting = events().values().stream()
                 .filter(state -> state != running && !state.tournament.isOver() && dimension.equals(state.dimension)
                         && state.tournament.host().equals(player.getUUID()))
-                .min(java.util.Comparator.comparingDouble(state -> state.tables.stream()
-                        .mapToDouble(table -> WorldSpace.get().centerInWorld(level, table).distanceToSqr(deskInWorld))
-                        .min().orElse(Double.MAX_VALUE)))
+                .min(java.util.Comparator.comparingInt((EventState state) -> state.registrationPoint == null ? 0 : 1)
+                        .thenComparingDouble(state -> state.tables.stream()
+                                .mapToDouble(table -> WorldSpace.get().centerInWorld(level, table).distanceToSqr(deskInWorld))
+                                .min().orElse(Double.MAX_VALUE)))
                 .orElse(null);
         boolean free = running == null || running.tournament.isOver();
+        boolean homeless = hosting != null && hosting.registrationPoint == null;
         DeskUse before = lastDeskUse.remove(player.getUUID());
         long now = wallClock.getAsLong();
         boolean again = before != null && before.dimension().equals(dimension) && before.desk().equals(deskPos)
                 && now - before.at() <= DESK_SECOND_USE_MILLIS;
-        if (hosting != null && (free || again)) {
+        if (hosting != null && (again || (free && homeless))) {
             if (running != null && deskPos.equals(running.registrationPoint)) {
                 running.registrationPoint = null;
                 changed(player.getServer(), running);
@@ -494,6 +529,12 @@ public final class Events {
             return;
         }
         // A free desk: the tournaments there are, finished ones included, and hosting a new one here.
+        // A host already running one that has a desk of its own is told, once, that using this one
+        // again moves it here - so both answers are one press away and neither is a stray click's.
+        if (hosting != null && !homeless) {
+            lastDeskUse.put(player.getUUID(), new DeskUse(dimension, deskPos.immutable(), now));
+            player.sendSystemMessage(Component.translatable("message.gathering.desk.free", hosting.tournament.name()));
+        }
         EventViews.list(player, true, deskPos);
     }
 

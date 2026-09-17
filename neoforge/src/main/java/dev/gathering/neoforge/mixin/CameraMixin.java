@@ -47,5 +47,13 @@ public abstract class CameraMixin {
             setRotation(where.yaw(), where.pitch());
             setPosition(where.x(), where.y(), where.z());
         });
+        // And the other thing that decides where somebody is looking: a card held up to be
+        // read holds the view still. Asked here rather than from a tick because this is the
+        // one moment in a frame after the mouse has been applied and before the world is
+        // drawn with it - anywhere else and the view moves for a frame before it is put back,
+        // which is a shudder rather than a lock. It puts the player's own rotation back too;
+        // this only says what the camera draws.
+        dev.gathering.client.ViewKeeper.heldStill()
+                .ifPresent(still -> setRotation(still.yaw(), still.pitch()));
     }
 }

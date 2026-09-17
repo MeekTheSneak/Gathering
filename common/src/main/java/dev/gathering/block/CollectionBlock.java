@@ -176,8 +176,8 @@ public class CollectionBlock extends BaseEntityBlock {
             // Over the hotbar rather than in the chat, like the rest of what a click on a block in the
             // world says back: a player putting cards in one after another is answered each time, and
             // thirty answers in the chat bury whatever was said there.
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "message.gathering.collection_may_not_add"), true);
+            dev.gathering.server.Notices.tell(player, net.minecraft.network.chat.Component.translatable(
+                    "message.gathering.collection_may_not_add"));
             return ItemInteractionResult.SUCCESS;
         }
         int howMany = stack.getCount();
@@ -194,8 +194,8 @@ public class CollectionBlock extends BaseEntityBlock {
             }
         }
         stack.setCount(0);
-        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                "message.gathering.collection_added", howMany, collection.cards().total()), true);
+        dev.gathering.server.Notices.tell(player, net.minecraft.network.chat.Component.translatable(
+                "message.gathering.collection_added", howMany, collection.cards().total()));
         return ItemInteractionResult.SUCCESS;
     }
 

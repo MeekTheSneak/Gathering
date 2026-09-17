@@ -26,6 +26,7 @@ public final class GatheringContent {
     public static final String CARD_ID = "card";
     public static final String DECK_ID = "deck";
     public static final String PACK_ID = "pack";
+    public static final String MANA_COIN_ID = "mana_coin";
     public static final String TABLE_ID = "table";
 
     /**
@@ -54,6 +55,7 @@ public final class GatheringContent {
     public static final Registered<Item> CARD = new Registered<>(CARD_ID);
     public static final Registered<Item> DECK = new Registered<>(DECK_ID);
     public static final Registered<Item> PACK = new Registered<>(PACK_ID);
+    public static final Registered<Item> MANA_COIN = new Registered<>(MANA_COIN_ID);
     public static final Registered<Block> TABLE = new Registered<>(TABLE_ID);
     public static final Registered<Item> TABLE_ITEM = new Registered<>(TABLE_ID);
     public static final Registered<Block> COBBLESTONE_TABLE = new Registered<>(COBBLESTONE_TABLE_ID);
@@ -218,6 +220,71 @@ public final class GatheringContent {
         return java.util.List.copyOf(all);
     }
 
+    /**
+     * The one item of each wooden kind that kept the plain id, because it was already drawn in
+     * that wood: the chair is oak, the rest are dark oak.
+     */
+    private static Registered<Item> plainItemOf(Woodwork kind) {
+        return switch (kind) {
+            case TABLE -> TABLE_ITEM;
+            case CHAIR -> CHAIR_ITEM;
+            case SHOP_COUNTER -> SHOP_COUNTER_ITEM;
+            case COLLECTION -> COLLECTION_ITEM;
+            case SCOREKEEPERS_DESK -> SCOREKEEPERS_DESK_ITEM;
+            case DISPLAY_CASE -> DISPLAY_CASE_ITEM;
+        };
+    }
+
+    /** The same kind of thing cut from stone instead of planks, where there is one. */
+    private static java.util.List<Registered<Item>> stoneItemsOf(Woodwork kind) {
+        return switch (kind) {
+            case TABLE -> java.util.List.of(
+                    COBBLESTONE_TABLE_ITEM, BLACKSTONE_TABLE_ITEM, CRYING_OBSIDIAN_TABLE_ITEM);
+            case CHAIR -> java.util.List.of(
+                    COBBLESTONE_CHAIR_ITEM, BLACKSTONE_CHAIR_ITEM, CRYING_OBSIDIAN_CHAIR_ITEM);
+            default -> java.util.List.of();
+        };
+    }
+
+    /**
+     * Every one of a kind of furniture, as items, in the order a player expects to see them.
+     * <p>The woods in {@link #WOODS} order with the plain one standing in its own wood's place,
+     * then the same thing cut from stone. There is no default variant of anything: {@code table}
+     * <em>is</em> the dark oak table and {@code chair} <em>is</em> the oak chair, so they belong
+     * between acacia and mangrove, and beside spruce, rather than sitting on their own at the
+     * front of the menu looking like the real one with ten recolors after it.
+     */
+    public static java.util.List<Registered<Item>> itemsOf(Woodwork kind) {
+        java.util.Map<String, Registered<Item>> byWood = new java.util.LinkedHashMap<>();
+        for (WoodVariant variant : woodVariants(kind)) {
+            byWood.put(variant.wood(), variant.item());
+        }
+        java.util.List<Registered<Item>> all = new java.util.ArrayList<>();
+        for (String wood : WOODS) {
+            all.add(wood.equals(kind.plainWood()) ? plainItemOf(kind) : byWood.get(wood));
+        }
+        all.addAll(stoneItemsOf(kind));
+        return java.util.List.copyOf(all);
+    }
+
+    /**
+     * Every item the mod offers, in the order the creative menu shows them.
+     * <p>One list, walked by both loaders. It was two hand-written lists, one per loader, which
+     * is two places for a newly registered item to be left out of - and the order they agreed on
+     * put every plain block at the front and all fifty wooden ones in a block at the end, so the
+     * dark oak table sat eleven rows away from the spruce one.
+     * <p>The cards and the coin first, because that is what the mod is; then the furniture, one
+     * family at a time, each family whole.
+     */
+    public static java.util.List<Registered<Item>> creativeItems() {
+        java.util.List<Registered<Item>> all = new java.util.ArrayList<>(
+                java.util.List.of(CARD, DECK, PACK, SEALED, MANA_COIN));
+        for (Woodwork kind : Woodwork.values()) {
+            all.addAll(itemsOf(kind));
+        }
+        return java.util.List.copyOf(all);
+    }
+
     /** Every table's item, in the same order. */
     public static java.util.List<Registered<Item>> tableItems() {
         java.util.List<Registered<Item>> all = new java.util.ArrayList<>(java.util.List.of(
@@ -280,6 +347,16 @@ public final class GatheringContent {
      */
     public static Item createPack() {
         return new PackItem(new Item.Properties().stacksTo(16));
+    }
+
+    /**
+     * The coin a card shop takes, and the only thing in the mod a player saves up.
+     * <p>Stacks all the way, like every other currency in the game: a display box is
+     * thirty-six of them and a trade holds two stacks, so anything less than a full stack
+     * would put a ceiling on the shop that has nothing to do with what things cost.
+     */
+    public static Item createManaCoin() {
+        return new ManaCoinItem(new Item.Properties());
     }
 
     /**

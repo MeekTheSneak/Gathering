@@ -52,8 +52,8 @@ public final class Chairs {
             // there watches: somebody in it sees the game, and plays no part in it.
             boolean seatHere = TableSeats.couldSeat(level, against.get().origin(), against.get().cell(), against.get().side());
             watching = against.get().origin();
-            player.displayClientMessage(Component.translatable(seatHere
-                    ? "message.gathering.chair_watching_off_center" : "message.gathering.chair_watching_edge"), true);
+            dev.gathering.server.Notices.tell(player, Component.translatable(seatHere
+                    ? "message.gathering.chair_watching_off_center" : "message.gathering.chair_watching_edge"));
         } else if (atATable.isPresent()) {
             FacingSeat at = atATable.get();
             if (!holdsThisSeat(level, at, player)) {

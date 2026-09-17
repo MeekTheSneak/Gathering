@@ -16,7 +16,6 @@ import dev.gathering.network.CollectionSearchPayload;
 import dev.gathering.network.PocketCardsPayload;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.client.gui.GuiGraphics;
@@ -131,6 +130,17 @@ public final class DeckBuilderScreen extends ChildScreen {
     private List<BuildCard> outsideIdentity = List.of();
     private int[] curve = new int[0];
 
+    /**
+     * One section of the list column: a heading, the rows under it, and which pile they are in.
+     * <p>The piles of the deck and the sideboard at the foot of them, in one list, because they
+     * scroll as one column and a click has to be able to say which pile the row it landed on
+     * belongs to - the same card can be in both.
+     */
+    private record Section(Component heading, List<DeckBuild.Row> rows, DeckBuild.Pile pile) {
+    }
+
+    private List<Section> sections = List.of();
+
     private void regroupIfChanged() {
         if (build == groupedFrom) {
             return;
@@ -139,6 +149,31 @@ public final class DeckBuilderScreen extends ChildScreen {
         grouped = build.byKind();
         outsideIdentity = build.outsideIdentity();
         curve = build.curve();
+
+        List<Section> laidOut = new ArrayList<>();
+        grouped.forEach((kind, rows) -> laidOut.add(new Section(
+                Component.translatable(kind.translationKey()), rows,
+                kind == CardKind.COMMANDER ? DeckBuild.Pile.COMMANDERS : DeckBuild.Pile.MAINBOARD)));
+        List<DeckBuild.Row> aside = build.sideboardRows();
+        if (!aside.isEmpty()) {
+            // Counted in its own heading, the way the deck screen counts its sections. The
+            // piles above it are named and not counted - a curve says how many creatures
+            // there are - but "how many are in the sideboard" is the question a format asks.
+            laidOut.add(new Section(
+                    Component.translatable("screen.gathering.deck.sideboard", build.sideboard().size()),
+                    aside, DeckBuild.Pile.SIDEBOARD));
+        }
+        this.sections = List.copyOf(laidOut);
+        this.deckScroll = listLayout().scrollWithin(deckScroll, rowCounts());
+    }
+
+    /** How many rows each section has, which is all the list layout needs to place them. */
+    private List<Integer> rowCounts() {
+        List<Integer> counts = new ArrayList<>(sections.size());
+        for (Section section : sections) {
+            counts.add(section.rows().size());
+        }
+        return counts;
     }
     private CollectionQuery query = CollectionQuery.EVERYTHING;
     private int page;
@@ -212,6 +247,10 @@ public final class DeckBuilderScreen extends ChildScreen {
 
     @Override
     protected void init() {
+        // A menu is placed where the right-click was, so a resized window - or a detour
+        // through the sleeve picker and back - leaves it drawn over a screen it no longer
+        // fits, with its rows nowhere near the words on them.
+        this.menu = null;
         String searching = searchBox == null ? query.text() : searchBox.getValue();
         String named = nameBox == null ? "" : nameBox.getValue();
         this.nameBox = null;
@@ -275,18 +314,6 @@ public final class DeckBuilderScreen extends ChildScreen {
         int across = Math.max(80, (int) ((this.width - MARGIN * 2 - GAP) * BOX_SHARE));
         int top = topBar();
         return new Rect(MARGIN, top, across, Math.max(1, this.height - bottomBar() - top));
-    }
-
-    /**
-     * The part of the deck pane the list itself occupies.
-     * <p>The pane less the mana curve along its foot, which is what the drawing already uses
-     * to decide whether a row is on the screen. Clicks ask the same question, because a row
-     * that is not drawn is not there to be clicked.
-     */
-    private Rect deckList() {
-        Rect pane = deckPane();
-        return new Rect(pane.x(), pane.y(), pane.width(),
-                Math.max(0, pane.height() - CURVE_HEIGHT));
     }
 
     /**
@@ -539,13 +566,10 @@ public final class DeckBuilderScreen extends ChildScreen {
             return;
         }
         buildCardOf(row).ifPresent(card -> {
-            // Pressed on the card that is already leading, this puts it back in the deck -
-            // otherwise naming a commander would be a decision with no way out of it.
-            build = build.commander()
-                    .filter(already -> already.printing().equals(card.printing()))
-                    .isPresent()
-                    ? build.led(null).with(card)
-                    : build.led(card);
+            // Whoever was leading goes back to the deck rather than out of the build - see
+            // DeckBuild#led. Taking a commander out of the command zone altogether is the
+            // command zone row's own menu, which is where a player looks for it.
+            build = build.led(card);
             // The page the player was on. Naming a commander changes which cards are legal, so the
             // page is asked for again - but it was asked for as page one, and choosing a commander
             // from page four threw the list back to the start.
@@ -603,6 +627,11 @@ public final class DeckBuilderScreen extends ChildScreen {
             cards.add(CardComponent.of(
                     dev.gathering.core.card.CardIdentity.ofPrinting(card.printing(), card.foil())));
         }
+        List<CardComponent> beside = new ArrayList<>();
+        for (BuildCard card : build.sideboard()) {
+            beside.add(CardComponent.of(
+                    dev.gathering.core.card.CardIdentity.ofPrinting(card.printing(), card.foil())));
+        }
         if (fromPockets()) {
             // Adding to the deck already in hand rather than making one. Same screen, same
             // picking, different verb at the end of it.
@@ -616,6 +645,7 @@ public final class DeckBuilderScreen extends ChildScreen {
                 nameBox == null ? "" : nameBox.getValue(),
                 "",
                 cards,
+                beside,
                 build.commander().map(card -> CardComponent.of(
                         dev.gathering.core.card.CardIdentity.ofPrinting(
                                 card.printing(), card.foil()))),
@@ -717,6 +747,10 @@ public final class DeckBuilderScreen extends ChildScreen {
                     MARGIN, MARGIN + ROW_HEIGHT, this.width - MARGIN * 2, WARN);
         }
 
+        if (menu != null) {
+            menu.render(graphics, this.font, mouseX, mouseY);
+        }
+
         // Last, so it goes over everything, and after drawDeck because that is what says
         // where the columns ended up this frame.
         List<Component> tip = tipForCurve(mouseX, mouseY);
@@ -791,19 +825,19 @@ public final class DeckBuilderScreen extends ChildScreen {
     private void drawDeck(GuiGraphics graphics, int mouseX, int mouseY) {
         Rect pane = deckPane();
         int curveHeight = CURVE_HEIGHT;
+        regroupIfChanged();
         // The same rectangle the scroll limit is worked out from, so what can be scrolled to
         // and what is drawn are one answer.
-        int listBottom = listViewport().bottom();
+        dev.gathering.core.ui.BuilderList layout = listLayout();
 
         graphics.drawString(this.font,
                 fromPockets()
                         ? Component.translatable("screen.gathering.builder.picked",
                                 build.total(), alreadyInTheDeck())
                         : Component.translatable(
-                                "screen.gathering.builder.deck_total", build.total()),
+                                "screen.gathering.builder.deck_total", build.deckTotal()),
                 pane.x() + 2, pane.y(), TEXT, false);
 
-        regroupIfChanged();
         List<BuildCard> outside = outsideIdentity;
         if (!outside.isEmpty()) {
             GuiText.draw(graphics, this.font,
@@ -811,37 +845,37 @@ public final class DeckBuilderScreen extends ChildScreen {
                     pane.x() + 2, pane.y() + ROW_HEIGHT, pane.width() - 4, WARN);
         }
 
-        int y = pane.y() + ROW_HEIGHT * 2 - deckScroll;
         deckRows.clear();
-        for (Map.Entry<CardKind, List<DeckBuild.Row>> pile : grouped.entrySet()) {
-            if (y > pane.y() && y < listBottom) {
-                GuiText.draw(graphics, this.font,
-                        Component.translatable(pile.getKey().translationKey()),
-                        pane.x() + 2, y, pane.width() - 4, ACCENT);
-            }
-            y += ROW_HEIGHT;
-            for (DeckBuild.Row row : pile.getValue()) {
-                if (y > pane.y() && y < listBottom) {
-                    Rect at = new Rect(pane.x(), y, pane.width(), ROW_HEIGHT);
-                    if (at.contains(mouseX, mouseY)) {
-                        GatheringSprites.draw(graphics, Element.ROW_HOVER,
-                                at.x(), at.y() - 1, at.width(), at.height());
-                        ClientHoverState.setHovered(CardItem.of(CardComponent.of(
-                                dev.gathering.core.card.CardIdentity.ofPrinting(
-                                        row.card().printing(), row.card().foil()))));
-                    }
-                    graphics.drawString(this.font, Component.literal(row.count() + ""),
-                            pane.x() + 3, y, DIM, false);
-                    GuiText.draw(graphics, this.font, Component.literal(row.card().name()),
-                            pane.x() + 16, y, pane.width() - 20, TEXT);
+        for (dev.gathering.core.ui.BuilderList.Line line : layout.lines(rowCounts(), deckScroll)) {
+            Section section = sections.get(line.section());
+            int y = line.y();
+            if (line.isHeading()) {
+                if (layout.shows(y)) {
+                    GuiText.draw(graphics, this.font, section.heading(),
+                            pane.x() + 2, y, pane.width() - 4, ACCENT);
                 }
-                deckRows.add(new DeckRow(new Rect(pane.x(), y, pane.width(), ROW_HEIGHT), row.card()));
-                y += ROW_HEIGHT;
+                continue;
             }
+            DeckBuild.Row row = section.rows().get(line.row());
+            Rect at = new Rect(pane.x(), y, pane.width(), ROW_HEIGHT);
+            if (layout.shows(y)) {
+                if (at.contains(mouseX, mouseY)) {
+                    GatheringSprites.draw(graphics, Element.ROW_HOVER,
+                            at.x(), at.y() - 1, at.width(), at.height());
+                    ClientHoverState.setHovered(CardItem.of(CardComponent.of(
+                            dev.gathering.core.card.CardIdentity.ofPrinting(
+                                    row.card().printing(), row.card().foil()))));
+                }
+                graphics.drawString(this.font, Component.literal(row.count() + ""),
+                        pane.x() + 3, y, DIM, false);
+                GuiText.draw(graphics, this.font, Component.literal(row.card().name()),
+                        pane.x() + 16, y, pane.width() - 20, TEXT);
+            }
+            deckRows.add(new DeckRow(at, row.card(), section.pile()));
         }
-        deckHeight = y + deckScroll - (pane.y() + ROW_HEIGHT * 2);
 
-        drawCurve(graphics, new Rect(pane.x() + 2, listBottom + 4, pane.width() - 4, curveHeight - 8));
+        drawCurve(graphics, new Rect(pane.x() + 2, layout.bottom() + 4,
+                pane.width() - 4, curveHeight - 8));
     }
 
     /**
@@ -920,31 +954,60 @@ public final class DeckBuilderScreen extends ChildScreen {
                 this.height - bottomBar() + GAP, this.width - MARGIN * 2, DIM);
     }
 
-    /** Where each drawn deck row is, so a click can find the card it named. */
-    private record DeckRow(Rect at, BuildCard card) {
+    /** Where each drawn deck row is, which card it named, and which pile it is in. */
+    private record DeckRow(Rect at, BuildCard card, DeckBuild.Pile pile) {
     }
 
     private final List<DeckRow> deckRows = new ArrayList<>();
-    private int deckHeight;
 
     /**
-     * The part of the deck pane the list is actually drawn in.
+     * The part of the deck pane the list is drawn in, and the arithmetic that places it.
      * <p>Worked out once and used by the drawing, the hit test and the scroll limit, because
      * they disagreed: the list starts two rows down and the mana curve takes the bottom, and
      * the scroll limit subtracted four rows for both of them - eighteen pixels short. In a
      * long deck the last row could not be brought into view, and the one above it was drawn
-     * under the curve.
+     * under the curve. With a sideboard under the piles that gets worse rather than longer:
+     * whatever the height is short by is exactly the part nobody can scroll to.
      */
-    private Rect listViewport() {
+    private dev.gathering.core.ui.BuilderList listLayout() {
         Rect pane = deckPane();
         int top = pane.y() + ROW_HEIGHT * 2;
-        return new Rect(pane.x(), top, pane.width(), Math.max(0, pane.bottom() - CURVE_HEIGHT - top));
+        return new dev.gathering.core.ui.BuilderList(
+                ROW_HEIGHT, top, Math.max(top, pane.bottom() - CURVE_HEIGHT));
+    }
+
+    /** The rectangle that window covers, for the hit tests that ask about a point. */
+    private Rect listViewport() {
+        dev.gathering.core.ui.BuilderList layout = listLayout();
+        return new Rect(deckPane().x(), layout.top(), deckPane().width(), layout.height());
     }
 
     // ----------------------------------------------------------------- input
 
+    /**
+     * What each button does here, and why it is that one.
+     * <p><b>Left-click is the act that repeats.</b> On the box it puts a card in the deck, and
+     * on a row it takes that copy back out. Those are the two things somebody does a hundred
+     * times while a deck comes together, so they cost one click and no modifier. Shift holds
+     * the same meaning it holds everywhere else in this mod: every copy at once.
+     * <p><b>Right-click names where else a card could go</b>, on a menu, in both halves of the
+     * screen - the sideboard, the command zone, or back to the deck. One menu rather than a
+     * modifier per destination, because a builder whose right-click means "make commander" is
+     * a Commander deck builder, and the formats that live on their sideboard are the ones that
+     * would notice. It is also what the deck screen's right-click already does, so the two
+     * screens that move cards between piles move them the same way.
+     */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // An open menu gets first refusal on every click, including the ones that miss it.
+        // Clicking away is how a menu is dismissed, and that click must not also do whatever
+        // it landed on - which on this screen would be taking a card out of the deck.
+        if (menu != null) {
+            ContextMenu open = menu;
+            menu = null;
+            open.mouseClicked((int) mouseX, (int) mouseY);
+            return true;
+        }
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
@@ -968,7 +1031,7 @@ public final class DeckBuilderScreen extends ChildScreen {
             }
             CollectionPagePayload.Row row = rows.get(index);
             if (button == 1) {
-                lead(row);
+                menu = menuForBox(row, x, y);
             } else if (leftInTheBox(row) > 0) {
                 if (shift) {
                     addEvery(row);
@@ -985,23 +1048,82 @@ public final class DeckBuilderScreen extends ChildScreen {
         // the mana curve and the footer are drawn on top of exactly that strip. A click on
         // either removed a card from the deck, silently, with nothing under the pointer that
         // looked like a card at all.
-        if (deckList().contains(x, y)) {
+        if (listViewport().contains(x, y)) {
             for (DeckRow row : deckRows) {
-                if (row.at().contains(x, y)) {
-                    build = build.without(row.card().printing());
-                    GatheringButtons.clickSound();
+                if (!row.at().contains(x, y)) {
+                    continue;
+                }
+                if (button == 1) {
+                    menu = menuForRow(row, x, y);
                     return true;
                 }
+                build = build.without(row.card().printing(), row.pile());
+                GatheringButtons.clickSound();
+                return true;
             }
         }
         return false;
     }
 
+    /**
+     * Where else a card in the box could go: beside the deck, or in front of it.
+     * <p>Not "to the deck" as well. Left-click is that already, and one act reachable two ways
+     * one above the other is a menu answering a question it has just asked. The command zone
+     * is left off the card that is already leading for the same reason - it is not a move.
+     */
+    private ContextMenu menuForBox(CollectionPagePayload.Row row, int x, int y) {
+        if (fromPockets() || buildCardOf(row).isEmpty()) {
+            // Adding to a deck already in hand. That deck has whatever command zone and
+            // sideboard it has, and this screen is not the one that edits them.
+            return null;
+        }
+        List<ContextMenu.Entry> entries = ContextMenu.entries();
+        Component sideboard = Component.translatable("menu.gathering.move_to_sideboard");
+        // Grayed rather than gone when there is no copy left to set aside, which is the same
+        // answer a left-click gives a card the deck has already taken every copy of. A row
+        // that disappears is a row somebody goes looking for.
+        entries.add(leftInTheBox(row) > 0
+                ? ContextMenu.Entry.of(sideboard,
+                        () -> buildCardOf(row).ifPresent(card -> build = build.aside(card)))
+                : ContextMenu.Entry.disabled(sideboard));
+        if (!isCommander(row)) {
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.move_to_commanders"), () -> lead(row)));
+        }
+        return ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+    }
+
+    /**
+     * Where else a card already picked could go: every pile it is not already in.
+     * <p>The deck screen's own menu, on the screen the deck is being built in, so a card
+     * crosses between the piles the same way before a game as it does between games.
+     */
+    private ContextMenu menuForRow(DeckRow row, int x, int y) {
+        if (fromPockets()) {
+            return null;
+        }
+        List<ContextMenu.Entry> entries = ContextMenu.entries();
+        for (DeckBuild.Pile destination : DeckBuild.Pile.values()) {
+            if (destination == row.pile()) {
+                continue;
+            }
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.move_to_"
+                            + destination.name().toLowerCase(java.util.Locale.ROOT)),
+                    () -> build = build.moved(row.card(), row.pile(), destination)));
+        }
+        return ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+    }
+
+    /** The menu opened by the last right-click, if one is open. Drawn over everything else. */
+    private ContextMenu menu;
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
         if (deckPane().contains((int) mouseX, (int) mouseY)) {
-            int most = Math.max(0, deckHeight - listViewport().height());
-            deckScroll = Math.clamp(deckScroll - (int) (amountY * ROW_HEIGHT * 2), 0, most);
+            regroupIfChanged();
+            deckScroll = listLayout().scrollWithin(
+                    deckScroll - (int) (amountY * ROW_HEIGHT * 2), rowCounts());
             return true;
         }
         if (boxPane().contains((int) mouseX, (int) mouseY) && pages > 1) {
@@ -1055,5 +1177,26 @@ public final class DeckBuilderScreen extends ChildScreen {
 
     String commanderName() {
         return build.commander().map(BuildCard::name).orElse("");
+    }
+
+    /** How many cards are set aside, for the scripted run to check one landed there. */
+    int sideboardSize() {
+        return build.sideboard().size();
+    }
+
+    /**
+     * Takes the entry with this label off the menu the last right-click opened.
+     * <p>The way a player takes it rather than by calling what the entry would have called,
+     * which would pass just as happily with the entry missing from the menu.
+     *
+     * @return false when no menu is open or it has no such entry
+     */
+    boolean pressMenuEntry(String label) {
+        if (menu == null) {
+            return false;
+        }
+        ContextMenu open = menu;
+        menu = null;
+        return open.press(label);
     }
 }

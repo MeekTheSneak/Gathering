@@ -297,18 +297,20 @@ public final class EventRecords {
 
     // ------------------------------------------------------------------ hosting
 
-    /** Why this player may not host another event right now, if they may not. */
+    /**
+     * Why this player may not host another event right now, if they may not.
+     * <p>Running one is no longer a reason. A store runs a draft in one corner and a constructed
+     * event in the other, and one person books both - so what an event is one of is a Scorekeeper's
+     * Desk, not a host: a desk already running a tournament refuses a second, which is checked where
+     * the desk is ({@link Events#hostAtDesk}). What is left here is the server's own rate limit,
+     * which is a limit on how fast events are made rather than on how many there are.
+     */
     public static Optional<String> whyNotHost(UUID host) {
         return whyNotHost(host, System.currentTimeMillis());
     }
 
     public static Optional<String> whyNotHost(UUID host, long now) {
         load();
-        boolean running = Events.all().stream()
-                .anyMatch(state -> !state.tournament.isOver() && state.tournament.host().equals(host));
-        if (running) {
-            return Optional.of("message.gathering.event.hosting_one");
-        }
         long cooldown = dev.gathering.service.ServerSettings.get().events().hostCooldownMinutes() * 60_000L;
         Long last = lastHosted.get(host);
         return last != null && now - last < cooldown

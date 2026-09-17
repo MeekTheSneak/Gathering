@@ -9,6 +9,74 @@ produced them and from nowhere else.
 
 Last updated 2026-09-14, after the security review, memory audit and a rules and tournament pass (see "Rules and tournament pass"). The gate is green at 503 NeoForge and 14 Fabric in-world tests. The quality backlog is 20 of 28 done and the cleanup roadmap 12 of 14 rows done; everything still open on either needs a person, a graphical client run, or another mod's files - see "What is left, and why each one needs you".
 
+## Owner's five tournament reports (2026-09-17)
+
+Five things the owner asked for after playing the tournament flow. All five are written; **none
+has been seen in a running game** - no `runClient`, no `tools/shots.sh`, no game-test run from this
+session, because another process held `neoforge/run`.
+
+1. **Create-screen settings did not survive.** Every choice now lives in one pure
+   `core/.../tournament/EventDraft`, which the create screen hands to a subscreen and takes back.
+   The real defect was `withKind`: choosing the kind that was already chosen put the pack settings
+   back to their defaults. Proved by reverting it - `EventDraftTest:41` and `:53` fail. The draft is
+   also kept against the desk (`client/EventDrafts`) so closing and reopening the screen at the same
+   block finds it as it was; Create clears it.
+2. **Add tables needed a chair.** It needed the impossible: the button sent `BlockPos.ZERO` and the
+   server refused every press for being out of reach of it. `Events.addTables` now works from the
+   host's own position on the server - the nearest long table within three blocks - and the payload's
+   position is read by nothing.
+3. **One tournament per host.** Gone from `EventRecords.whyNotHost`. A tournament is one per
+   Scorekeeper's Desk, which `hostAtDesk` has always enforced. A free desk beside a tournament that
+   already has a desk now offers hosting rather than adopting it; one with nowhere to sign up - after
+   its desk is broken - is still adopted in one click.
+4. **Prizes before creation.** `PrizeOffer` (place plus hotbar slot, pure) travels on
+   `CreateEventPayload`; `EventPrizes.putUpAtCreation` takes the items from the host's own hotbar
+   once the event exists, one prize per slot, saving before anything leaves the hand.
+5. **Escape left to the world.** `EventCreateScreen` is a `ChildScreen`; `EventListScreen`,
+   `EventScreen` and `PodLobbyScreen` remember the screen they were opened over, as `DraftScreen`
+   already did; `PodCreateScreen` opened from `TableSetupScreen` goes back to it.
+
+Verified: `:core:test` 1937 tests, 0 failures, 5 skipped; `:neoforge:compileJava`,
+`:fabric:compileJava`, `:neoforge:compileGametestJava`; langcheck, doccheck, spellcheck, keycheck,
+prefcheck, statecheck, savecheck, runcheck all exit 0. Not verified: the new game tests in
+`neoforge/src/gametest/.../server/events/EventHostingGameTest.java` compile but have never run, and
+no screen has been looked at.
+## Three client reports from the owner (2026-09-17)
+
+Uncommitted in a worktree. **The full gate has not been run on this**: another process held
+`neoforge/run`, so neither loader's in-world tests, datagen nor the scripted client were run.
+What did run: `:core:test` (232 test classes, every one of them ran, 1952 tests in all, by
+`tools/coretestcheck.py`), `:neoforge:compileJava`, `:fabric:compileJava`,
+`:neoforge:compileGametestJava`, and all seventeen static checks, each exiting zero.
+
+**1. Labels over a table or a desk lost pieces of themselves up close.** Two causes, both
+fixed in `common/src/main/java/dev/gathering/client/FloatingLabel.java`. The writing was
+drawn depth-tested, so every block the camera-facing sheet passed through took a bite out of
+it - worst exactly where somebody stands close enough to read it; both passes are
+`Font.DisplayMode.SEE_THROUGH` now. And at a fixed world scale a line is four windows wide
+from half a block away, so `dev.gathering.core.ui.LabelStandoff` never lets the sheet come
+nearer than 2.5 blocks. The desk's culling box was a block and a half across and a long
+tournament name reaches further than that; it is sized from `LabelStandoff.reach()` now.
+Whether the labels *read* well up close is a judgment call and has not been looked at in game.
+
+**2. A notice given while a screen was open was drawn under the screen.** The action bar and
+the chat window are both drawn before the screen that covers them.
+`common/src/main/java/dev/gathering/client/ScreenNotice.java` decides at the moment of
+speaking: on the screen while there is one, over the hotbar when there is not. Placement and
+fade are `dev.gathering.core.ui.NoticeLine` - across the top, never over the bottom row of
+buttons. The server says it through `dev.gathering.server.Notices` and the new
+`NoticePayload` (protocol 27). Every action-bar notice in the mod is routed through it; chat
+is untouched, because chat is the log rather than the answer to a click.
+
+**3. The view moved when it should not have.** Two halves, both in
+`common/src/main/java/dev/gathering/client/ViewKeeper.java`. A screen now gives back the view
+it opened over, watched from the client tick so every way out of a screen is covered rather
+than the ones with an `onClose`. And the read key holds the view completely still instead of
+fencing it inside 22 degrees: what the mouse asks for is added up for the card's tilt and
+none of it reaches the world. The hold is answered from each loader's existing camera hook,
+which is the one moment in a frame after the mouse has been applied and before the world is
+drawn with it.
+
 ## Table presentation refactor on the finished cleanup baseline
 
 Based on `690753b8cf51bbcad31eb50819b2eaabff1f75eb`, preserving the completed cleanup work.
@@ -135,6 +203,61 @@ An external review of `10960959` proposed six items (RF-01..RF-06). Progress, ne
   the read. Fixed in the script (`cbcc3fbf`); the next run passed it.
 - The machine repeatedly killed tour runs for low memory while other applications were open.
   Tours need roughly 5 GB free (1-1.5 GB Gradle, 3 GB client).
+
+## Owner's economy pass (2026-09-17): common packs, the Mana Coin, village shops, creative order
+
+Four reports from the owner, all four addressed. **Not gated and not played.** `:core:test`,
+both loaders' `compileJava`, `:neoforge:compileGametestJava` and `:neoforge:runData` were run;
+the in-world tests were **compiled and not run** - another process held `neoforge/run` - so
+every game test below is unverified behavior with a compiled assertion behind it.
+
+**1. Packs were much too rare.** The odds were one chest in eight, one treasure catch in twelve
+and one brushed block in twenty: about a pack and a half in an hour of exploring, which is why
+the shop, and therefore emeralds, was the only real way into a collection. Now about half of
+ordinary loot chests, every chest at the end of something, one treasure catch in four, one
+brushed block in four, and a new **mobs** source at one in a hundred and fifty - roughly seven
+boosters an hour. The mob source is gated on `LAST_DAMAGE_PLAYER` (vanilla's own
+`killed_by_player` parameter) and pays the ordinary booster only, never a coin, so a spawner
+farm makes commons and buys nothing. `LootYieldTest` does that arithmetic against the constants
+so the sentence cannot quietly stop being true.
+
+**2. The rare packs got rarer, and there are more of them.** `BoosterOdds` classified the rare
+kind by `equals("collector")`, so a box topper or a promo pack was priced as a draft booster.
+It is now a word match over collector / topper / promo / vip / premium / gift / special, at
+weight 1 against 200 in an ordinary chest and 25 against 200 in one worth an expedition - under
+one pack in two hundred, and about one in ten. A jqwik property holds that band over every
+combination of kinds a real set has been sold in.
+
+**3. The Mana Coin replaced emeralds as the shop's price.** `gathering:mana_coin`, found in
+chests and nowhere else: one ordinary chest in five holds one to three, one expedition chest in
+two holds two to five, and a card shop's own stock chest holds three to six. About seven or
+eight coins in an hour of exploring against a booster costing one, so a display box is five
+hours or so and an end city raid is about twenty coins. **Its texture is the owner's and is not
+drawn**: `common/src/main/resources/assets/gathering/textures/item/mana_coin.png` does not
+exist, `tools/texturecheck.py` fails on exactly that one file, and nothing points at another
+texture to hide it.
+
+  - `sealed_price_item` and `sealed_price_block` both default to the coin with
+    `sealed_price_block_worth = 1`, because there is no block of coins. **`ShopPrice` refused
+    every price over one slot when there was no larger denomination**, which would have emptied
+    every shopkeeper above novice on a default server; it now pays a dear thing as two piles of
+    the same coin. `ShopPriceTest#withoutABlockBothSlotsAreTheSameThing` was run against the
+    unfixed method and failed (`Expecting Optional to contain ShopPrice[blocks=64, loose=1] but
+    was empty`).
+  - **Known limit, stated in the config file:** two slots caps a coin economy at 128 coins, so a
+    case of six display boxes is not on the counter at all. A master shopkeeper whose only stock
+    is cases therefore offers nothing; a server that wants to sell them names a real block item.
+
+**4. Village shops, and the creative menu.** `village_shop_weight` 8 to 20. The plains house
+pool weighs 87, so eight was one draw in eleven; twenty is one in five and about nine villages
+in ten. The creative menu is now one shared order (`GatheringContent.creativeItems()`) instead
+of two hand-written lists, one per loader, and each family runs through `WOODS` in order with
+the plain member in its own wood's place - `table` is the dark oak table, `chair` is the oak
+chair - then its stone variants.
+
+**What the owner must do before this can be gated:** draw
+`common/src/main/resources/assets/gathering/textures/item/mana_coin.png` (a 16x16 item texture,
+a swirl of all five mana colors), then `tools/artcheck.py --write` to sign it in.
 
 ## Tournaments (design in `docs/tournaments.md`)
 
@@ -3152,3 +3275,74 @@ Still to do from that list: the display case glass edge at joins, loot and the M
 shop, tournament settings and hosting, the labels above blocks, notices over an open screen, the camera,
 the sideboard in the deck builder, the chair backs and the creative menu order.
 
+## 2026-09-17: two model reports from the owner's play
+
+**The glass edge down every join.** Making the case glass one texel to a pixel (playtest item 3 above)
+left u following the model's own x. On a case standing alone that is right and always was: the glass is
+sixteen texels square with a one-texel frame line round the outside, so with u = x the frame texels fall
+at x 0-1 and 15-16, exactly under the corner posts and the end rails - the texture's frame and the case's
+woodwork are the same line, which is why nobody ever saw a glass edge on a single case. Joining two cases
+takes the post away and runs the pane the last pixel out to the block's edge, so that frame texel was
+drawn in the open, and the neighbor drew its own a pixel away: the bright double line the owner saw.
+
+`tools/casejoin.py` now slides the window one texel off each joined edge (its docstring carries the whole
+reasoning). An end case draws the frame line once, on the last pixel of its own outer edge where the post
+still stands; a middle is sixteen pixels of pane against fourteen texels of interior, so it is cut at the
+block's midline and each half slid off its own edge - the cut falls between two interior texels that are
+both fully transparent, so there is nothing there to see. A row of any length now reads as one pane with
+an edge only where the glass stops. Density is unchanged and `texturecheck`'s rule did not need to move:
+418 glass faces over the 44 models, all one texel to a pixel, all inside the texture. Proved still failing
+by putting a 14x14 window back on one middle face.
+
+**The chair back floating over the seat.** Adding the dyeable cushion (2026-09-16) cut the seat from two
+pixels to one, y 8-9, and raised the back posts to start at y 10, on top of the cushion. But the posts
+stand at z 12.5-14.5 and the cushion only reached z 14, so the last half pixel of each post had nothing
+under it for a whole pixel of height and the back hung over the seat with daylight beneath it. The posts
+now start at y 9, on the seat itself, as the three stone chairs' backs always have, and the cushion stops
+at z 12.5, flush against them - no overlap, so no two faces in the same plane. Their side UVs went from 13
+to 14 to match the pixel of height gained. Eleven wooden chairs, written from the plain one by
+`tools/woodwork.py`; the stone chairs were already right and did not change.
+
+**Unverified.** Neither has been looked at in a running game: no client ran for this. What is checked is
+the arithmetic - every glass window inside the texture at one texel to a pixel, and no gap left under a
+chair back - and that is not the same as looking at it.
+## 2026-09-17: a sideboard in the deck builder
+
+Reported by the owner: the collection block's builder had no way to put a card in a sideboard,
+while the deck list already moved cards between the two.
+
+`DeckBuild` now holds three piles instead of two. `aside` puts a copy beside the deck, `moved`
+carries one copy between any two piles in either direction, `without(printing, pile)` takes it
+out of the pile it was clicked in, and `printingsOf` and `copiesOf` count both lists - so a card
+set aside is no longer a card the box can be asked for a second time. Both lists share one
+`MOST_CARDS` bound, because both become one deck item.
+
+`BuilderList` (`:core`) places the list column: a heading and its rows per section, empty
+sections left out, the scroll limit and whether a line is wholly inside the window. The builder
+screen had that arithmetic inline and measured its own height while drawing, which with a second
+section at the foot meant whatever the height was short by was exactly what could not be scrolled
+to.
+
+**Gestures.** Left-click still adds from the box and takes a row back out - the acts that repeat.
+Right-click now opens the deck screen's own menu in both halves: the sideboard and the command
+zone from the box, every pile a card is not already in from a row. That replaces right-click
+meaning "make commander", which is the gesture DIALECT warns turns a deck builder into a
+Commander deck builder. The sideboard entry is grayed when the box has no copy left, as a
+left-click on the same card already refuses. Hint line updated.
+
+`BuildDeckPayload` carries the sideboard, bounded against what the deck and commander have left
+of `MOST_CARDS`. `CollectionView.build` claims those cards through the same `claim` call - out of
+the box, history kept, counted when missing - and puts them in the deck's sideboard.
+
+**Verified.** `:core:test` 1943 tests, 0 failures, 5 skipped; `:neoforge:compileJava`,
+`:fabric:compileJava` and `:neoforge:compileGametestJava` build; `langcheck`, `doccheck`,
+`spellcheck`, `voicecheck`, `statecheck`, `savecheck`, `scenecheck` and `gesturecheck` pass.
+Guard proven failing with its fix reverted: with `printingsOf` counting the deck alone,
+`DeckBuildTest > copies of a printing count across both piles, so the box is not asked twice`
+fails with `expected: 3 but was: 2`.
+
+**Unverified.** `DeckBuilderGameTest > aSideboardComesOutOfTheBoxToo` compiles and has not been
+run - the in-world server was not run from this worktree. Nothing about the screen was seen
+drawn: the menu over the box grid, the sideboard heading and its count, and the scrolling of two
+sections all need a client. `DevScene.buildADeck` now takes the commander and the sideboard off
+the menu, and that scene has not been run either.

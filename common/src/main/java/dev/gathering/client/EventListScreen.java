@@ -14,6 +14,8 @@ import net.minecraft.network.chat.Component;
  * The tournaments on this server: running ones first, then the most recently finished, each a row
  * to open. Hosting a new one is offered when the list was opened at a Scorekeeper's Desk, which is
  * where a tournament is hosted and run from.
+ * <p>Done goes back to whatever this was opened over, and out to the world when that was nothing -
+ * which is what using a desk does. Every detour comes back; see {@link ChildScreen}.
  * <p>Client-only.
  */
 public final class EventListScreen extends Screen {
@@ -32,10 +34,14 @@ public final class EventListScreen extends Screen {
     private Rect panel = Rect.NONE;
     private int page;
 
-    private EventListScreen(EventListPayload payload) {
+    /** The screen this was opened over. Null means out to the world, which a desk opens it from. */
+    private final Screen openedFrom;
+
+    private EventListScreen(EventListPayload payload, Screen openedFrom) {
         super(Component.translatable("screen.gathering.events"));
         this.events = payload.events();
         this.desk = payload.hostAt().orElse(null);
+        this.openedFrom = openedFrom;
     }
 
     public static void accept(EventListPayload payload) {
@@ -45,8 +51,18 @@ public final class EventListScreen extends Screen {
             open.desk = payload.hostAt().orElse(null);
             open.rebuildWidgets();
         } else if (payload.show()) {
-            client.setScreen(new EventListScreen(payload));
+            client.setScreen(new EventListScreen(payload, client.screen));
         }
+    }
+
+    /** Back to whatever opened it, rather than out to the world past everything in between. */
+    @Override
+    public void onClose() {
+        if (openedFrom != null) {
+            this.minecraft.setScreen(openedFrom);
+            return;
+        }
+        super.onClose();
     }
 
     /** The desk hosting from this list would be at, for the scripted client. */
@@ -95,7 +111,7 @@ public final class EventListScreen extends Screen {
         addRenderableWidget(forward);
         var host = GatheringButtons.of(panel.x() + MARGIN + (quarter + 4) * 2, bottom, quarter, 18,
                 Component.translatable("screen.gathering.events.host"),
-                () -> this.minecraft.setScreen(new EventCreateScreen(desk)));
+                () -> this.minecraft.setScreen(new EventCreateScreen(desk, this)));
         host.active = desk != null;
         if (desk == null) {
             host.setTooltip(net.minecraft.client.gui.components.Tooltip.create(

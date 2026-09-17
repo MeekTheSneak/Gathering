@@ -42,7 +42,7 @@ public final class PackLootModifier extends LootModifier {
         if (NestedLootPools.coveredByAPool(table)) {
             return generatedLoot;
         }
-        SealedLoot.rollFor(table, context.getRandom()).ifPresent(generatedLoot::add);
+        generatedLoot.addAll(SealedLoot.findsIn(table, context));
         return generatedLoot;
     }
 

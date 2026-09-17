@@ -218,7 +218,47 @@ public final class SealedLootGameTest {
         }
         if (SealedLoot.rollFor("minecraft:entities/zombie", helper.getLevel().getRandom())
                 .isPresent()) {
+            helper.fail("A pack dropped out of a mob before any set had been read");
+            return;
+        }
+        if (SealedLoot.rollFor("minecraft:blocks/stone", helper.getLevel().getRandom())
+                .isPresent()) {
             helper.fail("A pack dropped out of a table this mod has nothing to do with");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A mob nobody fought drops nothing, however many times it dies.
+     * <p>The one source that can be automated, so the one with a gate on it: a drop chute under
+     * a spawner is a pack faucet nobody is playing, and the whole point of making packs common
+     * was to reward going somewhere rather than standing still. Read from the same loot
+     * parameter vanilla's own {@code killed_by_player} condition reads.
+     * <p>Checked on the rule rather than by rolling a real zombie, because a pack also needs a
+     * set list and a test server has none - so a roll that came back empty would prove nothing
+     * about which of the two said no.
+     */
+    @GameTest(template = "empty")
+    public static void amobNobodyFoughtDropsNothing(GameTestHelper helper) {
+        if (!dev.gathering.core.sealed.LootSource.MOBS.needsAPlayer()) {
+            helper.fail("Mob drops no longer need a player, so a spawner farm is a pack faucet");
+            return;
+        }
+        // A table rolled with no context behind it is not a kill, which is what the two-argument
+        // roll means and what every command-driven roll is.
+        if (SealedLoot.rollFor("minecraft:entities/zombie", helper.getLevel().getRandom(), false)
+                .isPresent()) {
+            helper.fail("A pack dropped off a mob a player had nothing to do with");
+            return;
+        }
+        // And the parameter the loader reads is the one vanilla uses for the same question, so
+        // a rename in a later version is a compile error rather than a silent faucet.
+        if (!net.minecraft.world.level.storage.loot.predicates.LootItemKilledByPlayerCondition
+                .killedByPlayer().build().getReferencedContextParams()
+                .contains(net.minecraft.world.level.storage.loot.parameters
+                        .LootContextParams.LAST_DAMAGE_PLAYER)) {
+            helper.fail("Vanilla no longer decides 'killed by a player' from LAST_DAMAGE_PLAYER");
             return;
         }
         helper.succeed();

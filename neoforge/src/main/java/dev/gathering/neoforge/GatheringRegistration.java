@@ -69,6 +69,8 @@ final class GatheringRegistration {
             ITEMS.register(GatheringContent.DECK_ID, GatheringContent::createDeck);
     private static final Supplier<Item> PACK =
             ITEMS.register(GatheringContent.PACK_ID, GatheringContent::createPack);
+    private static final Supplier<Item> MANA_COIN =
+            ITEMS.register(GatheringContent.MANA_COIN_ID, GatheringContent::createManaCoin);
 
     private static final Supplier<Item> SEALED =
             ITEMS.register(GatheringContent.SEALED_ID, GatheringContent::createSealed);
@@ -208,26 +210,10 @@ final class GatheringRegistration {
     private static final Supplier<CreativeModeTab> TAB = CREATIVE_TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup." + Gathering.MOD_ID + ".main"))
             .icon(() -> new ItemStack(DECK.get()))
-            .displayItems((parameters, output) -> {
-                output.accept(new ItemStack(CARD.get()));
-                output.accept(new ItemStack(DECK.get()));
-                output.accept(new ItemStack(PACK.get()));
-                output.accept(new ItemStack(SEALED.get()));
-                output.accept(new ItemStack(SHOP_COUNTER_ITEM.get()));
-                output.accept(new ItemStack(TABLE_ITEM.get()));
-                output.accept(new ItemStack(COBBLESTONE_TABLE_ITEM.get()));
-                output.accept(new ItemStack(BLACKSTONE_TABLE_ITEM.get()));
-                output.accept(new ItemStack(CRYING_OBSIDIAN_TABLE_ITEM.get()));
-                output.accept(new ItemStack(COLLECTION_ITEM.get()));
-                output.accept(new ItemStack(DISPLAY_CASE_ITEM.get()));
-                output.accept(new ItemStack(SCOREKEEPERS_DESK_ITEM.get()));
-                output.accept(new ItemStack(CHAIR_ITEM.get()));
-                output.accept(new ItemStack(COBBLESTONE_CHAIR_ITEM.get()));
-                output.accept(new ItemStack(BLACKSTONE_CHAIR_ITEM.get()));
-                output.accept(new ItemStack(CRYING_OBSIDIAN_CHAIR_ITEM.get()));
-                // And the same five things in the other woods, in the order the woods are listed.
-                everyWoodenItem().forEach(item -> output.accept(new ItemStack(item)));
-            })
+            // One order, shared with Fabric, with every family whole and no plain variant
+            // standing apart from its own woods. See GatheringContent.creativeItems.
+            .displayItems((parameters, output) -> GatheringContent.creativeItems()
+                    .forEach(item -> output.accept(new ItemStack(item.get()))))
             .build());
 
     /**
@@ -243,12 +229,6 @@ final class GatheringRegistration {
             WOOD_BLOCKS.put(variant.id(), BLOCKS.register(variant.id(), variant::createBlock));
             WOOD_ITEMS.put(variant.id(), ITEMS.register(variant.id(), variant::createItem));
         }
-    }
-
-    /** The furniture in the other woods, as items, for the creative tab. */
-    private static java.util.List<Item> everyWoodenItem() {
-        return GatheringContent.woodVariants().stream()
-                .map(variant -> WOOD_ITEMS.get(variant.id()).get()).toList();
     }
 
     /** Every table there is - four materials and the woods - for the table block entity's valid blocks. */
@@ -302,6 +282,7 @@ final class GatheringRegistration {
         GatheringContent.CARD.bind(CARD);
         GatheringContent.DECK.bind(DECK);
         GatheringContent.PACK.bind(PACK);
+        GatheringContent.MANA_COIN.bind(MANA_COIN);
         GatheringContent.TABLE.bind(TABLE);
         GatheringContent.TABLE_ITEM.bind(TABLE_ITEM);
         GatheringContent.COBBLESTONE_TABLE.bind(COBBLESTONE_TABLE);

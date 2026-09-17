@@ -39,9 +39,26 @@ public final class PodLobbyScreen extends Screen {
     private Button start;
     private String statusSaid = "";
 
-    private PodLobbyScreen(PodLobbyPayload view) {
+    /** The screen this was opened over, which Done and Escape go back to; null means the world. */
+    private final Screen openedFrom;
+
+    private PodLobbyScreen(PodLobbyPayload view, Screen openedFrom) {
         super(Component.translatable("screen.gathering.pod.lobby." + view.settings().kind().key()));
         this.view = view;
+        this.openedFrom = openedFrom;
+    }
+
+    /**
+     * Back to whatever opened it. A tournament opens this over the host's own event screen when its
+     * packs go out, and leaving it used to put the host in the room with their tournament behind them.
+     */
+    @Override
+    public void onClose() {
+        if (openedFrom != null) {
+            this.minecraft.setScreen(openedFrom);
+            return;
+        }
+        super.onClose();
     }
 
     /** What the server sent: open the screen, bring one already open up to date, or close it. */
@@ -57,7 +74,8 @@ public final class PodLobbyScreen extends Screen {
             return;
         }
         if (payload.open() && payload.show()) {
-            client.setScreen(new PodLobbyScreen(payload));
+            Screen from = client.screen instanceof PodLobbyScreen was ? was.openedFrom : client.screen;
+            client.setScreen(new PodLobbyScreen(payload, from));
         }
     }
 

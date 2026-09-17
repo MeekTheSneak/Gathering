@@ -50,6 +50,7 @@ EXPECTED_UNREFERENCED = {
     "item.gathering.deck",
     "item.gathering.pack",
     "item.gathering.sealed",
+    "item.gathering.mana_coin",
     "block.gathering.shop_counter",
     "block.gathering.cobblestone_table",
     "block.gathering.blackstone_table",

@@ -54,10 +54,21 @@ class ShopPriceTest {
     }
 
     @Test
-    @DisplayName("a server pricing in something with no bigger coin sells only what fits")
-    void withoutABlockOnlyOneSlot() {
+    @DisplayName("a currency with no bigger coin is paid in two piles of itself")
+    void withoutABlockBothSlotsAreTheSameThing() {
+        // The Mana Coin the shop prices in by default has no block and is not going to get
+        // one. Refusing everything over a single slot took every product above a booster off
+        // the counter of a default server, silently, because a price that cannot be paid is
+        // simply not offered - so a shopkeeper past novice had nothing at all.
         assertThat(ShopPrice.of(64, 1)).contains(new ShopPrice(0, 64));
-        assertThat(ShopPrice.of(65, 1)).isEmpty();
+        assertThat(ShopPrice.of(65, 1)).contains(new ShopPrice(64, 1));
+        assertThat(ShopPrice.of(65, 1).orElseThrow().total(1)).isEqualTo(65);
+        assertThat(ShopPrice.of(128, 1)).contains(new ShopPrice(64, 64));
+
+        // And two slots is still the end of it. A case is not something you carry home in
+        // coins, and a trade holds what a trade holds.
+        assertThat(ShopPrice.of(129, 1)).isEmpty();
+        assertThat(ShopPrice.dearest(1)).isEqualTo(128);
     }
 
     @Property

@@ -123,8 +123,8 @@ public final class CollectionView {
         if (!collection.rights().mayLook(who)) {
             // Over the hotbar rather than in the chat: somebody who has walked up to a locked cabinet is
             // going to click it more than once.
-            player.displayClientMessage(
-                    Component.translatable("message.gathering.collection_locked"), true);
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_locked"));
             return;
         }
         Sending.to(player, new OpenCollectionPayload(
@@ -300,8 +300,8 @@ public final class CollectionView {
             return 0;
         }
         if (!collection.rights().mayAdd(player.getUUID())) {
-            player.displayClientMessage(
-                    Component.translatable("message.gathering.collection_may_not_add"), true);
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_may_not_add"));
             return 0;
         }
 
@@ -318,8 +318,8 @@ public final class CollectionView {
             swept += gather(stack, plain, withStories);
         }
         if (swept == 0) {
-            player.displayClientMessage(
-                    Component.translatable("message.gathering.collection_nothing_loose"), true);
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_nothing_loose"));
             return 0;
         }
 
@@ -328,8 +328,8 @@ public final class CollectionView {
             collection.putStoried(one.card(), one.story());
         }
         DeckItem.playAssembleSound(player);
-        player.displayClientMessage(Component.translatable(
-                "message.gathering.collection_swept", swept, collection.cards().total()), true);
+        Notices.tell(player, Component.translatable(
+                "message.gathering.collection_swept", swept, collection.cards().total()));
         return swept;
     }
 
@@ -471,6 +471,10 @@ public final class CollectionView {
      * something that is not for sale.
      * <p>Told what it could not find, by name and count. A deck that quietly came out four
      * cards short is a deck somebody takes to a table and discovers is illegal.
+     * <p>All three piles are claimed the same way - the command zone, the deck and the
+     * sideboard - and land in the three the deck item has. Nothing about a sideboard card is
+     * cheaper: it comes out of the same box, keeps the same history, and counts the same when
+     * it cannot be found.
      */
     public static void build(ServerPlayer player, BuildDeckPayload asked) {
         CollectionBlockEntity collection = at(player, asked.where());
@@ -500,6 +504,7 @@ public final class CollectionView {
         }
         CardDataService service = CardDataService.active().orElse(null);
         List<CardComponent> got = new ArrayList<>();
+        List<CardComponent> beside = new ArrayList<>();
         List<CardComponent> commanders = new ArrayList<>();
         // What each claimed card was carrying, so the deck can keep it. Taking a card one at a time
         // has always kept its history; building a deck out of forty of them threw every one away,
@@ -523,7 +528,18 @@ public final class CollectionView {
                 missed++;
             }
         }
-        if (got.isEmpty() && commanders.isEmpty()) {
+        // The sideboard is claimed the same way and out of the same box. A sideboard filled
+        // from a list the collection could not answer is a deck that arrives short between
+        // games, which is the one moment nobody can go and fix it.
+        for (CardComponent wanted : asked.sideboard()) {
+            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted, histories);
+            if (claimed != null) {
+                beside.add(claimed);
+            } else {
+                missed++;
+            }
+        }
+        if (got.isEmpty() && commanders.isEmpty() && beside.isEmpty()) {
             // Nothing was found. An empty deck is not a thing to hand over, and handing one over
             // for every request filled an inventory and then the ground around it.
             Component nothing = Component.translatable("message.gathering.collection_deck_nothing");
@@ -540,7 +556,7 @@ public final class CollectionView {
                 name == null ? "" : name,
                 dev.gathering.core.game.PlayerText.lines(asked.description(), BuildDeckPayload.LONGEST_DESCRIPTION),
                 Optional.of(player.getUUID()),
-                List.copyOf(got), List.copyOf(commanders), List.of())
+                List.copyOf(got), List.copyOf(commanders), List.copyOf(beside))
                 .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()))
                 // In whatever the builder was showing when Finish was pressed. The server
                 // still decides what the deck contains; the sleeve is the one thing the

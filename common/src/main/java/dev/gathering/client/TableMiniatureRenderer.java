@@ -1236,7 +1236,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         if (dx * dx + dz * dz < NEAR_ENOUGH_TO_BE_SEATED * NEAR_ENOUGH_TO_BE_SEATED) {
             return;
         }
-        FloatingLabel.draw(poseStack, buffers, lines, 1.0, 2.4, 1.0);
+        FloatingLabel.draw(poseStack, buffers, lines, at, 1.0, 2.4, 1.0);
     }
 
     /** A point on the shared surface, in blocks across the table's own footprint. */

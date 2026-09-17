@@ -514,8 +514,8 @@ In rough order of how much it would change what I build next:
   placeholder in the same sense the textures are. `tools/village.py` writes the five .nbt
   files; replacing them changes nothing else.
 - **A village might not get a shop.** A jigsaw pool has no way to say "exactly one of these",
-  only how often to try, so `collection.village_shop_weight` is tuned for about one per
-  village rather than guaranteeing one. Some villages will have two and some none.
+  only how often to try, so `collection.village_shop_weight` is tuned for about nine villages
+  in ten rather than guaranteeing one. Some villages will have two and some none.
 - **A chest does not decide which set.** It decides which kind of booster: a collector booster
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.
