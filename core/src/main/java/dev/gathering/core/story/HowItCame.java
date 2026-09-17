@@ -5,10 +5,11 @@ import java.util.Locale;
 /**
  * The ways a card can come to somebody that are worth remembering.
  * <p>Deliberately short, and it will stay short. Most cards arrive in ways nobody would tell
- * anybody about - conjured by an operator, taken out of a shared box, handed over by a command
- * - and a card that remembered those would be every card, which is the same as no card
- * remembering anything. What is on this list is where the changing of hands <em>is</em> the
- * story: somebody opened it, somebody won it off you, somebody traded for it.
+ * anybody about - taken out of a shared box, dealt at a table - and a card that remembered those
+ * would be every card, which is the same as no card remembering anything. What is on this list
+ * is where the changing of hands <em>is</em> the story: somebody opened it, somebody won it off
+ * you, somebody traded for it - and, by the owner's decision, where it came from a command,
+ * because a card made from nothing must never pass for one that was not.
  * <p><b>A draft pick is not here yet, and the reason is worth writing down.</b> A drafted pool
  * is handed out as a deck rather than as cards, so at the moment of picking there is no card
  * to write on - the identities live in a component until somebody takes one out. Adding it
@@ -29,7 +30,17 @@ public enum HowItCame {
     WON,
 
     /** Taken in a trade, from whoever put it up. */
-    TRADED;
+    TRADED,
+
+    /**
+     * Made by a command rather than found, opened, won or traded for: who ran it, and which.
+     * <p>The one arrival above that is not a story about the card so much as a fact about what
+     * it is. A card conjured while collecting was off is a proxy, and one conjured by an
+     * operator is a grant; either way, if collecting is switched on later, the card sits in a
+     * collection looking exactly like one somebody opened. Written on it so it never does.
+     * Appended last, so every chapter already on disk or on the wire keeps its meaning.
+     */
+    SPAWNED;
 
     /** The name this goes by in a file and on the wire. */
     public String id() {

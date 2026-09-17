@@ -159,15 +159,6 @@ public final class Tutorial {
         remember(fresh);
     }
 
-    /** They said no. */
-    public static void skip() {
-        if (progress != null) {
-            progress = progress.skip();
-        }
-        ClientSettings.tutorialOffered(true);
-        ClientSettings.tutorialSkipped(true);
-    }
-
     /**
      * Whether to offer the guided first game at all.
      * <p>Once. Somebody who has been asked has been asked, whatever they said, and a mod that

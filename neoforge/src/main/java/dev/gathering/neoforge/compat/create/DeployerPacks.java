@@ -109,6 +109,8 @@ public final class DeployerPacks {
                 || !PackItem.packOf(loose.getItem()).map(pack::equals).orElse(false)) {
             return;
         }
+        List<dev.gathering.core.story.CardStory.Chapter> stamps =
+                dev.gathering.server.CardStories.chaptersOnPack(loose.getItem());
         ItemStack left = loose.getItem().copy();
         left.shrink(1);
         if (left.isEmpty()) {
@@ -117,8 +119,10 @@ public final class DeployerPacks {
             loose.setItem(left);
         }
         for (CardIdentity card : cards) {
+            ItemStack drawn = CardItem.of(CardComponent.of(card));
+            dev.gathering.server.CardStories.rememberAll(drawn, stamps);
             net.minecraft.world.entity.item.ItemEntity out = new net.minecraft.world.entity.item.ItemEntity(
-                    level, loose.getX(), loose.getY(), loose.getZ(), CardItem.of(CardComponent.of(card)));
+                    level, loose.getX(), loose.getY(), loose.getZ(), drawn);
             out.setDeltaMovement(0, 0.1, 0);
             level.addFreshEntity(out);
         }
@@ -200,6 +204,8 @@ public final class DeployerPacks {
             for (CardIdentity card : cards) {
                 TransportedItemStack out = transported.copy();
                 out.stack = CardItem.of(CardComponent.of(card));
+                dev.gathering.server.CardStories.rememberAll(out.stack,
+                        dev.gathering.server.CardStories.chaptersOnPack(transported.stack));
                 outputs.add(out);
             }
             if (transported.stack.getCount() <= 1) {

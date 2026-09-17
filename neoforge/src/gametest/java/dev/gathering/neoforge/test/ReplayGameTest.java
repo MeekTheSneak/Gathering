@@ -338,6 +338,94 @@ public final class ReplayGameTest {
         }
     }
 
+    /**
+     * A casual game is its players' own by default, and a tournament's match is hidden until the
+     * tournament is over and then anybody's.
+     * <p>The owner's rule. A replay shows every hand and every library in order; a casual game's
+     * players meet again, and a tournament's matches were played in front of the server and are
+     * worth watching back once the decks no longer matter.
+     */
+    @GameTest(template = "empty")
+    public static void casualGamesAreTheirPlayersAndTournamentMatchesGoPublicAfterward(GameTestHelper helper) {
+        var before = ServerSettings.get().modes().replays();
+        dev.gathering.server.events.EventState event = null;
+        try {
+            // The default, which GatheringConfigTest pins; set here because tests share a server.
+            Settings.set("modes.replays", "participants");
+            ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+            ServerPlayer played = helper.makeMockServerPlayerInLevel();
+            List<Replays.Played> atTheTable = List.of(
+                    new Replays.Played("Alice", played.getUUID()), new Replays.Played("Bob", BOB_ACCOUNT));
+
+            if (!Replays.keep(aFinishedGame(), 40, atTheTable)) {
+                helper.fail("fixture: a casual game was not kept");
+                return;
+            }
+            Replays.Record casual = newest().orElse(null);
+            if (casual == null || casual.event().isPresent()) {
+                helper.fail("a casual game was kept as a tournament match: " + casual);
+                return;
+            }
+            if (dev.gathering.server.ReplayWatch.mayWatch(stranger, casual)) {
+                helper.fail("somebody who did not play a casual game can watch it back");
+                return;
+            }
+            if (!dev.gathering.server.ReplayWatch.mayWatch(played, casual)) {
+                helper.fail("a player cannot watch back a casual game they played");
+                return;
+            }
+
+            dev.gathering.core.tournament.Tournament running = dev.gathering.core.tournament.Tournament.create(
+                    java.util.UUID.randomUUID(), "Friday", stranger.getUUID(),
+                    dev.gathering.core.tournament.EventSettings.usual(
+                            dev.gathering.core.tournament.EventSettings.Kind.CONSTRUCTED, "modern"));
+            net.minecraft.core.BlockPos itsTable = helper.absolutePos(new net.minecraft.core.BlockPos(1, 2, 1));
+            event = dev.gathering.server.events.Events.stateForTesting(running, helper.getLevel(), List.of(itsTable));
+            dev.gathering.server.events.Events.putForTesting(event);
+            // And a game ending at one of a running event's tables is placed in it, which is
+            // where TableSessions reads the event from when it writes the game down.
+            if (!dev.gathering.server.events.Events.eventOfGameEndingAt(helper.getLevel(), itsTable)
+                    .equals(java.util.Optional.of(running.id()))) {
+                helper.fail("a game ending at a running tournament's table is not placed in the tournament");
+                return;
+            }
+            if (!Replays.keep(aFinishedGame(), 40, atTheTable, java.util.Optional.of(running.id()))) {
+                helper.fail("fixture: a tournament match was not kept");
+                return;
+            }
+            Replays.Record match = newest().orElse(null);
+            if (match == null || !match.event().equals(java.util.Optional.of(running.id()))) {
+                helper.fail("a tournament match was not kept as one: " + match);
+                return;
+            }
+            if (dev.gathering.server.ReplayWatch.mayWatch(stranger, match)
+                    || dev.gathering.server.ReplayWatch.mayWatch(played, match)) {
+                helper.fail("a tournament match can be watched while the tournament is still running");
+                return;
+            }
+            dev.gathering.server.events.Events.setForTesting(event, running.cancel());
+            if (dev.gathering.server.events.Events.eventOfGameEndingAt(helper.getLevel(), itsTable).isPresent()) {
+                helper.fail("a casual game at a table a finished tournament once used would be kept as that"
+                        + " tournament's, and go public with it");
+                return;
+            }
+            if (!dev.gathering.server.ReplayWatch.mayWatch(stranger, match)) {
+                helper.fail("a tournament match is still hidden from the server after the tournament is over");
+                return;
+            }
+            if (dev.gathering.server.ReplayWatch.mayWatch(stranger, casual)) {
+                helper.fail("a casual game went public along with the tournament");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            if (event != null) {
+                dev.gathering.server.events.Events.removeForTesting(event);
+            }
+            Settings.set("modes.replays", before.toString());
+        }
+    }
+
     // ------------------------------------------------------------------ setup
 
     /**

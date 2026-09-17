@@ -34,6 +34,12 @@ public final class CardGrant {
      * touch the inventory, like every other path that talks to Scryfall.
      */
     public static void byName(ServerPlayer player, CardDataService service, String cardName, boolean foil) {
+        byName(player, service, cardName, foil, null);
+    }
+
+    /** @param stamp written on the card, or null. A card a command made carries who ran it. */
+    public static void byName(ServerPlayer player, CardDataService service, String cardName, boolean foil,
+            dev.gathering.core.story.CardStory.Chapter stamp) {
         service.findByName(cardName)
                 .whenComplete(ServerRun.onServerThread(player, (found, failure) -> {
                     if (player.hasDisconnected()) {
@@ -45,7 +51,7 @@ public final class CardGrant {
                         return;
                     }
                     found.ifPresentOrElse(
-                            card -> give(player, card, foil),
+                            card -> give(player, card, foil, stamp),
                             () -> player.sendSystemMessage(Component.translatable(
                                     "message.gathering.card_not_found", cardName)));
                 }));
@@ -53,8 +59,15 @@ public final class CardGrant {
 
     /** Server thread only. */
     public static void give(ServerPlayer player, CardMetadata card, boolean foil) {
+        give(player, card, foil, null);
+    }
+
+    /** Server thread only. */
+    public static void give(ServerPlayer player, CardMetadata card, boolean foil,
+            dev.gathering.core.story.CardStory.Chapter stamp) {
         ItemStack stack = CardItem.of(CardComponent.of(
                 CardIdentity.ofPrinting(card.scryfallId(), foil)));
+        CardStories.remember(stack, stamp);
 
         // The summary first: a client told about a card before it holds one never renders a
         // blank, which is the difference between "loading" and "broken" on screen.

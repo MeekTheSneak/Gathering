@@ -24,6 +24,21 @@ class GatheringConfigTest {
         assertThat(GatheringConfig.defaults().notes()).isEmpty();
     }
 
+    /**
+     * Casual replays are kept for the people who played them, on a server that never says.
+     * <p>A replay shows every hand and every library in order, and it was public by default on
+     * the reasoning that a game at a table was public while it happened - which none of that
+     * was. Both a server with no file and a server with a file that does not mention it.
+     */
+    @Test
+    @DisplayName("a server that never says keeps casual replays to their players")
+    void casualReplaysAreTheirPlayersByDefault() throws Exception {
+        assertThat(GatheringConfig.defaults().modes().replays())
+                .isEqualTo(GatheringConfig.Replays.PARTICIPANTS);
+        assertThat(GatheringConfig.read(Toml.read("[modes]\ncollection_enabled = true\n")).modes().replays())
+                .isEqualTo(GatheringConfig.Replays.PARTICIPANTS);
+    }
+
     @Test
     @DisplayName("a server that never opens the file collects, and only operators import")
     void defaultsAreCollecting() {

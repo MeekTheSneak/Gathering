@@ -31,7 +31,7 @@ public final class PackWrapperGameTest {
     public static void theCardsComeWhenTheWrapperIsTornAndOnlyThen(GameTestHelper helper) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         Owed.forget(player.getUUID());
-        String token = PackWrappers.hold(player, null, "tst", null, cards());
+        String token = PackWrappers.hold(player, null, "tst", null, cards(), java.util.List.of());
         if (token == null) {
             helper.fail("the wrapper could not be written down");
             return;
@@ -63,7 +63,7 @@ public final class PackWrapperGameTest {
         ServerPlayer other = helper.makeMockServerPlayerInLevel();
         Owed.forget(owner.getUUID());
         Owed.forget(other.getUUID());
-        String token = PackWrappers.hold(owner, null, "tst", null, cards());
+        String token = PackWrappers.hold(owner, null, "tst", null, cards(), java.util.List.of());
         PackWrappers.torn(other, token);
         if (countOf(other, CardItem.class) != 0 || countOf(owner, CardItem.class) != 0) {
             helper.fail("a wrapper was torn by somebody else's token");
@@ -81,7 +81,7 @@ public final class PackWrapperGameTest {
     public static void aPlayerWhoLeavesBeforeTearingGetsTheCardsOnJoining(GameTestHelper helper) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         Owed.forget(player.getUUID());
-        String token = PackWrappers.hold(player, null, "tst", null, cards());
+        String token = PackWrappers.hold(player, null, "tst", null, cards(), java.util.List.of());
         PackWrappers.forget(player.getUUID());
         // Joining again.
         Owed.deliver(player);
@@ -102,7 +102,7 @@ public final class PackWrapperGameTest {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         Owed.forget(player.getUUID());
         String receipt = Owed.opening(player.getUUID(), "tst", "play", "").orElseThrow();
-        String token = PackWrappers.hold(player, receipt, "tst", null, cards());
+        String token = PackWrappers.hold(player, receipt, "tst", null, cards(), java.util.List.of());
         if (token == null) {
             helper.fail("the wrapper could not replace the receipt");
             return;

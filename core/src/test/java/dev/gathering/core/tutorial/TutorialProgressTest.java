@@ -77,39 +77,10 @@ class TutorialProgressTest {
         }
 
         @Test
-        @DisplayName("anything at all, once it has been skipped")
-        void skippedIsFinishedWith() {
-            TutorialProgress at = TutorialProgress.start().skip().saw(TutorialStep.DRAW);
-            assertThat(at.count()).isZero();
-            assertThat(at.skipped()).isTrue();
-        }
-
-        @Test
         @DisplayName("null, which is what an action nobody is asking about looks like")
         void nothing() {
             TutorialProgress at = TutorialProgress.start().saw(null);
             assertThat(at).isEqualTo(TutorialProgress.start());
-        }
-    }
-
-    @Nested
-    @DisplayName("skipping")
-    class Skipping {
-
-        @Test
-        @DisplayName("is never recorded as finishing, however far through")
-        void skippingIsNotFinishing() {
-            TutorialProgress nearlyThere = through(TutorialProgress.start(),
-                    TutorialStep.DRAW, TutorialStep.PLAY, TutorialStep.TAP,
-                    TutorialStep.COUNT, TutorialStep.READ);
-            assertThat(nearlyThere.count()).isEqualTo(5);
-
-            TutorialProgress gaveUp = nearlyThere.skip();
-            assertThat(gaveUp.isFinished()).isFalse();
-            assertThat(gaveUp.skipped()).isTrue();
-            assertThat(gaveUp.isOver()).isTrue();
-            // What they did do is still true, and still theirs.
-            assertThat(gaveUp.count()).isEqualTo(5);
         }
     }
 
@@ -186,7 +157,9 @@ class TutorialProgressTest {
         @Test
         @DisplayName("answers with nothing once it is over")
         void overIsOver() {
-            assertThat(TutorialProgress.start().skip().stepFor("draw")).isNull();
+            TutorialProgress finished = through(TutorialProgress.start(), TutorialStep.values());
+            assertThat(finished.isOver()).isTrue();
+            assertThat(finished.stepFor(TutorialStep.DRAW.action())).isNull();
         }
     }
 

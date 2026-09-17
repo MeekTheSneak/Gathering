@@ -37,6 +37,15 @@ public final class PackGrant {
      * @param kind which booster, or blank for the first the set publishes
      */
     public static void give(ServerPlayer player, String setCode, String kind) {
+        give(player, setCode, kind, null);
+    }
+
+    /**
+     * @param stamp written on the pack, and so on every card opened out of it, or null. A pack
+     *              handed over by a command carries who ran it.
+     */
+    public static void give(ServerPlayer player, String setCode, String kind,
+            dev.gathering.core.story.CardStory.Chapter stamp) {
         // The same question the opening asks, asked before handing anybody a pack rather
         // than after: a booster granted on a server that is not collecting is a booster that
         // will refuse to open, and finding that out afterwards is worse than being told now.
@@ -57,6 +66,7 @@ public final class PackGrant {
         // it is never sold, and finding one is the point.
         if (dev.gathering.item.PackComponent.ARCHIVE.equals(set)) {
             ItemStack archive = Archive.pack();
+            CardStories.rememberOnPack(archive, stamp);
             dev.gathering.server.Handing.give(player, archive);
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.archive_given", Archive.size()));
@@ -82,6 +92,7 @@ public final class PackGrant {
             }
             ItemStack stack = PackItem.of(new PackComponent(
                     product.asBooster().setCode(), product.asBooster().kind()));
+            CardStories.rememberOnPack(stack, stamp);
             dev.gathering.server.Handing.give(player, stack);
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.sealed_given", product.name()));

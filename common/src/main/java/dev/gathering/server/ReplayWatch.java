@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.core.config.GatheringConfig;
 import dev.gathering.network.ReplayFramePayload;
 import dev.gathering.network.ReplayListPayload;
 import dev.gathering.network.Sending;
@@ -72,25 +73,43 @@ public final class ReplayWatch {
 
     /**
      * Whether this player may watch this particular game back.
-     * <p>The middle setting is the one most groups want: settle your own argument about what
-     * was on top of the library without a stranger reading your deck for the rematch. An
-     * operator may open any of them, because an operator can read the file anyway and the
-     * question they are usually answering is somebody else's complaint.
+     * <p>A replay shows everything: every hand, the library in order, every face-down card. So
+     * a casual game is its players' own - settling an argument about what was on top of the
+     * library does not mean a stranger reads your deck for the rematch. A tournament's match is
+     * different once the tournament is over: the event was played in front of the server, the
+     * decks are no longer secret from anybody who has to play against them, and watching the
+     * final back is what an event is for. Until then it is hidden, or it is next round's
+     * opponent reading a list. An operator may open any of them, because an operator can read
+     * the file anyway and is usually answering somebody else's complaint.
+     * <p>The server setting only chooses how casual games are shared: {@code participants},
+     * the default, as above; {@code public} for a group that wants them open; {@code off} for
+     * none kept at all.
      */
     public static boolean mayWatch(ServerPlayer player, Replays.Record kept) {
-        if (!player.hasPermissions(2) && kept.players().stream()
-                .anyMatch(played -> dev.gathering.server.events.Events.of(played.id()).isPresent())) {
-            // A tournament's players bring the same deck to every round. A game one of them
-            // played is not shown to anybody but an operator until their event is over, or it
-            // is next round's opponent reading their list.
+        var setting = ServerSettings.get().modes().replays();
+        if (setting == GatheringConfig.Replays.OFF) {
             return false;
         }
-        return switch (ServerSettings.get().modes().replays()) {
-            case PUBLIC -> true;
-            case PARTICIPANTS -> kept.wasPlayedBy(player.getUUID())
-                    || player.hasPermissions(2);
-            case OFF -> false;
-        };
+        if (player.hasPermissions(2)) {
+            return true;
+        }
+        if (kept.event().isPresent()) {
+            // Over, or gone from the records altogether - which only happens to an event long
+            // finished - and it is anybody's to watch.
+            return dev.gathering.server.events.Events.get(kept.event().get())
+                    .map(state -> state.tournament().isOver())
+                    .orElse(true);
+        }
+        if (kept.wasPlayedBy(player.getUUID())) {
+            return true;
+        }
+        if (setting != GatheringConfig.Replays.PUBLIC) {
+            return false;
+        }
+        // Public casual games still wait while anybody who played one is in an event, whose
+        // deck that game shows.
+        return kept.players().stream()
+                .noneMatch(played -> dev.gathering.server.events.Events.of(played.id()).isPresent());
     }
 
     /** The list, or one frame. An empty id is the list. */

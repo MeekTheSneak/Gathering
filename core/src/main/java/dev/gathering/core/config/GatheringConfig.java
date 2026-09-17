@@ -45,11 +45,11 @@ public record GatheringConfig(
     /**
      * The master switches.
      *
-     * @param replays who may watch a finished game back. Public by default: a replay only
-     *                ever shows a game that is over, so there is nothing left in it to
-     *                exploit, and a game played at a table anybody could stand at was public
-     *                while it happened. A server running a tournament where the same decks
-     *                meet again the next evening has the other two.
+     * @param replays who may watch a casual game back. Participants by default: a replay shows
+     *                every hand and every library in order, none of which was public at the
+     *                table, and the same decks meet again. A tournament's matches are not
+     *                governed by this - they are public once the tournament is over, whatever
+     *                this says, and nothing is kept at all when it says off.
      */
     public record Modes(boolean importEnabled, boolean collectionEnabled, Replays replays) {
     }
@@ -62,10 +62,10 @@ public record GatheringConfig(
      */
     public enum Replays {
 
-        /** Anybody on the server may watch any finished game. */
+        /** Casual games are anybody's to watch, as tournament matches are once the event is over. */
         PUBLIC,
 
-        /** Only the people who sat at the table may watch that game. */
+        /** Casual games only by the people who played them; tournament matches once the event is over. */
         PARTICIPANTS,
 
         /** Nothing is kept at all. */
@@ -253,7 +253,7 @@ public record GatheringConfig(
         // somebody a deck. A server that would rather everyone typed their own says so in
         // one line: import.allow_all_players.
         boolean collectionEnabled = toml.flag("modes.collection_enabled", true);
-        Replays replays = Replays.parse(toml.string("modes.replays", "public"), Replays.PUBLIC);
+        Replays replays = Replays.parse(toml.string("modes.replays", "participants"), Replays.PARTICIPANTS);
 
         Importing importing = new Importing(
                 toml.flag("import.allow_all_players", false),
@@ -475,11 +475,12 @@ public record GatheringConfig(
                 [modes]
                 import_enabled = true
                 collection_enabled = true
-                # Who may watch a finished game back, hidden information and all: public,
-                # participants (only the people who sat at that table), or off. Safe because
-                # the game is over - but a server where the same decks meet again the next
-                # evening may want one of the other two.
-                replays = "public"
+                # Who may watch a casual game back, hidden information and all: participants
+                # (only the people who played it), public, or off. A replay shows every hand and
+                # the library in order, which nobody at the table could see. A tournament's
+                # matches are public once the tournament is over, whichever of the first two
+                # this is; off keeps nothing.
+                replays = "participants"
 
                 [import]
                 # true lets every player import a decklist. false keeps it to operators, which
@@ -529,8 +530,10 @@ public record GatheringConfig(
                 # thirty-odd houses Minecraft already has - eight is about one shop per
                 # village. Zero builds none, for a server placing its own.
                 village_shop_weight = 8
-                # Which set is found and sold. "auto" asks Scryfall for the newest release, so
-                # a server left alone stays current; name a set code to stay where you are.
+                # What "current" means in loot_sets above, and nothing else: it does not limit
+                # what is found or sold unless loot_sets names "current". "auto" asks Scryfall
+                # for the newest release, so a server left alone stays current; a set code
+                # pins it where it is.
                 current_set = "auto"
                 booster_model = "play"
                 # The two boosters a player is given the first time they finish the lesson.

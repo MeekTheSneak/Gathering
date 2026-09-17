@@ -29,8 +29,13 @@ public final class PackWrappers {
     /** How long a wrapper waits to be torn before its cards are handed over anyway: a minute and a half. */
     static final int WAIT_TICKS = 20 * 90;
 
-    /** Whose wrapper a token is, and which card the pack was opened for, to remember being pulled. */
-    private record Held(UUID player, String set, CardIdentity best) {
+    /**
+     * Whose wrapper a token is, and which card the pack was opened for, to remember being pulled.
+     *
+     * @param stamps what the pack was carrying, written on every card under the wrapper
+     */
+    private record Held(UUID player, String set, CardIdentity best,
+            List<dev.gathering.core.story.CardStory.Chapter> stamps) {
     }
 
     private static final Map<String, Held> HELD = new HashMap<>();
@@ -48,7 +53,8 @@ public final class PackWrappers {
      * @return the wrapper's token, or null if it could not be written down - in which case the caller
      *     hands the cards over at once rather than risk them
      */
-    public static String hold(ServerPlayer player, String receipt, String set, CardIdentity best, List<CardIdentity> giving) {
+    public static String hold(ServerPlayer player, String receipt, String set, CardIdentity best, List<CardIdentity> giving,
+            List<dev.gathering.core.story.CardStory.Chapter> stamps) {
         String token = UUID.randomUUID().toString();
         boolean written = receipt == null
                 ? Owed.wrapped(player.getUUID(), token, giving)
@@ -56,7 +62,7 @@ public final class PackWrappers {
         if (!written) {
             return null;
         }
-        HELD.put(token, new Held(player.getUUID(), set, best));
+        HELD.put(token, new Held(player.getUUID(), set, best, stamps == null ? List.of() : List.copyOf(stamps)));
         MinecraftServer server = player.getServer();
         UUID who = player.getUUID();
         if (server != null) {
@@ -82,7 +88,9 @@ public final class PackWrappers {
         ServerTicks.forget(key(token));
         ItemStack best = held.best() == null ? ItemStack.EMPTY : CardItem.of(CardComponent.of(held.best()));
         Owed.unwrap(player, token, stack -> {
-            if (!best.isEmpty() && ItemStack.isSameItemSameComponents(stack, best)) {
+            boolean wasBest = !best.isEmpty() && ItemStack.isSameItemSameComponents(stack, best);
+            CardStories.rememberAll(stack, held.stamps());
+            if (wasBest) {
                 CardStories.remember(stack, CardStories.pulledBy(player, held.set()));
             }
             return stack;

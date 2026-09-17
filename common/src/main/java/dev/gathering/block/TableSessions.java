@@ -291,7 +291,10 @@ public final class TableSessions {
                     .map(who -> new dev.gathering.server.Replays.Played(who.name(), who.id()))
                     .ifPresent(played::add);
         }
-        if (!dev.gathering.server.Replays.keep(session, session.startingLife(), played)) {
+        java.util.Optional<java.util.UUID> event = level instanceof net.minecraft.server.level.ServerLevel server
+                ? dev.gathering.server.events.Events.eventOfGameEndingAt(server, tableOrigin)
+                : java.util.Optional.empty();
+        if (!dev.gathering.server.Replays.keep(session, session.startingLife(), played, event)) {
             return;
         }
         for (SeatAnchor seat : anchors) {

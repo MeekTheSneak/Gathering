@@ -60,6 +60,55 @@ public final class CardStories {
                 HowItCame.TRADED, nameOf(player), nameOf(from), "", today());
     }
 
+    /**
+     * Somebody ran a command and this card came out of it - directly, or out of a pack the
+     * command made.
+     *
+     * @param who     whoever ran it, by name: a player, or the server's own name for a console
+     * @param command the command's own words after {@code /gathering}, such as {@code foil} or
+     *                {@code pack give} - a chapter keeps sixteen characters of each field
+     */
+    public static CardStory.Chapter spawnedBy(String who, String command) {
+        return new CardStory.Chapter(HowItCame.SPAWNED, who == null ? "" : who,
+                "", command == null ? "" : command, today());
+    }
+
+    /** The same, for a command a source ran: a player's name, or the server's for a console. */
+    public static CardStory.Chapter spawnedBy(net.minecraft.commands.CommandSourceStack source, String command) {
+        return spawnedBy(source.getTextName(), command);
+    }
+
+    /**
+     * Puts these chapters on a pack, so every card that comes out of it carries them.
+     * <p>A pack is not a card and does not show a history of its own. It holds one here only to
+     * hand it on: see {@link #chaptersOnPack}, read by whatever opens it.
+     */
+    public static void rememberOnPack(ItemStack pack, CardStory.Chapter chapter) {
+        if (pack == null || pack.isEmpty() || chapter == null
+                || dev.gathering.item.PackItem.packOf(pack).isEmpty()) {
+            return;
+        }
+        var type = GatheringComponents.STORY.get();
+        StoryComponent already = pack.get(type);
+        CardStory story = already == null ? CardStory.NONE : already.story();
+        pack.set(type, StoryComponent.of(story.and(chapter)));
+    }
+
+    /** What a pack will hand on to every card opened out of it, which is almost always nothing. */
+    public static java.util.List<CardStory.Chapter> chaptersOnPack(ItemStack pack) {
+        return StoryComponent.on(pack).chapters();
+    }
+
+    /** Every one of these chapters, onto a card. */
+    public static void rememberAll(ItemStack stack, java.util.List<CardStory.Chapter> chapters) {
+        if (chapters == null) {
+            return;
+        }
+        for (CardStory.Chapter chapter : chapters) {
+            remember(stack, chapter);
+        }
+    }
+
     private static String nameOf(ServerPlayer player) {
         return player == null ? "" : player.getGameProfile().getName();
     }

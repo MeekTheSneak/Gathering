@@ -974,8 +974,40 @@ public final class Events {
         };
     }
 
+    /**
+     * The event whose tables are being cleared right now, if any.
+     * <p>Said explicitly rather than worked out from the table. A game ended here is a match of
+     * this event - but the round that finishes an event is cleared after the event already
+     * reads as over, so {@link #atTable}, which only knows unfinished events, would not place
+     * it; and a table from a long-finished event hosts casual games afterwards, so asking which
+     * event ever used a table would place those wrongly, in the direction that shows somebody's
+     * casual game to the whole server.
+     */
+    private static UUID clearing;
+
+    /**
+     * Which tournament a game ending at this table right now is a match of, if it is one.
+     * Asked as the game is written down, to decide who may watch it back.
+     */
+    public static Optional<UUID> eventOfGameEndingAt(ServerLevel level, BlockPos origin) {
+        if (clearing != null) {
+            return Optional.of(clearing);
+        }
+        return atTable(level, origin).map(state -> state.tournament.id());
+    }
+
     /** Ends anything left running at the event's tables, handing decks back. */
     private static void clearTables(ServerLevel level, EventState state) {
+        UUID was = clearing;
+        clearing = state.tournament.id();
+        try {
+            clearTablesOf(level, state);
+        } finally {
+            clearing = was;
+        }
+    }
+
+    private static void clearTablesOf(ServerLevel level, EventState state) {
         for (BlockPos table : tablesStillOurs(level, state)) {
             TableBlock.entityAt(level, table).ifPresent(entity -> {
                 if (entity.hasSession()) {

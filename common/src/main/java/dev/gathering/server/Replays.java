@@ -50,7 +50,14 @@ public final class Replays {
     public static final int KEPT = 64;
 
     /** The byte layout's own version, so a later change can refuse an older file plainly. */
-    private static final int VERSION = 3;
+    private static final int VERSION = 4;
+
+    /**
+     * The format before a replay said which tournament it was from. Still read, as casual: a
+     * game nobody can place in an event is a game shown only to the people who played it, which
+     * is the safe way to be wrong.
+     */
+    private static final int WITHOUT_EVENT = 3;
 
     private Replays() {
     }
@@ -61,8 +68,14 @@ public final class Replays {
      * @param players who sat at the table, name and account both. The name is what the list
      *                shows; the account is what decides who may open it on a server that
      *                keeps replays for the people who played them
+     * @param event   the tournament this game was a match of, or empty for a casual game
      */
-    public record Record(String id, long when, List<Played> players, int turns, int steps, int seats) {
+    public record Record(String id, long when, List<Played> players, int turns, int steps, int seats,
+            java.util.Optional<java.util.UUID> event) {
+
+        public Record {
+            event = event == null ? java.util.Optional.empty() : event;
+        }
 
         /** The names, in the order they sat, for anything that only wants to print them. */
         public List<String> names() {
@@ -103,6 +116,16 @@ public final class Replays {
      *         server has replays switched off or the disk refused it
      */
     public static boolean keep(GameSession session, int startingLife, List<Played> players) {
+        return keep(session, startingLife, players, java.util.Optional.empty());
+    }
+
+    /**
+     * @param event the tournament this game was a match of, which decides who may watch it:
+     *              a casual game is its players' own, and a tournament's matches go public once
+     *              the tournament is over. See {@link ReplayWatch#mayWatch}.
+     */
+    public static boolean keep(GameSession session, int startingLife, List<Played> players,
+            java.util.Optional<java.util.UUID> event) {
         if (session == null || !session.state().ended() || !ReplayWatch.keeping()) {
             return false;
         }
@@ -126,6 +149,12 @@ public final class Replays {
                 out.writeInt(startingLife);
                 out.writeInt(records.size());
                 out.writeUTF(session.undoMode().name());
+                java.util.UUID tournament = event == null ? null : event.orElse(null);
+                out.writeBoolean(tournament != null);
+                if (tournament != null) {
+                    out.writeLong(tournament.getMostSignificantBits());
+                    out.writeLong(tournament.getLeastSignificantBits());
+                }
                 // The seed and the secret log, sealed together and bound to what stands in
                 // front of them. A replay cannot do without the seed - a shuffle is only
                 // reproducible from it - and seed plus decklist is every card anybody drew,
@@ -375,7 +404,8 @@ public final class Replays {
     private static java.util.Optional<Game> read(Path file) {
         try (DataInputStream in = new DataInputStream(
                 new ByteArrayInputStream(Files.readAllBytes(file)))) {
-            if (in.readInt() != VERSION) {
+            int version = in.readInt();
+            if (version != VERSION && version != WITHOUT_EVENT) {
                 return java.util.Optional.empty();
             }
             in.readLong();
@@ -384,6 +414,7 @@ public final class Replays {
             int startingLife = in.readInt();
             in.readInt();
             UndoMode undoMode = UndoMode.valueOf(in.readUTF());
+            readEvent(in, version);
             javax.crypto.SecretKey key = SessionKeyring.key().orElse(null);
             if (key == null) {
                 LOGGER.warn("A replay cannot be opened without this server's session key");
@@ -430,7 +461,8 @@ public final class Replays {
         }
         try (DataInputStream in = new DataInputStream(
                 new java.io.BufferedInputStream(Files.newInputStream(file)))) {
-            if (in.readInt() != VERSION) {
+            int version = in.readInt();
+            if (version != VERSION && version != WITHOUT_EVENT) {
                 return java.util.Optional.empty();
             }
             long when = in.readLong();
@@ -439,6 +471,7 @@ public final class Replays {
             in.readInt();
             int steps = in.readInt();
             in.readUTF();
+            java.util.Optional<java.util.UUID> event = readEvent(in, version);
             in.readNBytes(in.readInt());
             int players = in.readInt();
             List<Played> named = new ArrayList<>(players);
@@ -447,7 +480,7 @@ public final class Replays {
                 named.add(new Played(name, new java.util.UUID(in.readLong(), in.readLong())));
             }
             Record header = new Record(
-                    file.getFileName().toString(), when, named, turns, steps, seats);
+                    file.getFileName().toString(), when, named, turns, steps, seats, event);
             // Kept: a replay file never changes once written, so its header is the same
             // answer every time somebody asks. The shelf is capped, so this is too.
             HEADERS.put(header.id(), header);
@@ -455,6 +488,15 @@ public final class Replays {
         } catch (IOException | RuntimeException unreadable) {
             return java.util.Optional.empty();
         }
+    }
+
+    /** Which tournament a replay was from, in a format that says; none in one that does not. */
+    private static java.util.Optional<java.util.UUID> readEvent(DataInputStream in, int version)
+            throws IOException {
+        if (version == WITHOUT_EVENT || !in.readBoolean()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(new java.util.UUID(in.readLong(), in.readLong()));
     }
 
     private static List<SeatId> seatsOf(int howMany) {

@@ -17,11 +17,10 @@ import java.util.Set;
  * and a Back button that quietly returned a card to a library would be a rules engine, which
  * this mod does not have and will not grow. So a step already done stays done, and going back
  * only changes which instruction is on the screen.
- * <p>Skipping is recorded as skipping. It is never written down as finishing, however far
- * through somebody was, because the two are different facts about a player and the second one
- * is the one that decides whether they are ever offered this again.
+ * <p>Leaving before the end is not finishing, however far through somebody was: the controller
+ * records the two differently, and only finishing is written down as finishing.
  */
-public record TutorialProgress(TutorialStep showing, Set<TutorialStep> done, boolean skipped) {
+public record TutorialProgress(TutorialStep showing, Set<TutorialStep> done) {
 
     public TutorialProgress {
         // Built up rather than EnumSet.copyOf, which throws on an empty collection that is
@@ -35,7 +34,7 @@ public record TutorialProgress(TutorialStep showing, Set<TutorialStep> done, boo
 
     /** At the beginning, with nothing done. */
     public static TutorialProgress start() {
-        return new TutorialProgress(TutorialStep.DRAW, EnumSet.noneOf(TutorialStep.class), false);
+        return new TutorialProgress(TutorialStep.DRAW, EnumSet.noneOf(TutorialStep.class));
     }
 
     /**
@@ -48,14 +47,14 @@ public record TutorialProgress(TutorialStep showing, Set<TutorialStep> done, boo
      * where it is and {@link #isFinished()} becomes true.
      */
     public TutorialProgress saw(TutorialStep step) {
-        if (step == null || skipped || step != showing || done.contains(step)) {
+        if (step == null || step != showing || done.contains(step)) {
             return this;
         }
         EnumSet<TutorialStep> now = EnumSet.noneOf(TutorialStep.class);
         now.addAll(done);
         now.add(step);
         TutorialStep next = step.next();
-        return new TutorialProgress(next == null ? step : next, now, false);
+        return new TutorialProgress(next == null ? step : next, now);
     }
 
     /**
@@ -64,7 +63,7 @@ public record TutorialProgress(TutorialStep showing, Set<TutorialStep> done, boo
      */
     public TutorialProgress back() {
         TutorialStep before = showing.previous();
-        return before == null ? this : new TutorialProgress(before, done, skipped);
+        return before == null ? this : new TutorialProgress(before, done);
     }
 
     /**
@@ -75,22 +74,17 @@ public record TutorialProgress(TutorialStep showing, Set<TutorialStep> done, boo
      */
     public TutorialProgress forward() {
         TutorialStep after = showing.next();
-        return after == null ? this : new TutorialProgress(after, done, skipped);
-    }
-
-    /** They said no. Recorded as exactly that. */
-    public TutorialProgress skip() {
-        return new TutorialProgress(showing, done, true);
+        return after == null ? this : new TutorialProgress(after, done);
     }
 
     /** Whether every step has actually been done. */
     public boolean isFinished() {
-        return !skipped && done.size() == TutorialStep.count();
+        return done.size() == TutorialStep.count();
     }
 
-    /** Whether there is nothing more to show: finished, or given up on. */
+    /** Whether there is nothing more to show. */
     public boolean isOver() {
-        return skipped || isFinished();
+        return isFinished();
     }
 
     /** Whether that step has been done. */

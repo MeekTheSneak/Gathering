@@ -11,7 +11,7 @@ import java.util.List;
  * not the same object as one fished out of the sea, and until something writes that down the
  * mod knows the difference and never says it.
  * <p>So a card gains a story only when something worth remembering happens to it - see
- * {@link HowItCame}, which is four things and will stay four. A card with no story is a card
+ * {@link HowItCame}, which is a short list and will stay short. A card with no story is a card
  * with nothing to say, costs nothing, and stacks with its fellows as it always did.
  * <p><b>Bounded, and it loses the middle rather than the ends.</b> A card that changed hands a
  * hundred times would otherwise be a hundred lines nobody reads and a hundred entries nobody

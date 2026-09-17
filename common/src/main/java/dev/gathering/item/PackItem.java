@@ -60,13 +60,17 @@ public class PackItem extends Item {
                         "message.gathering.pack_not_recorded"));
                 return InteractionResultHolder.fail(stack);
             }
+            // What the pack says about itself, read before it is taken: a pack a command made is
+            // stamped, and every card out of it has to say so. See CardStories.
+            java.util.List<dev.gathering.core.story.CardStory.Chapter> stamps =
+                    dev.gathering.server.CardStories.chaptersOnPack(stack);
             stack.shrink(1);
             // Sneaking opens it where it stands; an ordinary right-click opens it by hand.
             // The server decides, because the server is what knows a pack came out at all -
             // and it already knows whether this player is sneaking, because that is synced.
             boolean ceremony = !opener.isShiftKeyDown();
             PackOpening.openFor(opener, pack.setCode(), pack.kind(), pack.color(), receipt,
-                    () -> giveBack(opener, pack), ceremony);
+                    () -> giveBack(opener, pack, stamps), ceremony, stamps);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
@@ -77,8 +81,14 @@ public class PackItem extends Item {
      * not running, a set with no packs, a set file that would not come. None of those are the
      * player's doing and none of them should cost them a booster.
      */
-    private static void giveBack(ServerPlayer player, PackComponent pack) {
+    private static void giveBack(ServerPlayer player, PackComponent pack,
+            java.util.List<dev.gathering.core.story.CardStory.Chapter> stamps) {
         ItemStack stack = of(pack);
+        // With its stamp. A command-made pack handed back plain would open next time into
+        // cards that pass for found ones.
+        for (dev.gathering.core.story.CardStory.Chapter chapter : stamps) {
+            dev.gathering.server.CardStories.rememberOnPack(stack, chapter);
+        }
         dev.gathering.server.Handing.give(player, stack);
     }
 

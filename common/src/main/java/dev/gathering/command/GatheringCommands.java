@@ -209,8 +209,9 @@ public final class GatheringCommands {
 
     /**
      * Sends the finished games to whoever asked, which opens the list on their client.
-     * <p>No permission. A replay only shows a game that has already ended, and every one of
-     * them was played in public on a table anybody could stand at.
+     * <p>No permission, because the list is filtered: each player is sent only the games they
+     * may watch - their own casual games, and the matches of tournaments that are over. See
+     * {@link dev.gathering.server.ReplayWatch#mayWatch}.
      */
     private static int listReplays(CommandSourceStack source) {
         ServerPlayer player = source.getPlayer();
@@ -279,6 +280,13 @@ public final class GatheringCommands {
         if (pack.isEmpty()) {
             source.sendFailure(Component.translatable("message.gathering.rewards_unknown", id));
             return 0;
+        }
+        // Stamped when a person typed it. A reward run by the game's own machinery - an
+        // advancement's function, a command block - is the server handing out what it was built
+        // to, and a card from it is found rather than conjured.
+        if (source.getEntity() instanceof net.minecraft.server.level.ServerPlayer) {
+            dev.gathering.server.CardStories.rememberOnPack(pack,
+                    dev.gathering.server.CardStories.spawnedBy(source, "rewards grant"));
         }
         for (int given = 0; given < reward.count(); given++) {
             dev.gathering.server.Handing.give(to, pack.copy());
@@ -507,14 +515,16 @@ public final class GatheringCommands {
      */
     private static int openPack(CommandSourceStack source, String set, String kind)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        PackOpening.openFor(source.getPlayerOrException(), set, kind);
+        PackOpening.openFor(source.getPlayerOrException(), set, kind, "", null, () -> { }, false,
+                java.util.List.of(dev.gathering.server.CardStories.spawnedBy(source, "pack open")));
         return 1;
     }
 
     /** One sealed pack in the hand, of a product the set really sold. */
     private static int givePack(CommandSourceStack source, String set, String kind)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-        PackGrant.give(source.getPlayerOrException(), set, kind);
+        PackGrant.give(source.getPlayerOrException(), set, kind,
+                dev.gathering.server.CardStories.spawnedBy(source, "pack give"));
         return 1;
     }
 
@@ -567,7 +577,10 @@ public final class GatheringCommands {
             source.sendFailure(Component.translatable("message.gathering.pipeline_unavailable"));
             return 0;
         }
-        CardGrant.byName(player, service, cardName, foil);
+        // Stamped with who ran it, whether or not collecting is on: a proxy made while it is off
+        // is still in the inventory when somebody switches it on. See HowItCame.SPAWNED.
+        CardGrant.byName(player, service, cardName, foil,
+                dev.gathering.server.CardStories.spawnedBy(source, foil ? "foil" : "card"));
         return 1;
     }
 

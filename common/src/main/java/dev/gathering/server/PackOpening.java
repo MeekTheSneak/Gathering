@@ -101,12 +101,28 @@ public final class PackOpening {
     public static void openFor(
             ServerPlayer player, String setCode, String kind, String color, String receipt,
             Runnable giveBack, boolean ceremony) {
+        openFor(player, setCode, kind, color, receipt, giveBack, ceremony, List.of());
+    }
+
+    /**
+     * The same, writing these chapters on every card that comes out.
+     *
+     * @param stamps what the pack itself was carrying - a pack a command made says so - and is
+     *               handed on to all of its cards, first, before anything else is written on
+     *               them. Empty for almost every pack.
+     */
+    public static void openFor(
+            ServerPlayer player, String setCode, String kind, String color, String receipt,
+            Runnable giveBack, boolean ceremony,
+            List<dev.gathering.core.story.CardStory.Chapter> stamps) {
+        List<dev.gathering.core.story.CardStory.Chapter> stamped =
+                stamps == null ? List.of() : List.copyOf(stamps);
         // Wrapped once, here, rather than at each of the seven ways out of this method:
         // handing the pack back and settling the receipt are one act, and a path that did
         // one without the other would leave the player owed a booster they were holding.
         Runnable handedBack = () -> settleThenHandOver(player, receipt, giveBack);
         if (Archive.SET.equals(setCode)) {
-            openTheArchive(player, handedBack, receipt, ceremony);
+            openTheArchive(player, handedBack, receipt, ceremony, stamped);
             return;
         }
         String refusal = whyNot();
@@ -188,9 +204,9 @@ public final class PackOpening {
                     if (ceremony) {
                         // By hand: the cards go under the wrapper, which replaces the receipt in the
                         // same write - see handOver.
-                        deliver(player, opened, receipt, true);
+                        deliver(player, opened, receipt, true, stamped);
                     } else {
-                        settleThenHandOver(player, receipt, () -> deliver(player, opened, null, false));
+                        settleThenHandOver(player, receipt, () -> deliver(player, opened, null, false, stamped));
                     }
                 }));
     }
@@ -547,14 +563,15 @@ public final class PackOpening {
     }
 
     /** Server thread only. */
-    private static void deliver(ServerPlayer player, Opened opened, String receipt, boolean ceremony) {
+    private static void deliver(ServerPlayer player, Opened opened, String receipt, boolean ceremony,
+            List<dev.gathering.core.story.CardStory.Chapter> stamps) {
         // What was actually opened, not what was asked for. Asking for a set and no kind is
         // the ordinary way to open one from a console, and telling the screen the empty
         // string it was given draws a play booster in the draft booster's black.
         String set = opened.config().setCode();
         String kind = opened.config().kind();
         Delivery delivery = whatToGive(opened.pack(), opened.cards());
-        handOver(player, delivery.giving(), opened.cards(), set, kind, receipt, ceremony);
+        handOver(player, delivery.giving(), opened.cards(), set, kind, receipt, ceremony, stamps);
         // A card the pipeline could not name yet is still a card this pack produced. It is
         // kept rather than dropped from the delivery: metadata comes back, and when it does
         // the player is handed the card they opened rather than a pack one short for good.
@@ -592,7 +609,8 @@ public final class PackOpening {
      */
     private static void handOver(
             ServerPlayer player, List<CardIdentity> giving, List<CardMetadata> named,
-            String set, String kind, String receipt, boolean ceremony) {
+            String set, String kind, String receipt, boolean ceremony,
+            List<dev.gathering.core.story.CardStory.Chapter> stamps) {
         // Everything the client is about to hold, in one go rather than a packet a card:
         // a client told about a card before it holds one never renders a blank.
         List<CardSummary> summaries = new ArrayList<>();
@@ -615,7 +633,7 @@ public final class PackOpening {
             // Opened by hand: the cards are found by opening it. They wait under the wrapper - the
             // player's already, written down in place of the receipt - and are handed over when it is
             // torn. Written down or handed over now; never neither. See PackWrappers.
-            String token = PackWrappers.hold(player, receipt, set, best, giving);
+            String token = PackWrappers.hold(player, receipt, set, best, giving, stamps);
             if (token != null) {
                 List<dev.gathering.item.CardComponent> shown = new ArrayList<>();
                 for (CardIdentity card : giving) {
@@ -631,6 +649,7 @@ public final class PackOpening {
         }
         for (CardIdentity card : giving) {
             ItemStack stack = CardItem.of(CardComponent.of(card));
+            CardStories.rememberAll(stack, stamps);
             if (card.equals(best)) {
                 CardStories.remember(stack, CardStories.pulledBy(player, set));
             }
@@ -667,7 +686,7 @@ public final class PackOpening {
      * <p>Server thread only, past the lookup it starts.
      */
     private static void openTheArchive(ServerPlayer player, Runnable giveBack,
-            String receipt, boolean ceremony) {
+            String receipt, boolean ceremony, List<dev.gathering.core.story.CardStory.Chapter> stamps) {
         String refusal = whyNot();
         if (refusal != null) {
             player.sendSystemMessage(Component.translatable(refusal));
@@ -702,9 +721,9 @@ public final class PackOpening {
             // a cache already - refusing to hand it over would refuse it most of the time.
             List<CardMetadata> about = failure == null && named != null ? named : List.of();
             if (ceremony) {
-                handOver(player, giving, about, Archive.SET, "", receipt, true);
+                handOver(player, giving, about, Archive.SET, "", receipt, true, stamps);
             } else {
-                settleThenHandOver(player, receipt, () -> handOver(player, giving, about, Archive.SET, "", null, false));
+                settleThenHandOver(player, receipt, () -> handOver(player, giving, about, Archive.SET, "", null, false, stamps));
             }
         }));
     }
