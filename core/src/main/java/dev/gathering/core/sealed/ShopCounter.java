@@ -66,6 +66,10 @@ public final class ShopCounter {
         if (codes.size() <= howMany) {
             return List.copyOf(codes);
         }
+        if (howMany == 1) {
+            // One set behind the counter: the stride below is over howMany - 1, which is nought.
+            return List.of(codes.get((int) Math.floorMod(rotation, codes.size())));
+        }
         int size = codes.size();
         List<String> stocked = new ArrayList<>(howMany);
         stocked.add(codes.get(0));

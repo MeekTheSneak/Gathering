@@ -46,6 +46,14 @@ public final class ActionBudget {
     /** Spends this much for this player if they have it, and says whether they did. */
     public boolean spend(UUID player, double amount) {
         long now = System.nanoTime();
+        // Swept before the debit, not after it. After, every successful spend past the bound reset
+        // everybody to a full burst - the refusals, which are the ones a flood makes, never swept at
+        // all, so a flood from many ids grew the map and cleared it only when somebody legitimate
+        // got through.
+        if (buckets.size() > MOST_REMEMBERED) {
+            // Forgotten wholesale past a bound: a full bucket is what a forgotten one starts as.
+            buckets.clear();
+        }
         double[] bucket = buckets.computeIfAbsent(player, ignored -> new double[] {burst, now});
         double refilled = Math.min(burst, bucket[0] + (now - bucket[1]) / 1e9 * perSecond);
         bucket[1] = now;
@@ -54,12 +62,11 @@ public final class ActionBudget {
             return false;
         }
         bucket[0] = refilled - amount;
-        if (buckets.size() > 1024) {
-            // Forgotten wholesale past a bound: a full bucket is what a forgotten one starts as.
-            buckets.clear();
-        }
         return true;
     }
+
+    /** How many players are remembered at once. */
+    private static final int MOST_REMEMBERED = 1024;
 
     /** Forgets one player, who has gone. */
     public void forget(UUID player) {

@@ -40,6 +40,7 @@ public final class ServerState {
         // said it was called here and it was called nowhere, which in single-player meant a failed
         // read stayed failed until the game was restarted.
         SessionKeyring.forget();
+        CollectionKeys.clear();
         TradeSessions.clear();
         TableActions.clear();
         Lending.clear();

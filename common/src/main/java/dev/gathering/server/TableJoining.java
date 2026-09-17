@@ -115,6 +115,11 @@ public final class TableJoining {
     private record Asked(BlockPos table, int slot, net.minecraft.world.item.ItemStack stack) {
     }
 
+    /** Forgets what one player was asked, for a player who has gone. */
+    public static void forget(java.util.UUID player) {
+        ASKED.remove(player);
+    }
+
     /** Forgets every question about a deck, for a server that is stopping. */
     public static void clear() {
         ASKED.clear();

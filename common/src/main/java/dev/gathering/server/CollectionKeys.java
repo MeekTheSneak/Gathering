@@ -130,13 +130,45 @@ public final class CollectionKeys {
         if (collection == null) {
             return;
         }
-        UUID who = idOf(player, payload.name().trim()).orElse(null);
+        String named = payload.name().trim();
+        UUID who = idOf(player, named).orElse(null);
         if (who == null) {
             player.displayClientMessage(Component.translatable(
-                    "message.gathering.collection_no_such_player", payload.name().trim()), false);
+                    "message.gathering.collection_no_such_player", named), false);
             return;
         }
+        // Asked twice, because it cannot be undone and the collection is a player's cards. Every
+        // other irreversible thing in this mod is confirmed; this was one press on a typed name, and
+        // a transposition that happens to be somebody real gives them everything in the cabinet.
+        // The second press is the confirmation - it names who they are about to hand it to, which
+        // the first press could not, because until the name resolves there is nobody to name.
+        if (!player.getUUID().equals(askedBefore.get(payload.where()))
+                || !who.equals(askedAbout.get(payload.where()))) {
+            askedBefore.put(payload.where().immutable(), player.getUUID());
+            askedAbout.put(payload.where().immutable(), who);
+            player.displayClientMessage(Component.translatable(
+                    "message.gathering.collection_hand_over_sure", nameOf(player, who)), false);
+            return;
+        }
+        askedBefore.remove(payload.where());
+        askedAbout.remove(payload.where());
         handOverTo(player, payload.where(), who);
+    }
+
+    /** Who last asked to hand each collection over, and to whom, so the second ask is the answer. */
+    private static final java.util.Map<BlockPos, UUID> askedBefore = new java.util.HashMap<>();
+    private static final java.util.Map<BlockPos, UUID> askedAbout = new java.util.HashMap<>();
+
+    /** Forgets a half-asked hand-over, for a player who has gone or a server that is stopping. */
+    public static void forget(UUID player) {
+        askedBefore.entrySet().removeIf(asked -> asked.getValue().equals(player));
+        askedAbout.keySet().retainAll(askedBefore.keySet());
+    }
+
+    /** For a server that is stopping. */
+    public static void clear() {
+        askedBefore.clear();
+        askedAbout.clear();
     }
 
     /** The same, for somebody already known by id. */

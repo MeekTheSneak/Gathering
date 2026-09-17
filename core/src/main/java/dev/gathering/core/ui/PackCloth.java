@@ -65,8 +65,11 @@ public final class PackCloth {
     /**
      * How far the crimped strip reaches down the wrapper, which is where the picture says it does: the
      * wrapper is sixteen rows and the top four of them are the crimp.
+     * <p>Taken from {@link PackWrapper} rather than written out again. It was the same two numbers
+     * spelled twice, in the one place where the two drifting apart would tear the pack in the wrong
+     * row - and nothing would have said so.
      */
-    private static final float CRIMP = 4f / 16f;
+    private static final float CRIMP = (float) PackWrapper.crimp();
 
     /**
      * How far a point may be from the hand and still be taken hold of.
@@ -207,7 +210,12 @@ public final class PackCloth {
      * supposed to consume. The strip still comes off whole and the artwork underneath is untouched.
      */
     private static int seamRow() {
-        return Math.max(0, Math.round(CRIMP * (DOWN - 1)) - 1);
+        return Math.max(0, crimpRows() - 1);
+    }
+
+    /** How many rows of this sheet the crimp covers. */
+    private static int crimpRows() {
+        return Math.round(CRIMP * (DOWN - 1));
     }
 
     private int link(int count, int a, int b) {

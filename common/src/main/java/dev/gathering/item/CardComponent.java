@@ -31,10 +31,18 @@ public record CardComponent(
             Codec.BOOL.optionalFieldOf("flipped", false).forGetter(CardComponent::flipped))
             .apply(instance, CardComponent::new));
 
+    /**
+     * How long a custom id may be on the wire.
+     * <p>The ones this mod writes are words - "hidden", a token's name - and it reached the server
+     * inside payloads carrying up to a thousand cards with vanilla's 32,767-character default on
+     * each. Every sibling string in this package has a cap; this one did not.
+     */
+    public static final int LONGEST_CUSTOM_ID = 64;
+
     public static final StreamCodec<RegistryFriendlyByteBuf, CardComponent> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.optional(UUIDUtil.STREAM_CODEC), CardComponent::scryfallId,
             ByteBufCodecs.BOOL, CardComponent::foil,
-            ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8), CardComponent::customId,
+            ByteBufCodecs.optional(ByteBufCodecs.stringUtf8(LONGEST_CUSTOM_ID)), CardComponent::customId,
             ByteBufCodecs.BOOL, CardComponent::flipped,
             CardComponent::new);
 

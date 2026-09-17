@@ -178,7 +178,8 @@ public record CardSummary(
     }
 
     public static final StreamCodec<RegistryFriendlyByteBuf, List<CardSummary>> LIST_STREAM_CODEC =
-            STREAM_CODEC.apply(ByteBufCodecs.list());
+            STREAM_CODEC.apply(ByteBufCodecs.list(
+                    dev.gathering.network.CardMetadataPayload.MOST_PER_PACKET));
 
     public static CardSummary of(CardMetadata card) {
         List<CardFace> faces = card.faces();

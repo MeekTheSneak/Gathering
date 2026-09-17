@@ -38,6 +38,9 @@ public final class PlayerGone {
         }
         Wants.left(player);
         dev.gathering.server.events.Events.left(player);
+        CollectionKeys.forget(player.getUUID());
+        // Held an ItemStack per player and was swept only by a wholesale clear at 512.
+        TableJoining.forget(player.getUUID());
         ReplayWatch.forget(player.getUUID());
         // Wrappers they had not torn: their cards are on disk and come on the next join.
         PackWrappers.forget(player.getUUID());

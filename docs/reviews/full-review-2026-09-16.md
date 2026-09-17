@@ -69,7 +69,7 @@ Status column: **fixed** / **open** / **rejected** (with the reason).
 - **[fixed]** `persistence/SessionCodec.java:205` - a retired secret verb makes a whole saved session refuse to open.
 
 **Collections**
-- `server/CollectionKeys.java:143-158` - handing a collection over is one click, name-typed, irreversible, unconfirmed.
+- **[fixed]** `server/CollectionKeys.java:143-158` - handing a collection over is one click, name-typed, irreversible, unconfirmed.
 
 ## Minor
 

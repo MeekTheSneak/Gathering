@@ -2798,6 +2798,34 @@ Verified: gate green (628/16).
 
 Verified: gate green (628/16).
 
+### Forty-fourth batch: the Minors worth doing (2026-09-16)
+
+Mostly small, and two of them player-visible.
+
+- **Handing a collection over is asked twice.** One press on a typed name gave away everything in a
+  cabinet, permanently, and a transposition that happens to be somebody real is all it took. The
+  second press is the confirmation, and it names who they are about to hand it to - which the first
+  could not, because until the name resolves there is nobody to name. Every other irreversible thing
+  in this mod is confirmed; this was not.
+- **A full case said it "already has a card in it"**, which stopped being true when it started
+  holding four.
+- **The lesson said "Practice cards. They cannot be kept."**, which is the exact line `DIALECT.md`
+  uses as its example of one sentence too many. It says "Practice cards."
+- **The crimp's size was written out twice** - once in the picture's own constants and once in the
+  solver - in the one place two numbers drifting apart would tear the pack in the wrong row, with
+  nothing to say so. Derived from one now.
+- **The action budget swept the bucket it had just debited**, so past its bound every successful
+  spend reset everybody to a full burst, and the refusals - which are what a flood is made of - swept
+  nothing. Swept before the debit.
+- **Two wire fields had no bound**: a custom id took vanilla's 32,767 characters inside payloads
+  carrying a thousand cards, and the summary list was the one unbounded list in the package.
+- **A shop counter holding exactly one set divided by zero**, unreachable today and one line to
+  close.
+- **Two maps outlived the players in them**: a pending hand-over, and the question a table asks about
+  a deck, which held an item stack per player and was swept only wholesale at 512.
+
+Verified: gate green (628/16).
+
 Also in this batch, not yet looked at in a window: the deck box reshaped to the proportions of the cards
 standing in it - eight across, twelve up, eight back, with a lid band, a cap, a hinge along the back and
 the catch on the front - because it was very nearly a cube, which is a box for anything (#9b).
