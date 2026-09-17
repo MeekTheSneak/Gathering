@@ -54,8 +54,13 @@ public final class TablesApart {
         return Result.DONE;
     }
 
-    /** Whether anything on this table would be broken by it changing shape. */
-    static boolean inUse(TableBlockEntity table) {
+    /**
+     * Whether anything on this table would be broken by it changing shape.
+     * <p>Public because a tournament has to ask the same question when it picks its tables. It used
+     * to ask a different one - "has another event claimed it" - and claim tables it would later
+     * refuse to play on, which is a tournament that can never start.
+     */
+    public static boolean inUse(TableBlockEntity table) {
         return table.hasSession() || table.hasPod() || table.hasSignup()
                 || table.match().isPresent() || !table.heldDecks().isEmpty() || !table.pot().isEmpty();
     }

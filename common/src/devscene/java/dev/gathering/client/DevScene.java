@@ -4212,10 +4212,14 @@ public final class DevScene {
             case 374 -> {
                 expectScreen(client, "who may use this collection", CollectionKeysScreen.class);
                 shoot(client, "111-who-may-use-this-collection");
-                // The lock goes on. Asked about in the next step and not in this one: pressing a button
-                // sends a payload, and the answer is not back before the next line of this method runs -
-                // which is how the first go at this reported a lock that had in fact gone on.
-                press(client, Component.translatable("screen.gathering.collection_keys.anyone_may_look").getString());
+                // The lock goes on: the Look toggle under Everyone, which starts on. It was one button
+                // saying "Anyone may look" until everyone's rights became three of them - look, take and
+                // add - and this went on pressing a label nothing draws any more, which reads as the
+                // screen having no such button rather than as this line being out of date.
+                // Asked about in the next step and not in this one: pressing a button sends a payload,
+                // and the answer is not back before the next line of this method runs - which is how the
+                // first go at this reported a lock that had in fact gone on.
+                press(client, Component.translatable("screen.gathering.collection_keys.look").getString());
                 advance(SETTLE);
             }
             case 375 -> {

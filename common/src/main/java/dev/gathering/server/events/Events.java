@@ -190,8 +190,19 @@ public final class Events {
         return Optional.of(state);
     }
 
-    /** Every table near a desk that no tournament plays at, a long table at a time, nearest first. */
-    static List<BlockPos> freeTablesNear(ServerLevel level, BlockPos deskPos) {
+    /**
+     * Whether anything is standing on this table that a tournament would have to disturb.
+     * <p>The same question {@code TablesApart} asks before changing a line's shape, asked here so the
+     * answer is the same in both places. A draft waiting on a player who has logged off is the one
+     * that is not the host's to clear: the pools are held until everybody can take theirs, which is
+     * correct, and no amount of clearing the table will change it.
+     */
+    private static boolean somethingOnIt(ServerLevel level, BlockPos table) {
+        return TableBlock.entityAt(level, table).map(entity -> TablesApart.inUse(entity)).orElse(Boolean.FALSE);
+    }
+
+    /** Every table near a desk that no tournament plays at and nothing is standing on, nearest first. */
+    public static List<BlockPos> freeTablesNear(ServerLevel level, BlockPos deskPos) {
         List<List<BlockPos>> lines = new ArrayList<>();
         java.util.Set<BlockPos> seen = new java.util.HashSet<>();
         for (BlockPos pos : BlockPos.betweenClosed(deskPos.offset(-DESK_TABLES_ACROSS, -DESK_TABLES_UP, -DESK_TABLES_ACROSS),
@@ -205,7 +216,13 @@ public final class Events {
             }
             List<BlockPos> line = orderedTables(level, origin);
             seen.addAll(line);
-            List<BlockPos> free = line.stream().filter(table -> atTable(level, table).isEmpty()).toList();
+            // Free means both things it has to mean: no other event has claimed it, and there is
+            // nothing standing on it. Only the first was checked, so a desk would claim a table with
+            // a game, a pot or an unfinished draft on it - and then refuse to start play on the
+            // grounds that the table was in use, which is a tournament that can never begin.
+            List<BlockPos> free = line.stream()
+                    .filter(table -> atTable(level, table).isEmpty() && !somethingOnIt(level, table))
+                    .toList();
             if (!free.isEmpty()) {
                 lines.add(free);
             }
@@ -768,12 +785,26 @@ public final class Events {
             clearTables(level, state);
             // Every long table in the venue played apart, not only the first: a second row left
             // joined puts two pairings on one surface.
+            // A table that cannot be pulled apart is one this event cannot play on, and it is not a
+            // reason to refuse the whole tournament. It used to be: one table with an old draft on it
+            // and an event of any size would not start, the host was told to clear a table that was
+            // not theirs to clear, and there was nothing else to try. So the busy ones are given up
+            // and the rest are played on, and the host is told which went and can add them back.
+            List<BlockPos> busy = new ArrayList<>();
             for (BlockPos table : tablesStillOurs(level, state)) {
                 if (TablesApart.set(level, table, true) == TablesApart.Result.IN_USE) {
-                    tell(server, state.tournament.host(), Component.translatable("message.gathering.event.tables_in_use",
-                            state.numberOf(table)));
-                    return;
+                    busy.add(table);
                 }
+            }
+            for (BlockPos table : busy) {
+                tell(server, state.tournament.host(), Component.translatable(
+                        "message.gathering.event.table_given_up", state.numberOf(table)));
+                state.tables.remove(table);
+            }
+            if (state.tables.isEmpty()) {
+                tell(server, state.tournament.host(),
+                        Component.translatable("message.gathering.event.no_tables"));
+                return;
             }
         }
         try {

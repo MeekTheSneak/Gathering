@@ -744,6 +744,51 @@ public final class EventsGameTest {
         return CardComponent.of(CardIdentity.ofPrinting(new UUID(CARD.getMostSignificantBits(), index)));
     }
 
+    /**
+     * A desk does not claim a table with something standing on it.
+     * <p>"Free" meant two different things in two places. When a desk picked its tables it meant "no
+     * other event has claimed it"; when play started it meant "nothing is standing on it". So a desk
+     * would claim a table with a game, a pot or an unfinished draft on it, and then refuse to start
+     * the whole tournament because that table was in use - a tournament that could never begin, and
+     * a host told to clear a table that in the draft case was not theirs to clear, because a pod
+     * holds its pools until every drafter is back.
+     */
+    @GameTest(template = "tables")
+    public static void adeskDoesNotClaimATableWithSomethingOnIt(GameTestHelper helper) {
+        BlockPos busy = place(helper, 1, 2, 1);
+        BlockPos free = place(helper, 9, 2, 1);
+        BlockPos desk = helper.absolutePos(new BlockPos(5, 2, 1));
+
+        List<BlockPos> beforeAnything = Events.freeTablesNear(helper.getLevel(), desk);
+        if (!beforeAnything.contains(busy) || !beforeAnything.contains(free)) {
+            helper.fail("two empty tables beside a desk were not both offered: " + beforeAnything);
+            return;
+        }
+
+        // A game on one of them, which is one of the things that stops a table changing shape.
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        TableSeats.take(helper.getLevel(), busy,
+                dev.gathering.block.TableClusters.at(helper.getLevel(), busy).seats().get(0).cell(),
+                dev.gathering.block.TableClusters.at(helper.getLevel(), busy).seats().get(0).side(),
+                player.getUUID());
+        TableSessions.start(helper.getLevel(), busy, new MatchRules(FormatPresets.MODERN, 1));
+        if (!TableBlock.entityAt(helper.getLevel(), busy).map(TablesApart::inUse).orElse(false)) {
+            helper.fail("the table this test needs busy is not busy");
+            return;
+        }
+
+        List<BlockPos> offered = Events.freeTablesNear(helper.getLevel(), desk);
+        if (offered.contains(busy)) {
+            helper.fail("a desk claimed a table with a game on it: " + offered);
+            return;
+        }
+        if (!offered.contains(free)) {
+            helper.fail("a desk stopped offering the empty table beside the busy one: " + offered);
+            return;
+        }
+        helper.succeed();
+    }
+
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
         return TestTables.place(helper, x, y, z);
     }
