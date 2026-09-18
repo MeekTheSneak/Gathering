@@ -4200,3 +4200,45 @@ be: it is in `NOT_CRAFTED` with the reason, because a trophy anybody can lay out
 favor and then asserted the first player had won - which Swiss does not guarantee, because it seats
 players differently each round. It passed, then failed, then passed. It now asks the tournament who
 actually came first and looks in that player's hands; run three times over to be sure.
+
+## 2026-09-18: table presence, batches 1 and 2
+
+The owner's item #6 - a seated player's body says what they are doing - worked from the master
+prompt at `docs/prompts/table-presence.md`, which he pointed at from another branch. The prompt and
+its skeleton are checked in beside this file; nothing in them had been compiled, and this section is
+what happened when it was.
+
+**Batch 1, the geometry.** `TablePose` and `HeldFan` in `:core`, pure, with `TablePoseTest`. The
+constraint the whole feature hangs on - an arm must not leave its shoulder - is a jqwik property
+over any target anywhere rather than a sentence in a comment, and with the reach clamp removed it
+fails. 2043 core tests.
+
+**Two traps the prompt could not have known.** `HandFan` already exists: it is the seated screen's
+own hand, in pixels, and writing the new class at that name overwrote a file eleven screens' tests
+depend on. The one a body holds in the world is `HeldFan`. And every property in the new test
+reported success by not running - a jqwik `@Property` inside a JUnit `@Nested` class needs
+`@net.jqwik.api.Group` as well. The suite was green with four tests in it where there should have
+been eleven. `BoardGeometryTest` had been bitten by the same thing and says so in a comment; both
+are now in `DIALECT.md`.
+
+**Batch 2, the pointer on the wire.** `TablePointPayload` up, `TablePointingPayload` down, protocol
+28, `TablePointing` on the server, `ClientTablePointing` on the client. The server refuses three
+things, all silently: a pointer from somebody not seated at the table they named, a point that is
+not on that table's own felt, and a player sending faster than a body moves - the last through the
+`ActionBudget` the mod already has rather than a counter of its own. Nothing it carries reaches a
+card, a seat or the log.
+
+**Four guards, and the two refusals proven.** With the seat check and the felt check removed, two of
+the four fail; restored, 687 in-world tests pass on NeoForge. Two things had to be got right about
+the test itself, and both are the kind of thing that would otherwise have been read as a bug in the
+code: game tests in a batch **run alongside each other**, so a single static test seam is a
+collector the next test quietly replaces - it is a list now, and each watcher filters on the player
+it cares about. And a surface unit is not a block: `TablePosition.SPAN` is ten thousand to a table,
+so the first "off the felt" fixture of nine thousand was most of the way across the table and was
+passed on entirely correctly.
+
+**Not done, and nothing is visible yet.** No client sends a pointer - `TablePointSender` is next -
+so nothing draws, and batches 3 to 6 (the seated-player lookup, the pose, the two mixin twins, the
+fan of card backs, the table view's own rules, and a DevScene step) are untouched. **No graphical
+client has run against any of this**, and no two-client test has happened, which is the only thing
+that can show one player seeing another's arm.

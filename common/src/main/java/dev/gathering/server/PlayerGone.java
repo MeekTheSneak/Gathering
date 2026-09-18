@@ -37,6 +37,9 @@ public final class PlayerGone {
             return;
         }
         Wants.left(player);
+        // An arm left pointing at a table by somebody who went home is the kind of thing nobody
+        // reports and everybody sees.
+        TablePointing.stopped(player);
         dev.gathering.server.events.Events.left(player);
         CollectionKeys.forget(player.getUUID());
         // Held an ItemStack per player and was swept only by a wholesale clear at 512.

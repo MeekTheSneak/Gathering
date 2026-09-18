@@ -25,6 +25,10 @@ public final class ClientTicks {
         if (client.screen == null) {
             ClientHoverState.clear();
         }
+        // Before anything reads a pointer, because what the pointers are measured against is
+        // this count: a frame that read one on the tick that incremented it would interpolate
+        // from the future.
+        ClientTablePointing.tick();
         ClientCardRequests.tick();
         // Whose the window is, and whether a card is being read: the first decides
         // whether a view is written down or put back, the second holds one still.

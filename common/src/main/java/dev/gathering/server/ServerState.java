@@ -50,6 +50,7 @@ public final class ServerState {
         LessonRecords.clear();
         StarterBoosters.clear();
         ActionBudget.clearShared();
+        TablePointing.clear();
         CreativeDecks.clear();
         DecklistImport.clear();
         TableTalk.clear();

@@ -93,11 +93,16 @@ public final class GatheringProtocol {
      * only in the one shape that gesture can produce.
      * <p>Twenty-four, for handing a collection to somebody else - which nothing could do, so a cabinet
      * whose owner had stopped playing was locked to everybody for ever.
+     * <p>Twenty-eight, for a seated player's body: where their cursor is on the felt, sent to the
+     * server, and passed on to everybody who can see that table so their arm and head follow it.
+     * A hint about how to draw somebody and nothing else - it moves no card and reaches no log -
+     * but a client that does not know the payload is a client whose players all sit still, and
+     * the version is how it finds out rather than by silently doing nothing.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 27;
+    public static final int VERSION = 28;
 
     private GatheringProtocol() {
     }
@@ -168,6 +173,12 @@ public final class GatheringProtocol {
                                     ? dev.gathering.core.ante.AnteConsent.Answer.IN
                                     : dev.gathering.core.ante.AnteConsent.Answer.OUT)),
             toServer(TableActionPayload.TYPE, TableActionPayload.STREAM_CODEC, TableActions::handle),
+            // Its own rate limit rather than the table's: a pointer is sent several times a
+            // second by a player doing nothing at all, and spending a dice roll's budget on an
+            // arm would let a moving mouse use up the budget a gesture needs.
+            toServer(dev.gathering.network.TablePointPayload.TYPE,
+                    dev.gathering.network.TablePointPayload.STREAM_CODEC,
+                    dev.gathering.server.TablePointing::handle),
             toServer(TableActionsPayload.TYPE, TableActionsPayload.STREAM_CODEC,
                     TableActions::handleAll),
             toServer(UndoPayload.TYPE, UndoPayload.STREAM_CODEC, TableActions::handleUndo),
@@ -280,6 +291,8 @@ public final class GatheringProtocol {
 
     /** Everything the server may send. */
     public static final List<ToClient<?>> TO_CLIENT = List.of(
+            toClient(dev.gathering.network.TablePointingPayload.TYPE,
+                    dev.gathering.network.TablePointingPayload.STREAM_CODEC),
             toClient(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC),
             toClient(CardsUnresolvedPayload.TYPE, CardsUnresolvedPayload.STREAM_CODEC),
             toClient(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC),

@@ -192,6 +192,9 @@ public final class Chairs {
      */
     static void gotUp(ServerPlayer player, ChairSeat seat) {
         seat.discard();
+        // Whatever else happens to the seat, the body has left the table: a player who keeps
+        // their chair while they are away must not keep an arm out over the felt.
+        dev.gathering.server.TablePointing.stopped(player);
         if (seat.tableOrigin() == null) {
             return;
         }
