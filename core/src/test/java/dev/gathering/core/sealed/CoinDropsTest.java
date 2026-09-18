@@ -36,16 +36,30 @@ class CoinDropsTest {
     }
 
     @Test
-    @DisplayName("a chest worth an expedition pays more often and pays more")
+    @DisplayName("a chest worth an expedition is worth more than an ordinary one")
     void expeditionChestsPayBetter() {
         assertThat(CoinDrops.of("minecraft:chests/ancient_city"))
                 .contains(CoinDrops.EXPEDITION);
         assertThat(CoinDrops.of("minecraft:chests/end_city_treasure"))
                 .contains(CoinDrops.EXPEDITION);
 
-        assertThat(CoinDrops.EXPEDITION.oneIn()).isLessThan(CoinDrops.ORDINARY.oneIn());
-        assertThat(CoinDrops.EXPEDITION.fewest()).isGreaterThan(CoinDrops.ORDINARY.fewest());
+        // It used to pay more often as well as more. Both chests now pay at the odds of the pack
+        // beside them, which is what makes a coin as common as a pack and no commoner, so what is
+        // left to defend is the part that was always the point: going somewhere is worth more.
+        assertThat(CoinDrops.EXPEDITION.oneIn())
+                .as("an expedition chest must never pay less often than an ordinary one")
+                .isLessThanOrEqualTo(CoinDrops.ORDINARY.oneIn());
+        assertThat(CoinDrops.EXPEDITION.most()).isGreaterThan(CoinDrops.ORDINARY.most());
         assertThat(CoinDrops.EXPEDITION.perChest()).isGreaterThan(CoinDrops.ORDINARY.perChest());
+    }
+
+    @Test
+    @DisplayName("pays a coin at a time rather than a handful")
+    void acoinAtATime() {
+        // What the owner asked for: a chest handing over one pack and four coins reads as coins
+        // being the ordinary thing and the pack the rare one, when the coin is meant to be the find.
+        assertThat(CoinDrops.ORDINARY.most()).isEqualTo(1);
+        assertThat(CoinDrops.EXPEDITION.most()).isLessThanOrEqualTo(2);
     }
 
     @Test

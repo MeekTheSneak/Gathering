@@ -3664,3 +3664,33 @@ somewhere else, which is the signal to stop fixing and question the shape. The s
 doing the same gesture and a reconciliation afterwards that depended on three sources agreeing. It is
 one source now. And the in-world tests for a screen gesture are only as good as the screen they
 imagine; the scripted client is what reads the real one.
+
+## 2026-09-17: a coin at a time (owner)
+
+"Make the coins a bit more rare. They should be about as common as a single pack." What made them
+feel common was not the rate but the handful: a chest at the end of something paid two to five coins
+half the time and one pack, so the coins read as the ordinary thing and the pack as the rare one -
+which is backwards, because a coin is the find.
+
+So a coin drop is one coin now, or two out of a chest worth an expedition, and an ordinary chest pays
+at exactly the odds of the pack beside it. Asked and answered by the owner from three options; this
+is the one that keeps a display box inside the band the design brief promises.
+
+| | was | now |
+|---|---|---|
+| Ordinary chest | 1 in 5, 1-3 coins | 1 in 2, 1 coin |
+| Expedition chest | 1 in 2, 2-5 coins | 1 in 2, 1-2 coins |
+| Most from one chest | 5 | 2 |
+| Coins an hour | 7.5 | 6.5 |
+| A display box | 4.8 hours | 5.5 hours |
+| An end city raid | ~20 coins | ~9 coins |
+
+Packs are 7.4 an hour beside it, so a coin and a pack are now the same kind of find. `LootYieldTest`
+and `CoinDropsTest` hold the arithmetic; the design brief and `CoinDrops`' own doc said the old
+numbers in prose and now say these. One assertion in `CoinDropsTest` was genuinely invalidated rather
+than weakened - an expedition chest no longer pays *more often* than an ordinary one, because both
+now pay at the pack's odds - so it was replaced with what is still the point: going somewhere is
+worth more, by what it pays rather than by how often.
+
+The shop's own stock chest still holds three to six, and stays a handful on purpose: it is a till,
+not a find, and it is where a player meets their first coins.

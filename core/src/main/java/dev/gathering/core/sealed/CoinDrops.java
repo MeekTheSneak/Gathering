@@ -14,13 +14,16 @@ import java.util.Optional;
  * <p><b>Chests only.</b> Not off mobs, not out of the sea, not brushed out of the ground. A
  * currency that drops from anything repeatable is a currency with a farm behind it, and the
  * three sources that are not a chest are all repeatable without moving.
- * <p>The rate, and what it buys: an ordinary chest pays one time in five and pays one to three
- * coins; a chest at the end of something pays one time in two and pays two to five. So an
- * ordinary chest is thinner in coins than it is in packs and an expedition chest is not, which
- * is the entire argument for going on one - an end city raid is a dozen of the second kind and
- * about twenty coins, and two of those buys a display box outright.
- * <p>Mixed through an ordinary hour of exploring it comes to seven or eight coins, against a
- * booster costing one as the shop ships. A display box of thirty-six is five hours or so; a
+ * <p><b>One coin at a time.</b> A chest pays a coin, or occasionally two at the end of something -
+ * never a handful. The owner found the handful was what made the coin feel like small change: a
+ * chest handed you one pack and four coins, so the coins read as the ordinary thing and the pack as
+ * the rare one, when the coin is meant to be the find. A coin is now about as common as a pack and
+ * about as many, which is what a currency worth one booster should look like on the floor.
+ * <p>The rate: an ordinary chest pays one time in two, which is exactly the odds of the pack beside
+ * it, and a chest at the end of something pays one time in two and sometimes twice over. An end city
+ * raid is a dozen of the second kind and about nine coins.
+ * <p>Mixed through an ordinary hour of exploring it comes to six or seven coins, against a
+ * booster costing one as the shop ships. A display box of thirty-six is five or six hours; a
  * single booster of a set somebody specifically wants is minutes. That is the shape the owner
  * asked for: you find packs while you are out, and you come home able to buy the one thing you
  * were actually missing.
@@ -31,11 +34,11 @@ import java.util.Optional;
  */
 public enum CoinDrops {
 
-    /** Most chests. A coin or two, one time in five - thinner than the pack beside it. */
-    ORDINARY(5, 1, 3),
+    /** Most chests. One coin, one time in two - the same odds as the pack beside it, and as many. */
+    ORDINARY(2, 1, 1),
 
-    /** The chests people build expeditions around. Worth the trip. */
-    EXPEDITION(2, 2, 5);
+    /** The chests people build expeditions around. Worth the trip, by a coin. */
+    EXPEDITION(2, 1, 2);
 
     private final int oneIn;
     private final int fewest;
