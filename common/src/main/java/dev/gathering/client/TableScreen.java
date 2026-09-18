@@ -1444,8 +1444,10 @@ public final class TableScreen extends Screen {
             Component text = Component.translatable(
                     "chat.gathering.table", said.who(), said.text());
             int wide = Math.min(room, this.font.width(text) + 6);
+            // The same floor, for the same reason. A line of table talk is about eleven pixels
+            // and its backdrop is painted with a four pixel border.
             GatheringSprites.draw(graphics, Element.TALK_BACKDROP,
-                    left - 2, top - 1, wide, line);
+                    left - 2, top - 1, wide, Math.max(12, line));
             GuiText.draw(graphics, this.font, text, left, top, room - 6, TALK_TEXT);
         }
         if (saying != null) {
@@ -2595,8 +2597,11 @@ public final class TableScreen extends Screen {
         Component label = Component.literal("x" + size);
         int room = Math.max(MIN_BADGE, where.width() / BADGE_SHARE);
         float scale = GuiText.scaleForTheSet(this.font, label, room - 4);
-        int width = Math.min(room, Math.round(this.font.width(label) * scale) + 4);
-        int high = Math.round(this.font.lineHeight * scale) + 2;
+        int width = Math.min(room, Math.max(12, Math.round(this.font.width(label) * scale) + 4));
+        // Never shorter than its plate needs: sixteen square with a four pixel border wants
+        // twelve, and below that the whole picture is squashed into the badge. Nothing is clicked
+        // here - the pile under it is what takes a click - so the drawn box is the only box.
+        int high = Math.max(12, Math.round(this.font.lineHeight * scale) + 2);
         int left = where.right() - width - 1;
         int top = where.y() + 1;
         GatheringSprites.draw(graphics, Element.PILE_BADGE, left, top, width, high);

@@ -341,8 +341,27 @@ public final class BoardGeometry implements BoardPlacement {
 
     @Override
     public Rect lifeRect(SeatId seat) {
-        return surfaceRect(surface.lifeBox(seat.index()));
+        Rect box = surfaceRect(surface.lifeBox(seat.index()));
+        if (box.isEmpty() || box.height() >= LEAST_LIFE_TALL) {
+            return box;
+        }
+        // Never shorter on screen than the plate behind it needs: it is painted sixteen pixels
+        // square with a four pixel border, so below twelve the corners meet and the whole picture
+        // is squashed into the box. In screen pixels rather than surface units, because that is
+        // where the squashing happens - a box twelve units tall is still ten pixels on a table seen
+        // from far enough back. Grown about its middle, and here rather than at the draw, so the
+        // number you can press is the number you can see: growing only the drawing is what stopped
+        // the counters answering a right-click the first time this was tried.
+        // The height only. Widening it as well changed what the board asks for room-wise, and the
+        // table reflowed around it: eight seats broke into two rows and framing the whole table
+        // came out at twice the size. A counter is wide and short by design, so the height is the
+        // edge that actually meets its own border.
+        int taller = LEAST_LIFE_TALL - box.height();
+        return new Rect(box.x(), box.y() - taller / 2, box.width(), LEAST_LIFE_TALL);
     }
+
+    /** The shortest a life counter is drawn on screen. See {@code SpriteFrames}. */
+    private static final int LEAST_LIFE_TALL = 12;
 
     @Override
     public Rect handEdgeRect(SeatId seat) {

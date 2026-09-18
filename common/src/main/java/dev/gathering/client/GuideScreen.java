@@ -233,8 +233,13 @@ public final class GuideScreen extends ChildScreen {
         return Component.translatable("screen.gathering.guide.missing").getString();
     }
 
-    /** The space kept at the page's right edge for its scrollbar. */
-    private static final int SCROLLBAR_ROOM = 8;
+    /**
+     * The space kept at the page's right edge for its scrollbar.
+     * <p>Ten rather than eight: the track is drawn three narrower than this and its art is painted
+     * eight pixels square with a two pixel border, which wants six before its ends stop meeting.
+     * At eight the track came out five and was squashed whole.
+     */
+    private static final int SCROLLBAR_ROOM = 10;
 
     private int lineHeight() {
         return Math.round((this.font.lineHeight + 2) * GuiText.askedScale());

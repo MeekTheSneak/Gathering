@@ -53,6 +53,9 @@ public final class StrengthBadge {
         return room >= MINIMUM_ROOM;
     }
 
+    /** The shortest the plate behind the numbers may be drawn: sixteen square, four pixel border. */
+    private static final int LEAST = 12;
+
     /**
      * Works the badge out for numbers this wide in a card this wide.
      *
@@ -66,10 +69,16 @@ public final class StrengthBadge {
         float scale = wide <= space ? 1f : Math.max(SMALLEST, (float) space / wide);
 
         int drawn = Math.round(wide * scale);
-        int width = drawn + PADDING * 2;
         // On every side, as the constant says: this added it once, top and bottom together, so the
         // badge had a pixel above its numbers and a pixel below where it meant two of each.
-        int height = Math.round(lineHeight * scale) + PADDING * 2;
+        // Never smaller than the plate behind it: it is painted sixteen square with a four pixel
+        // border, so below twelve its corners meet and the whole picture is squashed into the box.
+        // The numbers stay centered in whatever it comes out as, which the two lines below do.
+        int height = Math.max(LEAST, Math.round(lineHeight * scale) + PADDING * 2);
+        // The height only. The width is how far the badge may stick out past the card it sits on,
+        // and a floor there would make it overhang for a reason that has nothing to do with the
+        // numbers being readable - which is the one thing itOnlyOverhangsWhenItHasTo defends.
+        int width = drawn + PADDING * 2;
         return new Fit(width, height, scale, width / 2,
                 Math.round((height - lineHeight * scale) / 2f));
     }

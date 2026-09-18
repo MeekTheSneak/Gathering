@@ -4075,3 +4075,33 @@ and not a crash. Two kinds:
 The last row cannot be fixed by making boxes bigger: a row of text is a row of text, and a card drawn
 small is a card seen from far away. Their art declares an eight pixel border on a thirty-two pixel
 sprite, which is a frame around a panel rather than around a strip or a card.
+
+### What the squashed textures actually took
+
+Seven of the eleven are fixed: the notice, the life counter's height, the chat backdrop, the strength
+badge, the pile badge's height, the import screen's inset, and both scrollbars. Three were art -
+`row_highlight` is painted at eight with a two pixel border now rather than thirty-two with eight,
+because a highlight is a strip behind one line of text, and `paper_blank` and `paper_emblem` are
+declared stretched rather than sliced, because they are the face of a card and a card is drawn at
+whatever size the table is seen from. The owner asked for the art to be done too; `tools/gui_art.py`
+paints them and `docs/art-hashes.txt` is re-signed. Only the three elements' pixels changed - the
+generator rewrote all 975 sprites but 960 of them were byte-for-byte re-encodings of identical
+pictures, and those were put back rather than committed as churn.
+
+Four are left, each because there is nowhere to grow into:
+
+- `PILE_BADGE` 10x12 - its width is `min(room, ...)` and the room is ten. Growing it means overflowing
+  the pile it labels.
+- `LIFE_BACKING` 11x12 at the far end of the zoom - the height is floored and the width is not,
+  deliberately: see below.
+- `PANEL` 18x18 in the replay strip and `PANEL_INSET` 20x28 standing in for a card with no stock -
+  both card-shaped or fixed by their own layout.
+
+**Two mistakes, the same mistake twice.** First: making a cramped element draw itself bigger, which
+moved the picture and not the hit area - life counters stopped answering a right-click. Second, after
+that was reverted: flooring the life counter's *width* in `BoardGeometry`, which is not only what the
+counter is drawn into but part of what the board asks for room-wise. Eight seats broke into two rows
+and framing the whole table came out at twice its size. Both were caught by the scripted tour within
+one run, and both are the same lesson: a rectangle in this layout is read by more things than the one
+drawing it, so the safe floor is the last one before the pixels - and where that is not available,
+the squash stays.

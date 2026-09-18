@@ -331,7 +331,10 @@ public final class DecklistImportScreen extends Screen {
         }
         int top = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP - problemAreaHeight();
 
-        GatheringSprites.inset(graphics, left - 2, top - 3, width + 4, problemAreaHeight() + 4);
+        // Twenty-four, which is what an inset painted thirty-two square with an eight pixel
+        // border wants before it can keep its corners.
+        GatheringSprites.inset(graphics, left - 2, top - 3, width + 4,
+                Math.max(24, problemAreaHeight() + 4));
 
         int line = top;
         if (!this.status.getString().isEmpty()) {

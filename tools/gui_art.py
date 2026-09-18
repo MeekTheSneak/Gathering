@@ -1073,8 +1073,13 @@ ELEMENTS = [
     # Structure.
     ("panel", NINE_32, lambda k: framed(k)),
     ("panel_inset", NINE_32, lambda k: plate(32, k, sunken=True, heavy=True)),
-    ("row_highlight", NINE_32,
-     lambda k: plate(32, k, body=k.accent, alpha=0x38, ink=k.accent,
+    # Eight rather than thirty-two, because a highlight is a strip behind one row of text and a
+    # row of text is about ten pixels tall. At thirty-two with an eight pixel border it wanted
+    # twenty-four before it would slice at all, so every row in the mod drew it squashed whole -
+    # the picture crushed to a third of its height, corners and all. Eight with a two pixel border
+    # needs six, which a row has.
+    ("row_highlight", NINE_8,
+     lambda k: plate(8, k, body=k.accent, alpha=0x38, ink=k.accent,
                      lit=lighter(k.accent, 0.4), low=k.accent)),
     ("deck_panel", STRETCH, deck_panel),
     ("scroll_track", NINE_8, lambda k: capsule(8, k, sunken=True)),
@@ -1153,8 +1158,12 @@ ELEMENTS = [
     ("strength_badge", NINE_16,
      lambda k: plate(16, k, body=darker(k.warn, 0.75), alpha=0xE6,
                      lit=k.warn, low=darker(k.warn, 0.85))),
-    ("paper_blank", NINE_32, lambda k: stock(32, k)),
-    ("paper_emblem", NINE_32, lambda k: stock(32, k, dark=True)),
+    # Stretched, not sliced. These two are the face of a card, and a card is drawn at whatever size
+    # the table is seen from - nine pixels across at the far end of the zoom. A frame that keeps its
+    # corners at eight pixels has nothing left in the middle at that size, so it was squashed whole
+    # anyway; saying stretch says what is actually wanted, which is the picture of a card, smaller.
+    ("paper_blank", STRETCH, lambda k: stock(32, k)),
+    ("paper_emblem", STRETCH, lambda k: stock(32, k, dark=True)),
 
     # Lists, menus and buttons.
     ("row_odd", STRETCH, lambda k: wash(16, k.bevel, 0x18)),

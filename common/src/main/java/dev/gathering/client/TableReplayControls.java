@@ -109,8 +109,10 @@ final class TableReplayControls {
             GatheringSprites.scrollThumb(graphics, bar.x(), bar.y(), filled, bar.height());
         }
         // The head, so a paused replay says where it is even when the fill is a hairline.
-        int head = bar.x() + Math.clamp(filled - 2, 0, Math.max(0, bar.width() - 4));
-        GatheringSprites.scrollThumb(graphics, head, bar.y() - 2, 4, bar.height() + 4);
+        // Six wide, not four: the thumb's art is painted eight square with a two pixel border and
+        // wants six before its ends meet in the middle.
+        int head = bar.x() + Math.clamp(filled - 3, 0, Math.max(0, bar.width() - 6));
+        GatheringSprites.scrollThumb(graphics, head, bar.y() - 2, 6, bar.height() + 4);
 
         GuiText.draw(graphics, font,
                 Component.translatable("screen.gathering.replay.at",
