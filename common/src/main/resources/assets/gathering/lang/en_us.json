@@ -487,6 +487,7 @@
   "screen.gathering.event.record": "Record",
   "screen.gathering.event.tally.you": "You",
   "screen.gathering.event.tally.draws": "Draws",
+  "screen.gathering.event.tally.nothing_yet": "Count the games first.",
   "screen.gathering.event.tally.sent": "You sent this result. Your opponent confirms it.",
   "screen.gathering.event.tally.both_won": "Both players can't have won the match.",
   "screen.gathering.event.tally.drawn_in_a_cut": "A match in the cut can't end in a draw.",

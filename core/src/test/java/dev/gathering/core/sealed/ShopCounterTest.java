@@ -76,6 +76,31 @@ class ShopCounterTest {
     }
 
     @Test
+    @DisplayName("nothing on a shelf is priced past what one trade can carry")
+    void theDearestThingIsStillBuyable() {
+        // The owner's decision: a case is worth over two hundred boosters and a trade carries at
+        // most two slots of sixty-four, so without a ceiling the top of the shop - what a master
+        // shopkeeper sells - could not be bought at any amount of play.
+        SealedProduct crate = holding("case", "Case", PLAY, 216);
+        SealedCatalog catalog = Catalogs.of(PLAY, crate);
+        int dearest = ShopPrice.dearest(1);
+
+        SealedShelf shelf = SealedShelf.of(
+                new MtgjsonProducts.Reading("tst", List.of(PLAY, crate), List.of()), catalog, 1, dearest);
+
+        assertThat(shelf.items()).isNotEmpty();
+        for (SealedShelf.Item item : shelf.items()) {
+            assertThat(item.price())
+                    .as("%s must be payable in one trade", item.name())
+                    .isLessThanOrEqualTo(dearest);
+            assertThat(ShopPrice.of(item.price(), 1))
+                    .as("%s must have a price somebody can hand over", item.name())
+                    .isPresent();
+        }
+        assertThat(dearest).isEqualTo(128);
+    }
+
+    @Test
     @DisplayName("a counter stocks only what this server's prices can be paid in")
     void thingsTooDearToHandOverAreNotStocked() {
         // A case worth 216 boosters, priced in a currency with no larger denomination: 216 of it

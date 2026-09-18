@@ -257,12 +257,28 @@ public final class EventScreen extends Screen {
         java.util.Optional<Component> why = refusalOf(tally)
                 .or(() -> tally.label().equals(mine.myReport())
                         ? java.util.Optional.of(Component.translatable("screen.gathering.event.tally.sent"))
+                        : java.util.Optional.empty())
+                .or(() -> untouched(mine)
+                        ? java.util.Optional.of(Component.translatable("screen.gathering.event.tally.nothing_yet"))
                         : java.util.Optional.empty());
         why.ifPresent(reason -> {
             submit.active = false;
             submit.setTooltip(Tooltip.create(reason));
         });
         return submit;
+    }
+
+    /**
+     * Whether the counts are still nothing at all, and nothing put them there.
+     * <p>Nought games each is a real result - a draw the players agreed before playing - and it is
+     * also what the rows start at when there is nothing to start from. So Submit was armed before
+     * anybody had touched a counter, and one stray press reported a draw. Where the rows were filled
+     * in from a report or from what the table saw, confirming what is already there stays one press,
+     * which is what {@code ResultTally.startingFrom} is for.
+     */
+    private boolean untouched(EventViewPayload.Mine mine) {
+        return tally.equals(ResultTally.NONE)
+                && mine.myReport().isEmpty() && mine.theirReport().isEmpty() && mine.suggested().isEmpty();
     }
 
     /** Why these counts cannot be sent, in words, or empty when they can. */

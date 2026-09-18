@@ -85,7 +85,7 @@ public final class ConfigEdit {
                 // the line already had, so a file laid out one way does not come back laid
                 // out another.
                 lines.set(index, line.substring(0, line.indexOf(line.strip()))
-                        + named + " = " + value);
+                        + named + " = " + value + trailingComment(bare, equals));
                 return new Edited(String.join("\n", lines), null);
             }
         }
@@ -93,6 +93,32 @@ public final class ConfigEdit {
         if (section.equalsIgnoreCase(inside)) {
             endOfSection = lines.size();
         }
+        return appended(lines, section, key, value, endOfSection);
+    }
+
+    /**
+     * Whatever the owner wrote after the value on this line, comment and all, or nothing.
+     * <p>This class promises that everything but the value comes out as it went in, and a note
+     * somebody put beside a setting is the part of a config file they are most attached to. It was
+     * being thrown away by the rewrite - which is exactly the "regenerating it would throw them
+     * away" this class exists to avoid, on one line instead of all of them.
+     * <p>A hash inside quotes is part of the value, not the start of a comment.
+     */
+    private static String trailingComment(String bare, int equals) {
+        boolean quoted = false;
+        for (int at = equals + 1; at < bare.length(); at++) {
+            char here = bare.charAt(at);
+            if (here == '"') {
+                quoted = !quoted;
+            } else if (here == '#' && !quoted) {
+                return "  " + bare.substring(at).strip();
+            }
+        }
+        return "";
+    }
+
+    private static Edited appended(
+            List<String> lines, String section, String key, String value, int endOfSection) {
         if (endOfSection < 0) {
             // No such section. Added at the end, with a blank line before it, which is what
             // the written-out default looks like.

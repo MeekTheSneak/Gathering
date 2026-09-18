@@ -374,8 +374,14 @@ public final class PackOpening {
      * needed to open a pack to get.
      */
     public static boolean wasEverInABooster(CardMetadata card) {
+        // A card rather than a token, an emblem or an art card, which is ArchiveAudit's question and
+        // is asked here too. It used to come for free: the network lookup this pool was built from
+        // is a Scryfall search, and a search does not return them. The local bulk index does, and it
+        // is what a server reads from by default now - so without asking, a set with no published
+        // collation could deal an art card into a pack.
         return card != null && card.scryfallId() != null
-                && !card.digitalOnly() && !card.oversized() && !card.isBasicLand();
+                && dev.gathering.core.booster.ArchiveAudit.isACard(card)
+                && !card.isBasicLand();
     }
 
     /**

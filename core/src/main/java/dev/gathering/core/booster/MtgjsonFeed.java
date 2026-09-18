@@ -82,7 +82,22 @@ public final class MtgjsonFeed {
      * <p>Every modern set's play booster reaches into The List, and The List's file is seventeen megabytes:
      * the first pack of each set parsed it again, which was most of the wait on that pack.
      */
-    private final Map<String, Lent> lent = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Lent> lent = java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<String, Lent>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Lent> eldest) {
+                    return size() > MOST_COMPANIONS_KEPT;
+                }
+            });
+
+    /**
+     * How many companion sets are kept parsed at once.
+     * <p>The List alone is seventeen megabytes of json and a few thousand printings once parsed, so
+     * these are not small. A session plays a handful of sets and every one of them borrows from the
+     * same one or two companions, which is what makes the memo worth having; keeping every companion
+     * a long-running server ever touched is not.
+     */
+    private static final int MOST_COMPANIONS_KEPT = 8;
 
     /** A companion set's printings and colors, which is all a pack borrows from it. */
     private record Lent(Map<String, UUID> printings, Map<UUID, String> colors) {

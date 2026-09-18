@@ -61,6 +61,25 @@ public record SealedShelf(List<Item> items) {
      */
     public static SealedShelf of(MtgjsonProducts.Reading products, SealedCatalog catalog,
             int perBooster) {
+        return of(products, catalog, perBooster, Integer.MAX_VALUE);
+    }
+
+    /**
+     * The same, with a ceiling on what anything may cost.
+     * <p>A trade is handed over in two slots, so there is a dearest thing that can be paid for at
+     * all and everything above it was simply not for sale - which at the shipped prices was every
+     * case, sitting at the top of the shop where training a shopkeeper all the way up leads. The
+     * owner's decision (2026-09-18) is that nothing is priced past what a trade can carry: the coin
+     * is found rather than farmed and a hundred and twenty-eight of them is a long way to go for
+     * anything.
+     * <p>A ceiling rather than a rescaling. A case is dearer than a box and both are dearer than a
+     * pack, right up until the ceiling, and past it they are all the same price - which is honest
+     * about what is happening rather than quietly reshaping every price in the shop to fit.
+     *
+     * @param dearest the most anything may cost, in the item a server prices in
+     */
+    public static SealedShelf of(MtgjsonProducts.Reading products, SealedCatalog catalog,
+            int perBooster, int dearest) {
         if (products == null) {
             return EMPTY;
         }
@@ -73,7 +92,8 @@ public record SealedShelf(List<Item> items) {
             // the data calls it.
             if (SealedPrice.isSellable(product)
                     && SealedContents.canBeHandedOver(product, lookup)) {
-                items.add(new Item(product, SealedPrice.of(product, lookup, perBooster)));
+                items.add(new Item(product,
+                        Math.min(Math.max(1, dearest), SealedPrice.of(product, lookup, perBooster))));
             }
         }
         items.sort(Comparator

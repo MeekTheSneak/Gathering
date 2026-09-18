@@ -183,9 +183,12 @@ public final class ClientTableNews {
      * changes.
      * <p>Only your own turn, only the moment it arrives, and only at a table you are sitting at -
      * a spectator has no turn to be told about. Its sound is the owner's own; any other pass is the
-     * table's pass sound, played by the caller from the log, and never both on one moment. A board
-     * that arrives with the turn already yours because you have only just walked up says nothing:
-     * there was no change, and the first board of a table is not news.
+     * table's pass sound, played by the caller from the log, and never both on one moment.
+     * <p>The first board of a table used to say nothing either, on the reasoning that it is not
+     * news. That is right for the turn belonging to somebody else and wrong for the turn belonging
+     * to you: a player whose connection dropped and came back on their own turn was told by nobody,
+     * and since the table was then waiting on them, no further board was coming to tell them. So a
+     * first board is news exactly when the turn on it is already yours.
      */
     private static boolean noticeTheTurn(BlockPos table, GameView board, long now) {
         SeatId mine = board.viewer() instanceof dev.gathering.core.game.visibility.Viewer.Seated seated
@@ -196,7 +199,15 @@ public final class ClientTableNews {
         synchronized (ClientTableNews.class) {
             before = WAS_ACTIVE.put(table, active);
         }
-        if (mine == null || active == null || before == null || before.equals(active)) {
+        if (mine == null || active == null) {
+            return false;
+        }
+        // A board with nothing to compare it against is a table this client has only just heard of:
+        // a reconnect, a rejoin, the first one after sitting down. It used to say nothing at all,
+        // which meant somebody whose game dropped and came back on their own turn was told by
+        // nobody - the table was waiting on them and no further board would arrive to change that.
+        // Told only when the turn is already theirs, which is the case where silence costs something.
+        if (before != null && before.equals(active)) {
             return false;
         }
         if (!active.equals(mine) || !ClientSettings.turnNotification()) {

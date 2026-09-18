@@ -3909,3 +3909,51 @@ the run - a handful of doubles, bounded by distinct fake profiles. And if the se
 single creative click the client has already made - budget exhausted, or the deck not held - the card
 can end up both in the deck and in the slot; the budget makes it hard to reach by hand, and the shape
 is now written down rather than a surprise.
+
+## 2026-09-18: the rest of the list, and a ceiling on what anything costs
+
+**Nothing is priced past what one trade can carry** (owner, 2026-09-18). A trade is handed over in
+two slots of sixty-four, so there was a dearest thing that could be paid for at all and everything
+above it was not for sale - which at the shipped prices was every case, sitting at the top of the
+shop where training a shopkeeper all the way up leads. The owner's reasoning: a coin is found rather
+than farmed and cannot be farmed at all now, so a hundred and twenty-eight of them is a long way to
+go and more than justifies a box. `SealedShelf` takes a ceiling and `CardShop` passes
+`ShopPrice.dearest(perBlock)`, which is 128 on the shipped economy and larger for a server that
+prices in something with a block. A ceiling rather than a rescaling: a case is dearer than a box and
+both are dearer than a pack right up to it, and past it they are the same price, which is honest
+about what is happening (`theDearestThingIsStillBuyable`, shown failing without it).
+
+**A reconnecting player is told it is their turn.** The first board of a table said nothing, on the
+reasoning that it is not news - right for somebody else's turn, wrong for yours. A player whose
+connection dropped and came back on their own turn was told by nobody, and since the table was then
+waiting on them no further board was coming to tell them. A first board is now news exactly when the
+turn on it is already yours. This also covers the "missed a whole rotation" case the review raised,
+which needs the same gap in board delivery.
+
+**Submit is no longer armed before anybody has counted anything.** Nought games each is a real result
+- a draw agreed before playing - and also what the rows start at, so one stray press reported a draw.
+Refused while the counts are still nothing *and* nothing put them there; where the rows were filled
+in from a report or from what the table saw, confirming is still one press.
+
+**A made-up pack holds cards.** `wasEverInABooster` dropped digital, oversized and basic lands but
+never asked about layout, which used to come for free: the pool was built from a Scryfall search and
+a search does not return tokens, emblems or art series. The local bulk index does, and it is what a
+server reads from by default now - so a set with no published collation could have dealt an art card
+into a pack. It asks `ArchiveAudit.isACard` now, which is the same question the archive asks.
+
+**A note beside a setting survives an edit to it.** `ConfigEdit`'s own doc says everything but the
+value comes out as it went in; the rewrite dropped any trailing comment on the line it changed, which
+is the loss the whole class exists to avoid, on one line instead of all of them. A hash inside quotes
+is part of the value. And `SettingsUpgrade.valueOf` now matches a key the same two ways and with the
+same case-insensitivity that `ConfigEdit` writes it - they disagreed, so a setting written at the top
+level as `modes.replays` read as absent here and was then written a second time by the editor.
+
+**Two bounds.** The companion-set memo in `MtgjsonFeed` keeps eight rather than everything a
+long-running server ever touched - The List alone is seventeen megabytes of json - and the note in
+`NoticePayload` that claimed "none of it is anybody's typing" is corrected: a tournament name reaches
+it, as a bounded one-line argument, which is why the trusted codec is still right.
+
+**Left deliberately:** a Create deployer is a fake player that never logs out, so its loot bucket
+lives for the run - a couple of doubles, bounded by distinct fake profiles; and if the server refuses
+a creative click the client has already made, a card can be both in the deck and in the slot, which
+the budget makes hard to reach by hand. Both are written down rather than fixed.

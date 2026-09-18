@@ -23,9 +23,12 @@ public record NoticePayload(Component line) implements CustomPacketPayload {
 
     /**
      * Trusted, because the server wrote it.
-     * <p>The untrusted reading of a component caps how deeply one may nest, for text that came
-     * from a player. Every line here is the mod's own translatable key with a number or a name
-     * in it; none of it is anybody's typing.
+     * <p>The untrusted reading of a component caps how deeply one may nest, for text that came from
+     * a player. Every line here is the mod's own translatable key, and what a player has typed only
+     * ever reaches it as an <em>argument</em> - a tournament's name, say, which arrives as one line
+     * of at most forty characters through {@code PlayerText.oneLine}. So the nesting is this mod's
+     * own however the argument was written, which is what the cap is for. It is not true that none
+     * of it is anybody's typing, and this used to say so.
      */
     public static final StreamCodec<RegistryFriendlyByteBuf, NoticePayload> STREAM_CODEC =
             StreamCodec.composite(

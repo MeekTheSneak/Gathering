@@ -395,9 +395,14 @@ public final class CardShop {
         // Kept beyond this shelf: a box outlives the rotation that sold it.
         remember(catalog);
 
+        // Nothing is priced past what one trade can carry. Otherwise the dearest things on the
+        // shelf - the cases, which is what a master shopkeeper sells - cannot be bought at any
+        // amount of play, because two slots of sixty-four is the most that can change hands.
+        int dearest = dev.gathering.core.sealed.ShopPrice.dearest(
+                ServerSettings.get().collecting().sealedPriceBlockWorth());
         List<SealedShelf> shelves = new ArrayList<>();
         for (CollationService.Catalog one : read.values()) {
-            shelves.add(SealedShelf.of(one.products(), catalog, perBooster));
+            shelves.add(SealedShelf.of(one.products(), catalog, perBooster, dearest));
         }
         return new Stock(SealedShelf.of(shelves), catalog);
     }

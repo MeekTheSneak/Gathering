@@ -111,8 +111,6 @@ public final class SettingsUpgrade {
      * still the one an older version wrote - and a parser hands back a value, not the writing.
      */
     static String valueOf(String text, String path) {
-        String section = path.substring(0, path.indexOf('.'));
-        String key = path.substring(path.indexOf('.') + 1);
         String inside = null;
         for (String line : text.split("\n", -1)) {
             String trimmed = line.trim();
@@ -121,10 +119,16 @@ public final class SettingsUpgrade {
                 continue;
             }
             int equals = trimmed.indexOf('=');
-            if (equals < 0 || trimmed.startsWith("#") || !section.equals(inside)) {
+            if (equals < 0 || trimmed.startsWith("#")) {
                 continue;
             }
-            if (trimmed.substring(0, equals).trim().equals(key)) {
+            // The whole path rather than the key under a heading, and either spelling of it, which
+            // is what ConfigEdit matches when it writes. The two disagreeing meant this looked at a
+            // file one way and wrote it another: a setting the owner had put at the top level as
+            // "modes.replays" was read as absent here and then written a second time by the editor.
+            String named = trimmed.substring(0, equals).trim();
+            String here = inside == null || inside.isEmpty() ? named : inside + "." + named;
+            if (here.equalsIgnoreCase(path)) {
                 return trimmed.substring(equals + 1).trim();
             }
         }

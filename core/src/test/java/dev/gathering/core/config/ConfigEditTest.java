@@ -137,4 +137,26 @@ class ConfigEditTest {
         assertThat(read.flag("modes.import_enabled", false)).isTrue();
         assertThat(read.string("collection.current_set", "")).isEqualTo("auto");
     }
+
+    @Test
+    void atrailingCommentSurvivesTheEdit() {
+        // The whole reason this edits text rather than writing the file out again is that the file
+        // has somebody's comments in it. Dropping the one on the line being changed is that same
+        // loss, on one line instead of all of them.
+        String file = "[modes]\ncollection_enabled = true  # we run the collecting game\n";
+
+        ConfigEdit.Edited edited = ConfigEdit.set(file, "modes.collection_enabled", "false");
+
+        assertThat(edited.worked()).isTrue();
+        assertThat(edited.text()).contains("collection_enabled = false  # we run the collecting game");
+    }
+
+    @Test
+    void ahashInQuotesIsNotAComment() {
+        String file = "[collection]\nsealed_price_item = \"minecraft:emerald\"\n";
+
+        ConfigEdit.Edited edited = ConfigEdit.set(file, "collection.sealed_price_item", "\"gathering:mana_coin\"");
+
+        assertThat(edited.text()).isEqualTo("[collection]\nsealed_price_item = \"gathering:mana_coin\"\n");
+    }
 }
