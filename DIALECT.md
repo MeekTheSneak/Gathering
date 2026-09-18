@@ -485,3 +485,13 @@ cannot be inferred from reading the code.
   plus "move to sideboard": a verb per destination is how a deck editor quietly becomes a
   Commander deck editor, and the formats that live on their sideboard are the ones that would
   notice. The mod is Commander-first in its defaults, never in what it makes possible.
+- **A jqwik `@Property` inside a JUnit `@Nested` class needs `@net.jqwik.api.Group` as well**,
+  or jqwik never walks into the class and the property is silently not run. The suite still
+  passes, with a smaller number in it than anybody counts. `BoardGeometryTest.TheRoundTrip`
+  carries the annotation and a comment saying what it cost; `TestHygieneTest` guards the
+  neighboring trap, which is that `@DisplayName` on a property silences it too - properties
+  are labeled with `@Label`. Check the number of tests that actually ran, not the color.
+- **`HandFan` is the seated screen's own hand, in pixels.** The fan a body holds in the world
+  is `HeldFan`, in card widths. Two fans, two frames of reference, and the obvious name belongs
+  to the older one; a new class called `HandFan` overwrites a file that eleven screens' tests
+  depend on, and the compiler is the first thing that says so.
