@@ -23,6 +23,7 @@ public final class GatheringComponents {
     public static final String SEALED_ID = "sealed";
     public static final String STORY_ID = "story";
     public static final String DECK_HANDLE_ID = "deck_handle";
+    public static final String TROPHY_ID = "trophy";
 
     public static final Registered<DataComponentType<CardComponent>> CARD = new Registered<>(CARD_ID);
     public static final Registered<DataComponentType<DeckComponent>> DECK = new Registered<>(DECK_ID);
@@ -32,6 +33,8 @@ public final class GatheringComponents {
             new Registered<>(SEALED_ID);
     public static final Registered<DataComponentType<StoryComponent>> STORY =
             new Registered<>(STORY_ID);
+    public static final Registered<DataComponentType<dev.gathering.item.TrophyComponent>> TROPHY =
+            new Registered<>(TROPHY_ID);
 
     /**
      * Which deck this is, as an opaque handle.
@@ -72,6 +75,14 @@ public final class GatheringComponents {
         return DataComponentType.<StoryComponent>builder()
                 .persistent(StoryComponent.CODEC)
                 .networkSynchronized(StoryComponent.STREAM_CODEC)
+                .build();
+    }
+
+    /** What a trophy is engraved with. See {@link dev.gathering.item.TrophyComponent}. */
+    public static DataComponentType<dev.gathering.item.TrophyComponent> createTrophyType() {
+        return DataComponentType.<dev.gathering.item.TrophyComponent>builder()
+                .persistent(dev.gathering.item.TrophyComponent.CODEC)
+                .networkSynchronized(dev.gathering.item.TrophyComponent.STREAM_CODEC)
                 .build();
     }
 

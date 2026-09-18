@@ -1206,6 +1206,7 @@ public final class Events {
                     tell(server, entrant.id(), Component.translatable("message.gathering.event.won_by",
                             state.tournament.name(), winner, places.indexOf(entrant.id()) + 1));
                 }
+                awardTheTrophy(server, state, places.get(0));
             }
         } else {
             EventPrizes.returnToHost(server, state);
@@ -1214,6 +1215,43 @@ public final class Events {
             }
         }
         changed(server, state);
+    }
+
+    /** The fewest entrants a tournament needs before it leaves a trophy behind. */
+    public static final int FEWEST_FOR_A_TROPHY = 5;
+
+    /**
+     * The winner is handed a trophy, for an event with more than four people in it.
+     * <p>The owner's line, and the whole of the rule: a pod of four is an afternoon between friends
+     * and a trophy for it would be a participation cup. Counted on entrants rather than on who
+     * turned up to the last round, because that is what the event was.
+     * <p>Engraved with the event, the day and the winner's name, and cast in a color of its own -
+     * the world's randomness, like every other roll the server makes. Given through the same hands
+     * that deliver a prize, so somebody whose inventory is full is owed it rather than losing it.
+     */
+    private static void awardTheTrophy(MinecraftServer server, EventState state, UUID winner) {
+        if (server == null || winner == null
+                || state.tournament.entrants().size() < FEWEST_FOR_A_TROPHY) {
+            return;
+        }
+        ServerLevel level = levelOf(server, state).orElse(null);
+        net.minecraft.util.RandomSource random = level == null
+                ? net.minecraft.util.RandomSource.create() : level.getRandom();
+        net.minecraft.world.item.ItemStack cup = dev.gathering.item.TrophyItem.of(
+                state.tournament.name(), today(), nameOf(state, winner), random);
+        ServerPlayer won = server.getPlayerList().getPlayer(winner);
+        if (won != null) {
+            dev.gathering.server.Handing.give(won, cup);
+        } else {
+            // Not on the server to take it. Owed, the same way a prize is: an afternoon's trophy
+            // must not depend on whether somebody stayed for the last message.
+            dev.gathering.server.Owed.anItem(winner, cup);
+        }
+    }
+
+    /** The day, as the trophy says it: what a real one has stamped on its base. */
+    private static String today() {
+        return java.time.LocalDate.now().toString();
     }
 
     // ------------------------------------------------------------------ hooks

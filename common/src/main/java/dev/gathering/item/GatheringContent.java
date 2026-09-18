@@ -28,6 +28,7 @@ public final class GatheringContent {
     public static final String DECK_ID = "deck";
     public static final String PACK_ID = "pack";
     public static final String MANA_COIN_ID = "mana_coin";
+    public static final String TROPHY_ID = "trophy";
     public static final String TABLE_ID = "table";
 
     /**
@@ -57,6 +58,7 @@ public final class GatheringContent {
     public static final Registered<Item> DECK = new Registered<>(DECK_ID);
     public static final Registered<Item> PACK = new Registered<>(PACK_ID);
     public static final Registered<Item> MANA_COIN = new Registered<>(MANA_COIN_ID);
+    public static final Registered<Item> TROPHY = new Registered<>(TROPHY_ID);
     public static final Registered<Block> TABLE = new Registered<>(TABLE_ID);
     public static final Registered<Item> TABLE_ITEM = new Registered<>(TABLE_ID);
     public static final Registered<Block> COBBLESTONE_TABLE = new Registered<>(COBBLESTONE_TABLE_ID);
@@ -270,7 +272,7 @@ public final class GatheringContent {
      */
     public static java.util.List<Registered<Item>> creativeItems() {
         java.util.List<Registered<Item>> all = new java.util.ArrayList<>(
-                java.util.List.of(CARD, DECK, PACK, SEALED, MANA_COIN));
+                java.util.List.of(CARD, DECK, PACK, SEALED, MANA_COIN, TROPHY));
         for (Woodwork kind : Woodwork.values()) {
             all.addAll(itemsOf(kind));
         }
@@ -349,6 +351,11 @@ public final class GatheringContent {
      */
     public static Item createManaCoin() {
         return new ManaCoinItem(new Item.Properties());
+    }
+
+    /** One to a tournament, so a stack of them is never a thing anybody has. */
+    public static Item createTrophy() {
+        return new TrophyItem(new Item.Properties().stacksTo(1).rarity(net.minecraft.world.item.Rarity.RARE));
     }
 
     /**

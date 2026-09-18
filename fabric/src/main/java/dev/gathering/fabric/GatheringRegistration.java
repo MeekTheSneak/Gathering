@@ -119,6 +119,9 @@ final class GatheringRegistration {
         GatheringContent.PACK.bindValue(pack);
         GatheringContent.SEALED.bindValue(sealed);
         GatheringContent.MANA_COIN.bindValue(manaCoin);
+        GatheringContent.TROPHY.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.TROPHY_ID),
+                GatheringContent.createTrophy()));
 
         GatheringComponents.CARD.bindValue(Registry.register(
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
@@ -144,6 +147,10 @@ final class GatheringRegistration {
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
                 Gathering.id(GatheringComponents.STORY_ID),
                 GatheringComponents.createStoryType()));
+        GatheringComponents.TROPHY.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.TROPHY_ID),
+                GatheringComponents.createTrophyType()));
         GatheringComponents.DECK_HANDLE.bindValue(Registry.register(
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
                 Gathering.id(GatheringComponents.DECK_HANDLE_ID),

@@ -71,6 +71,8 @@ final class GatheringRegistration {
             ITEMS.register(GatheringContent.PACK_ID, GatheringContent::createPack);
     private static final Supplier<Item> MANA_COIN =
             ITEMS.register(GatheringContent.MANA_COIN_ID, GatheringContent::createManaCoin);
+    private static final Supplier<Item> TROPHY =
+            ITEMS.register(GatheringContent.TROPHY_ID, GatheringContent::createTrophy);
 
     private static final Supplier<Item> SEALED =
             ITEMS.register(GatheringContent.SEALED_ID, GatheringContent::createSealed);
@@ -191,6 +193,9 @@ final class GatheringRegistration {
     private static final Supplier<DataComponentType<dev.gathering.item.StoryComponent>>
             STORY_COMPONENT = DATA_COMPONENTS.register(
                     GatheringComponents.STORY_ID, GatheringComponents::createStoryType);
+    private static final Supplier<DataComponentType<dev.gathering.item.TrophyComponent>>
+            TROPHY_COMPONENT = DATA_COMPONENTS.register(
+                    GatheringComponents.TROPHY_ID, GatheringComponents::createTrophyType);
     private static final Supplier<DataComponentType<java.util.UUID>>
             DECK_HANDLE_COMPONENT = DATA_COMPONENTS.register(
                     GatheringComponents.DECK_HANDLE_ID,
@@ -283,6 +288,7 @@ final class GatheringRegistration {
         GatheringContent.DECK.bind(DECK);
         GatheringContent.PACK.bind(PACK);
         GatheringContent.MANA_COIN.bind(MANA_COIN);
+        GatheringContent.TROPHY.bind(TROPHY);
         GatheringContent.TABLE.bind(TABLE);
         GatheringContent.TABLE_ITEM.bind(TABLE_ITEM);
         GatheringContent.COBBLESTONE_TABLE.bind(COBBLESTONE_TABLE);
@@ -298,6 +304,7 @@ final class GatheringRegistration {
         GatheringComponents.PACK.bind(PACK_COMPONENT);
         GatheringComponents.SEALED.bind(SEALED_COMPONENT);
         GatheringComponents.STORY.bind(STORY_COMPONENT);
+        GatheringComponents.TROPHY.bind(TROPHY_COMPONENT);
         GatheringComponents.DECK_HANDLE.bind(DECK_HANDLE_COMPONENT);
         GatheringContent.SEALED.bind(SEALED);
         GatheringContent.SHOP_COUNTER.bind(SHOP_COUNTER);

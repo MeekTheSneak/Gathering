@@ -4145,3 +4145,36 @@ for both rather than by being careful.
 
 `NoticeLineTest` covers the arithmetic. Verified in the scripted client: one failure, the framing one
 that was already there.
+
+## 2026-09-18: the trophy
+
+The owner asked for it out of the list of "for fun" suggestions, and then for the engraving as well:
+an item with a random tint, for tournaments of more than four, carrying the event's name, the day and
+the winner.
+
+**What it is.** `TrophyItem` with a `TrophyComponent` holding the event, the day, the winner and a
+tint. It does nothing: not a block, not a card, and no rule anywhere reads it. That is the point - a
+trophy that did something would be a reward, and this is a souvenir. It is one of the few items that
+still explains itself in the hand, because what it says is the whole of it and there is nowhere else
+to read it.
+
+**The color is the object's own.** Decided once, when it is won, from the world's own randomness like
+every other roll the server makes - and carried on the item, so the same trophy is the same color in
+every hand it passes through. The hue is the free part and the saturation and value are fixed: a
+random number straight out of the generator is mud about half the time, and a cup is metal or it is
+nothing. `TrophyItem.tintOf` is one rule both loaders call rather than one written in each, because
+two of those are two that can drift - which is how the sweep mixin ended up registered on neither.
+
+**More than four.** `Events.FEWEST_FOR_A_TROPHY` is five, counted on entrants rather than on who
+turned up for the last round, because that is what the event was. A pod of four is an afternoon
+between friends and a cup for it would be a participation trophy. A winner who has logged out is owed
+it through the same path a prize takes.
+
+**The art is a stand-in**, drawn by `tools/trophy.py` as the Mana Coin was, and deliberately gray:
+the game multiplies the picture by the trophy's own color, so a cup painted in any color at all would
+come out muddied by it.
+
+**One flaky test, caught by running it.** The first version settled every pairing in the first seat's
+favor and then asserted the first player had won - which Swiss does not guarantee, because it seats
+players differently each round. It passed, then failed, then passed. It now asks the tournament who
+actually came first and looks in that player's hands; run three times over to be sure.

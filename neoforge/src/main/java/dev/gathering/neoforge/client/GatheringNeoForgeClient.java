@@ -132,6 +132,7 @@ public final class GatheringNeoForgeClient {
             event.register((stack, tintIndex) -> TableColors.itemTintOf(tintIndex), item.get());
         }
         event.register(dev.gathering.item.DeckItem::tintOf, GatheringContent.DECK.get());
+        event.register(dev.gathering.item.TrophyItem::tintOf, GatheringContent.TROPHY.get());
     }
 
 

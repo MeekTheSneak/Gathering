@@ -371,6 +371,94 @@ public final class EventHostingGameTest {
         helper.succeed();
     }
 
+    /**
+     * A tournament of more than four leaves the winner a trophy; a smaller one leaves nothing.
+     * <p>The owner's line: a pod of four is an afternoon between friends, and a cup for it would be
+     * a participation trophy. Engraved with the event, the day and the winner, and cast in a color
+     * of its own, so a shelf of them is a shelf of separate afternoons.
+     */
+    @GameTest(template = "tables")
+    public static void onlyaTournamentOfMoreThanFourLeavesaTrophy(GameTestHelper helper) {
+        for (int entrants : new int[] {4, 5}) {
+            // Every entrant a real player, and the one asked afterwards is whoever the tournament
+            // says came first. Settling every pairing in the first seat's favor does not make the
+            // first player win the event - Swiss seats them differently each round - so a test that
+            // assumed it passed and failed on alternate runs, which is worse than one that fails.
+            List<ServerPlayer> field = new java.util.ArrayList<>();
+            for (int who = 0; who < entrants; who++) {
+                ServerPlayer player = helper.makeMockServerPlayerInLevel();
+                player.getInventory().clearContent();
+                dev.gathering.server.Owed.forget(player.getUUID());
+                field.add(player);
+            }
+            EventState state = Events.stateForTesting(
+                    playedThrough(field, "Cup of " + entrants), helper.getLevel(), List.of());
+            try {
+                Events.finishForTesting(helper.getLevel().getServer(), state);
+
+                UUID first = state.tournament.finalPlaces().get(0);
+                ServerPlayer winner = field.stream().filter(one -> one.getUUID().equals(first))
+                        .findFirst().orElseThrow();
+                dev.gathering.item.TrophyComponent won = null;
+                for (var stack : winner.getInventory().items) {
+                    if (stack.getItem() instanceof dev.gathering.item.TrophyItem) {
+                        won = dev.gathering.item.TrophyItem.trophyOf(stack).orElse(null);
+                    }
+                }
+                if (entrants < Events.FEWEST_FOR_A_TROPHY) {
+                    if (won != null) {
+                        helper.fail("a tournament of " + entrants + " left a trophy: " + won);
+                        return;
+                    }
+                    continue;
+                }
+                if (won == null) {
+                    helper.fail("a tournament of " + entrants + " left the winner no trophy");
+                    return;
+                }
+                if (!won.event().equals("Cup of " + entrants) || won.winner().isEmpty()
+                        || won.day().isEmpty()) {
+                    helper.fail("the trophy is engraved " + won);
+                    return;
+                }
+            } finally {
+                remove(state);
+                for (ServerPlayer one : field) {
+                    dev.gathering.server.Owed.forget(one.getUUID());
+                }
+            }
+        }
+        helper.succeed();
+    }
+
+    /** A tournament these players played all the way through. Who wins is the pairings' business. */
+    private static dev.gathering.core.tournament.Tournament playedThrough(
+            List<ServerPlayer> field, String name) {
+        List<UUID> players = field.stream().map(ServerPlayer::getUUID).toList();
+        var tournament = dev.gathering.core.tournament.Tournament.create(
+                UUID.randomUUID(), name, players.get(0),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        for (int index = 0; index < players.size(); index++) {
+            tournament = tournament.register(dev.gathering.core.tournament.Entrant.registering(
+                    players.get(index), "P" + index, 1500));
+        }
+        tournament = tournament.beginPreparing();
+        for (UUID player : players) {
+            tournament = tournament.markReady(player);
+        }
+        tournament = tournament.startSwiss();
+        while (!tournament.isOver()) {
+            for (var pairing : tournament.currentRound().orElseThrow().pairings()) {
+                if (!pairing.isConfirmed()) {
+                    tournament = tournament.settle(pairing.table(),
+                            new dev.gathering.core.tournament.MatchResult(2, 0, 0));
+                }
+            }
+            tournament = tournament.nextRound();
+        }
+        return tournament;
+    }
+
     // ------------------------------------------------------------------ fixtures
 
     /** Hosting at a desk the way a client's Create reaches the server. */

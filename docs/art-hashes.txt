@@ -2148,6 +2148,7 @@ c90cc63b124f20424eb9b9f72ea7070602f325a9419ec359ae0152d8717f8a7e  common/src/mai
 77ff6ee9b47d58c6fe0e6fe07940b8b96990e5dd96a73ccb5892a452fa6b205b  common/src/main/resources/assets/gathering/textures/item/mana_coin.png
 23f1d7260b50d651f6d647efd62d326ec7658b42b61254a486cda3678100cf2b  common/src/main/resources/assets/gathering/textures/item/pack.png
 02f28f95cfd23cfc04c33b09f371a50d85bca77e467fc370287501358638a9b3  common/src/main/resources/assets/gathering/textures/item/sealed.png
+6fc1ae484f3b10440c0d19ae594ea4c26c2ab08c6eb5a8acbbbca1c7fda2466d  common/src/main/resources/assets/gathering/textures/item/trophy.png
 7b2c3e08df1f728bb81740af9478e7d168d7d770179ee7b0efe1c77d93ff56b8  common/src/main/resources/pack.mcmeta
 0e85a060542884edb4ab18eab71d2aeeb1ad66d69c5eb6f6e51c2e1484d7b3ec  docs/gui-elements.png
 d03306e0c63275fae2ff350a8ea9f130589edf81ddc8430cbb88d63aa664f34c  docs/reviews/cleanup-2026-09-13-menu-overflow.png
