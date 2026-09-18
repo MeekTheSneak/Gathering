@@ -96,6 +96,20 @@ final class TableSounds {
      * switch and slider, and the players' category, like every other table noise.
      */
     static void turnAt(BlockPos table, Registered<SoundEvent> sound) {
+        turnAt(table, sound, false);
+    }
+
+    /**
+     * The same, for a turn that has come round to somebody who is not at the table.
+     * <p>A sound at a block is heard from about nine blocks away, which is right for a table
+     * somebody is sitting at and useless for the one thing this sound is for. The turn coming to
+     * you is the one event you have to act on, and you are most likely to miss it when you have
+     * walked off to a chest - so when the table is out of earshot the sound is played where the
+     * player is instead. Same sound, same volume, same switch; only the place it comes from moves.
+     *
+     * @param wherever whether to play it at the player rather than at the table
+     */
+    static void turnAt(BlockPos table, Registered<SoundEvent> sound, boolean wherever) {
         Minecraft client = Minecraft.getInstance();
         if (client == null || table == null || !sound.isBound()) {
             return;
@@ -105,9 +119,15 @@ final class TableSounds {
             return;
         }
         client.execute(() -> {
-            if (client.level != null) {
-                client.level.playLocalSound(table, sound.get(), SoundSource.PLAYERS, volume, 1f, false);
+            if (client.level == null) {
+                return;
             }
+            if (wherever && client.player != null) {
+                client.level.playLocalSound(client.player.getX(), client.player.getY(), client.player.getZ(),
+                        sound.get(), SoundSource.PLAYERS, volume, 1f, false);
+                return;
+            }
+            client.level.playLocalSound(table, sound.get(), SoundSource.PLAYERS, volume, 1f, false);
         });
     }
 

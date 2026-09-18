@@ -3797,3 +3797,32 @@ eight are untouched.
 trade carries at most two slots of sixty-four, so at default prices the top of the shop cannot be
 bought at all. A master shopkeeper is a long way from a first session, so this would not have come up
 - but it is a dead end sitting at the end of the exact path they were walking.
+
+## 2026-09-18: the turn notice reaches somebody who has walked away
+
+The owner asked whether walking away from a table and having the turn passed to you plays the chime,
+or whether it only does that while you are sitting there. Traced: the notice fired wherever you were,
+and you could not perceive it either way.
+
+- You keep your seat when you walk off - the design says leaving does not drop it - and
+  `TableBroadcast.sendToTable` sends the board to every seated player with **no distance check**, so
+  `noticeTheTurn` really does run.
+- But the chime was `playLocalSound(table, ...)`, positional at the table, at a volume that carries
+  about nine blocks.
+- And the "Your turn" line is drawn only inside `TableScreen`, which is not open when you have walked
+  off.
+
+So it worked for somebody sitting at the board looking at it, which is the one person who does not
+need telling, and failed for somebody at their chest - which is what the feature is for. Its own
+comment says as much: "for the three boards out of four that are not where they are looking".
+
+Past a table's earshot the sound is now played where the player is and the line is said on the HUD
+through `ScreenNotice`. Inside it nothing changes: a table speaks for itself, as all of its other
+noises do. The distance rule is `core/.../ui/Earshot.java` so it is arithmetic that can be checked
+rather than a number guessed at from a chair (`EarshotTest`); the owner chose this shape over sound
+alone and over leaving it as it was.
+
+**Still not covered by any test:** that the notice actually reaches a player who has walked away.
+Neither test set has a client that can walk, and the scripted client's player is at the table. The
+sound firing at all is asserted by the scene (step 83); the rest is source-verified, and this is the
+second time this particular path has had to be traced by hand rather than run.

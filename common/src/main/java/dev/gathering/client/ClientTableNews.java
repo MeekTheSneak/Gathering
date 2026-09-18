@@ -11,6 +11,7 @@ import dev.gathering.sound.GatheringSounds;
 import net.minecraft.sounds.SoundEvent;
 import java.util.HashMap;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
 /**
@@ -206,8 +207,24 @@ public final class ClientTableNews {
         }
         // Through TableSounds, so somebody who has turned the table's noises down is not
         // shouted at by this one.
-        TableSounds.turnAt(table, GatheringSounds.YOUR_TURN);
+        boolean away = outOfEarshot(table);
+        TableSounds.turnAt(table, GatheringSounds.YOUR_TURN, away);
+        if (away) {
+            // And said in words on the HUD, because somebody who has walked off is not looking at
+            // the table's screen, which is the only other place this is said. Keeping your seat
+            // while you fetch something is the design; being told the turn came round while you
+            // were doing it is what makes that work.
+            ScreenNotice.tell(net.minecraft.network.chat.Component.translatable(
+                    "screen.gathering.table.your_turn"));
+        }
         return true;
+    }
+
+    /** Whether the player is too far from this table to hear anything it plays. */
+    private static boolean outOfEarshot(BlockPos table) {
+        var player = Minecraft.getInstance().player;
+        return player == null || dev.gathering.core.ui.Earshot.mustFollowThePlayer(
+                player.distanceToSqr(table.getX() + 0.5, table.getY() + 0.5, table.getZ() + 0.5));
     }
 
     /**
