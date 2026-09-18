@@ -9,6 +9,28 @@ produced them and from nowhere else.
 
 Last updated 2026-09-14, after the security review, memory audit and a rules and tournament pass (see "Rules and tournament pass"). The gate is green at 503 NeoForge and 14 Fabric in-world tests. The quality backlog is 20 of 28 done and the cleanup roadmap 12 of 14 rows done; everything still open on either needs a person, a graphical client run, or another mod's files - see "What is left, and why each one needs you".
 
+## Table presence: a brief and a skeleton, nothing built (2026-09-18)
+
+**Nothing about this feature is implemented.** `docs/prompts/table-presence.md` is a brief for it
+and `docs/prompts/table-presence/` is a skeleton, both written from the source and neither
+compiled against a build - there is no Gradle cache in this container and no build was attempted.
+
+What the feature is: a seated player's main arm and head follow their cursor across the felt,
+their off hand holds their cards fanned at the table's edge with the backs out, whatever they were
+carrying stops being drawn, and the table view keeps the seated players while hiding the standing
+ones. The brief carries the file list, the observable-success statements, the owner's three open
+calls, and six traps found by reading - the worst being that `PlayerModel#setupAnim` copies the
+arms onto the sleeves as the last thing it does, so a `TAIL` injection that moves an arm leaves
+its jacket sleeve behind.
+
+Verified: `TablePose` and `HandFan` - the pure geometry, written in full - compile under `javac`
+alone, and every property their test file asserts was run over a dense grid of targets and hand
+sizes and held: the posed hand never leaves `ARM_REACH` of the shoulder, the arm never folds
+through the chest, the head stays on the neck, and a forty-card hand fans no wider than a
+seven-card one. langcheck, doccheck, spellcheck, mixincheck, statecheck and prefcheck all exit 0
+with the new files in the tree. **Not verified:** nothing else. `TablePoseTest` has never been run
+by JUnit, no `:core:test`, no gate, no game, no pixels.
+
 ## Owner's five tournament reports (2026-09-17)
 
 Five things the owner asked for after playing the tournament flow. All five are written; **none
