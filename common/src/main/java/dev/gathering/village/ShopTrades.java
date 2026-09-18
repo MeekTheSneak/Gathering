@@ -109,7 +109,11 @@ public final class ShopTrades {
             // nothing anywhere to say so.
             Item coin = dev.gathering.item.GatheringContent.MANA_COIN.get();
             Item loose = itemNamed(collecting.sealedPriceItem(), coin);
-            Item block = itemNamed(collecting.sealedPriceBlock(), coin);
+            // A denomination worth one of the loose item is not a denomination: ShopPrice answers such
+            // a price with two piles of the same thing, so both piles are that thing. Reading the block
+            // setting anyway billed a hundred boosters as sixty-four Mana Coins and thirty-six
+            // emeralds on any server that followed the config's advice and set the loose item alone.
+            Item block = perBlock <= 1 ? loose : itemNamed(collecting.sealedPriceBlock(), coin);
 
             // The bigger pile first, so the trade reads as a price rather than as change.
             ItemCost first = price.blocks() > 0

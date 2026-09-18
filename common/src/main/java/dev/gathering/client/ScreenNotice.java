@@ -52,13 +52,11 @@ public final class ScreenNotice {
         if (what == null) {
             return;
         }
-        Minecraft client = Minecraft.getInstance();
-        if (client.screen == null) {
-            if (client.player != null) {
-                client.player.displayClientMessage(what, true);
-            }
-            return;
-        }
+        // Kept whether or not a screen is open. Dropping it to the action bar when none was drew it
+        // under the screen that opened a moment later - a pack being opened says something and then
+        // opens its screen, one payload apart - which is the exact failure this class exists to fix.
+        // Both loaders draw this from their HUD hook as well as their screen hook, so with no screen
+        // open it is on the screen either way.
         line = what;
         shownAt = Util.getMillis();
     }

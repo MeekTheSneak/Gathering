@@ -176,6 +176,56 @@ class CardTextFitTest {
     }
 
     /** Draws it the way the panel does - flowed, scaled, credit pinned under - and measures. */
+    @Test
+    @DisplayName("halving the search finds the same fit walking it did, over many boxes")
+    void thehalvedSearchAgreesWithWalkingIt() {
+        // The search halves the range of text sizes instead of stepping down through it, which is
+        // only sound because text that fits at one size fits at every smaller one. This walks it the
+        // old way for a spread of boxes and cards and checks the answers are the same.
+        int checked = 0;
+        for (int rules = 1; rules <= 6; rules++) {
+            for (int width = 90; width <= 220; width += 13) {
+                for (int height = 60; height <= 220; height += 17) {
+                    CardTextFit.Measure measure = card(rules, rules > 3 ? 2 : 1, rules);
+                    CardTextFit halved = CardTextFit.of(width, height, 1.0f, measure);
+                    CardTextFit walked = byWalking(width, height, 1.0f, measure);
+                    // Within a step: walking subtracts the step over and over and drifts by a
+                    // millionth, which the halved search does not do because it multiplies instead.
+                    assertThat(halved.scale())
+                            .as("scale for %d rules in %dx%d", rules, width, height)
+                            .isCloseTo(walked.scale(), org.assertj.core.api.Assertions.within(0.001f));
+                    assertThat(halved.columns())
+                            .as("columns for %d rules in %dx%d", rules, width, height)
+                            .isEqualTo(walked.columns());
+                    assertThat(halved.fits()).isEqualTo(walked.fits());
+                    checked++;
+                }
+            }
+        }
+        assertThat(checked).isGreaterThan(200);
+    }
+
+    /** The search as it was written: every size in turn, smallest column count first. */
+    private static CardTextFit byWalking(int width, int height, float asked, CardTextFit.Measure measure) {
+        CardTextFit whole = CardTextFit.of(width, height, asked, measure);
+        if (whole.isWhole(asked)) {
+            return whole;
+        }
+        for (int columns = 1; columns <= CardTextFit.MOST_COLUMNS; columns++) {
+            for (float scale = Math.max(CardTextFit.FLOOR, TextScale.sane(asked)); ;
+                    scale = Math.max(CardTextFit.FLOOR, scale - CardTextFit.STEP)) {
+                CardTextFit tried = CardTextFit.at(width, height, scale, columns, measure);
+                if (tried.fits()) {
+                    return tried;
+                }
+                if (scale <= CardTextFit.FLOOR) {
+                    break;
+                }
+            }
+        }
+        return whole;
+    }
+
     private static void assertDrawnInside(
             CardTextFit fit, CardTextFit.Measure measure, int width, int height) {
         int[] lines = measure.lines(fit.columnWrap(), fit.withStory());

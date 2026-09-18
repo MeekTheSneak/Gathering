@@ -18,12 +18,29 @@ import java.util.Optional;
  */
 public final class KeptView {
 
+    /**
+     * How far a player may have moved with a screen open and still be given their view back, squared.
+     * <p>They cannot walk with one open, so anything much is something else moving them - and the one
+     * that matters is being teleported, where putting the old view back overrides a rotation the
+     * server chose and then sends it up as though the player had turned. Sixteen blocks is past
+     * anything a boat or a minecart carries somebody in the time a screen is open, and well inside
+     * where a teleport lands.
+     */
+    private static final double MOVED_AWAY = 16.0 * 16.0;
+
     private Facing kept;
 
+    private double x;
+    private double y;
+    private double z;
+
     /** Called when one of the mod's screens opens straight from the world. */
-    public void opened(Facing looking) {
+    public void opened(Facing looking, double atX, double atY, double atZ) {
         if (kept == null && looking != null) {
             kept = looking;
+            x = atX;
+            y = atY;
+            z = atZ;
         }
     }
 
@@ -32,11 +49,12 @@ public final class KeptView {
         return kept != null;
     }
 
-    /** What to look at again, and it is not kept twice. */
-    public Optional<Facing> closed() {
+    /** What to look at again from where the player now is, and it is not kept twice. */
+    public Optional<Facing> closed(double atX, double atY, double atZ) {
         Facing was = kept;
         kept = null;
-        return Optional.ofNullable(was);
+        double moved = (atX - x) * (atX - x) + (atY - y) * (atY - y) + (atZ - z) * (atZ - z);
+        return moved > MOVED_AWAY ? Optional.empty() : Optional.ofNullable(was);
     }
 
     /** Drops it unused: the window went somewhere this is not answerable for. */

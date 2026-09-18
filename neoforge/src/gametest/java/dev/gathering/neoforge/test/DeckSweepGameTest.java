@@ -178,6 +178,51 @@ public final class DeckSweepGameTest {
         helper.succeed();
     }
 
+    /**
+     * A hidden copy of a deck the player still has does not become a second real deck.
+     * <p>The creative menu trusts the client's copy of a stack, so a deck arriving hidden is restored
+     * from the real one - and where the real one is still lying in another slot, restoring it there as
+     * well made two. A creative hotbar saved with a deck in it and loaded again did exactly that.
+     */
+    @GameTest(template = "empty")
+    public static void asavedCopyOfaDeckDoesNotBecomeaSecondDeck(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        UUID handle = UUID.randomUUID();
+        DeckComponent deck = new DeckComponent("Saved", "", Optional.of(player.getUUID()),
+                List.of(card(21), card(22)), List.of(), List.of());
+        net.minecraft.world.item.ItemStack real = DeckItem.of(deck);
+        real.set(dev.gathering.registry.GatheringComponents.DECK_HANDLE.get(), handle);
+        player.getInventory().setItem(0, real);
+
+        // The saved hotbar arriving: the same handle, cards hidden, into a different slot.
+        DeckComponent hidden = new DeckComponent("Saved", "", Optional.of(player.getUUID()),
+                List.of(dev.gathering.item.CardComponent.HIDDEN, dev.gathering.item.CardComponent.HIDDEN),
+                List.of(), List.of());
+        net.minecraft.world.item.ItemStack copy = DeckItem.of(hidden);
+        copy.set(dev.gathering.registry.GatheringComponents.DECK_HANDLE.get(), handle);
+        player.connection.handleSetCreativeModeSlot(
+                new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(38, copy));
+
+        int decks = 0;
+        for (var stack : player.getInventory().items) {
+            if (stack.getItem() instanceof DeckItem) {
+                decks++;
+            }
+        }
+        if (decks != 1) {
+            helper.fail("loading a saved hotbar left the player holding " + decks + " decks of the same cards");
+            return;
+        }
+        var left = DeckItem.deckOf(player.getInventory().getItem(2)).orElse(null);
+        if (left == null || left.entries().size() != 2 || left.entries().contains(
+                dev.gathering.item.CardComponent.HIDDEN)) {
+            helper.fail("the deck that arrived holds " + (left == null ? "nothing" : left.entries().toString()));
+            return;
+        }
+        helper.succeed();
+    }
+
     /** And nobody who is not in creative can name a deck they are not holding. */
     @GameTest(template = "empty")
     public static void namingaDeckOnlyWorksInCreative(GameTestHelper helper) {

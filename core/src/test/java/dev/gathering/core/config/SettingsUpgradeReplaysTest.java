@@ -60,4 +60,13 @@ class SettingsUpgradeReplaysTest {
         assertThat(GatheringConfig.read(Toml.read(upgraded.text())).modes().replays())
                 .isEqualTo(GatheringConfig.Replays.PARTICIPANTS);
     }
+
+    @Test
+    @DisplayName("writes the version this code upgrades to, from the one place that says it")
+    void thefreshFileSaysTheVersionThisCodeIsOn() {
+        // Two places to keep in step is one place to forget. A fresh file stamped with an older
+        // version than SettingsUpgrade knows would be upgraded on its very first read.
+        assertThat(SettingsUpgrade.versionOf(GatheringConfig.defaultFileText()))
+                .isEqualTo(SettingsUpgrade.VERSION);
+    }
 }

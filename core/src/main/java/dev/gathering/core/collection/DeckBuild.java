@@ -172,7 +172,7 @@ public record DeckBuild(
      */
     public DeckBuild led(BuildCard card) {
         if (card == null) {
-            return commander.map(this::backToTheDeck)
+            return commander.map(leading -> backToTheDeck(leading).orElse(this))
                     .orElseGet(() -> new DeckBuild(cards, sideboard, Optional.empty()));
         }
         return without(card.printing()).leading(card);
@@ -183,20 +183,30 @@ public record DeckBuild(
      * <p>Whoever was leading still goes back to the deck.
      */
     private DeckBuild leading(BuildCard card) {
-        DeckBuild room = commander()
-                .filter(already -> !already.printing().equals(card.printing()))
-                .map(this::backToTheDeck)
-                .orElse(this);
-        return new DeckBuild(room.cards(), room.sideboard(), Optional.of(card));
+        BuildCard already = commander()
+                .filter(leading -> !leading.printing().equals(card.printing()))
+                .orElse(null);
+        if (already == null) {
+            return new DeckBuild(cards, sideboard, Optional.of(card));
+        }
+        // A full build has nowhere to put the commander it is replacing, and dropping it was the
+        // builder quietly losing a card somebody owns and picked. Nothing happens instead, which the
+        // player can undo by taking a card out first.
+        DeckBuild room = backToTheDeck(already).orElse(null);
+        return room == null ? this : new DeckBuild(room.cards(), room.sideboard(), Optional.of(card));
     }
 
-    /** The commander out of the command zone and into the ninety-nine, where it can be seen. */
-    private DeckBuild backToTheDeck(BuildCard leading) {
-        List<BuildCard> added = new ArrayList<>(cards);
-        if (cards.size() + sideboard.size() < MOST_CARDS) {
-            added.add(leading);
+    /**
+     * The commander out of the command zone and into the ninety-nine, where it can be seen - or
+     * nothing at all, where the build is full and there is nowhere for it to go.
+     */
+    private Optional<DeckBuild> backToTheDeck(BuildCard leading) {
+        if (cards.size() + sideboard.size() >= MOST_CARDS) {
+            return Optional.empty();
         }
-        return new DeckBuild(added, sideboard, Optional.empty());
+        List<BuildCard> added = new ArrayList<>(cards);
+        added.add(leading);
+        return Optional.of(new DeckBuild(added, sideboard, Optional.empty()));
     }
 
     /**

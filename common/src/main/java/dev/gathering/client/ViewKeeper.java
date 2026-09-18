@@ -66,9 +66,13 @@ public final class ViewKeeper {
         Screen screen = client.screen;
         Held now = screen == null ? Held.NOTHING : isOurs(screen) ? Held.OURS : Held.SOMETHING_ELSE;
         if (now == Held.OURS && was == Held.NOTHING) {
-            kept.opened(facing(player));
+            kept.opened(facing(player), player.getX(), player.getY(), player.getZ());
         } else if (now == Held.NOTHING && was == Held.OURS) {
-            kept.closed().ifPresent(view -> lookAgain(player, view));
+            // From where they now are: somebody teleported while a screen was open is somewhere else,
+            // and putting the old view back over the rotation the server chose would send it up as
+            // though they had turned.
+            kept.closed(player.getX(), player.getY(), player.getZ())
+                    .ifPresent(view -> lookAgain(player, view));
         } else if (now == Held.SOMETHING_ELSE && was == Held.OURS) {
             // The game took the window - a pause screen, a disconnect notice. Putting a view
             // back over whatever that leaves behind is not this mod's to do.

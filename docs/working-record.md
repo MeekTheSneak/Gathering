@@ -3572,3 +3572,62 @@ lookup as well as for an id, so letting one go costs a disk read rather than a t
 cheapest-printing index keeps the price beside the id, because comparing against a card that is no
 longer in memory used to take whichever printing was stored last (`CardStoreBoundTest`, shown failing
 unbounded).
+
+## 2026-09-17: the rest of the review, part two - decks, the client, the shop
+
+**A long sweep was silently truncated.** One request per slot the cursor crosses, on the budget dice
+and reveals share: sweeping a full inventory is thirty-six in about a second, past a burst of twenty,
+so the far end of the sweep did nothing and the cards were still lying there. Its own budget now
+(`ActionBudget.DECK_SWEEPS`), sized for the gesture. What a flood can actually do is bounded by what
+the player is carrying, because a slot gives up its card once.
+
+**A saved creative hotbar could duplicate a deck.** A hidden copy arriving is restored from the real
+deck - and where the real one was still lying in another slot, restoring it made two. The deck is
+taken out of the slot it was lying in, which on a drag between slots is what that slot's own packet
+would have done a moment later (`asavedCopyOfaDeckDoesNotBecomeaSecondDeck`, shown making two).
+
+**A full build dropped the commander it was replacing.** At `MOST_CARDS` there was nowhere to put the
+old commander and it was quietly let go of, which is the builder losing a card somebody owns and
+picked. Nothing happens instead, and the player can take a card out first.
+
+**The view was put back on somebody who had been teleported.** `KeptView` held two angles and no
+position, so closing a screen after a same-dimension teleport wrote the pre-screen rotation back onto
+the player and sent it up as though they had turned. It now keeps where they were and gives the view
+back only if they are still about there.
+
+**Another table's label could be drawn in front of the board being played on.** The "are you sitting
+at this one" test measured from the camera, which while seated has been moved out over the player's
+own table - so a table across the room read as near enough to be seated at, and the standoff that
+keeps a label readable across a hall pulled it to arm's length in front of the miniature. Measured
+from the player now, and no table labels at all while that camera is over a board.
+
+**The art cache was trimmed on a card fetcher.** Walking a cache that may be a gigabyte held one of
+the six fetchers at client init, which is when the first pack is downloading. Its own thread now.
+
+**A notice arriving just before its screen was drawn underneath it.** `ScreenNotice` dropped to the
+action bar when no screen was open, and a pack says something and then opens its screen one payload
+later - the exact failure the class exists to fix. The line is kept either way; both loaders draw it
+from their HUD hook as well as their screen hook.
+
+**Fitting a card's text cost about six hundred font wraps on a cache-miss frame.** The search walked
+every text size for every column count, re-wrapping the whole card at each. It halves the range
+instead, which is sound because text that fits at one size fits at every smaller one - about five
+tries a column rather than twenty. A differential test walks the old search for two hundred boxes and
+checks the answers agree.
+
+**Following the config's own advice produced a mixed-currency price.** Setting `sealed_price_item`
+alone left the block denomination at the Mana Coin worth one, so a hundred-booster product was billed
+as sixty-four coins and thirty-six emeralds. A denomination worth one of the loose item is not a
+denomination, and both piles are now that item.
+
+**The settings version was written in two places.** The fresh file's text is stamped from
+`SettingsUpgrade.VERSION` rather than from a literal beside it, so a fresh file can never be born
+needing an upgrade.
+
+**Looked at and deliberately left.** The archive pack's *source list* is a rule rather than a setting,
+which `ArchiveDrops` says in its own doc - so it ignoring `pack_loot_sources` is the design, not a
+defect; only the missing player gate was wrong and that is fixed. The card shop's chest is not gated
+on collecting, but a village only gets a card shop at all when collecting is on, so the pool is
+unreachable; how rich that chest should be is a balance question for the owner. And a case still
+cannot be bought for Mana Coins at any price two trade slots can carry - the fixes are a larger
+denomination or a bulk discount, both the owner's call.

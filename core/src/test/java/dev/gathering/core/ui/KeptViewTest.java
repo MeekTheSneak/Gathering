@@ -16,9 +16,9 @@ class KeptViewTest {
     @DisplayName("gives back the view the screen opened over")
     void openAndClose() {
         KeptView kept = new KeptView();
-        kept.opened(Facing.of(90f, -20f));
+        kept.opened(Facing.of(90f, -20f), 0, 0, 0);
         assertThat(kept.isKeeping()).isTrue();
-        assertThat(kept.closed()).contains(Facing.of(90f, -20f));
+        assertThat(kept.closed(0, 0, 0)).contains(Facing.of(90f, -20f));
         assertThat(kept.isKeeping()).isFalse();
     }
 
@@ -26,29 +26,29 @@ class KeptViewTest {
     @DisplayName("keeps the outermost view, not the one a detour opened over")
     void detoursKeepTheFirstView() {
         KeptView kept = new KeptView();
-        kept.opened(Facing.of(90f, 0f));
-        kept.opened(Facing.of(-45f, 30f));
-        kept.opened(Facing.of(0f, 0f));
-        assertThat(kept.closed()).contains(Facing.of(90f, 0f));
+        kept.opened(Facing.of(90f, 0f), 0, 0, 0);
+        kept.opened(Facing.of(-45f, 30f), 0, 0, 0);
+        kept.opened(Facing.of(0f, 0f), 0, 0, 0);
+        assertThat(kept.closed(0, 0, 0)).contains(Facing.of(90f, 0f));
     }
 
     @Test
     @DisplayName("gives a view back once, and has nothing to give on the way out of nothing")
     void onlyOnce() {
         KeptView kept = new KeptView();
-        kept.opened(Facing.of(12f, 3f));
-        assertThat(kept.closed()).isPresent();
-        assertThat(kept.closed()).isEmpty();
+        kept.opened(Facing.of(12f, 3f), 0, 0, 0);
+        assertThat(kept.closed(0, 0, 0)).isPresent();
+        assertThat(kept.closed(0, 0, 0)).isEmpty();
     }
 
     @Test
     @DisplayName("drops a view rather than putting it back over something it did not open")
     void forgotten() {
         KeptView kept = new KeptView();
-        kept.opened(Facing.of(12f, 3f));
+        kept.opened(Facing.of(12f, 3f), 0, 0, 0);
         kept.forget();
         assertThat(kept.isKeeping()).isFalse();
-        assertThat(kept.closed()).isEmpty();
+        assertThat(kept.closed(0, 0, 0)).isEmpty();
     }
 
     @Test
@@ -60,5 +60,25 @@ class KeptViewTest {
         assertThat(Facing.of(Float.NaN, Float.NaN).yaw()).isZero();
         assertThat(Facing.turnBetween(179f, -177f)).isEqualTo(4f);
         assertThat(Facing.turnBetween(-177f, 179f)).isEqualTo(-4f);
+    }
+
+    @Test
+    @DisplayName("is not put back on somebody who was moved while the screen was open")
+    void aplayerWhoWasTeleportedKeepsWhereTheyAreFacing() {
+        KeptView kept = new KeptView();
+        kept.opened(Facing.of(90f, -20f), 0, 64, 0);
+
+        // A teleport, which turns the player as well as moving them: putting the old view back would
+        // override the rotation the server chose and then send it up as though they had turned.
+        assertThat(kept.closed(1200, 64, -800)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("is still put back on somebody who only drifted a little")
+    void asmallMoveStillGetsTheViewBack() {
+        KeptView kept = new KeptView();
+        kept.opened(Facing.of(12f, 3f), 0, 64, 0);
+
+        assertThat(kept.closed(3, 64, 4)).contains(Facing.of(12f, 3f));
     }
 }

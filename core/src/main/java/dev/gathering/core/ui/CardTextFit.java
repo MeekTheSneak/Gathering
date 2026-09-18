@@ -81,15 +81,26 @@ public record CardTextFit(
         if (tried.fits) {
             return tried;
         }
+        // Halved rather than stepped. Text that fits at one size fits at every smaller one, so the
+        // largest size that fits can be found by halving the range instead of walking it - which took
+        // about twenty tries a column, each one wrapping every line of the card again, and a card
+        // hovered for the first time was six hundred of those on one frame.
+        int steps = (int) Math.ceil((start - FLOOR) / STEP);
         for (int columns = 1; columns <= MOST_COLUMNS; columns++) {
-            for (float scale = start; ; scale = Math.max(FLOOR, scale - STEP)) {
-                tried = attempt(width, height, scale, columns, false, measure);
-                if (tried.fits) {
-                    return tried;
+            int smallest = -1;
+            int low = 0;
+            int high = steps;
+            while (low <= high) {
+                int middle = (low + high) / 2;
+                if (attempt(width, height, scaleAfter(start, middle), columns, false, measure).fits) {
+                    smallest = middle;
+                    high = middle - 1;
+                } else {
+                    low = middle + 1;
                 }
-                if (scale <= FLOOR) {
-                    break;
-                }
+            }
+            if (smallest >= 0) {
+                return attempt(width, height, scaleAfter(start, smallest), columns, false, measure);
             }
         }
         // Nothing holds all of it. The most there is: the floor, and as many columns as are
@@ -101,6 +112,19 @@ public record CardTextFit(
         CardTextFit most = attempt(width, height, FLOOR, columns, false, measure);
         return new CardTextFit(most.scale, most.columns, Math.max(1, most.columnWrap),
                 most.creditWrap, Math.max(0, most.capacity), false, Math.max(0, height), false);
+    }
+
+    /** The size this many steps down from the one asked for, never past the floor. */
+    private static float scaleAfter(float start, int steps) {
+        return Math.max(FLOOR, start - steps * STEP);
+    }
+
+    /**
+     * One try at a given size and column count, for a test that walks the search the long way to
+     * check the halved one agrees with it.
+     */
+    static CardTextFit at(int width, int height, float scale, int columns, Measure measure) {
+        return attempt(width, height, scale, columns, false, measure);
     }
 
     private static CardTextFit attempt(

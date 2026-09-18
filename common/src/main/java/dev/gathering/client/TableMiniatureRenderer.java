@@ -1229,11 +1229,22 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             FloatingLabel.draw(poseStack, buffers, lines, 1.0, 2.4, 1.0, com.mojang.math.Axis.YP.rotationDegrees(180));
             return;
         }
-        net.minecraft.world.phys.Vec3 eye = client.gameRenderer.getMainCamera().getPosition();
+        // Measured from the player rather than from the camera. While somebody is seated the camera
+        // has been moved out over their own table, so it is not where they are - a table across the
+        // room read as near enough to be seated at, and their own read as far away.
+        net.minecraft.world.phys.Vec3 eye = client.player != null
+                ? client.player.position()
+                : client.gameRenderer.getMainCamera().getPosition();
         BlockPos at = table.getBlockPos();
         double dx = eye.x - (at.getX() + 1.0);
         double dz = eye.z - (at.getZ() + 1.0);
         if (dx * dx + dz * dz < NEAR_ENOUGH_TO_BE_SEATED * NEAR_ENOUGH_TO_BE_SEATED) {
+            return;
+        }
+        if (TableCameraView.isLooking()) {
+            // And none of them while that camera is over a board. A label is kept a fixed distance
+            // from the camera so it stays readable across a hall, and with the camera overhead that
+            // put another table's label at arm's length in front of the board being played on.
             return;
         }
         FloatingLabel.draw(poseStack, buffers, lines, at, 1.0, 2.4, 1.0);

@@ -34,6 +34,27 @@ class DeckBuildCommanderMoveTest {
     }
 
     @Test
+    @DisplayName("a full build refuses a new commander rather than losing the old one")
+    void afullBuildKeepsTheCommanderItCannotPutBack() {
+        BuildCard first = new BuildCard(UUID.randomUUID(), UUID.randomUUID(), "Golos",
+                "Creature", "", 5, Set.of(), false);
+        BuildCard second = new BuildCard(UUID.randomUUID(), UUID.randomUUID(), "Najeela",
+                "Creature", "", 4, Set.of(), false);
+        DeckBuild full = DeckBuild.EMPTY.led(first);
+        for (int card = 0; card < DeckBuild.MOST_CARDS; card++) {
+            full = full.with(new BuildCard(UUID.randomUUID(), UUID.randomUUID(), "Island " + card,
+                    "Land", "", 0, Set.of(), false));
+        }
+        assertThat(full.cards()).hasSize(DeckBuild.MOST_CARDS);
+
+        DeckBuild after = full.led(second);
+
+        // Nothing happens rather than the first commander being dropped out of the build.
+        assertThat(after.commander()).contains(first);
+        assertThat(after.cards()).hasSize(DeckBuild.MOST_CARDS);
+    }
+
+    @Test
     @DisplayName("moving a sideboard copy to the command zone must not eat the deck's copy")
     void movingASideboardCopyEatsTheDecksCopy() {
         BuildCard sol = new BuildCard(UUID.randomUUID(), UUID.randomUUID(), "Sol Ring",

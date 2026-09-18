@@ -57,11 +57,22 @@ public final class CreativeDecks {
             return incoming;
         }
         ItemStack real = forget(player, handle);
+        int lyingIn = -1;
         if (real == null) {
-            real = inInventory(player, handle);
+            lyingIn = slotHolding(player, handle);
+            real = lyingIn < 0 ? null : player.inventoryMenu.getSlot(lyingIn).getItem();
         }
         if (real == null) {
             return incoming;
+        }
+        if (lyingIn >= 0 && lyingIn != slot) {
+            // The deck is being put down here while the real one is still lying somewhere else. On a
+            // drag between slots that is the same deck arriving before its old slot is reported empty,
+            // and taking it out here is what that slot's own packet would do a moment later. On a
+            // creative hotbar being loaded it is a saved copy of a deck the player still has, and
+            // without this the player ended up with two real decks of the same cards.
+            player.inventoryMenu.getSlot(lyingIn).set(ItemStack.EMPTY);
+            player.inventoryMenu.broadcastChanges();
         }
         ItemStack restored = real.copy();
         restored.setCount(incoming.getCount());
@@ -193,14 +204,15 @@ public final class CreativeDecks {
         return decks == null ? null : decks.remove(handle);
     }
 
-    private static ItemStack inInventory(ServerPlayer player, UUID handle) {
-        for (var slot : player.inventoryMenu.slots) {
-            ItemStack stack = slot.getItem();
+    /** Which of the player's own menu slots holds this deck for real, or -1. */
+    private static int slotHolding(ServerPlayer player, UUID handle) {
+        for (int at = 0; at < player.inventoryMenu.slots.size(); at++) {
+            ItemStack stack = player.inventoryMenu.getSlot(at).getItem();
             if (!isHiddenCopy(stack) && handle.equals(DeckItem.handleOf(stack).orElse(null))) {
-                return stack;
+                return at;
             }
         }
-        return null;
+        return -1;
     }
 
     /** Whether this deck, or the pool it carries, is the copy clients are sent rather than the real one. */

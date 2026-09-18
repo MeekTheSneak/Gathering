@@ -23,11 +23,23 @@ public final class ActionBudget {
     /** Table requests beyond moves - dice, reveals, random discards - each sent to the table. */
     public static final ActionBudget TABLE_REQUESTS = new ActionBudget(5, 20);
 
+    /**
+     * A deck swept across cards: one request per slot the cursor crosses, so a gesture is many.
+     * <p>Its own budget rather than the table's. Sweeping a full inventory is thirty-six slots in
+     * about a second, which is past a burst of twenty - so the far end of a long sweep was dropped
+     * with nothing said and the cards were still lying there, and the budget it was spending was the
+     * one dice and reveals share. The work each one does is a right-click on a slot of the player's
+     * own inventory, and a slot only gives up its card once, so what a flood can actually do is
+     * bounded by what the player is carrying.
+     */
+    public static final ActionBudget DECK_SWEEPS = new ActionBudget(20, 64);
+
     /** Forgets every shared budget, for a server that is stopping. */
     public static void clearShared() {
         CARD_LOOKUPS.clear();
         WHOLE_SETS.clear();
         TABLE_REQUESTS.clear();
+        DECK_SWEEPS.clear();
     }
 
     private final double perSecond;
@@ -77,6 +89,7 @@ public final class ActionBudget {
     public static void forgetShared(UUID player) {
         CARD_LOOKUPS.forget(player);
         WHOLE_SETS.forget(player);
+        DECK_SWEEPS.forget(player);
         TABLE_REQUESTS.forget(player);
     }
 

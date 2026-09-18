@@ -260,7 +260,7 @@ public final class GatheringProtocol {
                             (player, payload) -> dev.gathering.server.CollectionView.take(
                                     player, payload.where(), payload.card(), payload.howMany()))),
             toServer(DeckSweepPayload.TYPE, DeckSweepPayload.STREAM_CODEC,
-                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, dev.gathering.server.DeckSweeps::handle)),
+                    budgeted(dev.gathering.server.ActionBudget.DECK_SWEEPS, dev.gathering.server.DeckSweeps::handle)),
             toServer(CollectionCardAskPayload.TYPE, CollectionCardAskPayload.STREAM_CODEC,
                     budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS,
                             (player, payload) -> dev.gathering.server.CollectionView.describe(

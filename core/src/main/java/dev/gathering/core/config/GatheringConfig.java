@@ -523,7 +523,7 @@ public record GatheringConfig(
                 # default - anything set on purpose is left exactly as it is.
 
                 [settings]
-                version = 2
+                version = %SETTINGS_VERSION%
 
                 [modes]
                 import_enabled = true
@@ -660,6 +660,6 @@ public record GatheringConfig(
                 # first time the server starts; the copy is checked once a day. false looks every card
                 # up one request at a time. Read at start.
                 bulk_data = true
-                """;
+                """.replace("%SETTINGS_VERSION%", String.valueOf(SettingsUpgrade.VERSION));
     }
 }

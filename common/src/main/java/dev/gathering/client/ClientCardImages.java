@@ -391,7 +391,10 @@ public final class ClientCardImages {
         if (!trimmed.compareAndSet(false, true)) {
             return;
         }
-        fetchers.execute(() -> {
+        // A thread of its own rather than one of the fetchers. Walking a cache that may be a gigabyte,
+        // asking every file its size and its age, holds whichever thread does it for as long as that
+        // takes - and this runs at client init, which is when the first pack is being downloaded.
+        Thread trim = new Thread(() -> {
             Path root = Minecraft.getInstance().gameDirectory.toPath().resolve(Gathering.MOD_ID).resolve(CACHE_DIRECTORY);
             if (!Files.isDirectory(root)) {
                 return;
@@ -421,7 +424,9 @@ public final class ClientCardImages {
             if (!deleting.isEmpty()) {
                 LOGGER.info("Trimmed {} card picture(s) out of the art cache", deleting.size());
             }
-        });
+        }, "Gathering card cache trim");
+        trim.setDaemon(true);
+        trim.start();
     }
 
     private final java.util.concurrent.atomic.AtomicBoolean trimmed = new java.util.concurrent.atomic.AtomicBoolean();
