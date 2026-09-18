@@ -133,6 +133,17 @@ public enum LootSource {
     }
 
     /**
+     * Whether this source can be left running without anybody playing.
+     * <p>A mob farm kills for you and a rod can be held down by a weight; a chest has to be walked
+     * to and a suspicious block has to be brushed. That is the whole difference, and it is what
+     * decides which sources are kept to a pace - see {@link FindingPace}. Exploring is never
+     * thinned, however long somebody keeps doing it, because going and looking is the game.
+     */
+    public boolean canBeFarmed() {
+        return this == MOBS || this == FISHING;
+    }
+
+    /**
      * Which source a loot table belongs to, if any.
      * <p>Matched on Minecraft's own table names rather than on a list of every chest in the
      * game, so a table added by a later version is covered without anybody noticing it was

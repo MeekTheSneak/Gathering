@@ -327,6 +327,64 @@ public final class SealedLootGameTest {
     }
 
     /**
+     * A chest is never thinned; a boss anybody can respawn is.
+     * <p>The owner's line: no farms, and no limit on exploring. An Archive Pack out of an ancient
+     * city has been walked to, and one off a wither has not - a wither is three farmed skulls - so
+     * the same pack is kept to a pace in one place and never in the other.
+     * <p>Rolled through the archive rather than the ordinary pack because the archive can be held
+     * for testing without any set data, and a test that quietly passes on an empty pool says nothing.
+     */
+    @GameTest(template = "empty")
+    public static void chestsAreNeverKeptToaPaceAndFarmableBossesAre(GameTestHelper helper) {
+        java.util.UUID explorer = java.util.UUID.randomUUID();
+        java.util.UUID farmer = java.util.UUID.randomUUID();
+        ServerLevel level = helper.getLevel();
+        dev.gathering.server.Archive.holdForTesting(java.util.Set.of(java.util.UUID.randomUUID()));
+        try {
+            int outOfChests = 0;
+            for (int chest = 0; chest < 2_000; chest++) {
+                outOfChests += SealedLoot.findsIn("minecraft:chests/ancient_city", level.getRandom(),
+                        false, explorer).size();
+            }
+            if (outOfChests <= 0) {
+                helper.fail("fixture: two thousand ancient city chests gave nothing at all");
+                return;
+            }
+            double chargedForExploring = dev.gathering.server.Finds.had(explorer,
+                    dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE);
+            if (chargedForExploring != 0.0) {
+                helper.fail("two thousand chests put " + chargedForExploring + " against the "
+                        + "player's pace, and exploring must never be kept to one");
+                return;
+            }
+
+            // And the same pack off a wither, which is three farmed skulls and a machine.
+            int offWithers = 0;
+            for (int wither = 0; wither < 2_000; wither++) {
+                offWithers += SealedLoot.findsIn("minecraft:entities/wither", level.getRandom(),
+                        true, farmer).size();
+            }
+            double chargedForFarming = dev.gathering.server.Finds.had(farmer,
+                    dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE);
+            if (chargedForFarming <= 0.0) {
+                helper.fail("fixture: two thousand withers put nothing against the farmer's pace");
+                return;
+            }
+            // One pack in two withers is a thousand of them without a pace. The brim, and the climb
+            // out of it, is what running the farm is actually worth.
+            if (offWithers > dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE.burst() + 12) {
+                helper.fail("two thousand farmed withers gave " + offWithers + " archive packs");
+                return;
+            }
+        } finally {
+            dev.gathering.server.Archive.clear();
+            dev.gathering.server.Finds.forget(explorer);
+            dev.gathering.server.Finds.forget(farmer);
+        }
+        helper.succeed();
+    }
+
+    /**
      * A machine does not outrun the pace the world was written for.
      * <p>Every rate this mod has is set against an hour of somebody playing, and none of them is set
      * against a wither farm, a re-triggered shrieker or a weighted fishing rod. This rolls a chest
@@ -341,15 +399,16 @@ public final class SealedLootGameTest {
         try {
             // An hour of exploring, as LootYieldTest counts one: nothing is refused.
             int given = 0;
-            for (int find = 0; find < dev.gathering.core.sealed.FindingPace.PACKS.burst(); find++) {
+            for (int find = 0; find < dev.gathering.core.sealed.FindingPace.FARMED_PACKS.burst(); find++) {
                 if (dev.gathering.server.Finds.arrives(explorer,
-                        dev.gathering.core.sealed.FindingPace.PACKS, helper.getLevel().getRandom())) {
+                        dev.gathering.core.sealed.FindingPace.FARMED_PACKS,
+                        helper.getLevel().getRandom())) {
                     given++;
                 }
             }
-            if (given != dev.gathering.core.sealed.FindingPace.PACKS.burst()) {
-                helper.fail("an hour of exploring was thinned: " + given + " of "
-                        + dev.gathering.core.sealed.FindingPace.PACKS.burst() + " arrived");
+            if (given != dev.gathering.core.sealed.FindingPace.FARMED_PACKS.burst()) {
+                helper.fail("an evening of real fishing was thinned: " + given + " of "
+                        + dev.gathering.core.sealed.FindingPace.FARMED_PACKS.burst() + " arrived");
                 return;
             }
 
@@ -357,12 +416,13 @@ public final class SealedLootGameTest {
             int minted = 0;
             for (int roll = 0; roll < 20_000; roll++) {
                 if (dev.gathering.server.Finds.arrives(farmer,
-                        dev.gathering.core.sealed.FindingPace.ARCHIVE, helper.getLevel().getRandom())) {
+                        dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE,
+                        helper.getLevel().getRandom())) {
                     minted++;
                 }
             }
             // The brim it starts with, plus the climb out of it. Nothing like twenty thousand.
-            if (minted > dev.gathering.core.sealed.FindingPace.ARCHIVE.burst() + 12) {
+            if (minted > dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE.burst() + 12) {
                 helper.fail("a machine rolling twenty thousand times was given " + minted
                         + " archive packs");
                 return;

@@ -196,10 +196,13 @@ public final class SealedLoot {
      */
     public static List<ItemStack> findsIn(
             String tableId, RandomSource random, boolean killedByAPlayer, java.util.UUID who) {
+        // Only what could have been left running is kept to a pace. A coin is a chest thing and a
+        // chest has to be walked to, so coins are never thinned at all.
         Optional<ItemStack> pack = rollFor(tableId, random, killedByAPlayer)
-                .filter(found -> Finds.arrives(who, paceOf(found), random));
-        Optional<ItemStack> coins = coinsFor(tableId, random)
-                .filter(found -> Finds.arrives(who, dev.gathering.core.sealed.FindingPace.COINS, random));
+                .filter(found -> paceOf(tableId, found)
+                        .map(pace -> Finds.arrives(who, pace, random))
+                        .orElse(true));
+        Optional<ItemStack> coins = coinsFor(tableId, random);
         if (pack.isEmpty()) {
             // Nothing allocated on the overwhelmingly common path, which is every block broken
             // and every mob killed on the server.
@@ -208,12 +211,23 @@ public final class SealedLoot {
         return coins.isEmpty() ? List.of(pack.get()) : List.of(pack.get(), coins.get());
     }
 
-    /** Which pace a pack is kept to: the archive has its own, being the one thing nobody can buy. */
-    private static dev.gathering.core.sealed.FindingPace paceOf(ItemStack pack) {
-        return dev.gathering.item.PackItem.packOf(pack)
-                .filter(dev.gathering.item.PackComponent::isArchive)
-                .map(archive -> dev.gathering.core.sealed.FindingPace.ARCHIVE)
-                .orElse(dev.gathering.core.sealed.FindingPace.PACKS);
+    /**
+     * Which pace this pack is kept to, or nothing where it came from somewhere nobody can automate.
+     * <p>Asked of the table rather than of the pack, because what decides it is where the pack came
+     * from: the same Archive Pack is thinned off a wither and never thinned out of an ancient city,
+     * and the same booster is thinned off a mob farm and never thinned out of a chest.
+     */
+    private static Optional<dev.gathering.core.sealed.FindingPace> paceOf(String tableId, ItemStack pack) {
+        boolean archive = dev.gathering.item.PackItem.packOf(pack)
+                .map(dev.gathering.item.PackComponent::isArchive).orElse(false);
+        if (archive) {
+            return dev.gathering.core.sealed.ArchiveDrops.of(tableId)
+                    .filter(dev.gathering.core.sealed.ArchiveDrops::canBeFarmed)
+                    .map(where -> dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE);
+        }
+        return LootSource.of(tableId)
+                .filter(LootSource::canBeFarmed)
+                .map(source -> dev.gathering.core.sealed.FindingPace.FARMED_PACKS);
     }
 
     /**

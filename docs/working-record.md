@@ -3739,3 +3739,32 @@ that drained while they were away says what the drain would have said anyway.
 **Still open for the owner.** The baseline rates are unchanged - this bounds the top end rather than
 making ordinary play grindier. If the intent was also that a casual hour should give less, that is
 the `LootSource` and `CoinDrops` numbers and a separate decision.
+
+### Corrected the same day, by the owner
+
+"I don't want chests to be limited, I just don't want someone to be able to afk and end up with a
+bunch of packs. Basically no farms."
+
+The pace had been applied to everything, which is wrong: a chest has to be walked to, so opening a
+thousand of them is exploring and exploring is the game. It now applies only to what can be left
+running with nobody at the keyboard, and each source answers for itself
+(`LootSource.canBeFarmed`, `ArchiveDrops.canBeFarmed`) so one added later has to say rather than
+default into a limit.
+
+| | kept to a pace | why |
+|---|---|---|
+| Chests, of any richness | no | walked to |
+| Brushing | no | a player brushes each block |
+| Coins | no | a chest thing, and only a chest thing |
+| Mobs | yes | a farm kills for you |
+| Fishing | yes | a rod under a weight |
+| Bosses | yes | three of the four are repeatable |
+
+The paces are set against a farm rather than against a good day: two boosters an hour and one Archive
+Pack every eight hours, against the seven boosters and one-in-fifteen-hours that exploring gives. So
+a night of AFK is worth about two hours of going out, and somebody actually fishing or actually
+caving is inside the brim and never meets it.
+
+The guard is one in-world test with both halves and it was shown failing both ways: with chests paced
+it reports two thousand chests putting five against the player, and with nothing paced it reports two
+thousand withers putting nothing against the farmer.

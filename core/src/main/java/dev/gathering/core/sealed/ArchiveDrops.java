@@ -66,6 +66,16 @@ public enum ArchiveDrops {
     }
 
     /**
+     * Whether this source can be left running without anybody playing.
+     * <p>Three of the four bosses are repeatable - a wither is three farmed skulls, a warden is a
+     * shrieker triggered again, the dragon is four crystals - and a rod can be held down by a
+     * weight. The chests cannot: somebody has to go to them. See {@link FindingPace}.
+     */
+    public boolean canBeFarmed() {
+        return this == BOSS || this == TREASURE;
+    }
+
+    /**
      * Whether an archive pack can come out of this loot table, and how often.
      * <p>Minecraft's own tables only, like everything else here: a pack falling out of
      * somebody else's dungeon is a surprise nobody asked this mod for.

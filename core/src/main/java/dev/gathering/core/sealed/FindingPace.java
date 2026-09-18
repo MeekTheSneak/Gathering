@@ -12,6 +12,12 @@ package dev.gathering.core.sealed;
  * the player the odds were raised for in the first place, after the owner's report that packs were
  * too rare to find - and a farm simply runs longer. What separates the two is not what they do but
  * how long they keep doing it, so that is what this measures.
+ * <p><b>Only what can be left running.</b> Mobs and fishing, and the bosses an Archive Pack comes
+ * off. A chest is never thinned and neither is a brushed block, however many somebody opens: going
+ * and looking is the game, and a player who spends a weekend raiding end cities has earned every
+ * pack in them. The owner's line, and the whole of the rule: no farms, and no limit on exploring.
+ * {@code LootSource.canBeFarmed} and {@code ArchiveDrops.canBeFarmed} are where the two are told
+ * apart, so a source added later has to answer the question rather than default into a limit.
  * <p>A leaky bucket per player per kind of find. Every find fills it by one and it drains at the
  * pace below. While it is under the brim nothing is thinned at all: an afternoon's exploring, an end
  * city raid, a first evening on a server all sit inside the burst and never notice this exists. Past
@@ -24,22 +30,22 @@ package dev.gathering.core.sealed;
 public enum FindingPace {
 
     /**
-     * Ordinary boosters. The pace is well above what an hour of exploring actually gives, which is
-     * about seven - somebody having a very good hour should never meet this.
+     * Boosters off something that can be left running: a mob farm, or a rod under a weight.
+     * <p>Two an hour, against the seven an hour that exploring gives - so a night of a machine
+     * running is worth about two hours of going out and looking, and building one is not the
+     * shortcut it looks like. Somebody actually fishing or actually caving is inside the brim.
+     * <p>Chests are not here and never will be: a chest has to be walked to.
      */
-    PACKS(12, 24),
-
-    /** Mana Coins, at the same shape: found beside the packs and worth about the same. */
-    COINS(12, 24),
+    FARMED_PACKS(2, 8),
 
     /**
-     * Archive Packs, which are the one thing a player cannot buy at any price - so this is where a
-     * machine would hurt most and where the pace is tightest.
-     * <p>Half an hour's worth is still generous beside what exploring gives: two chests worth a trip
-     * an hour, at one archive pack in thirty, is one about every fifteen hours. The brim lets a run
-     * of luck straight through and the pace is what a machine settles onto.
+     * Archive Packs off something that can be left running: a wither, a warden, a respawned dragon,
+     * a rod under a weight.
+     * <p>The one thing a player cannot buy at any price, so this is where a machine would hurt most
+     * and where the pace is tightest - one every eight hours, against the one every fifteen hours
+     * that exploring gives. An Archive Pack out of a chest somebody went to is never thinned.
      */
-    ARCHIVE(0.5, 3);
+    FARMED_ARCHIVE(0.125, 1);
 
     private final double anHour;
     private final int burst;
