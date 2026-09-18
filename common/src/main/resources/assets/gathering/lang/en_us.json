@@ -392,6 +392,7 @@
   "label.gathering.desk.over": "Finished",
   "message.gathering.event.stand_at_a_table": "Stand at a table to add it.",
   "message.gathering.event.at_a_desk": "Host a tournament at a Scorekeeper's Desk.",
+  "message.gathering.event.desk_taken_from_you": "%2$s took the desk %1$s was signing up at. It now takes sign-ups anywhere.",
   "message.gathering.event.desk_busy": "This desk runs a tournament that is not over.",
   "message.gathering.event.no_tables": "This tournament has no tables. Stand at one and press Add tables.",
   "message.gathering.event.created_no_tables": "Created %s with no tables. Stand at one and press Add tables.",

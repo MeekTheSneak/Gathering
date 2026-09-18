@@ -465,6 +465,10 @@ public final class Events {
                     || refused(host, state, HostActions.Action.MARK_REGISTRATION)) {
                 return;
             }
+            // The desk it is leaving deliberately keeps its claim, which is what lets one use of it
+            // take signing up back - see useDesk and ahostsOwnDeskTakesSigningUpBack. Moving to
+            // another desk hands the claim over; marking a spot on the floor leaves the desk as the
+            // way back to it.
             state.registrationPoint = host.blockPosition();
             changed(host.getServer(), state);
             host.sendSystemMessage(Component.translatable("message.gathering.event.registration_marked"));
@@ -531,6 +535,11 @@ public final class Events {
             if (running != null && deskPos.equals(running.registrationPoint)) {
                 running.registrationPoint = null;
                 changed(player.getServer(), running);
+                // Somebody else's tournament has just lost the desk it signed up at, which leaves it
+                // taking registrations from anywhere - so its host is told, by name. Two clicks used
+                // to do that to another person's event and say nothing to them at all.
+                tellTheHost(player.getServer(), running, "message.gathering.event.desk_taken_from_you",
+                        running.tournament.name(), player.getGameProfile().getName());
             }
             runFromDesk(player, desk, hosting);
             return;
@@ -583,6 +592,18 @@ public final class Events {
             player.sendSystemMessage(Component.translatable("message.gathering.desk.runs", state.tournament.name()));
         }
         EventViews.show(player, state, true);
+    }
+
+    /** Says something to a tournament's host, if they are on the server to hear it. */
+    private static void tellTheHost(net.minecraft.server.MinecraftServer server, EventState state,
+            String message, Object... said) {
+        if (server == null || state == null) {
+            return;
+        }
+        ServerPlayer host = server.getPlayerList().getPlayer(state.tournament.host());
+        if (host != null) {
+            host.sendSystemMessage(Component.translatable(message, said));
+        }
     }
 
     /** Whichever desk was running this tournament stops saying so. */

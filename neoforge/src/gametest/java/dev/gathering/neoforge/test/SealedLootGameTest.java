@@ -378,8 +378,8 @@ public final class SealedLootGameTest {
             }
         } finally {
             dev.gathering.server.Archive.clear();
-            dev.gathering.server.Finds.forget(explorer);
-            dev.gathering.server.Finds.forget(farmer);
+            dev.gathering.server.Finds.forgetForTesting(explorer);
+            dev.gathering.server.Finds.forgetForTesting(farmer);
         }
         helper.succeed();
     }
@@ -428,8 +428,8 @@ public final class SealedLootGameTest {
                 return;
             }
         } finally {
-            dev.gathering.server.Finds.forget(farmer);
-            dev.gathering.server.Finds.forget(explorer);
+            dev.gathering.server.Finds.forgetForTesting(farmer);
+            dev.gathering.server.Finds.forgetForTesting(explorer);
         }
         helper.succeed();
     }

@@ -31,6 +31,18 @@ public final class CreativeDecks {
     /** The most decks remembered per player; a creative inventory rearranged in one go is far fewer. */
     private static final int MOST_REMEMBERED = 64;
 
+    /**
+     * The slots vanilla will actually write for a creative slot packet.
+     * <p>Its own window, read off {@code ServerGamePacketListenerImpl}: one to forty-five is stored
+     * and a negative slot is a drop, which is a real gesture and goes through here so that dropping a
+     * deck drops the real one rather than the stand-in. Everything else - nought, or past
+     * forty-five - vanilla throws away, so anything done for it is done to an inventory that is not
+     * about to change.
+     */
+    private static final int FIRST_REAL_SLOT = 1;
+
+    private static final int LAST_REAL_SLOT = 45;
+
     private static final Map<UUID, LinkedHashMap<UUID, ItemStack>> REMEMBERED = new HashMap<>();
 
     private CreativeDecks() {
@@ -44,6 +56,15 @@ public final class CreativeDecks {
      */
     public static ItemStack incoming(ServerPlayer player, int slot, ItemStack incoming) {
         if (player == null || incoming == null) {
+            return incoming;
+        }
+        // Only the slots the game itself will go on to write. This runs before vanilla has decided
+        // whether to accept the packet at all, and it refuses several - a slot outside one to
+        // forty-five, a stack over its limit - so anything done here for a slot vanilla will throw
+        // out is done to an inventory that is not about to change. A client sending a slot number
+        // outside that window could have had the real deck taken out of its slot and the only
+        // remembered copy dropped, with vanilla then storing nothing: the deck gone with no way back.
+        if (slot >= 0 && (slot < FIRST_REAL_SLOT || slot > LAST_REAL_SLOT)) {
             return incoming;
         }
         if (slot >= 0 && slot < player.inventoryMenu.slots.size()) {

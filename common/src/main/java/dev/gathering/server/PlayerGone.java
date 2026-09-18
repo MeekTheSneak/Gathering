@@ -71,10 +71,9 @@ public final class PlayerGone {
         // And the decks the creative cursor was carrying, which are back in their slots now. Up to
         // 256 decks of a thousand cards were kept for every player who had ever logged in.
         DeckVault.forget(player.getUUID());
-        // And what the world has given them lately, which is about how long they have been playing
-        // rather than about them: somebody who has logged out has stopped, and a bucket that drained
-        // while they were away says the same thing as one thrown out.
-        Finds.forget(player.getUUID());
+        // NOT what the world has given them lately. Finds is deliberately kept across a logout: it
+        // drains over time, and throwing it away is an instant drain, so forgetting it here let
+        // anybody reset the limit by relogging. See Finds.
         // And the budgets that limit how fast they may ask for things.
         TableActions.forget(player.getUUID());
         ActionBudget.forgetShared(player.getUUID());

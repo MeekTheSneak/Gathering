@@ -3863,3 +3863,49 @@ it.
 misses a whole rotation and comes back on the same seat that was active when they left gets no turn
 notice, because the active seat has not changed; and a reconnect never notices the first board even
 when it is already your turn. Both are worth fixing but neither is yesterday's doing.
+
+## 2026-09-18: the server review, and one finding that was not one
+
+**The pace limiter was bypassable by relogging - PROVED, and it was the whole feature.** `PlayerGone`
+forgot a player's buckets, justified in the class doc by "a bucket that drained while they were away
+is the same answer the drain would have given anyway". That is wrong, and wrong the dangerous way:
+forgetting is an instant and complete drain rather than one over time. A farmer who had run the
+archive odds out to one in sixteen could log out and back in - ten seconds on a local server - and
+have the next wither pay for certain. `Finds` now keeps a bucket across a logout and lets go of it
+when it has genuinely drained, swept when the map passes 256 players.
+
+**A host is told when somebody takes the desk their tournament signed up at.** A second use of your
+desk by another host moves their event onto it and leaves yours with no registration point, which
+means registrations from anywhere in the dimension - and said nothing to you at all. It still
+happens, because taking a desk over is deliberate and takes two presses; it is no longer silent.
+
+**The creative slot hook is kept inside the window the game itself writes.** It runs before vanilla
+has decided whether to accept the packet, and vanilla stores only slots 1-45 and drops a negative
+one; everything else it throws away. A client sending a slot outside that could have had the real
+deck taken out of its slot and the only remembered copy dropped, with the game then storing nothing -
+the deck gone with no way back. Not reachable from an unmodified client, and now not reachable at
+all. Guarded both halves at once, including that a *drop* still drops the real deck rather than the
+stand-in, which is the half an over-tight window would have broken - and did, until the guard was
+written (`adropDropsTheRealDeckAndaRefusedSlotChangesNothing`).
+
+**One finding was not a defect, and the attempt to fix it broke a tested behavior.** The review read
+`markRegistration` leaving the old desk's claim in place as the same bug that was fixed in
+`runFromDesk` a day earlier. It is not: a host's own desk keeping its claim is exactly what lets one
+use of it take signing up back, which `ahostsOwnDeskTakesSigningUpBack` asserts and which the design
+brief describes. Moving to another desk hands the claim over; marking a spot on the floor leaves the
+desk as the way back to it. The same reasoning covers the review's "letGoOfTheDesk does nothing in an
+unloaded chunk". Both changes were written, the game tests refused them, and both were reverted. The
+comment at that line now says why, so the next reader does not make the same inference.
+
+**Checked and cleared by the review, worth recording:** every caller of `Finds` really is on the
+server thread on both loaders; the bounded card store takes the right monitor, never iterates
+unsynchronized, and evicts only inside `put`; `setPrintings` never holds its monitor across I/O; the
+bucket is not driven up by rolls that gave nothing; `whoFound` covers all three vanilla parameters;
+`CoinDrops.ORDINARY(2,1,1)` gives `spread() == 1` so the roll is never `nextInt(0)`; and chests are
+genuinely never rate-limited.
+
+**Left, with reasons.** A `FakePlayer` (Create's deployer) never logs out, so its bucket lives for
+the run - a handful of doubles, bounded by distinct fake profiles. And if the server refuses a
+single creative click the client has already made - budget exhausted, or the deck not held - the card
+can end up both in the deck and in the slot; the budget makes it hard to reach by hand, and the shape
+is now written down rather than a surprise.

@@ -268,6 +268,54 @@ public final class DeckSweepGameTest {
         helper.succeed();
     }
 
+    /**
+     * A deck dropped in the creative menu drops the real deck, and a slot the game will refuse is
+     * left entirely alone.
+     * <p>Two halves of the same window. The hook runs before vanilla has decided whether to accept
+     * the packet, and vanilla stores only slots one to forty-five and drops a negative one - so a
+     * slot outside that could have had the real deck pulled out of its slot and the remembered copy
+     * dropped, with the game then storing nothing.
+     */
+    @GameTest(template = "empty")
+    public static void adropDropsTheRealDeckAndaRefusedSlotChangesNothing(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        DeckComponent deck = new DeckComponent("Dropped", "", Optional.of(player.getUUID()),
+                List.of(card(41), card(42)), List.of(), List.of());
+        net.minecraft.world.item.ItemStack real = DeckItem.of(deck);
+        UUID handle = DeckItem.handleOf(real).orElseThrow();
+        player.getInventory().setItem(0, real);
+
+        DeckComponent hidden = new DeckComponent("Dropped", "", Optional.of(player.getUUID()),
+                List.of(dev.gathering.item.CardComponent.HIDDEN, dev.gathering.item.CardComponent.HIDDEN),
+                List.of(), List.of());
+        net.minecraft.world.item.ItemStack copy = DeckItem.of(hidden);
+        copy.set(dev.gathering.registry.GatheringComponents.DECK_HANDLE.get(), handle);
+
+        // A slot the game itself will throw away: nothing may move because of it.
+        ItemStack refused = dev.gathering.server.CreativeDecks.incoming(player, 46, copy.copy());
+        if (!DeckItem.deckOf(player.getInventory().getItem(0)).map(left -> left.entries().size() == 2
+                && !left.entries().contains(dev.gathering.item.CardComponent.HIDDEN)).orElse(false)) {
+            helper.fail("a creative slot the game refuses took the real deck out of its slot");
+            return;
+        }
+        if (DeckItem.deckOf(refused).map(DeckComponent::isRedacted).orElse(false) != true) {
+            helper.fail("a refused slot was answered with something other than what was sent");
+            return;
+        }
+
+        // And a drop, which is a real gesture: the deck that hits the floor is the real one.
+        ItemStack dropped = dev.gathering.server.CreativeDecks.incoming(player, -1, copy.copy());
+        DeckComponent onTheFloor = DeckItem.deckOf(dropped).orElse(null);
+        if (onTheFloor == null || onTheFloor.entries().size() != 2
+                || onTheFloor.entries().contains(dev.gathering.item.CardComponent.HIDDEN)) {
+            helper.fail("dropping a deck in the creative menu dropped "
+                    + (onTheFloor == null ? "no deck" : onTheFloor.entries().toString()));
+            return;
+        }
+        helper.succeed();
+    }
+
     /** And nobody who is not in creative can name a deck they are not holding. */
     @GameTest(template = "empty")
     public static void namingaDeckOnlyWorksInCreative(GameTestHelper helper) {
