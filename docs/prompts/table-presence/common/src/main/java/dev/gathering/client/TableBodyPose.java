@@ -46,15 +46,36 @@ public final class TableBodyPose {
     }
 
     /**
+     * Whether everybody should be drawn still, because the person looking is playing.
+     * <p>The owner's decision, and the only version of it that works. The table camera looks
+     * straight down, so an arm reaching out over the felt is foreshortened into a line lying over
+     * whatever mats it crosses - a pointing player at a pod sweeps their own arm across three
+     * other people's boards. At rest, the arms hang at the table's edge where the body already is.
+     * <p>Asked before anything else in {@link #aimOf}, so a player in the table view runs no
+     * lookup and no interpolation at all: one static boolean per drawn player per frame.
+     * <p>This is about the <em>viewer</em>, not about the player being drawn. The same seated
+     * player is still and pointing at the same moment, to two people in two different views, and
+     * that is correct: the still one is being looked at by somebody who is playing.
+     */
+    private static boolean everybodyIsStill() {
+        return TableCameraView.isLooking();
+    }
+
+    /**
      * Where this player's arm and head point this frame.
      * <p>{@link TablePose.Aim#RESTING} for a seated player who is not pointing at anything, which
-     * is a real pose rather than a fallback: hands down, head level, holding their cards.
+     * is a real pose rather than a fallback: hands down, head level, holding their cards. A player
+     * whose table screen is closed is one of those - no screen, no cursor, no pointer - and so is
+     * every player at all while the person looking is in the table view.
      */
     public static TablePose.Aim aimOf(Player player, float partialTick) {
         throw new UnsupportedOperationException("""
                 Not written yet, and this is the part that will need a running game. In order:
+                  0. everybodyIsStill(), and if so RESTING, before any lookup.
                   1. SeatedPlayers.of(player), else RESTING.
                   2. ClientTablePointing.pointedAt(player.getUUID(), partialTick), else RESTING.
+                     A seated player who has closed the table screen has no pointer, because the
+                     sender stopped and said so - it is not a case handled here.
                   3. The spot's surface coordinates through TableTop - worldX/worldZ, then
                      inTheWorld, then WorldSpace.toWorld - which is the same route TablePointer
                      takes and must stay the same route, or the arm points at where the table is

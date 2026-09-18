@@ -19,9 +19,15 @@ What the feature is: a seated player's main arm and head follow their cursor acr
 their off hand holds their cards fanned at the table's edge with the backs out, whatever they were
 carrying stops being drawn, and the table view keeps the seated players while hiding the standing
 ones. The brief carries the file list, the observable-success statements, the owner's three open
-calls, and six traps found by reading - the worst being that `PlayerModel#setupAnim` copies the
-arms onto the sleeves as the last thing it does, so a `TAIL` injection that moves an arm leaves
-its jacket sleeve behind.
+calls - settled by the owner the same day, and now written down as decisions - and seven traps
+found by reading. The worst is that `PlayerModel#setupAnim` copies the arms onto the sleeves as
+the last thing it does, so a `TAIL` injection that moves an arm leaves its jacket sleeve behind.
+
+The three decisions: other seated players **are** drawn in the table view and are drawn **at
+rest**, which is also the only version that works - the table camera looks straight down, so a
+pointing arm lies along the board rather than beside it; the arm points during another player's
+turn, with no turn check anywhere; and a seated player whose table screen is closed is at rest,
+still holding their cards and still not drawing whatever they were carrying.
 
 Verified: `TablePose` and `HandFan` - the pure geometry, written in full - compile under `javac`
 alone, and every property their test file asserts was run over a dense grid of targets and hand

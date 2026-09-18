@@ -33,8 +33,9 @@ looking at another table:
 - Every seat's hand is drawn on the table below that seat's mat: your own faces up, everyone
   else's as backs.
 - You do not see standing players at all, and you never see yourself.
-- Other seated players are drawn, low and still, at the edges where they sit - enough to know
-  someone is there, never enough to cover a card. **This one is the owner's call**: see §8.
+- The other players seated at this table are drawn, **at rest**: arms down, head level, cards
+  in hand, not following anybody's cursor. Enough to know who is there, and nothing moving over
+  the board. Settled by the owner - see §8.
 
 ## 2. What must not move
 
@@ -156,8 +157,15 @@ bootstrap: NeoForge with `EntityRenderersEvent.AddLayers`, Fabric with
   on (`TableCameraView.java:~470`). It becomes: always hide the viewer themselves; hide players
   who are not seated at the cluster being watched; keep the ones who are. A seated player's head
   sits about a third of a block above the felt and two blocks under the camera, so the ones kept
-  are at the edges of the frame rather than over the board - but **look at the pictures before
-  believing that sentence**, and if they are in the way, the setting in §8 is the answer.
+  should be at the edges of the frame rather than over the board - but **look at the pictures
+  before believing that sentence**.
+- **And the kept ones are at rest.** `TableBodyPose` asks `TableCameraView.isLooking()` first: in
+  the table view, every drawn player is `Aim.RESTING`, whatever pointer their client has sent.
+  One static boolean, asked once per drawn player, and no interpolation runs at all. This is the
+  owner's call in §8 and it is also the only version that works: an arm aimed across the felt is
+  aimed *along* the board from a camera looking straight down at it, so a pointing player at a
+  pod would sweep their own arm over three other people's mats. At rest, the arms hang at the
+  table's edge where the body already is.
 - **Hands below the mat in the board view.** The seated screen draws your own hand across the
   bottom of the window. Each seat's hand should also appear on the felt below that seat's mat:
   backs for everyone else, from the same count, using `HandFan` so the two views fan a hand the
@@ -189,7 +197,11 @@ sliver. A player with forty cards has a fan that is still a fan - `HandFan` caps
 up. It is drawn again. They sit down with nothing: nothing changes.
 
 **E. The table view.** A player in the table view sees no standing spectators and not themselves,
-whatever anybody is doing, however many people are around the table.
+whatever anybody is doing, however many people are around the table. The other players seated at
+the table are drawn and do not move: two clients pointing at each other's mats produce two still
+bodies in each other's table view, and two moving arms the moment either of them stands up and
+walks round. May change: nothing at all - this is a question asked during drawing. Must not
+change: what those same players look like to anybody outside the table view.
 
 ## 5. Traps found while reading
 
@@ -215,6 +227,10 @@ list, which is what that list is for.
 - **`TablePointer.at` is the seated screen's picker, and it is only valid inside a drawn frame** -
   it answers from matrices captured while the world was drawn. The sender reads the point the
   screen has already worked out; it does not run the picker from a tick.
+- **A pointing arm is drawn along the board, not across it.** The table camera looks straight
+  down, so an arm reaching out over the felt is foreshortened into a line lying over whatever mats
+  it crosses. That is why the table view draws seated players at rest, and it is the thing to
+  re-read before anybody decides the still bodies look lifeless and "improves" them.
 - **`StreamCodec.composite` stops at six fields.** Both payloads here are well inside that, but
   if one grows, split the record rather than hand-rolling.
 - **`TableClusters.at(...).seats()` is ordered**, and that order is the seat index in the board.
@@ -250,8 +266,8 @@ Nothing is done until `tools/gate.sh` exits zero. In particular this change touc
 - `runGameTestServer` on both loaders - the pointer validation.
 - `tools/mixincheck.py` - four new mixin names across two lists.
 - `tools/statecheck.py` - `ClientTablePointing.clear` named in `ClientState`.
-- `tools/prefcheck.py` - **only if** you add the setting in §8, and then production code must
-  actually read it. A settings row that changes nothing is the exact defect that check exists for.
+- `tools/prefcheck.py` - nothing to do: §8 settled this without a setting, so there is no
+  `ClientSettings` row to be read by nobody.
 - `tools/artcheck.py` - unchanged, and it must stay unchanged. If it fails, a texture moved.
 
 Then `tools/shots.sh`, and **look at the pictures**. The things a screenshot can settle here:
@@ -261,19 +277,22 @@ pointer survives a reconnect, whether two players see each other correctly. Thos
 clients and a person, and if that run does not happen, say so in `docs/working-record.md` in
 those words.
 
-## 8. The owner's calls
+## 8. Settled by the owner
 
-Do not decide these; ask.
+Answered 2026-09-18. Written down rather than remembered, because each of the three is a place
+where the obvious change is the wrong one and somebody will propose it again.
 
-1. **Are other seated players drawn in the table view at all?** The brief says "maybe static
-   versions". The honest options are: all seated players kept (risk: a head over a card at a
-   crowded pod), none kept (safe, and the table feels empty), or a setting defaulting to kept. A
-   setting costs a `ClientSettings` row, a lang key, and a `prefcheck` obligation.
-2. **Does the arm point during another player's turn?** It follows the cursor whenever there is
-   one, which means a player reading the board is visibly waving at it. That may be exactly right
-   - it is what people do - or it may be noise.
-3. **Does a player who is seated but has closed the table screen still point?** The proposal:
-   no. No screen, no cursor, arm at rest.
+1. **Other seated players are drawn in the table view, at rest.** Drawn, so a seat with somebody
+   in it looks like one; at rest, so nothing sweeps over the board. Not a setting - there is no
+   `ClientSettings` row and no lang key for this, and adding one later means earning its
+   `prefcheck` obligation.
+2. **The arm points during another player's turn.** Whenever there is a cursor on the felt, whose
+   turn it is changes nothing. Do not add a turn check: a player reading the board while they wait
+   is a player whose hand moves over it, which is what people do - and a body that only animates
+   on your own turn is the mod deciding what counts as playing, which is next door to a rule.
+3. **Seated with the table screen closed is at rest.** No screen, no cursor, no pointer. The
+   sender stops and says so once; `TableBodyPose.poses` stays true, because both hands are still
+   full - the cards are still held and what they were carrying is still not drawn.
 
 ## 9. The skeleton
 
