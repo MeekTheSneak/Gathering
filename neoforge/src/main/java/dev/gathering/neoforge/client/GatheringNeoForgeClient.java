@@ -123,6 +123,7 @@ public final class GatheringNeoForgeClient {
         for (var table : GatheringContent.tables()) {
             event.register(TableColors::tintOf, table.get());
         }
+        event.register(dev.gathering.block.TrophyBlock::tintOf, GatheringContent.TROPHY_BLOCK.get());
     }
 
     @SubscribeEvent

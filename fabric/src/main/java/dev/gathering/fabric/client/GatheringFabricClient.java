@@ -138,6 +138,8 @@ public final class GatheringFabricClient implements ClientModInitializer {
                 dev.gathering.item.DeckItem::tintOf, GatheringContent.DECK.get());
         net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register(
                 dev.gathering.item.TrophyItem::tintOf, GatheringContent.TROPHY.get());
+        net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.BLOCK.register(
+                dev.gathering.block.TrophyBlock::tintOf, GatheringContent.TROPHY_BLOCK.get());
 
         // What happens when each clientbound payload arrives is ClientPayloads', shared with
         // NeoForge; this loader only registers a receiver for each and gets the work onto the

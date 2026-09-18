@@ -119,9 +119,20 @@ final class GatheringRegistration {
         GatheringContent.PACK.bindValue(pack);
         GatheringContent.SEALED.bindValue(sealed);
         GatheringContent.MANA_COIN.bindValue(manaCoin);
+        // The cup before the item that places it: the item is a BlockItem and asks for its block
+        // while it is being built.
+        net.minecraft.world.level.block.Block trophy = Registry.register(BuiltInRegistries.BLOCK,
+                Gathering.id(GatheringContent.TROPHY_ID), GatheringContent.createTrophyBlock());
+        GatheringContent.TROPHY_BLOCK.bindValue(trophy);
         GatheringContent.TROPHY.bindValue(Registry.register(
                 BuiltInRegistries.ITEM, Gathering.id(GatheringContent.TROPHY_ID),
                 GatheringContent.createTrophy()));
+        GatheringContent.TROPHY_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.TrophyBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(GatheringContent::createTrophyEntity, trophy)
+                        .build()));
 
         GatheringComponents.CARD.bindValue(Registry.register(
                 BuiltInRegistries.DATA_COMPONENT_TYPE,

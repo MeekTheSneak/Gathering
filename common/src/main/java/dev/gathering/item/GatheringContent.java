@@ -59,6 +59,9 @@ public final class GatheringContent {
     public static final Registered<Item> PACK = new Registered<>(PACK_ID);
     public static final Registered<Item> MANA_COIN = new Registered<>(MANA_COIN_ID);
     public static final Registered<Item> TROPHY = new Registered<>(TROPHY_ID);
+    public static final Registered<Block> TROPHY_BLOCK = new Registered<>(TROPHY_ID);
+    public static final Registered<BlockEntityType<dev.gathering.block.TrophyBlockEntity>>
+            TROPHY_ENTITY = new Registered<>(dev.gathering.block.TrophyBlockEntity.ID);
     public static final Registered<Block> TABLE = new Registered<>(TABLE_ID);
     public static final Registered<Item> TABLE_ITEM = new Registered<>(TABLE_ID);
     public static final Registered<Block> COBBLESTONE_TABLE = new Registered<>(COBBLESTONE_TABLE_ID);
@@ -353,9 +356,32 @@ public final class GatheringContent {
         return new ManaCoinItem(new Item.Properties());
     }
 
+    /**
+     * The cup itself, which stands on a shelf.
+     * <p>Metal, and no harder to take back up than a flower pot: a trophy is an ornament and
+     * breaking one has to hand back the engraved cup rather than cost an afternoon.
+     */
+    public static Block createTrophyBlock() {
+        return new dev.gathering.block.TrophyBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.METAL)
+                .strength(1.0f)
+                .sound(SoundType.METAL)
+                // A cup on a stem, which is nothing like a cube.
+                .noOcclusion()
+                // Pistons would take the block and leave the block entity, which is an engraving
+                // deleted by a redstone accident.
+                .pushReaction(PushReaction.BLOCK));
+    }
+
     /** One to a tournament, so a stack of them is never a thing anybody has. */
     public static Item createTrophy() {
-        return new TrophyItem(new Item.Properties().stacksTo(1).rarity(net.minecraft.world.item.Rarity.RARE));
+        return new TrophyItem(TROPHY_BLOCK.get(),
+                new Item.Properties().stacksTo(1).rarity(net.minecraft.world.item.Rarity.RARE));
+    }
+
+    public static dev.gathering.block.TrophyBlockEntity createTrophyEntity(
+            BlockPos pos, BlockState state) {
+        return new dev.gathering.block.TrophyBlockEntity(pos, state);
     }
 
     /**

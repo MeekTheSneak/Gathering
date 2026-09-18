@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "gathering:block/trophy" },
+    "facing=east":  { "model": "gathering:block/trophy", "y": 90 },
+    "facing=south": { "model": "gathering:block/trophy", "y": 180 },
+    "facing=west":  { "model": "gathering:block/trophy", "y": 270 }
+  }
+}

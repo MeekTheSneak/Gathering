@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Draws the trophy, which a tournament of more than four players leaves behind.
+"""Draws the trophy's one face, which a tournament of more than four players leaves behind.
 
 Art in this project is the owner's and this script does not change that: he asked for this one on
 2026-09-18, along with the Mana Coin before it, to play with until he draws it himself. Kept as a
 script rather than as a hand-placed grid of pixels so the thing it is made of is written down.
 
+The trophy is a block. The cup - a plinth, a stem, a bowl and two handles - is built out of cuboids
+in `models/block/trophy.json`, so what a texture has to be here is the metal those cuboids are made
+of rather than a picture of a cup. The item in the hand is that same block seen small, which is why
+there is no separate item sprite.
+
 Drawn in **gray**, on purpose. Every trophy carries a color of its own, chosen when it is won, and
 the game multiplies this picture by that color - so a picture painted in any color at all would come
 out muddied by it. Gray lets the cup be gold, or green, or whatever the afternoon was.
-
-The shape: a cup seen face on. A bowl with a lip, two handles, a stem and a plinth. Sixteen pixels is
-not much room for a trophy, so the shapes are separated by shadow rather than by outline: an outline
-at this size eats the bowl.
 
     python3 tools/trophy.py            # writes the texture if it has changed
     python3 tools/trophy.py --check    # says whether it would change anything, writes nothing
@@ -23,53 +24,13 @@ import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-TROPHY = ROOT / "common/src/main/resources/assets/gathering/textures/item/trophy.png"
+#: The trophy is a block, so the cup is built out of cuboids and wears one plain face on every side:
+#: what a texture has to be here is metal rather than a picture of a cup. The item in the hand is that
+#: same block seen small, which is why there is no separate item sprite.
+METAL = ROOT / "common/src/main/resources/assets/gathering/textures/block/trophy.png"
 
-#: An item texture is sixteen pixels square, like everything else in the hand.
+#: A block face is sixteen pixels square, like everything else in the world.
 SIZE = 16
-
-#: The grays the cup is built from, lit from the upper left as every other item here is.
-SHINE = (0xF2, 0xF2, 0xF2)
-LIGHT = (0xD8, 0xD8, 0xD8)
-BODY = (0xB4, 0xB4, 0xB4)
-SHADE = (0x86, 0x86, 0x86)
-DEEP = (0x5A, 0x5A, 0x5A)
-
-#: The cup, row by row, drawn as a picture so the shape is read rather than computed.
-#: " " nothing, "." deep, "-" shade, "#" body, "+" light, "*" shine.
-CUP = [
-    "                ",
-    "   ##########   ",
-    "  .+********-.  ",
-    "  .+########-.  ",
-    " .#.+######-.#. ",
-    " .#.+######-.#. ",
-    " .#..######..#. ",
-    " .#-.-####-.-#. ",
-    "  .-..####..-.  ",
-    "    .-####-.    ",
-    "     .####.     ",
-    "      .##.      ",
-    "      .##.      ",
-    "    .-######-.  ",
-    "   .+########-. ",
-    "   .----------. ",
-]
-
-INK = {" ": None, ".": DEEP, "-": SHADE, "#": BODY, "+": LIGHT, "*": SHINE}
-
-
-def pixels():
-    """Every pixel of the trophy, as (red, green, blue, alpha)."""
-    rows = []
-    for line in CUP:
-        row = []
-        for mark in line.ljust(SIZE)[:SIZE]:
-            color = INK[mark]
-            row.append((0, 0, 0, 0) if color is None else color + (255,))
-        rows.append(row)
-    return rows
-
 
 def written(rows):
     """Those pixels as the bytes of a png."""
@@ -87,19 +48,36 @@ def written(rows):
             + chunk(b"IEND", b""))
 
 
+def metal():
+    """The block's one face: brushed metal, in gray, so the tint decides what metal it is."""
+    rows = []
+    for y in range(SIZE):
+        row = []
+        for x in range(SIZE):
+            # A faint vertical grain, brighter toward the top left, the way the cup is lit.
+            grain = ((x * 7 + y * 3) % 5) - 2
+            shade = 0xC4 - (y * 3) + grain * 4
+            level = max(0x6A, min(0xEE, shade))
+            row.append((level, level, level, 255))
+        rows.append(row)
+    return rows
+
+
 def main():
     checking = "--check" in sys.argv
-    drawn = written(pixels())
-    was = TROPHY.read_bytes() if TROPHY.is_file() else b""
-    if drawn == was:
+    wanted = {METAL: written(metal())}
+    changed = [path for path, bytes_ in wanted.items()
+               if not path.is_file() or path.read_bytes() != bytes_]
+    if not changed:
         print("trophy: unchanged")
         return 0
     if checking:
-        print("trophy: would be written")
+        print("trophy: would be written:", ", ".join(path.name for path in changed))
         return 1
-    TROPHY.parent.mkdir(parents=True, exist_ok=True)
-    TROPHY.write_bytes(drawn)
-    print(f"trophy: written, {len(drawn)} bytes")
+    for path in changed:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(wanted[path])
+    print("trophy: written " + ", ".join(path.name for path in changed))
     return 0
 
 

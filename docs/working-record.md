@@ -4152,11 +4152,10 @@ The owner asked for it out of the list of "for fun" suggestions, and then for th
 an item with a random tint, for tournaments of more than four, carrying the event's name, the day and
 the winner.
 
-**What it is.** `TrophyItem` with a `TrophyComponent` holding the event, the day, the winner and a
-tint. It does nothing: not a block, not a card, and no rule anywhere reads it. That is the point - a
-trophy that did something would be a reward, and this is a souvenir. It is one of the few items that
-still explains itself in the hand, because what it says is the whole of it and there is nowhere else
-to read it.
+**What it is.** `TrophyBlock` and its `TrophyBlockEntity`, with a `TrophyComponent` holding the
+event, the day, the winner and a tint. It does nothing: not a card, and no rule anywhere reads it.
+That is the point - a trophy that did something would be a reward, and this is a souvenir. It is one
+of the few items that still explains itself in the hand, because what it says is the whole of it.
 
 **The color is the object's own.** Decided once, when it is won, from the world's own randomness like
 every other roll the server makes - and carried on the item, so the same trophy is the same color in
@@ -4173,6 +4172,29 @@ it through the same path a prize takes.
 **The art is a stand-in**, drawn by `tools/trophy.py` as the Mana Coin was, and deliberately gray:
 the game multiplies the picture by the trophy's own color, so a cup painted in any color at all would
 come out muddied by it.
+
+**It is a block, after a first pass where it was not.** The owner's answer to the item was "oh man,
+I was hoping it was a block", which is the right answer: an item in a chest is a souvenir nobody
+sees, and the whole of what a trophy is for is standing where people walk past it. So the cup is
+built out of cuboids - a plinth, a stem, a bowl and two handles - and `TrophyItem` is now a
+`BlockItem`, which is how a trophy travels between shelves.
+
+**The engraving makes a journey it never used to.** Off the stack in `setPlacedBy`, onto the block
+entity, and back onto the stack in `getDrops` - one stack, still engraved, rather than a blank cup
+and a note beside it. `getCloneItemStack` too, or the middle mouse button in creative quietly hands
+back somebody else's cup with the name gone. Three guards in `TrophyBlockGameTest` cover the round
+trip and a save; with the copy in `setPlacedBy` removed, two of the three failed with the blank
+component in the message and the third - a cup nobody won must stay blank - correctly still passed.
+
+**Read by clicking it.** A placed block has no tooltip, so without this the engraving is legible
+only by breaking the thing and looking at it in the hand, which is the opposite of what a trophy on
+a shelf is for. Anybody may read it; there is nothing hidden on a trophy.
+
+**Two checks had more to say about a block than about an item.** `texturecheck` found the flat cup
+sprite orphaned once the item model pointed at the block model - the item in the hand is that same
+block seen small - so the sprite and the code in `tools/trophy.py` that drew it are gone, leaving
+the one brushed-metal face. And `recipecheck` wants every block craftable, which this one must never
+be: it is in `NOT_CRAFTED` with the reason, because a trophy anybody can lay out on a bench is a cup.
 
 **One flaky test, caught by running it.** The first version settled every pairing in the first seat's
 favor and then asserted the first player had won - which Swiss does not guarantee, because it seats

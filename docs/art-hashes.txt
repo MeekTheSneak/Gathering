@@ -135,6 +135,7 @@ a861a307a9a608286647420934f0663f63c8259bc1e745e4a6ac842dfe44eb22  art/reference/
 351e9aea2e5c5983a861f284cd0fab5d6b76d733362830abf9beb1938d261d56  common/src/main/resources/assets/gathering/sounds/shuffle.ogg
 a61378ae98a552b2300655de0eaae4800f0b61f44a6ea5aa4d7ec00ee5f1c1e6  common/src/main/resources/assets/gathering/sounds/your_turn.ogg
 7e08eb46ee59c1aadf974e7a8d6f03ebb2e6e5aa5dda7608db6e37ac01f607eb  common/src/main/resources/assets/gathering/textures/block/table_felt.png
+7b8e10ecac1f73e69770512ba63ef9bd6c8e7338496f40b77a6140bfff2ce70d  common/src/main/resources/assets/gathering/textures/block/trophy.png
 5433e8c17a340f81c2775931b42d9c9ab4707e07ccf32f689bdb7d12a7238423  common/src/main/resources/assets/gathering/textures/card/back.png
 b3846e9878f0f07d475d15f34886883db0043269e795b05ba93d79d2688fe2aa  common/src/main/resources/assets/gathering/textures/card/sleeve.png
 26da55ea38fd0dbd73829fe64524b07f708cdf11320b77c7ac9ee5a02f019166  common/src/main/resources/assets/gathering/textures/entity/villager/profession/shopkeeper.png
@@ -2148,7 +2149,6 @@ c90cc63b124f20424eb9b9f72ea7070602f325a9419ec359ae0152d8717f8a7e  common/src/mai
 77ff6ee9b47d58c6fe0e6fe07940b8b96990e5dd96a73ccb5892a452fa6b205b  common/src/main/resources/assets/gathering/textures/item/mana_coin.png
 23f1d7260b50d651f6d647efd62d326ec7658b42b61254a486cda3678100cf2b  common/src/main/resources/assets/gathering/textures/item/pack.png
 02f28f95cfd23cfc04c33b09f371a50d85bca77e467fc370287501358638a9b3  common/src/main/resources/assets/gathering/textures/item/sealed.png
-6fc1ae484f3b10440c0d19ae594ea4c26c2ab08c6eb5a8acbbbca1c7fda2466d  common/src/main/resources/assets/gathering/textures/item/trophy.png
 7b2c3e08df1f728bb81740af9478e7d168d7d770179ee7b0efe1c77d93ff56b8  common/src/main/resources/pack.mcmeta
 0e85a060542884edb4ab18eab71d2aeeb1ad66d69c5eb6f6e51c2e1484d7b3ec  docs/gui-elements.png
 d03306e0c63275fae2ff350a8ea9f130589edf81ddc8430cbb88d63aa664f34c  docs/reviews/cleanup-2026-09-13-menu-overflow.png

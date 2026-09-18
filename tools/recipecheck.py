@@ -41,7 +41,9 @@ UNLOCKS = ROOT / "common/src/main/resources/data/gathering/advancement/recipes"
 
 #: Blocks a player is never meant to make. Each one needs a reason, because "it has no recipe"
 #: and "it is not craftable" look identical from here.
-NOT_CRAFTED = {}
+NOT_CRAFTED = {
+    "trophy": "Won, never made. A trophy anybody can lay out on a bench is a cup, not a trophy.",
+}
 
 
 def resultOf(recipe: dict) -> str:

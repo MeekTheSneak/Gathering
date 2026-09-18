@@ -71,8 +71,15 @@ final class GatheringRegistration {
             ITEMS.register(GatheringContent.PACK_ID, GatheringContent::createPack);
     private static final Supplier<Item> MANA_COIN =
             ITEMS.register(GatheringContent.MANA_COIN_ID, GatheringContent::createManaCoin);
+    private static final Supplier<Block> TROPHY_BLOCK =
+            BLOCKS.register(GatheringContent.TROPHY_ID, GatheringContent::createTrophyBlock);
     private static final Supplier<Item> TROPHY =
             ITEMS.register(GatheringContent.TROPHY_ID, GatheringContent::createTrophy);
+    private static final Supplier<BlockEntityType<dev.gathering.block.TrophyBlockEntity>>
+            TROPHY_ENTITY = BLOCK_ENTITIES.register(
+                    dev.gathering.block.TrophyBlockEntity.ID, () -> BlockEntityType.Builder
+                            .of(GatheringContent::createTrophyEntity, TROPHY_BLOCK.get())
+                            .build(null));
 
     private static final Supplier<Item> SEALED =
             ITEMS.register(GatheringContent.SEALED_ID, GatheringContent::createSealed);
@@ -288,7 +295,9 @@ final class GatheringRegistration {
         GatheringContent.DECK.bind(DECK);
         GatheringContent.PACK.bind(PACK);
         GatheringContent.MANA_COIN.bind(MANA_COIN);
+        GatheringContent.TROPHY_BLOCK.bind(TROPHY_BLOCK);
         GatheringContent.TROPHY.bind(TROPHY);
+        GatheringContent.TROPHY_ENTITY.bind(TROPHY_ENTITY);
         GatheringContent.TABLE.bind(TABLE);
         GatheringContent.TABLE_ITEM.bind(TABLE_ITEM);
         GatheringContent.COBBLESTONE_TABLE.bind(COBBLESTONE_TABLE);

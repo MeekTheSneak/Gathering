@@ -6,7 +6,7 @@ import java.util.Optional;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 
@@ -15,16 +15,18 @@ import net.minecraft.world.item.TooltipFlag;
  * <p>Handed to whoever wins an event big enough to be worth remembering, engraved with the event,
  * the day and their name - and cast in a color of its own, so a shelf of them is a shelf of separate
  * afternoons rather than a row of the same cup.
- * <p>It does nothing. It is not a block, it does not go in a deck, and no rule anywhere reads it.
- * That is deliberate: a trophy that did something would be a reward, and what this is meant to be is
- * a souvenir.
+ * <p>It does nothing. It does not go in a deck and no rule anywhere reads it. That is deliberate: a
+ * trophy that did something would be a reward, and what this is meant to be is a souvenir.
+ * <p>The cup itself is a block - {@link dev.gathering.block.TrophyBlock} - because a trophy in a
+ * chest is a souvenir nobody sees. This is how it travels between shelves, and the engraving rides
+ * on the stack while it does.
  * <p>One of the few items that still explains itself in the hand, because what it says is the whole
- * of it and there is nowhere else to read it.
+ * of it and, until it is put down, there is nowhere else to read it.
  */
-public final class TrophyItem extends Item {
+public final class TrophyItem extends BlockItem {
 
-    public TrophyItem(Properties properties) {
-        super(properties);
+    public TrophyItem(net.minecraft.world.level.block.Block block, Properties properties) {
+        super(block, properties);
     }
 
     /** A trophy for this event, cast in a color the world's own randomness chose. */
@@ -65,6 +67,11 @@ public final class TrophyItem extends Item {
                 | 0xFF000000;
     }
 
+    /**
+     * What it says, in the hand.
+     * <p>Deliberately without the block's own description line: a trophy's tooltip is its engraving
+     * and nothing else, which is why {@code super} is not called.
+     */
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context,
             List<Component> lines, TooltipFlag flag) {
