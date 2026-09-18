@@ -141,7 +141,12 @@ public final class QualityReviewGameTest {
             Owed.deliver(player);
             PackComponent recovered = player.getInventory().items.stream()
                     .map(PackItem::packOf).flatMap(Optional::stream).findFirst().orElseThrow();
-            if (!original.equals(recovered)) {
+            // What the receipt has to carry back: which set, which product, and the color the
+            // player chose. Not the whole record - a pack also carries the set's name for its own
+            // tooltip, which is filled in when the item is made and is not part of the receipt.
+            if (!original.setCode().equals(recovered.setCode())
+                    || !original.kind().equals(recovered.kind())
+                    || !original.color().equals(recovered.color())) {
                 helper.fail("Recovered booster changed from " + original + " to " + recovered);
                 return;
             }

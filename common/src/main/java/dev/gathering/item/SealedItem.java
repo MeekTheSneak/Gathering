@@ -79,7 +79,7 @@ public class SealedItem extends Item {
                     && CardShop.learn(box.setCode());
             buyer.sendSystemMessage(Component.translatable(
                     reading ? "message.gathering.sealed_looking_up" : "message.gathering.sealed_unknown",
-                    box.setCode().toUpperCase(java.util.Locale.ROOT)));
+                    dev.gathering.server.SetNames.of(box.setCode())));
             return InteractionResultHolder.fail(stack);
         }
 
@@ -97,8 +97,9 @@ public class SealedItem extends Item {
     public void appendHoverText(ItemStack stack, TooltipContext context,
             List<Component> lines, TooltipFlag flag) {
         boxOf(stack).filter(SealedComponent::isReal).ifPresent(box -> {
-            lines.add(Component.translatable("tooltip.gathering.pack_set",
-                    box.setCode().toUpperCase(java.util.Locale.ROOT)));
+            // No set line. The item's own name is the product's full name - "Bloomburrow Collector
+            // Booster Box" - so a line under it reading "BLB" told nobody anything they could not
+            // already see, in a spelling most players do not know.
             lines.add(Component.translatable("tooltip.gathering.sealed_open")
                     .withStyle(ChatFormatting.DARK_GRAY));
         });

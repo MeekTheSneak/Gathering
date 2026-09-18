@@ -3995,3 +3995,45 @@ refused it, by the rule that the mod's own lines get more room or fewer words an
 
 **Unverified:** Ember itself. The scripted tour photographs Retro and Arcane, and Arcane is built the
 same way, but nobody has looked at Ember since the change.
+
+## 2026-09-18: the owner's playtest list - tooltips, set names, the shelf
+
+**Only what carries information explains itself in the hand** (owner, 2026-09-18). A line under a
+chair, a shop counter, a table, a display case and a coin is a line under everything, and a tooltip
+under everything is one nobody reads under the two that matter. `DescribedBlockItem` is gone, the
+table item and the Mana Coin are plain, and eighteen lang keys went with them. A card, a deck, a pack
+and a sealed product still say what they hold, because that cannot be seen any other way.
+`BlockTooltipGameTest` asserted the exact opposite - every block explaining itself - and now asserts
+this, with a second test that the card and the deck still do.
+
+**A set is called by its name where a player reads it.** Three letters is how the data names a set
+and how this mod stores one; most players know "Bloomburrow" and not "blb". `SetNames` answers with
+the set's own name and falls back to the code in capitals when the set list has not been read, which
+is the first seconds of a server. Now named: the pack-opening and pack-opened messages, a made-up
+pack, an archive granted, and a sealed product being looked up. The sealed product's tooltip lost its
+set line entirely - the item's own name is already the full product name, so a line under it reading
+"BLB" said nothing anybody could not see.
+<p>The pack's own tooltip is the one that needed carrying: it is drawn on the client and the list of
+set names is the server's, so `PackComponent` gained a `set_name` and `PackItem.of` fills it in as
+the pack is made. Optional in both codecs, so a pack written before this reads back with no name and
+falls back to its code, exactly as it showed before. An Archive Pack names the family it is of, which
+it keeps in its kind rather than its set code, so that has its own accessor.
+
+**Every world opened on the same shelf.** The turnover is `gameTime / rotationHours`, and a new world
+has a game time of nearly nothing - so every world on every machine started at turnover zero and the
+first shop anybody walked into anywhere sold the same two things. The owner found the same play
+booster and the same draft booster on three separate worlds. The world's seed now decides where its
+shelf starts, spread through a mix so that neighbouring seeds do not land on neighbouring shelves.
+One world's shops still agree with each other and still turn over together on the clock, which is
+what the design requires; two worlds now differ.
+
+**The village shop: no fault found.** The owner has not seen one generate. From his own running
+client's log the shop is registered into all five village styles at weight 20, the five buildings
+exist and their jigsaws point at the right street pools. The weight was 8 until the day before -
+about one draw in eleven, which is the "almost never" he reported - and chunks already generated
+never change, so a world explored before that keeps the old odds. Nothing to fix; fresh terrain is
+the test. The villager variants he asked for are already there: the shopkeeper is a profession
+overlay, only 32% opaque, so the biome's own villager shows through underneath.
+
+**Still to do from that list:** the trophy for tournaments over four players, the GUI elements that
+stretch their textures, and the player's hand following the mouse at the table.

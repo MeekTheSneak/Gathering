@@ -27,7 +27,17 @@ public class PackItem extends Item {
 
     public static ItemStack of(PackComponent pack) {
         ItemStack stack = new ItemStack(dev.gathering.item.GatheringContent.PACK.get());
-        stack.set(GatheringComponents.PACK.get(), pack);
+        // The set's name goes on the pack as it is made, because the tooltip that wants it is drawn
+        // on the client and the list of set names is the server's. Where nothing knows the name -
+        // a test, or a server whose set list is still being read - the pack keeps only its code and
+        // says that, which is what it said before.
+        // An archive pack's set is the archive; what a player wants named is the family it is of,
+        // which it keeps in its kind. So the name looked up is that one.
+        String naming = pack.isArchive() ? pack.kind() : pack.setCode();
+        stack.set(GatheringComponents.PACK.get(), pack.setName().isBlank() && !naming.isBlank()
+                ? new PackComponent(pack.setCode(), pack.kind(), pack.color(),
+                        dev.gathering.server.SetNames.of(naming))
+                : pack);
         return stack;
     }
 
@@ -102,13 +112,12 @@ public class PackItem extends Item {
                 lines.add((pack.kind().isEmpty()
                         ? Component.translatable("tooltip.gathering.archive")
                         : Component.translatable("tooltip.gathering.archive_of",
-                                pack.kind().toUpperCase(java.util.Locale.ROOT)))
+                                pack.familySaidToAPlayer()))
                         .withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE));
                 lines.add(Component.translatable("tooltip.gathering.archive_what")
                         .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
             } else {
-                lines.add(Component.translatable("tooltip.gathering.pack_set",
-                        pack.setCode().toUpperCase(java.util.Locale.ROOT)));
+                lines.add(Component.translatable("tooltip.gathering.pack_set", pack.saidToAPlayer()));
                 if (!pack.kind().isEmpty()) {
                     lines.add(Component.translatable("tooltip.gathering.pack_kind", pack.kind()));
                 }

@@ -44,13 +44,38 @@ public final class Shopkeepers {
      * <p>Off the world's own clock rather than the wall's, so a server that was switched off
      * for a week comes back to the shelf it left rather than to a week of turnovers nobody
      * was there for. Every shop in the world reads the same number.
+     * <p>Started from somewhere of this world's own. A new world has a game time of nearly nothing,
+     * so every world on every machine began at turnover zero and every first shop anybody ever
+     * walked into sold the same two things - the owner found the same play booster and the same
+     * draft booster on three separate worlds. The world's seed decides where its shelf starts, so
+     * two worlds open on different stock and one world's shops still all agree with each other and
+     * still turn over together on the clock.
      */
     public static long rotation(Level level) {
         if (level == null) {
             return 0;
         }
         long hours = Math.max(1, ServerSettings.get().collecting().sealedRotationHours());
-        return level.getGameTime() / (hours * TICKS_AN_HOUR);
+        return level.getGameTime() / (hours * TICKS_AN_HOUR) + startsAt(level);
+    }
+
+    /**
+     * Where this world's shelf begins, which is the same every time it is asked of the same world.
+     * <p>The seed, not a random: a shelf that moved when the server restarted would be a shelf
+     * nobody could come back to, and one that differed between two shops in a world would be the
+     * re-rollable counter the whole design refuses.
+     */
+    private static long startsAt(Level level) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server)) {
+            // No seed to read on a client, and nothing over there asks: the counter is the server's.
+            return 0;
+        }
+        // Spread out rather than taken raw, because neighbouring seeds land on neighbouring shelves
+        // and worlds made a second apart get seeds a second apart.
+        long seed = server.getSeed();
+        long mixed = seed * 0x9E3779B97F4A7C15L;
+        mixed ^= mixed >>> 29;
+        return Math.floorMod(mixed, 1L << 20);
     }
 
     /**

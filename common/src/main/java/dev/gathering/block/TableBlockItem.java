@@ -56,22 +56,4 @@ public class TableBlockItem extends BlockItem {
         return true;
     }
 
-    /**
-     * How to use it, on the thing you are holding.
-     * <p>None of it is guessable: a table is sat at from a chair at the middle of an edge, the
-     * game is chosen from that chair, and a deck goes down once the game is on.
-     * Somebody who has just crafted this has no way to find any of it out, and a mod whose first
-     * minute is spent clicking a block that does nothing is a mod that gets uninstalled in its
-     * second minute.
-     */
-    @Override
-    public void appendHoverText(
-            ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_format")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_play")
-                .withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_size")
-                .withStyle(ChatFormatting.DARK_GRAY));
-    }
 }

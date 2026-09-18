@@ -5,6 +5,7 @@ import dev.gathering.block.TableBlockEntity;
 import dev.gathering.block.TableBlockItem;
 import dev.gathering.registry.Registered;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
@@ -132,20 +133,11 @@ public final class GatheringContent {
         public Item createItem() {
             return switch (kind) {
                 case TABLE -> new TableBlockItem(block.get(), new Item.Properties());
-                case CHAIR -> new DescribedBlockItem(block.get(), new Item.Properties(),
-                        java.util.List.of("tooltip.gathering.chair_sit", "tooltip.gathering.chair_stand"));
-                case SHOP_COUNTER -> new DescribedBlockItem(block.get(), new Item.Properties(),
-                        java.util.List.of("tooltip.gathering.shop_counter_job"));
-                case COLLECTION -> new DescribedBlockItem(block.get(), new Item.Properties().stacksTo(1),
-                        java.util.List.of("tooltip.gathering.collection_open", "tooltip.gathering.collection_put_in",
-                                "tooltip.gathering.collection_sweep"));
-                case SCOREKEEPERS_DESK -> new DescribedBlockItem(block.get(), new Item.Properties(),
-                        java.util.List.of("tooltip.gathering.desk_host", "tooltip.gathering.desk_anybody"),
-                        "tooltip.gathering.desk_board");
-                case DISPLAY_CASE -> new DescribedBlockItem(block.get(), new Item.Properties(),
-                        java.util.List.of("tooltip.gathering.display_case_show",
-                                "tooltip.gathering.display_case_take",
-                                "tooltip.gathering.display_case_lock"));
+                case CHAIR -> new BlockItem(block.get(), new Item.Properties());
+                case SHOP_COUNTER -> new BlockItem(block.get(), new Item.Properties());
+                case COLLECTION -> new BlockItem(block.get(), new Item.Properties().stacksTo(1));
+                case SCOREKEEPERS_DESK -> new BlockItem(block.get(), new Item.Properties());
+                case DISPLAY_CASE -> new BlockItem(block.get(), new Item.Properties());
             };
         }
     }
@@ -386,8 +378,7 @@ public final class GatheringContent {
     }
 
     public static Item createShopCounterItem() {
-        return new DescribedBlockItem(SHOP_COUNTER.get(), new Item.Properties(),
-                java.util.List.of("tooltip.gathering.shop_counter_job"));
+        return new BlockItem(SHOP_COUNTER.get(), new Item.Properties());
     }
 
     public static Block createTable() {
@@ -502,15 +493,11 @@ public final class GatheringContent {
     }
 
     public static Item createDisplayCaseItem() {
-        return new DescribedBlockItem(DISPLAY_CASE.get(), new Item.Properties(),
-                java.util.List.of("tooltip.gathering.display_case_show",
-                        "tooltip.gathering.display_case_take", "tooltip.gathering.display_case_lock"));
+        return new BlockItem(DISPLAY_CASE.get(), new Item.Properties());
     }
 
     public static Item createCollectionItem() {
-        return new DescribedBlockItem(COLLECTION.get(), new Item.Properties().stacksTo(1), java.util.List.of(
-                "tooltip.gathering.collection_open", "tooltip.gathering.collection_put_in",
-                "tooltip.gathering.collection_sweep"));
+        return new BlockItem(COLLECTION.get(), new Item.Properties().stacksTo(1));
     }
 
     public static dev.gathering.block.CollectionBlockEntity createCollectionEntity(
@@ -538,8 +525,7 @@ public final class GatheringContent {
     }
 
     public static Item createChairItem() {
-        return new DescribedBlockItem(CHAIR.get(), new Item.Properties(),
-                java.util.List.of("tooltip.gathering.chair_sit", "tooltip.gathering.chair_stand"));
+        return new BlockItem(CHAIR.get(), new Item.Properties());
     }
 
     /** Stone seating uses the same seat entity and interactions as the original wooden chair. */
@@ -550,8 +536,7 @@ public final class GatheringContent {
     }
 
     public static Item createStoneChairItem(Block block) {
-        return new DescribedBlockItem(block, new Item.Properties(),
-                java.util.List.of("tooltip.gathering.chair_sit", "tooltip.gathering.chair_stand", "tooltip.gathering.chair_dye"));
+        return new BlockItem(block, new Item.Properties());
     }
 
     /** The invisible thing a player sitting in a chair rides: tiny, unsaved, and never sent to be drawn as anything. */
@@ -566,8 +551,7 @@ public final class GatheringContent {
     }
 
     public static Item createScorekeepersDeskItem() {
-        return new DescribedBlockItem(SCOREKEEPERS_DESK.get(), new Item.Properties(),
-                java.util.List.of("tooltip.gathering.desk_host", "tooltip.gathering.desk_anybody"), "tooltip.gathering.desk_board");
+        return new BlockItem(SCOREKEEPERS_DESK.get(), new Item.Properties());
     }
 
     public static dev.gathering.block.ScorekeepersDeskBlockEntity createScorekeepersDeskEntity(

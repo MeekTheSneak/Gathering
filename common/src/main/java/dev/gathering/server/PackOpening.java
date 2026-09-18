@@ -146,7 +146,7 @@ public final class PackOpening {
         // The owner opened a pack, got nothing, and had no way of telling whether it was working, broken
         // or gone (2026-09-16). Over the hotbar: it is replaced by whatever happens next.
         Notices.tell(player,
-                Component.translatable("message.gathering.pack_opening", set.toUpperCase(Locale.ROOT)));
+                Component.translatable("message.gathering.pack_opening", SetNames.of(set)));
         collation.collationFor(set)
                 // Async on the collation worker, not chained plainly: a set already read is
                 // an already-completed future, and a plain chain would draw the pack on
@@ -615,7 +615,7 @@ public final class PackOpening {
             // object from a real one - every common in it is exactly as likely as every other
             // - and somebody opening a box of them should be able to see which were which.
             player.sendSystemMessage(
-                    Component.translatable("message.gathering.pack_made_up", set));
+                    Component.translatable("message.gathering.pack_made_up", SetNames.of(set)));
         }
         // Worded as owed rather than lost, because that is now what it is.
         if (delivery.unnameable() == 1) {
@@ -703,7 +703,7 @@ public final class PackOpening {
         } else {
             // Quick opened, so there is no screen to say it on.
             player.sendSystemMessage(Component.translatable(
-                    "message.gathering.pack_opened", set.toUpperCase(Locale.ROOT), kind,
+                    "message.gathering.pack_opened", SetNames.of(set), kind,
                     giving.size()));
         }
     }

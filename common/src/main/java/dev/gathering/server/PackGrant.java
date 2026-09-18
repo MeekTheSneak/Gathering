@@ -71,7 +71,7 @@ public final class PackGrant {
             dev.gathering.server.Handing.give(player, archive);
             player.sendSystemMessage(wanted.isEmpty()
                     ? Component.translatable("message.gathering.archive_given_any")
-                    : Component.translatable("message.gathering.archive_given", wanted.toUpperCase(Locale.ROOT)));
+                    : Component.translatable("message.gathering.archive_given", SetNames.of(wanted)));
             return;
         }
 
