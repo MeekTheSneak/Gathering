@@ -438,6 +438,9 @@ mock players or a scripted client driving one window. The visibility rules have 
 that must never regress, multiplayer sync and spectators are built and exercised - but no two
 real people have ever sat at this table over a network, so this section is the gap.
 
+Two people have now played the *collecting* half together - packs, the shop, a collection - on
+2026-09-17, and found nothing wrong with it. The table is still the gap.
+
 Open to LAN is enough for two, and a dedicated server is the honest test: run
 `./gradlew :neoforge:runServer` once to generate `run/`, accept the EULA, drop the built jar
 from `neoforge/build/libs/` into a normal server's `mods/`, and have everyone join.
@@ -482,6 +485,27 @@ What is worth watching, in the order it would hurt:
   words, in an order a person can follow?
 - **Standing up and sitting down mid-game**, disconnecting mid-turn, and reconnecting. A board
   outlasts its player, and a restart mid-game should bring back the same table.
+
+**Changed in the week of 2026-09-17, so worth a second look.** These are recent enough that a
+group session is the first real use of them:
+
+- **"It's your turn."** Walking back to a table you have been away from should still tell you the
+  turn has come round - a chime and a banner. The rule for how much missed log is replayed was
+  rewritten, and this is the one part of it no automated test can reach, so it is worth
+  deliberately walking away during somebody else's turn and coming back on yours.
+- **Holding a card up.** Alt over a card fills the screen and locks the camera while it is held.
+  There is an accessibility setting that makes it a press rather than a hold
+  (Options -> Gathering), and in that mode the way out is to put the card away. If anybody ever
+  ends up with a locked camera and no way back, that is the bug of the weekend - say exactly
+  what they pressed.
+- **Table labels.** A label floats over each table so you can find yours across a room. Sitting
+  at one should not show you the label of the table next to it, and should never draw one over
+  the board you are playing on. Two tables a few blocks apart is the case to try.
+- **Notices over screens.** Anything the server tells you while a screen is open should be
+  readable without closing it.
+- **The shop.** It takes Mana Coins now, found in chests rather than farmed, one at a time. The
+  shopkeeper's counter is stocked by level, so a novice sells boosters and the bigger boxes are
+  further up.
 
 If something goes wrong, the world save is enough to reproduce it: the session is an event
 log, so a copy of the save carries the whole game and the exact way it broke.
