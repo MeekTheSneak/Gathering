@@ -154,9 +154,10 @@ drawn, and the mana symbols are assembled from hand-drawn parts. Block faces —
 collection block and the shop counter — and every interface sprite are still generated
 stand-ins, as is the Mana Coin.
 
-**It has never been played by four people at once.** Multiplayer is built and tested by machine,
-hidden-information rules included, but the session that proves it's enjoyable hasn't happened.
-If you're here early, that's the useful thing — [`TESTING.md`](TESTING.md) says what to try.
+**The table hasn't been played by two people yet.** Collecting has — packs, the shop, building from
+what you own, played end to end by two people with no bugs found. The game at the table is built and
+tested by machine, hidden-information rules included, but no two humans have sat down at one. If
+you're here early, that's the useful thing — [`TESTING.md`](TESTING.md) says what to try.
 
 ## Questions
 

@@ -3768,3 +3768,32 @@ caving is inside the brim and never meets it.
 The guard is one in-world test with both halves and it was shown failing both ways: with chests paced
 it reports two thousand chests putting five against the player, and with nothing paced it reports two
 thousand withers putting nothing against the farmer.
+
+## 2026-09-17 evening: the first session with a second person
+
+The owner and his wife played on the current 0.3.1 - the build with the whole of that day's work in
+it - and **found no bugs**. What they covered was the collecting loop: packs, the shop, the
+collection.
+
+This is the first time anything in this mod has been played by two people rather than by the test
+suite and one person with a screenshot. It is worth saying precisely what it does and does not
+settle.
+
+**What it settles.** The economy as reworked that day holds up in front of somebody who has not read
+the code: opening packs, the shopkeeper and what is on the counter, filing cards and looking at a
+collection. That is the half of the mod the owner's playtest lists have been about all week, and it
+is the half the day's changes touched most - the Mana Coin, one coin at a time, the shop's tiers, the
+village weight, the pace on farmable sources. None of it went wrong in front of a second player.
+
+**What it does not.** The table itself was not played. So the core loop of the mod - two people
+seated, hands hidden from each other, turns passing, the log - is still verified by machine and by
+single-player photos only, which is what the "next concrete action" at the top of this file has been
+asking for since the 15th. Nor were the failure paths anybody hits by accident rather than on
+purpose: somebody disconnecting mid-game, a seat kept while a player is away, a world reloaded
+underneath a game. And two is not four: the vote at four players and a merged table seating six or
+eight are untouched.
+
+**One thing to watch in the area they were in.** A case is worth over two hundred boosters and a
+trade carries at most two slots of sixty-four, so at default prices the top of the shop cannot be
+bought at all. A master shopkeeper is a long way from a first session, so this would not have come up
+- but it is a dead end sitting at the end of the exact path they were walking.
