@@ -35,8 +35,9 @@ suit. They behave identically, so mixing materials is a decision about the room.
 **Get a deck.** Servers choose one of two ways in. By default you earn your cards: open packs,
 keep a collection, build a deck from what you own. A server can instead let everyone import a
 decklist — `/gathering import`, paste, and you hold the deck. It reads exports from Moxfield,
-Archidekt, MTG Arena, MTGO and deckstats, or plain `1 Sol Ring` lines. Operators can always
-import, whatever the setting.
+Archidekt, MTG Arena, MTGO and deckstats, or plain `1 Sol Ring` lines. Paste an Archidekt link
+and it fetches the deck itself, with the exact printings, since Archidekt's API gives the
+Scryfall id of every card. Operators can always import, whatever the setting.
 
 **Sit down and play.** Walk up holding a deck and right-click. You're seated, shuffled and
 holding seven. From there it's a table: drag cards where you want them, tap them, put them in
@@ -165,9 +166,10 @@ If you're here early, that's the useful thing — [`TESTING.md`](TESTING.md) say
 check knows Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Commander, Duel
 Commander, Oathbreaker and Limited. Choose free play and it checks nothing.
 
-**Can I use my Moxfield deck?** Yes. Use More → Export → Text and paste that. Moxfield and
-Archidekt links are recognized but can't be fetched; their APIs refuse other tools and this mod
-won't work around that.
+**Can I use my Moxfield deck?** Yes. Use More → Export → Text and paste that. A Moxfield *link*
+can't be fetched — their API answers other tools with 403, and working around that is not
+something this mod will do. An Archidekt link works as a link: paste it and the deck is read from
+their public API, printings and all.
 
 **Does this need a resource pack or a Scryfall account?** Neither.
 

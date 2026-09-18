@@ -3481,8 +3481,7 @@ gate; and the shop's own chest hands out coins with no source gate at all.
 ## 2026-09-17: the README, and the next of the review's findings
 
 **The README was rewritten.** It had drifted: it described the table as two blocks by two (it has
-been three by three since the owner's playtest on the 15th), said the shop takes emeralds, claimed an
-Archidekt link fetches printings for you (it does not - links are refused, the same as Moxfield's),
+been three by three since the owner's playtest on the 15th), said the shop takes emeralds,
 counted thirteen looks where twelve ship, named nine static checks where there are eighteen, called
 `./gradlew verify` the gate, and did not mention tournaments, the Scorekeeper's Desk, display cases,
 the collection block, the shop counter, chairs, the Mana Coin, loaner decks, replays, the tutorial,
@@ -3520,3 +3519,13 @@ The test now puts one table down at a time and takes it up again. `tools/plotche
 exactly this and could not see it, because it only reads coordinates written out as numbers - it now
 refuses a placement it cannot read, which found one more (a venue of eight tables, in bounds but
 unreadable, since written out).
+
+**Corrected straight afterwards, by the owner.** The rewrite said an Archidekt link cannot be
+fetched. It can, and always could: `DeckImporter.importText` sends a recognized link to
+`ArchidektDeckSource`, which reads the deck from Archidekt's public API and gets the Scryfall id of
+every card, so a link resolves to exact printings where a text export can only name cards. The
+reviewer who checked the claim read `DecklistParser` alone - which is pure and cannot fetch anything,
+so it tells the player to paste an export - and I took that as the whole answer without following the
+import path myself. Moxfield really is link-unfetchable (403 to third parties), and the two were
+wrongly lumped together. The lesson is the one already written down: a reviewer's finding is a lead
+to verify, including when it contradicts something that was already there and correct.
