@@ -58,11 +58,15 @@ public final class CardInspectPanel {
 
     /**
      * How far in from the panel's edge the words start.
-     * <p>Past the frame, not up against it. This used to be eight, which is exactly the
-     * frame's thickness - so the first pixel of every line was the first pixel of the field,
-     * and any look whose border reaches in at all had its text sitting on the border.
+     * <p>Past the frame, not up against it. This used to be eight, which is exactly the frame's
+     * thickness - so the first pixel of every line was the first pixel of the field, and any look
+     * whose border reaches in at all had its text sitting on the border.
+     * <p>Then it was that plus six, which is enough for the looks whose panel this mod draws and not
+     * for the four built around a frame somebody drew: those reach further in, and the owner
+     * reported the text crowding the edge on Ember. The panel is sized from its text, so widening
+     * this makes the box bigger rather than the words smaller, which is the way round to want.
      */
-    private static final int PADDING = FRAME + 6;
+    private static final int PADDING = FRAME + 10;
     private static final int SIDEBAR_WIDTH = 180;
     private static final float FULL_SCREEN_HEIGHT_FRACTION = 0.82f;
 

@@ -36,6 +36,19 @@ public final class GatheringButtons {
     private static final int LABEL = 0xE8E4DC;
     private static final int LABEL_OFF = 0x8A8681;
 
+    /**
+     * How far in from a button's edge its label stops.
+     * <p>Vanilla's own is two, which is nothing: it was drawn for a button whose face is a flat
+     * gradient with no border to speak of. Several of this mod's looks are built around a frame
+     * somebody drew - Ember, Arcane, Verdant, Royal - and those frames reach several pixels in on
+     * every side, so a label allowed within two pixels of the edge sat on the frame or ran under it.
+     * The owner reported it on Ember.
+     * <p>Six, which is what the screens that size a button to its label already leave: a button wide
+     * enough for its words is now a button whose words fit inside its border, rather than one whose
+     * words fit inside its rectangle.
+     */
+    private static final int LABEL_MARGIN = 6;
+
     private GatheringButtons() {
     }
 
@@ -132,7 +145,7 @@ public final class GatheringButtons {
         public void renderString(GuiGraphics graphics, Font font, int color) {
             int centerX = getX() + getWidth() / 2;
             int y = getY() + (getHeight() - font.lineHeight) / 2 + 1;
-            int room = getWidth() - TEXT_MARGIN * 2;
+            int room = getWidth() - LABEL_MARGIN * 2;
             if (keepsRowScale(font)) {
                 GuiText.drawCenteredAt(graphics, font, getMessage(), centerX, y, rowScale, color);
                 return;
@@ -142,12 +155,12 @@ public final class GatheringButtons {
 
         /** Whether the row's size is used - it is, unless even that would not fit this label. */
         private boolean keepsRowScale(Font font) {
-            return rowScale > 0f && font.width(getMessage()) * rowScale <= getWidth() - TEXT_MARGIN * 2;
+            return rowScale > 0f && font.width(getMessage()) * rowScale <= getWidth() - LABEL_MARGIN * 2;
         }
 
         /** The size this label would be drawn at on its own. */
         float aloneScale(Font font) {
-            return GuiText.fittedScale(font, getMessage(), getWidth() - TEXT_MARGIN * 2);
+            return GuiText.fittedScale(font, getMessage(), getWidth() - LABEL_MARGIN * 2);
         }
 
         /** The size this label is drawn at. */
@@ -318,7 +331,7 @@ public final class GatheringButtons {
             GuiText.drawCentered(graphics, font, mark,
                     getX() + getWidth() / 2,
                     getY() + (getHeight() - font.lineHeight) / 2 + 1,
-                    getWidth() - TEXT_MARGIN * 2, color);
+                    getWidth() - LABEL_MARGIN * 2, color);
         }
     }
 

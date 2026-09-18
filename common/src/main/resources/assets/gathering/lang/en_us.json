@@ -605,7 +605,7 @@
   "screen.gathering.pod.clock.off.tip": "Pick clock off: nobody is hurried",
   "screen.gathering.pod.clock.seconds.tip": "Pick clock: %s seconds a pick, then the first cards are taken",
   "screen.gathering.pod.clock.tournament.tip": "Pick clock: tournament timing, 40 seconds for a fresh pack down to 5 for the last cards",
-  "screen.gathering.pod.clock.tournament": "Tourney",
+  "screen.gathering.pod.clock.tournament": "Event",
   "screen.gathering.pod.clock.seconds": "%s s",
   "screen.gathering.draft.clock": "%s s",
   "message.gathering.draft.picked_for_you": "Time ran out, so the first cards in your pack were picked for you.",

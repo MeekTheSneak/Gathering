@@ -69,6 +69,19 @@ public final class ArchiveAudit {
     }
 
     /**
+     * Whether a printing's layout is a card's, rather than a token's, an emblem's or an art card's.
+     * <p>Split out of {@link #isACard} because it is the only half of that question a pack needs. The
+     * rest of it asks whether the printing exists on paper at all, which matters to an audit of what
+     * a collection could contain and does not belong in a pack's own pool: a card whose data says
+     * nothing about which games it is in still came out of the set, and refusing those emptied every
+     * fallback pack on a server whose card data is thinner than Scryfall's own.
+     */
+    public static boolean isACardLayout(CardMetadata card) {
+        return card != null
+                && !NOT_A_CARD.contains(card.layout() == null ? "" : card.layout().toLowerCase(Locale.ROOT));
+    }
+
+    /**
      * Whether a printing is a card that could go in a collection, rather than a token or an art card.
      * Which of a set's printings in another language count is {@link dev.gathering.core.card.ForeignPrintings}'s.
      */

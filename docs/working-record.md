@@ -3957,3 +3957,41 @@ it, as a bounded one-line argument, which is why the trusted codec is still righ
 lives for the run - a couple of doubles, bounded by distinct fake profiles; and if the server refuses
 a creative click the client has already made, a card can be both in the deck and in the slot, which
 the budget makes hard to reach by hand. Both are written down rather than fixed.
+
+## 2026-09-18: the pack filter emptied the dev world's packs, and text sits further in
+
+**The scripted client went from one failure to forty-two, and it was the pack filter.** Found by
+bisecting - the previous commit's source ran clean, so it was in that batch - and then by reverting
+one change at a time. `wasEverInABooster` had been given the whole of `ArchiveAudit.isACard`, which
+asks whether a printing exists on paper as well as whether it is a card. The dev world's card data
+says nothing about which games a printing is in, so every fallback pack came out empty, every board
+built from one was short, and the run collapsed: a drag onto an empty table, a library of nought, and
+finally a null card in a step a hundred lines later.
+
+Only the layout half is a pack's question, so it is split out as `ArchiveAudit.isACardLayout` and
+that is what a pack asks. Tokens, emblems and art series still cannot be dealt; a card whose data is
+thinner than Scryfall's own still can.
+
+Worth writing down twice over. The gate was green for all forty-two of those failures - 678 in-world
+tests and every static check - because none of them plays a game out of a pack. And I tried twice to
+work out which change it was by reading the log, and was wrong both times, before bisecting. The
+bisect took two runs. Reading the log took longer and produced two wrong answers.
+
+**Text sits further in from a look's frame.** The owner: Ember's text boxes are too small to hold
+their text properly, so either the boxes want to be bigger or the text wants to sit further in. Two
+places had a number chosen against the looks this mod draws itself, not the four built around a frame
+somebody else drew - those reach several pixels in on every side:
+
+- a button's label stopped two pixels from its edge, which is vanilla's own number for a face with
+  no border to speak of. Six now, which is what the screens that size a button to its label already
+  leave, so a button wide enough for its words is one whose words fit inside its border.
+- the card panel's text started fourteen pixels in, which clears the mod's own frame and not a drawn
+  one. Eighteen now. The panel is sized from its text, so this makes the box bigger rather than the
+  words smaller.
+
+One label stopped fitting at the wider margin - the draft pod's pick clock - and the scripted client
+refused it, by the rule that the mod's own lines get more room or fewer words and never an ellipsis.
+"Tourney" is "Event", which is the word the rest of the mod uses anyway.
+
+**Unverified:** Ember itself. The scripted tour photographs Retro and Arcane, and Arcane is built the
+same way, but nobody has looked at Ember since the change.

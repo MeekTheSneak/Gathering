@@ -374,14 +374,17 @@ public final class PackOpening {
      * needed to open a pack to get.
      */
     public static boolean wasEverInABooster(CardMetadata card) {
-        // A card rather than a token, an emblem or an art card, which is ArchiveAudit's question and
-        // is asked here too. It used to come for free: the network lookup this pool was built from
-        // is a Scryfall search, and a search does not return them. The local bulk index does, and it
-        // is what a server reads from by default now - so without asking, a set with no published
-        // collation could deal an art card into a pack.
+        // A card rather than a token, an emblem or an art card. That used to come for free: the
+        // network lookup this pool was built from is a Scryfall search, and a search does not return
+        // them; the local bulk index does, and it is what a server reads from by default now - so
+        // without asking, a set with no published collation could deal an art card into a pack.
+        // The layout alone, not the whole of ArchiveAudit.isACard: that also asks whether a printing
+        // is on paper, which is right for auditing a collection and wrong here. Asking it emptied
+        // every fallback pack on the dev world, whose card data says nothing about games at all -
+        // caught by the scripted client, which plays out of those packs, and by nothing else.
         return card != null && card.scryfallId() != null
-                && dev.gathering.core.booster.ArchiveAudit.isACard(card)
-                && !card.isBasicLand();
+                && dev.gathering.core.booster.ArchiveAudit.isACardLayout(card)
+                && !card.digitalOnly() && !card.oversized() && !card.isBasicLand();
     }
 
     /**
