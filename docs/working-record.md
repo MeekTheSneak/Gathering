@@ -3631,3 +3631,36 @@ on collecting, but a village only gets a card shop at all when collecting is on,
 unreachable; how rich that chest should be is a balance question for the owner. And a case still
 cannot be bought for Mana Coins at any price two trade slots can carry - the fixes are a larger
 denomination or a bulk discount, both the owner's call.
+
+## 2026-09-17: the scripted client caught a regression the gate could not
+
+Running the scripted client after the review's fixes found the owner's own bug back: **a card
+right-clicked into a deck in the creative menu was destroyed.** Every in-world test passed. The gate
+could not see it because the gate has no client, and the tests were building the gesture out of what
+the code was believed to do rather than out of what the screen actually does.
+
+Probing the real screen from the scene said it in one line: `containerSlot=37 index=0`. The creative
+inventory's own tab puts its slots into the menu's list **directly** rather than adding them to the
+menu, so none of them ever gets an index and every one of them reads as slot zero. The slot-id fix
+earlier today told the two kinds of tab apart by asking whether a slot's place and its container slot
+agreed - which is never, on that tab - so every slot resolved to -1, the server did nothing, and the
+client emptied the card's slot on its own. The card was destroyed exactly as it had been before any of
+this started.
+
+Told apart by where the slot sits in the screen's list now: the hotbar is the last nine of either
+screen, and only on a tab that is not the inventory does it call itself 0 to 8. `CreativeSlotsTest`
+pins both shapes, including a wrapper whose place reads as zero.
+
+The second thing the run found, while chasing the first: the same gesture took two different paths
+depending on whether the deck had been swept before. The vault only knew decks the server had already
+put cards into, so for every other deck `deckInHand` refused and only the client did the insert - one
+path where the card went in twice and another where it went in nowhere. A deck that leaves a slot now
+goes into the vault as it goes into the remembered map, so the server always does the insert and the
+client's copy is always subtracted. One path
+(`acardGoesInEvenWhenTheVaultHasNeverSeenTheDeck`, written from what the scene actually did).
+
+**What this is worth remembering:** three fixes in this one area each revealed a new problem
+somewhere else, which is the signal to stop fixing and question the shape. The shape was two sides
+doing the same gesture and a reconciliation afterwards that depended on three sources agreeing. It is
+one source now. And the in-world tests for a screen gesture are only as good as the screen they
+imagine; the scripted client is what reads the real one.

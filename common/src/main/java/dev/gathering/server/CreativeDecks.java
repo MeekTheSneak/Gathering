@@ -182,6 +182,12 @@ public final class CreativeDecks {
         }
         LinkedHashMap<UUID, ItemStack> decks = REMEMBERED.computeIfAbsent(player.getUUID(), ignored -> new LinkedHashMap<>());
         decks.put(handle, leaving.copy());
+        // And the vault learns it too, so a deck that has just gone onto the creative cursor is a deck
+        // the server can put cards into. Without this the server only knew decks that had been swept
+        // before, so the same gesture took two different paths depending on the deck's history: on one
+        // the server did the insert and on the other only the client did, which is a card in the deck
+        // twice or a card in no deck at all. One path.
+        DeckItem.deckOf(leaving).ifPresent(deck -> DeckVault.remember(player.getUUID(), handle, deck));
         while (decks.size() > MOST_REMEMBERED) {
             decks.remove(decks.keySet().iterator().next());
         }

@@ -45,27 +45,36 @@ public final class InventorySlots {
         return place == OFF_HAND_PLACE ? OFF_HAND_SLOT : -1;
     }
 
+    /** The bottom row of the creative inventory, which is the player's hotbar on every tab. */
+    public static final int HOTBAR_SLOTS = 9;
+
     /**
      * The slot of the player's own menu that a slot of the creative inventory stands for, or -1 where it
      * stands for none of them.
      * <p>The creative inventory draws the player's pockets two different ways and numbers them
-     * differently in each, which is the whole reason this exists. On its inventory tab each slot is a
-     * wrapper standing directly in front of one of the player's own menu slots, and says which by its
-     * container slot - so the number is already the one the server wants, and it is the same as the
-     * slot's own place in the screen. On every other tab the row along the bottom is the hotbar, built
-     * fresh over the inventory itself, so its container slot is a place in the inventory - 0 to 8 - and
-     * the slots in front of it are the ones the tab is showing, which the player does not own at all.
-     * <p>Telling the two apart by whether the slot stands where it says it does is exactly what
-     * distinguishes them: a wrapper's two numbers agree, and the hotbar's cannot.
+     * differently in each, which is the whole reason this exists. On its inventory tab every slot is a
+     * wrapper standing in front of one of the player's own menu slots and says which by its container
+     * slot, so that number is already the one the server wants. On every other tab the row along the
+     * bottom is the hotbar built fresh over the inventory itself, so its container slot is a place in
+     * the inventory - 0 to 8 - and everything in front of it is the tab's stock, which the player does
+     * not own at all.
+     * <p>Told apart by where the slot sits and what it claims, because nothing else is reliable: the
+     * wrappers are put into the list directly rather than added to the menu, so they never get an index
+     * and every one of them reads as slot zero. The hotbar is the last nine of either screen, and only
+     * on a tab that is not the inventory does it call itself 0 to 8.
      *
-     * @param inTheScreen   where the slot sits in the creative screen's own list
-     * @param containerSlot what the slot says it stands for
-     * @param playersOwn    whether the slot draws from the player's own inventory at all
+     * @param inTheScreen    where the slot sits in the creative screen's own list of slots
+     * @param slotsInScreen  how many slots that list has
+     * @param containerSlot  what the slot says it stands for
+     * @param playersOwn     whether the slot draws from the player's own inventory at all
      */
-    public static int creativeSlot(int inTheScreen, int containerSlot, boolean playersOwn) {
-        if (!playersOwn) {
+    public static int creativeSlot(int inTheScreen, int slotsInScreen, int containerSlot, boolean playersOwn) {
+        if (!playersOwn || containerSlot < 0) {
             return -1;
         }
-        return containerSlot == inTheScreen ? inTheScreen : inTheirOwnMenu(containerSlot);
+        boolean alongTheBottom = inTheScreen >= 0 && inTheScreen >= slotsInScreen - HOTBAR_SLOTS;
+        return alongTheBottom && containerSlot < HOTBAR_SLOTS
+                ? inTheirOwnMenu(containerSlot)
+                : containerSlot;
     }
 }

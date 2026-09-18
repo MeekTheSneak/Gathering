@@ -74,8 +74,10 @@ public abstract class ContainerSweepMixin implements DeckSweep.Sweepable {
         if (!(screen instanceof CreativeModeInventoryScreen) || player == null) {
             return slot.index;
         }
+        var slots = screen.getMenu().slots;
         return dev.gathering.core.ui.InventorySlots.creativeSlot(
-                slot.index, slot.getContainerSlot(), slot.container == player.getInventory());
+                slots.indexOf(slot), slots.size(), slot.getContainerSlot(),
+                slot.container == player.getInventory());
     }
 
     @Override

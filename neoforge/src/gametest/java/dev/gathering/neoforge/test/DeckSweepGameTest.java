@@ -223,6 +223,51 @@ public final class DeckSweepGameTest {
         helper.succeed();
     }
 
+    /**
+     * The same gesture on a deck the vault has never seen, which is every deck until one is swept.
+     * <p>The scripted client found this: its deck is made and put in the hotbar the way a player's
+     * is, with nothing seeding the vault, so the server refuses to do the insert - and everything
+     * then rests on the client's own copy being merged back in.
+     */
+    @GameTest(template = "empty")
+    public static void acardGoesInEvenWhenTheVaultHasNeverSeenTheDeck(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        net.minecraft.world.item.ItemStack held = DeckItem.of(new DeckComponent(
+                "Creative", "", Optional.of(player.getUUID()), List.of(card(31)), List.of(), List.of()));
+        UUID handle = DeckItem.handleOf(held).orElseThrow();
+        player.getInventory().setItem(0, held);
+        player.getInventory().setItem(1, CardItem.of(card(32)));
+
+        // Picked up onto the creative cursor: the slot it left arrives empty.
+        player.connection.handleSetCreativeModeSlot(
+                new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(36, ItemStack.EMPTY));
+        // The click the screen makes, told to the server; the client does it too.
+        dev.gathering.server.DeckSweeps.handle(player, new DeckSweepPayload(player.inventoryMenu.containerId,
+                Optional.of(handle), List.of(InventorySlots.inTheirOwnMenu(1)), true));
+        // And the copy the client puts back down, its own cards hidden and the new one face up.
+        net.minecraft.world.item.ItemStack back = DeckItem.of(new DeckComponent(
+                "Creative", "", Optional.of(player.getUUID()),
+                List.of(dev.gathering.item.CardComponent.HIDDEN, card(32)), List.of(), List.of()));
+        back.set(dev.gathering.registry.GatheringComponents.DECK_HANDLE.get(), handle);
+        player.connection.handleSetCreativeModeSlot(
+                new net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket(36, back));
+
+        DeckComponent put = DeckItem.deckOf(player.getInventory().getItem(0)).orElse(null);
+        long loose = 0;
+        for (var stack : player.getInventory().items) {
+            if (stack.getItem() instanceof CardItem) {
+                loose += stack.getCount();
+            }
+        }
+        if (put == null || put.entries().size() != 2 || loose != 0) {
+            helper.fail("a card put into a deck the vault has never seen left the deck with "
+                    + (put == null ? "no deck" : put.entries().toString()) + " and " + loose + " loose");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** And nobody who is not in creative can name a deck they are not holding. */
     @GameTest(template = "empty")
     public static void namingaDeckOnlyWorksInCreative(GameTestHelper helper) {
