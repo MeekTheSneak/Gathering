@@ -29,7 +29,7 @@ class ServerAuthoredTest {
             "LibraryLooked", "LibraryReordered", "Surveiled", "CounterChanged", "TokenCreated",
             "TokenCopyCreated", "TokenRemoved", "PaperCardCreated", "HandShown", "SeatCounterChanged",
             "LifeChanged", "CommanderDamageChanged", "CommanderTaxChanged", "Conceded", "TurnPassed", "DrawChosen",
-            "CardPinged");
+            "CardPinged", "BottomingDone");
 
     /** And everything the server writes, for the same reason. */
     private static final Set<String> THE_SERVER_WRITES = Set.of(

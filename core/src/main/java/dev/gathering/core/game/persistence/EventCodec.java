@@ -145,6 +145,10 @@ public final class EventCodec {
                 seat(out, e.seat());
                 out.writeInt(e.newHandSize());
             }
+            case GameEvent.BottomingDone e -> {
+                seat(out, e.actor());
+                seat(out, e.seat());
+            }
             case GameEvent.LibraryShuffled e -> {
                 seat(out, e.actor());
                 seat(out, e.seat());
@@ -336,6 +340,7 @@ public final class EventCodec {
             case "LibraryRevealed" -> new GameEvent.LibraryRevealed(seat(in), seat(in), in.readInt());
             case "CardsDrawn" -> new GameEvent.CardsDrawn(seat(in), seat(in), in.readInt());
             case "Mulliganed" -> new GameEvent.Mulliganed(seat(in), seat(in), in.readInt());
+            case "BottomingDone" -> new GameEvent.BottomingDone(seat(in), seat(in));
             case "LibraryShuffled" -> new GameEvent.LibraryShuffled(seat(in), seat(in));
             case "LibrarySearched" -> new GameEvent.LibrarySearched(seat(in), seat(in));
             case "LibraryLooked" -> new GameEvent.LibraryLooked(seat(in), seat(in), in.readInt());

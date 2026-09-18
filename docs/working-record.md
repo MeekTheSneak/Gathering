@@ -4105,3 +4105,24 @@ and framing the whole table came out at twice its size. Both were caught by the 
 one run, and both are the same lesson: a rectangle in this layout is read by more things than the one
 drawing it, so the safe floor is the last one before the pixels - and where that is not available,
 the squash stays.
+
+## 2026-09-18: the mulligan could not be put down, and the template was a look
+
+**Cards owed to the bottom are capped at a hand, and can be put down.** Pressing Mulligan twelve
+times told a player to bottom twelve cards: the count went up by one each time with nothing to stop
+it, which reads as the mod having lost count rather than as a rule. It stops at seven now, which is
+also where the real rule stops - past a hand there is nothing left to put anywhere.
+<p>And there is a way out of it. The owner's case is the one the mod should already have answered:
+a table that agrees to free mulligans, where the reminder was true of nobody and the only way to be
+rid of it was to actually move that many cards. That is this mod telling a table how to play, which
+is the one thing it does not do. `GameEvent.BottomingDone` clears what is owed and says so in the
+log; it is offered in the library's own menu, beside Mulligan, and only while something is owed.
+
+**The template is not a look any more.** It shipped a theme file, so it sat in the player's list
+between Retro and Royal and somebody would eventually pick it and find themselves playing on a sheet
+of labels. Its sprites stay where they are - they are a diagram to paint over, and
+`docs/gui-elements.png` is the same thing as one sheet - but nothing offers it as something to play
+on. Twelve looks, and a template that is not one of them.
+
+**Still open from that list:** text cut off at the left and right of some screens, and the table's
+right-click menu against some of the looks.

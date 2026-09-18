@@ -435,6 +435,21 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * The cards a mulligan owed the bottom are no longer owed, however that was settled.
+     * <p>A reminder being put down rather than a rule being broken. The table may have agreed to
+     * free mulligans, or somebody may have bottomed them by hand and not through the menu, and
+     * before this the only way to be rid of the line was to actually move that many cards - which
+     * is the mod telling a table how to play, and it does not do that.
+     */
+    record BottomingDone(SeatId actor, SeatId seat) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of("log.gathering.bottoming_done", actor, seat,
+                    before.seatState(seat).owedToBottom());
+        }
+    }
+
     // ----------------------------------------------------------- pile verbs
 
     /**

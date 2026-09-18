@@ -1395,8 +1395,11 @@ def main():
         stencil(base[name], kind, size, border).save(os.path.join(folder, name + ".png"))
         with open(os.path.join(folder, name + ".png.mcmeta"), "w") as out:
             out.write(mcmeta(kind, size, border))
-    with open(os.path.join(THEME_FILES, "template.json"), "w") as out:
-        out.write(theme_file("template", TEMPLATE_ORDER))
+    # No theme file for it. The template's sprites are a diagram to paint over - every element
+    # labeled, at four times life size - and an artist reads them out of the folder or off
+    # docs/gui-elements.png. Shipping a theme file as well put it in the player's own list of
+    # looks, where somebody would pick it and be playing on a sheet of labels. The owner's call
+    # (2026-09-18): it is a reference, not a look.
 
     contact_sheet(base).save(os.path.join(ROOT, "docs", "gui-elements.png"))
 

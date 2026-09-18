@@ -5,9 +5,14 @@ ring under the cursor, the wash over a tapped card, the rime on a frozen one, th
 counter, the progress bars, the blank card stock. There is no color written in the Java. So a
 look is a folder of PNGs, and making one is painting, not programming.
 
-Twelve ship, plus a template. **Basic** is the one the mod starts on and the one every other
-falls back to. **Template** is not meant to be played on: every element is drawn as a labeled
-diagram so you can see what you are painting over. The rest are listed at the end of this file.
+Twelve ship. **Basic** is the one the mod starts on and the one every other falls back to; the rest
+are listed at the end of this file.
+
+Beside them is the **template**, which is not a look and is not offered as one: every element drawn
+as a labeled diagram so you can see what you are painting over. Its sprites are in
+`textures/gui/sprites/template` and the same thing as one sheet is `docs/gui-elements.png`. It used
+to ship a theme file too, which put it in the player's own list of looks - where somebody would pick
+it and find themselves playing on a sheet of labels.
 
 ## The one page to paint from
 
@@ -134,7 +139,7 @@ nothing draws (usually a typo in a name), and whether any `.mcmeta` is missing.
 
 ## What ships
 
-Twelve looks and a template.
+Twelve looks, and a template that is not one of them.
 
 `basic` is the default and the one every other falls back to, so it is the only one that has to
 be complete. `blue`, `red`, `yellow` and `pink` are the same construction in another palette.

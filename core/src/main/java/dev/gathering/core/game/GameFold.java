@@ -88,6 +88,8 @@ public final class GameFold {
 
             case GameEvent.Mulliganed mulligan -> mulligan(state, mulligan, seed);
 
+            case GameEvent.BottomingDone done -> bottomingDone(state, done);
+
             case GameEvent.LibraryShuffled shuffled -> shuffleLibrary(state, shuffled.seat(), seed);
 
             // Looking moves nothing. Taking a card afterwards is a separate move, and that
@@ -506,6 +508,10 @@ public final class GameFold {
             updated = updated.withRevealed(moved.seat(), 0);
         }
         return arrivingOnTop(updated, moved.to(), moved.placement());
+    }
+
+    private static GameState bottomingDone(GameState state, GameEvent.BottomingDone event) {
+        return state.withSeatState(state.seatState(event.seat()).nothingOwedToTheBottom());
     }
 
     private static GameState mulligan(GameState state, GameEvent.Mulliganed event, SessionSeed seed) {

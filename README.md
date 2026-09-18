@@ -178,7 +178,8 @@ their public API, printings and all.
 panel, band, tint, ring, badge and bar is a texture, so a resource pack can replace any of it.
 Twelve looks ship — five palettes of one construction, three built around their own card frame,
 four around a frame drawn by hand — and **Options → Video Settings → Gathering look** switches
-between them. Adding your own is a folder of PNGs and a four-line file, with no code; a look can
+between them. A thirteenth set of sprites is a labeled template to paint over rather than a look,
+so it is not in the list. Adding your own is a folder of PNGs and a four-line file, with no code; a look can
 leave elements out and inherit them, so repainting six things is a complete look.
 [`docs/themes.md`](docs/themes.md) is the guide and
 [`docs/gui-elements.png`](docs/gui-elements.png) is the page to paint from.

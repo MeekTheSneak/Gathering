@@ -90,10 +90,31 @@ public record SeatState(
      */
     public SeatState mulliganed(boolean multiplayer) {
         int taken = mulligans + 1;
-        int owed = multiplayer ? taken - 1 : taken;
+        // Never more than a hand. Owing eight cards to the bottom of a seven card hand is not a
+        // thing that can happen at a table, and the count is a reminder rather than a rule - so
+        // somebody pressing Mulligan a dozen times was told to bottom twelve, which reads as the
+        // mod having lost count. Capped at the hand, which is also where the real rule stops: past
+        // seven there is nothing left to put anywhere.
+        int owed = Math.min(MOST_OWED, multiplayer ? taken - 1 : taken);
         return new SeatState(
                 seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters,
                 conceded, handShownTo, sleeve, taken, owed);
+    }
+
+    /** The most cards a mulligan can owe the bottom: a hand of them, and no more. */
+    public static final int MOST_OWED = 7;
+
+    /**
+     * Nothing is owed the bottom any more, whether or not the cards went there.
+     * <p>The table may have agreed to free mulligans, or a player may simply have dealt with it
+     * their own way - and the count is this mod's reminder rather than its rule. Without this the
+     * only way to be rid of it was to actually put that many cards on the bottom, which is the mod
+     * telling somebody how to play. See the hard rule: it never decides whether a play is legal.
+     */
+    public SeatState nothingOwedToTheBottom() {
+        return owedToBottom == 0 ? this : new SeatState(
+                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters,
+                conceded, handShownTo, sleeve, mulligans, 0);
     }
 
     /** One of the cards owed to the bottom after a mulligan has gone there. */

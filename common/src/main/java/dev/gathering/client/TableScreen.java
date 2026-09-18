@@ -4928,6 +4928,14 @@ public final class TableScreen extends Screen {
             entries.add(entry("draw_many", () -> ask("draw_many", 1,
                     count -> send(new GameEvent.CardsDrawn(me, me, count)))));
             entries.add(entry("mulligan", () -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND))));
+            // Only while something is owed. The reminder over the hand is the mod's own counting,
+            // and a table that agreed to free mulligans - or a player who bottomed their cards by
+            // hand rather than through this menu - had no way to put it down but to move that many
+            // cards, which is this mod telling somebody how to play.
+            GameView owing = view().orElse(null);
+            if (owing != null && owing.seat(me).owedToBottom() > 0) {
+                entries.add(entry("bottoming_done", () -> send(new GameEvent.BottomingDone(me, me))));
+            }
             entries.add(entry("scry", () -> ask("scry", 1, count -> {
                 send(new GameEvent.LibraryLooked(me, me, count));
                 decideOnLibrary(me, PileScreen.Decision.SCRY);
