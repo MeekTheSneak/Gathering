@@ -188,7 +188,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 393;
+    private static final int LAST_STEP = 394;
 
     /** The first step that needs no table, seat or game: everything from here makes what it needs. */
     private static final int FIRST_STEP_WITHOUT_A_BOARD = 386;
@@ -4570,6 +4570,16 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            case 394 -> {
+                // Reading a card by pressing rather than holding, which is the accessibility setting
+                // for anybody who cannot hold a key down and move a mouse at the same time. Inside a
+                // screen the card being read is the one under the cursor, so a latch that asked what
+                // the player was holding turned the whole mode off: hovering a card and pressing the
+                // key drew nothing at all. Every other step here holds the key, which is why nothing
+                // caught it.
+                pressToInspectWorksInsideAScreen(client);
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -8295,6 +8305,47 @@ public final class DevScene {
                 dev.gathering.server.events.Events.useDesk(player, desk);
             }
         });
+    }
+
+    /**
+     * A press of the read key, inside a screen, with nothing in the player's hand.
+     * <p>The latch is set on the key's down edge and has to survive the key coming back up, which is
+     * the whole of what "press" means. Driven through the same binding the loaders use.
+     */
+    private static void pressToInspectWorksInsideAScreen(Minecraft client) {
+        if (client.player == null) {
+            fail("there is no player to read a card with");
+            return;
+        }
+        boolean wasHolding = dev.gathering.client.ClientSettings.holdToInspect();
+        try {
+            client.player.getInventory().clearContent();
+            openTheCreativeInventory(client);
+            if (client.screen == null) {
+                fail("no screen opened to read a card inside");
+                return;
+            }
+            dev.gathering.client.ClientSettings.holdToInspect(false);
+            CardZoomOverlay.bindKeyState(() -> false);
+            CardZoomOverlay.isActive();
+            CardZoomOverlay.bindKeyState(() -> true);
+            boolean whilePressed = CardZoomOverlay.isActive();
+            CardZoomOverlay.bindKeyState(() -> false);
+            boolean afterLetGo = CardZoomOverlay.isActive();
+            System.out.println("[devscene] press to inspect inside a screen: while pressed "
+                    + whilePressed + ", after letting go " + afterLetGo);
+            if (!whilePressed || !afterLetGo) {
+                fail("pressing the read key inside a screen with nothing in hand left the reader off: "
+                        + "while pressed " + whilePressed + ", after letting go " + afterLetGo);
+            }
+        } finally {
+            CardZoomOverlay.bindKeyState(() -> false);
+            CardZoomOverlay.isActive();
+            dev.gathering.client.ClientSettings.holdToInspect(wasHolding);
+            if (client.screen != null) {
+                client.screen.onClose();
+            }
+        }
     }
 
     /** The name typed into the create screen the refusal is tested with. */

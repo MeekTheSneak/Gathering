@@ -93,11 +93,18 @@ public final class CardZoomOverlay {
             latched = !latched;
         }
         wasDown = down;
-        // Nothing latched survives the card going away. A latch is a press with no key held, so a
-        // player who put the card down kept a locked camera and had the card snap back full-screen the
-        // moment they picked another up - and one who had since unbound the read key had no key left to
-        // press. Putting the card away is the way out of both, and it is the gesture they would try.
-        latched = latched && cardInHand().isPresent();
+        // Nothing latched survives the card going away - out in the world, where the latched card is
+        // the one in your hand. A latch is a press with no key held, so a player who put the card down
+        // kept a locked camera and had it snap back full-screen the moment they picked another up, and
+        // one who had since unbound the read key had no key left to press. Putting the card away is
+        // the way out of both, and it is the gesture they would try.
+        // <p>Only out in the world. Inside a screen the card being read is the one under the cursor
+        // and has nothing to do with what the player is holding, so asking about their hand there
+        // turned press-to-inspect off altogether: hovering a card on the board and pressing the key
+        // drew nothing at all unless a card happened to be in the hotbar too. There is no camera to
+        // be stuck inside a screen either - ViewKeeper holds the view only while a card is in hand
+        // and no screen is open - so there is nothing here for this to rescue.
+        latched = latched && (Minecraft.getInstance().screen != null || cardInHand().isPresent());
         return latched;
     }
 

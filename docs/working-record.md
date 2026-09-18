@@ -3826,3 +3826,40 @@ alone and over leaving it as it was.
 Neither test set has a client that can walk, and the scripted client's player is at the table. The
 sound firing at all is asserted by the scene (step 83); the rest is source-verified, and this is the
 second time this particular path has had to be traced by hand rather than run.
+
+## 2026-09-18: the latch fix had turned press-to-inspect off
+
+A bounded review of the table-facing diff found it, and it was mine, from yesterday. The fix for a
+camera that could be left locked ended `isActive()` with:
+
+```java
+latched = latched && cardInHand().isPresent();
+```
+
+`isActive()` gates three different readers, and only one of them is about the card in your hand.
+`renderAtCursor` - which is what reads a card on the board, in the collection, in the deck builder
+and in the creative inventory - reads the card **under the cursor**. So for anybody who had turned
+"hold to inspect" off, which is the accessibility setting for people who cannot hold a key and move a
+mouse at once, pressing the read key over a card drew nothing at all unless a card happened to also
+be in their hotbar. Total, for exactly the players least able to work around it.
+
+The camera half of the justification was wrong too: `ViewKeeper.heldStill` already requires
+`cardInHand().isPresent()`, so the stuck camera it describes cannot happen inside a screen anyway.
+The latch now only asks about the hand when there is no screen open, which is where the camera is.
+
+**Why nothing caught it.** Every existing scene step reads a card by *holding* the key, and
+`holdToInspect` defaults to true, so press mode had never been exercised anywhere. Scene step 394
+presses the key inside a screen with an empty hand and checks the latch survives the key coming back
+up; shown failing on yesterday's line (`while pressed false, after letting go false`).
+
+The same review traced and cleared the rest of the table-facing diff: the catch-up restructure in
+`ClientTableNews` (line by line against the old early return), `ViewKeeper`/`KeptView`, the table
+label suppression, `ScreenNotice` always being kept - including checking against the 1.21.1 sources
+that the HUD hook still runs while the table view hides the HUD - and the halved `CardTextFit`
+search, whose monotonicity it verified term by term. No hidden-information path is touched by any of
+it.
+
+**Two pre-existing limitations it noted at the same time**, neither introduced here: a player who
+misses a whole rotation and comes back on the same seat that was active when they left gets no turn
+notice, because the active seat has not changed; and a reconnect never notices the first board even
+when it is already your turn. Both are worth fixing but neither is yesterday's doing.
