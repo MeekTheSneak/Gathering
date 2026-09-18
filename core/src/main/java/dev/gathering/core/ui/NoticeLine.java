@@ -77,12 +77,30 @@ public final class NoticeLine {
      * rather than the box being grown to the writing.
      */
     public static Rect placeIn(int screenWidth, int screenHeight, int textWidth, int lineHeight) {
+        return placeIn(screenWidth, screenHeight, textWidth, lineHeight, 0, 0);
+    }
+
+    /**
+     * The same, never smaller than the frame drawn round it wants to be.
+     * <p>A box sized to one line of text is about seventeen pixels tall, and the panel behind it is
+     * painted with an eight pixel border - or sixteen, in four of the looks. Below the size its
+     * border needs, the whole picture is squashed into the box instead, which is what the owner saw
+     * as stretched and squished textures on the pop-up notice. So the frame is asked how small it
+     * may honestly be drawn, and the box makes room.
+     *
+     * @param leastWidth  the least the frame behind it may be drawn, across
+     * @param leastHeight and down; both zero where nothing is drawn behind it
+     */
+    public static Rect placeIn(int screenWidth, int screenHeight, int textWidth, int lineHeight,
+            int leastWidth, int leastHeight) {
         if (screenWidth <= 0 || screenHeight <= 0) {
             return Rect.NONE;
         }
         int widest = Math.max(1, screenWidth - SIDE_MARGIN * 2);
-        int width = Math.min(widest, Math.max(1, textWidth) + PADDING * 2);
-        int height = Math.min(screenHeight, Math.max(1, lineHeight) + PADDING * 2);
+        int width = Math.min(widest,
+                Math.max(Math.max(1, textWidth) + PADDING * 2, Math.max(0, leastWidth)));
+        int height = Math.min(screenHeight,
+                Math.max(Math.max(1, lineHeight) + PADDING * 2, Math.max(0, leastHeight)));
         int x = (screenWidth - width) / 2;
         // Pushed back up if the window is too short to have a top margin at all, which is
         // what a window gets at 200% interface scale on a small screen.

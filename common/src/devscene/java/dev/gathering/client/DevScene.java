@@ -188,7 +188,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 394;
+    private static final int LAST_STEP = 395;
 
     /** The first step that needs no table, seat or game: everything from here makes what it needs. */
     private static final int FIRST_STEP_WITHOUT_A_BOARD = 386;
@@ -398,6 +398,11 @@ public final class DevScene {
     }
 
     private static void dispatch(Minecraft client) {
+        if (step == 0) {
+            // From the first frame, so every screen the tour opens is watched. Costs a branch that
+            // the game itself never takes, because nothing but this ever turns it on.
+            dev.gathering.client.GatheringSprites.watchForCramped();
+        }
         switch (step) {
             case 0 -> {
                 // Not "wait for the title screen": a client that has never been run before
@@ -4571,6 +4576,26 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 394 -> {
+                // What the tour has seen drawn too small for its own frame. Ninety-six places draw a
+                // panel; reading them all is not a check, so the draw says when it happens and the
+                // tour - which plays through every screen the mod has - collects it.
+                var cramped = dev.gathering.client.GatheringSprites.crampedSoFar();
+                if (cramped.isEmpty()) {
+                    System.out.println("[devscene] nothing was drawn too small for its own frame");
+                } else {
+                    // Reported rather than failed, like the tight buttons above it. Each of these
+                    // wants one of two things that are not this tour's to choose: a layout given
+                    // more room - and its hit area moved with it, which is the trap - or thinner
+                    // borders in the art, which belongs to whoever painted the look. Growing the
+                    // drawing alone was tried and was worse: the picture moved and the thing you
+                    // could click did not, so life counters stopped answering and a card could not
+                    // be aimed at a zone.
+                    System.out.println("[devscene] drawn too small for their own frame, so squashed "
+                            + "whole: " + String.join("; ", cramped));
+                }
+                advance(SETTLE / 4);
+            }
+            case 395 -> {
                 // Reading a card by pressing rather than holding, which is the accessibility setting
                 // for anybody who cannot hold a key down and move a mouse at the same time. Inside a
                 // screen the card being read is the one under the cursor, so a latch that asked what

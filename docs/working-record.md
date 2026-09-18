@@ -4037,3 +4037,41 @@ overlay, only 32% opaque, so the biome's own villager shows through underneath.
 
 **Still to do from that list:** the trophy for tournaments over four players, the GUI elements that
 stretch their textures, and the player's hand following the mouse at the table.
+
+## 2026-09-18: the stretched textures, and a fix that was worse than the fault
+
+The owner: some GUI elements stretch or squash their textures, the pop-up notice among them.
+
+**The notice is fixed.** A box sized to one line of text is about seventeen pixels tall and the panel
+behind it is painted with an eight pixel border - sixteen in four of the looks. Below what its border
+needs, the game squashes the whole picture into the box, which is what he saw. `GatheringSprites`
+can now be asked how small an element may honestly be drawn, `NoticeLine.placeIn` takes that as a
+floor, and the text is centered in the taller box rather than pinned near its top
+(`NoticeLineTest`, shown failing without the floor).
+
+**Ninety-six places draw a panel, so the draw says when it is cramped and the tour collects it.**
+Armed only by the scripted client; the game never turns it on. One run then named all eleven, with
+the line each was drawn from. That list is the thing worth having and it is below.
+
+**And the fix for the rest was worse than the fault, which the tour caught and the owner saw first.**
+Making a cramped element draw itself at its frame's smallest size grows the picture without moving
+what the layout thinks is there - so the drawing and the hit area came apart. Life counters stopped
+answering a right-click, a card could not be aimed at a zone, and the owner's report was that the
+board zones and buttons had gone "way too big". Reverted whole. It is written here because the
+mistake is a tempting one: a sprite's size is the layout's to choose, and a renderer that overrules
+it is a renderer lying to the thing that handles the clicks.
+
+**What is left, and what each one needs.** Every one of these is drawn too small for its own border
+and squashed whole, which is the picture made small rather than torn up - the documented fallback,
+and not a crash. Two kinds:
+
+| Element | Drawn | Wants | Whose call |
+|---|---|---|---|
+| `LIFE_BACKING` 24x10, `TALK_BACKDROP` 216x11, `STRENGTH_BADGE` 16x10, `PILE_BADGE` 10x7 | 1-5 short of 12 | a slightly taller box, hit area with it | layout |
+| `PANEL_INSET` 328x22, `PANEL` 18x18 | 2 and 6 short of 24 | the same | layout |
+| `SCROLL_TRACK` 5 wide, `SCROLL_THUMB` 4 wide | 1-2 short of 6 | a wider gutter | layout |
+| `ROW_HIGHLIGHT` 407x10, `PAPER_BLANK` 9x12, `PAPER_EMBLEM` 20x28 | far short of 24 | thinner borders in the art | the owner's |
+
+The last row cannot be fixed by making boxes bigger: a row of text is a row of text, and a card drawn
+small is a card seen from far away. Their art declares an eight pixel border on a thirty-two pixel
+sprite, which is a frame around a panel rather than around a strip or a card.

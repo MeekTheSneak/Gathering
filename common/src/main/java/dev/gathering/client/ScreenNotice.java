@@ -78,8 +78,12 @@ public final class ScreenNotice {
         }
         Font font = Minecraft.getInstance().font;
         int room = NoticeLine.roomForWriting(screenWidth);
-        Rect box = NoticeLine.placeIn(
-                screenWidth, screenHeight, GuiText.width(font, said, room), font.lineHeight);
+        // Never smaller than the panel behind it can honestly be drawn: a box sized to one line of
+        // text is shorter than the frame's own border, and what was drawn then was the whole picture
+        // squashed into it.
+        Rect least = GatheringSprites.smallestFor(Element.PANEL);
+        Rect box = NoticeLine.placeIn(screenWidth, screenHeight, GuiText.width(font, said, room),
+                font.lineHeight, least.width(), least.height());
         if (box.isEmpty()) {
             return;
         }
@@ -87,8 +91,12 @@ public final class ScreenNotice {
         graphics.pose().translate(0f, 0f, OVER_EVERYTHING);
         GatheringSprites.draw(graphics, Element.PANEL,
                 box.x(), box.y(), box.width(), box.height(), (alpha << 24) | 0xFFFFFF);
+        // Down the middle of the box rather than a fixed distance from its top: the box is now as
+        // tall as the frame behind it needs, which is taller than one line and its padding, and text
+        // pinned to the top of that sits against the frame instead of inside it.
         GuiText.drawCentered(graphics, font, said,
-                (int) Math.round(box.centerX()), box.y() + NoticeLine.PADDING,
+                (int) Math.round(box.centerX()),
+                box.y() + Math.max(NoticeLine.PADDING, (box.height() - font.lineHeight) / 2),
                 box.width() - NoticeLine.PADDING * 2, (alpha << 24) | TEXT);
         graphics.pose().popPose();
     }

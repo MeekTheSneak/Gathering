@@ -390,11 +390,90 @@ public final class GatheringSprites {
         if (element.whenCramped() == Element.WhenCramped.LEFT_OFF) {
             return;
         }
+        noteCramped(element, width, height);
         graphics.blit(x, y, 0, width, height, drawn);
     }
 
     /**
-     * Whether a box this size has room for this sprite's border to be itself.
+     * Every element the scripted client has seen drawn too small for its own frame, and how small.
+     * <p>Below the size its border needs, a framed sprite is squashed whole into the box instead -
+     * the picture made small rather than the picture torn up, which is the better of the two bad
+     * answers but is still not what anybody painted. The owner reported it as textures being
+     * stretched and squished.
+     * <p>Ninety-six places draw a panel and reading them all is not a check. So the draw itself says
+     * when it happens, the scripted tour plays through every screen the mod has, and what it
+     * collected is a list of boxes to make bigger. Kept only while the tour is running: a switch the
+     * game never sets costs a branch that is never taken.
+     */
+    // Filled only while the scripted tour is running - the game itself never turns it on - and what
+    // it holds is the name of a GUI element and a size, which belongs to the art rather than to any
+    // world or player. A tour is one run of the client from the title screen, and the list is
+    // emptied when that tour arms it.
+    // statecheck: nothing here outlives anything; it is a tour's own notes about the art.
+    private static final java.util.Map<String, String> CRAMPED = new java.util.TreeMap<>();
+
+    private static boolean watchingForCramped;
+
+    /** Starts collecting, for the scripted client. */
+    public static void watchForCramped() {
+        watchingForCramped = true;
+        CRAMPED.clear();
+    }
+
+    /** What has been drawn too small since, as "element: how small", one line each. */
+    public static java.util.List<String> crampedSoFar() {
+        synchronized (CRAMPED) {
+            return CRAMPED.entrySet().stream().map(seen -> seen.getKey() + " " + seen.getValue()).toList();
+        }
+    }
+
+    private static void noteCramped(Element element, int width, int height) {
+        if (!watchingForCramped) {
+            return;
+        }
+        // Where it was drawn from, so the box can be found rather than hunted for. Walking the stack
+        // is dear and this only ever runs while a tour is on and only for a draw already too small.
+        String from = "";
+        for (StackTraceElement at : Thread.currentThread().getStackTrace()) {
+            if (at.getClassName().startsWith("dev.gathering.")
+                    && !at.getClassName().endsWith("GatheringSprites")) {
+                from = " from " + at.getClassName().substring(at.getClassName().lastIndexOf('.') + 1)
+                        + ":" + at.getLineNumber();
+                break;
+            }
+        }
+        synchronized (CRAMPED) {
+            CRAMPED.put(element.name(), "drawn " + width + " by " + height + from);
+        }
+    }
+
+    /**
+     * The smallest this element may be drawn and still be the picture somebody painted, or zero
+     * where nothing about it is sliced.
+     * <p>For a screen laying a box out around its own contents. A box sized to its text and nothing
+     * else can come out smaller than the frame around it, and what is drawn then is the whole sprite
+     * squashed into it - which is the "stretched and squished textures" the owner reported of the
+     * pop-up notice. A layout that asks this can make room instead of finding out afterwards.
+     * <p>Read off the sprite rather than written down, for the reason the check below is: the looks
+     * do not agree on how thick a border is, and four of them paint one twice as thick as the rest.
+     *
+     * @return the least width and height, as x and y of a point; zero where there is nothing to fit
+     */
+    public static dev.gathering.core.ui.Rect smallestFor(Element element) {
+        TextureAtlasSprite drawn = drawn(of(element));
+        GuiSpriteScaling.NineSlice nine = drawn == null ? null : sliced(drawn);
+        if (nine == null) {
+            return dev.gathering.core.ui.Rect.NONE;
+        }
+        return new dev.gathering.core.ui.Rect(0, 0,
+                Math.min(dev.gathering.core.ui.SpriteFrames.smallestFor(
+                        nine.border().left(), nine.border().right()), nine.width()),
+                Math.min(dev.gathering.core.ui.SpriteFrames.smallestFor(
+                        nine.border().top(), nine.border().bottom()), nine.height()));
+    }
+
+    /**
+     * Whether a box this size has room for its border to be itself.
      * <p>A nine-slice keeps its border at a fixed size and tiles what is between them. Give
      * it a box no wider than its two edges and there is nothing between them: the game tiles
      * what it can and runs the corners together, and what comes out is not the picture

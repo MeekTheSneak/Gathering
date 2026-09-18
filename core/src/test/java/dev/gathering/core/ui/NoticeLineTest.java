@@ -100,4 +100,31 @@ class NoticeLineTest {
     void thereIsAlwaysRoomToWrite() {
         assertThat(NoticeLine.roomForWriting(320)).isGreaterThan(200);
     }
+
+    @Test
+    @DisplayName("makes room for the frame drawn round it")
+    void theBoxIsNeverSmallerThanItsOwnFrame() {
+        // A box sized to one line of text is about seventeen pixels tall, and the panel behind it is
+        // painted with an eight pixel border - sixteen in four of the looks. Below what its border
+        // needs, the game squashes the whole picture into the box, which is what the owner saw.
+        Rect tight = NoticeLine.placeIn(400, 300, 60, 9);
+        assertThat(tight.height()).isLessThan(24);
+
+        Rect roomy = NoticeLine.placeIn(400, 300, 60, 9, 24, 24);
+
+        assertThat(roomy.height()).isGreaterThanOrEqualTo(24);
+        assertThat(roomy.width()).isGreaterThanOrEqualTo(24);
+        // And still centered, and still inside the window.
+        assertThat(roomy.x()).isGreaterThanOrEqualTo(0);
+        assertThat(roomy.x() + roomy.width()).isLessThanOrEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("never grows past the window to make that room")
+    void aframeBiggerThanTheWindowStillFits() {
+        Rect box = NoticeLine.placeIn(40, 20, 10, 9, 200, 200);
+
+        assertThat(box.width()).isLessThanOrEqualTo(40);
+        assertThat(box.height()).isLessThanOrEqualTo(20);
+    }
 }
