@@ -324,6 +324,53 @@ public final class EventHostingGameTest {
         helper.succeed();
     }
 
+    /**
+     * One host may not hold open an unbounded number of tournaments.
+     * <p>More than one is the point, and the desk refuses a second of its own - but the cooldown
+     * between creations is nought by default, so with a desk each there was no bound at all, and each
+     * tournament is state the server keeps, saves and broadcasts until somebody ends it.
+     */
+    @GameTest(template = "tables")
+    public static void ahostMayNotHoldOpenMoreTournamentsThanAPersonWould(GameTestHelper helper) {
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        List<EventState> made = new java.util.ArrayList<>();
+        try {
+            for (int number = 0; number < EventRecords.MOST_AT_ONCE + 2; number++) {
+                // A fresh budget each time: these are presses a few seconds apart, not a client
+                // sending ten creations in one tick, which the budget refuses for its own reasons.
+                EventViews.forget(host.getUUID());
+                BlockPos desk = placeDesk(helper, 1, 2, 1);
+                EventState state = create(host, desk, "Open " + number);
+                if (state != null) {
+                    made.add(state);
+                }
+                // The desk is taken up again so the next creation has a free one, which is what a
+                // host with a row of desks has.
+                helper.getLevel().destroyBlock(desk, false);
+            }
+            if (made.size() != EventRecords.MOST_AT_ONCE) {
+                helper.fail("a host was allowed " + made.size() + " tournaments running at once");
+                return;
+            }
+            // And ending one makes room for another, so the bound is on what is open rather than on
+            // how many a person may ever run.
+            Events.cancel(host, made.get(0).tournament.id());
+            EventViews.forget(host.getUUID());
+            BlockPos again = placeDesk(helper, 1, 2, 1);
+            EventState after = create(host, again, "After");
+            if (after == null) {
+                helper.fail("ending a tournament did not make room for another");
+                return;
+            }
+            made.add(after);
+        } finally {
+            for (EventState state : made) {
+                remove(state);
+            }
+        }
+        helper.succeed();
+    }
+
     // ------------------------------------------------------------------ fixtures
 
     /** Hosting at a desk the way a client's Create reaches the server. */

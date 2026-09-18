@@ -615,6 +615,7 @@
   "message.gathering.event.prize_gone": "%s prizes were no longer in your hotbar and were not put up.",
   "message.gathering.event.prize_not_saved": "The prize could not be saved, so you keep it. Try again.",
   "message.gathering.event.players_keep_pools": "In a tournament, players keep their pools to build and play with.",
+  "message.gathering.event.too_many": "You already have as many tournaments running as one person may.",
   "message.gathering.event.host_cooldown": "Wait a little before hosting another event.",
   "message.gathering.event.go_to_registration": "Register at the registration point: %1$s %2$s %3$s.",
   "message.gathering.event.registration_marked": "Players now register where you are standing.",

@@ -4,6 +4,7 @@ import dev.gathering.core.tournament.EventDraft;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
 /**
@@ -18,10 +19,17 @@ import net.minecraft.core.BlockPos;
  * <p>Client-side only and nothing to do with the server: this is a screen remembering what somebody
  * typed into it, not state a server told us. It still goes when a server does, because the desk it
  * is keyed to belongs to that world.
+ * <p>Keyed by which world the desk is in as well as where it stands. A desk in the Nether at the
+ * coordinates an overworld desk stands at is a different desk, and by the position alone it was
+ * handed the other one's half-written tournament.
  */
 public final class EventDrafts {
 
-    private static final Map<BlockPos, EventDraft> DRAFTS = new HashMap<>();
+    /** One desk: where it stands, and which world it stands in. */
+    private record Desk(String world, BlockPos where) {
+    }
+
+    private static final Map<Desk, EventDraft> DRAFTS = new HashMap<>();
 
     /** How many desks are remembered at once. A room being set up has a handful, not hundreds. */
     private static final int MOST_DESKS = 8;
@@ -29,28 +37,39 @@ public final class EventDrafts {
     private EventDrafts() {
     }
 
+    /** Which desk this is, in the world the client is in now. */
+    private static Desk deskAt(BlockPos where) {
+        var level = Minecraft.getInstance().level;
+        return where == null || level == null
+                ? null
+                : new Desk(level.dimension().location().toString(), where.immutable());
+    }
+
     /** What was being made at this desk, or a fresh draft. */
     public static EventDraft at(BlockPos desk, Supplier<EventDraft> blank) {
-        EventDraft kept = desk == null ? null : DRAFTS.get(desk.immutable());
+        Desk which = deskAt(desk);
+        EventDraft kept = which == null ? null : DRAFTS.get(which);
         return kept == null ? blank.get() : kept;
     }
 
     public static void keep(BlockPos desk, EventDraft draft) {
-        if (desk == null || draft == null) {
+        Desk which = deskAt(desk);
+        if (which == null || draft == null) {
             return;
         }
-        if (DRAFTS.size() >= MOST_DESKS && !DRAFTS.containsKey(desk.immutable())) {
+        if (DRAFTS.size() >= MOST_DESKS && !DRAFTS.containsKey(which)) {
             // The oldest goes. A bound rather than an ordering: nothing here is worth a second map to
             // keep in order, and a host with eight unfinished tournaments on the go has other problems.
             DRAFTS.remove(DRAFTS.keySet().iterator().next());
         }
-        DRAFTS.put(desk.immutable(), draft);
+        DRAFTS.put(which, draft);
     }
 
     /** This desk's draft is finished with: it became a tournament, or was thrown away. */
     public static void forget(BlockPos desk) {
-        if (desk != null) {
-            DRAFTS.remove(desk.immutable());
+        Desk which = deskAt(desk);
+        if (which != null) {
+            DRAFTS.remove(which);
         }
     }
 

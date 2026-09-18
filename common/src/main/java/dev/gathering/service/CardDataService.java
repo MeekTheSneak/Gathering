@@ -273,12 +273,20 @@ public final class CardDataService implements AutoCloseable {
             return CompletableFuture.completedFuture(null);
         }
         List<UUID> wanted = List.copyOf(scryfallIds);
-        return CompletableFuture.runAsync(() -> {
-            for (UUID printing : wanted) {
-                // The store indexes what it reads, so asking is what warms it.
-                lookups.find(CardQuery.byId(printing));
-            }
-        }, lane(Lane.PLAYER));
+        try {
+            return CompletableFuture.runAsync(() -> {
+                for (UUID printing : wanted) {
+                    // The store indexes what it reads, so asking is what warms it.
+                    lookups.find(CardQuery.byId(printing));
+                }
+            }, lane(Lane.PLAYER));
+        } catch (java.util.concurrent.RejectedExecutionException full) {
+            // The queue is full, or the pool is stopping. Every other way into this service catches
+            // this and answers with a failed future; this one threw, and it is called from the server
+            // thread - DeckCheck.nowOrSoon, which a table and a tournament both reach. Warming is a
+            // courtesy: not warming is a slower lookup later, never a failure now.
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     /** Every printing of a card, cheapest first - what the import screen's chooser offers. */
@@ -326,26 +334,43 @@ public final class CardDataService implements AutoCloseable {
         // Asked once a run per set: a set's printings are read page by page, up to forty requests, and
         // every pack of a set with no published collation used to read all of them again.
         String key = setCode == null ? "" : setCode.trim().toLowerCase(java.util.Locale.ROOT);
-        CompletableFuture<List<CardMetadata>> known = setPrintings.get(key);
-        if (known != null) {
-            return known;
+        CompletableFuture<List<CardMetadata>> reading;
+        synchronized (setPrintings) {
+            CompletableFuture<List<CardMetadata>> known = setPrintings.get(key);
+            if (known != null) {
+                return known;
+            }
+            reading = readEveryPrintingIn(setCode);
+            setPrintings.put(key, reading);
         }
-        CompletableFuture<List<CardMetadata>> reading = readEveryPrintingIn(setCode);
-        CompletableFuture<List<CardMetadata>> raced = setPrintings.putIfAbsent(key, reading);
-        if (raced != null) {
-            return raced;
-        }
+        CompletableFuture<List<CardMetadata>> asked = reading;
         reading.whenComplete((found, failure) -> {
             if (failure != null || found == null || found.isEmpty()) {
-                setPrintings.remove(key, reading);
+                synchronized (setPrintings) {
+                    setPrintings.remove(key, asked);
+                }
             }
         });
         return reading;
     }
 
+    /**
+     * How many sets' printings are kept at once, least recently asked for first out.
+     * <p>Bounded because the key is a set code a player chooses: the collection screen reads a set
+     * whenever somebody opens one, and Magic has some nine hundred of them - so an afternoon of
+     * clicking through sets pinned every card of every one of them for the life of the server.
+     * A pack is dealt out of the set that was just read, so what matters is keeping the last few.
+     */
+    private static final int MOST_SETS_KEPT = 32;
+
     /** Each set's printings, once read whole this run. See {@link #everyPrintingIn}. */
     private final Map<String, CompletableFuture<List<CardMetadata>>> setPrintings =
-            new java.util.concurrent.ConcurrentHashMap<>();
+            new java.util.LinkedHashMap<>(64, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, CompletableFuture<List<CardMetadata>>> eldest) {
+                    return size() > MOST_SETS_KEPT;
+                }
+            };
 
     private CompletableFuture<List<CardMetadata>> readEveryPrintingIn(String setCode) {
         return bulk.orElse(index -> index.printingsIn(setCode).map(cards -> {

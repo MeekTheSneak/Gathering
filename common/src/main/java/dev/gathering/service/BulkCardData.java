@@ -175,14 +175,30 @@ public final class BulkCardData implements AutoCloseable {
         }
     }
 
+    /**
+     * The copy that has been replaced and is waiting its two minutes out before it is closed.
+     * <p>Held so that a server stopping inside those two minutes closes it. Stopping cancels the
+     * scheduled close, so the replaced copy's file was left open - and the sweep has already unlinked
+     * the directory it came from, so the disk it uses is held too. In single-player the process
+     * outlives the server, so it accumulated one per world load.
+     */
+    private volatile BulkCardIndex closingSoon;
+
     private void publish(BulkCardIndex fresh) {
         BulkCardIndex old = ready;
         ready = fresh;
         if (old != null && old != fresh) {
+            closingSoon = old;
             try {
-                keeper.schedule(() -> closeQuietly(old), OLD_COPY_CLOSES_AFTER_SECONDS, TimeUnit.SECONDS);
+                keeper.schedule(() -> {
+                    closeQuietly(old);
+                    if (closingSoon == old) {
+                        closingSoon = null;
+                    }
+                }, OLD_COPY_CLOSES_AFTER_SECONDS, TimeUnit.SECONDS);
             } catch (RejectedExecutionException stopping) {
                 closeQuietly(old);
+                closingSoon = null;
             }
         }
     }
@@ -210,6 +226,13 @@ public final class BulkCardData implements AutoCloseable {
         ready = null;
         if (index != null) {
             closeQuietly(index);
+        }
+        // And whichever copy was still waiting its two minutes out, whose close this shutdown just
+        // canceled. Closing an index twice is harmless; leaving one open is not.
+        BulkCardIndex waiting = closingSoon;
+        closingSoon = null;
+        if (waiting != null && waiting != index) {
+            closeQuietly(waiting);
         }
     }
 }

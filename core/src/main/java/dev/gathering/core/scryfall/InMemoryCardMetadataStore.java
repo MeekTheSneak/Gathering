@@ -17,10 +17,33 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class InMemoryCardMetadataStore implements CardMetadataStore {
 
-    private final Map<UUID, CardMetadata> byId = new ConcurrentHashMap<>();
+    /**
+     * How many whole cards are held in memory at once, least recently asked for first out.
+     * <p>The three indexes below are a name, a set-and-number and a price per card, which is tens of
+     * bytes; a {@link CardMetadata} is a parsed card with its faces, its legalities and its lists,
+     * which is orders of magnitude more. So the cards are bounded and the indexes are not: a lookup
+     * for a card that has been let go of still knows which printing it wants and reads it back off
+     * the disk beside this, which is what the disk-backed store does with a miss.
+     * <p>Sixteen thousand is far more than a session plays with and far fewer than Magic has printed.
+     */
+    private static final int MOST_CARDS_IN_MEMORY = 16_384;
+
+    /** Bounded and in access order: the least recently asked for card goes when the room runs out. */
+    private final Map<UUID, CardMetadata> byId = java.util.Collections.synchronizedMap(
+            new LinkedHashMap<>(1024, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<UUID, CardMetadata> eldest) {
+                    return size() > MOST_CARDS_IN_MEMORY;
+                }
+            });
+
+    /** Which printing a name or a set and number means, and what it costs. Cheap, so unbounded. */
+    private record Indexed(UUID id, double price) {
+    }
+
     private final Map<String, UUID> byPrinting = new ConcurrentHashMap<>();
-    private final Map<String, UUID> byName = new ConcurrentHashMap<>();
-    private final Map<String, UUID> byNameInSet = new ConcurrentHashMap<>();
+    private final Map<String, Indexed> byName = new ConcurrentHashMap<>();
+    private final Map<String, Indexed> byNameInSet = new ConcurrentHashMap<>();
 
     /**
      * How many times anything has been stored, so a caller holding answers built from
@@ -50,6 +73,24 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
         return generation.get();
     }
 
+    /**
+     * Which printing this query means, from the indexes alone, whether or not the card itself is
+     * still held in memory.
+     * <p>How a store with a disk under it turns a let-go-of card back into a file to read.
+     */
+    protected final Optional<UUID> idFor(CardQuery query) {
+        return switch (query) {
+            case CardQuery.ById byIdQuery -> Optional.ofNullable(byIdQuery.id());
+            case CardQuery.ByPrinting printing ->
+                    Optional.ofNullable(byPrinting.get(printingKey(printing.setCode(), printing.collectorNumber())));
+            case CardQuery.ByName name ->
+                    Optional.ofNullable(byName.get(nameKey(name.name()))).map(Indexed::id);
+            case CardQuery.ByNameInSet nameInSet ->
+                    Optional.ofNullable(byNameInSet.get(nameSetKey(nameInSet.name(), nameInSet.setCode())))
+                            .map(Indexed::id);
+        };
+    }
+
     @Override
     public Optional<CardMetadata> find(CardQuery query) {
         return switch (query) {
@@ -58,7 +99,7 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
                     Optional.ofNullable(byPrinting.get(printingKey(printing.setCode(), printing.collectorNumber())))
                             .map(byId::get);
             case CardQuery.ByName name ->
-                    Optional.ofNullable(byName.get(nameKey(name.name()))).map(byId::get);
+                    Optional.ofNullable(byName.get(nameKey(name.name()))).map(Indexed::id).map(byId::get);
             // Its own index, not the name index filtered by set. The name index keeps the
             // one cheapest printing across every set, so whenever a cheaper printing from
             // some other set was stored, filtering it made this query a permanent miss -
@@ -67,7 +108,7 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
             case CardQuery.ByNameInSet nameInSet ->
                     Optional.ofNullable(byNameInSet.get(
                                     nameSetKey(nameInSet.name(), nameInSet.setCode())))
-                            .map(byId::get);
+                            .map(Indexed::id).map(byId::get);
         };
     }
 
@@ -101,16 +142,14 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
         }
     }
 
-    private void keepCheapest(Map<String, UUID> index, String key, CardMetadata card) {
-        index.merge(key, card.scryfallId(), (existingId, candidateId) -> {
-            CardMetadata existing = byId.get(existingId);
-            if (existing == null) {
-                return candidateId;
-            }
-            double existingPrice = existing.usdPrice().orElse(Double.MAX_VALUE);
-            double candidatePrice = card.usdPrice().orElse(Double.MAX_VALUE);
-            return candidatePrice < existingPrice ? candidateId : existingId;
-        });
+    private void keepCheapest(Map<String, Indexed> index, String key, CardMetadata card) {
+        // The price is kept in the index rather than read back out of the card, because the card may
+        // have been let go of - and comparing against a card that is no longer in memory used to take
+        // whichever printing was stored last, which is not the cheapest and is not even the same
+        // answer twice.
+        Indexed candidate = new Indexed(card.scryfallId(), card.usdPrice().orElse(Double.MAX_VALUE));
+        index.merge(key, candidate,
+                (existing, offered) -> offered.price() < existing.price() ? offered : existing);
     }
 
     static String nameSetKey(String name, String setCode) {
@@ -121,9 +160,11 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
         return byId.size();
     }
 
-    /** A snapshot of everything indexed, in insertion order, for persistence. */
+    /** A snapshot of the cards still held in memory, for persistence. */
     protected Map<UUID, CardMetadata> snapshot() {
-        return new LinkedHashMap<>(byId);
+        synchronized (byId) {
+            return new LinkedHashMap<>(byId);
+        }
     }
 
     static String printingKey(String setCode, String collectorNumber) {

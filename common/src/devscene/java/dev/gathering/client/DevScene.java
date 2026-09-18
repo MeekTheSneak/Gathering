@@ -188,7 +188,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 390;
+    private static final int LAST_STEP = 393;
 
     /** The first step that needs no table, seat or game: everything from here makes what it needs. */
     private static final int FIRST_STEP_WITHOUT_A_BOARD = 386;
@@ -4551,6 +4551,25 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            case 391 -> {
+                // A tournament the server refuses keeps what the host typed. The draft used to be
+                // thrown away the moment Create was pressed, before the server had answered - so a
+                // desk that turned out to be busy left somebody with a blank screen, a line of chat,
+                // and a name, format, clock and prize list to fill in again.
+                aCreateScreenAtTheBusyDesk(client);
+                advance(SETTLE / 2);
+            }
+            case 392 -> {
+                pressCreateAtTheBusyDesk(client);
+                advance(SETTLE);
+            }
+            case 393 -> {
+                theRefusedDraftIsStillThere(client);
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -8276,6 +8295,49 @@ public final class DevScene {
                 dev.gathering.server.events.Events.useDesk(player, desk);
             }
         });
+    }
+
+    /** The name typed into the create screen the refusal is tested with. */
+    private static final String REFUSED_NAME = "Refused Tournament";
+
+    /** Opens a create screen at the desk that is already running the tournament made earlier. */
+    private static void aCreateScreenAtTheBusyDesk(Minecraft client) {
+        if (practiceTable == null) {
+            fail("there is no desk to try hosting a second tournament at");
+            return;
+        }
+        client.setScreen(null);
+        BlockPos desk = practiceTable.offset(-2, 0, 1);
+        var create = new dev.gathering.client.EventCreateScreen(desk, null);
+        client.setScreen(create);
+        create.nameForTesting(REFUSED_NAME);
+    }
+
+    /** Presses Create, which the server refuses because that desk already runs a tournament. */
+    private static void pressCreateAtTheBusyDesk(Minecraft client) {
+        if (!(client.screen instanceof dev.gathering.client.EventCreateScreen)) {
+            fail("the create screen did not open at the busy desk");
+            return;
+        }
+        press(client, net.minecraft.network.chat.Component
+                .translatable("screen.gathering.event.create_button").getString());
+    }
+
+    /** And what was typed is still there when the screen is opened again. */
+    private static void theRefusedDraftIsStillThere(Minecraft client) {
+        if (practiceTable == null || client.player == null) {
+            fail("there is nothing to check a refused draft against");
+            return;
+        }
+        BlockPos desk = practiceTable.offset(-2, 0, 1);
+        var again = new dev.gathering.client.EventCreateScreen(desk, null);
+        client.setScreen(again);
+        String kept = again.draft().name();
+        System.out.println("[devscene] after a refused creation the draft says \"" + kept + "\"");
+        if (!REFUSED_NAME.equals(kept)) {
+            fail("a tournament the server refused lost what the host had typed: the draft says \""
+                    + kept + "\" rather than \"" + REFUSED_NAME + "\"");
+        }
     }
 
     /**

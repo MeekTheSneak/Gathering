@@ -315,9 +315,12 @@ public final class Archive {
                 chain = chain.thenCompose(ignored -> factsFor(collation, cards, root, set, inPlay.contains(set.code()))
                         .thenAccept(facts -> {
                             // runcheck: gathered into this audit's own list, which nothing outside it reads.
-                            if (facts.isPresent()) {
-                                learned.add(facts.get());
-                            } else {
+                            facts.facts().ifPresent(learned::add);
+                            // Facts that were kept last time and could not be read again this time are
+                            // used, because they are better than nothing - but they do not make the
+                            // audit whole. Counting them whole memoized an archive worked out from
+                            // facts this code had already decided were stale, for the whole run.
+                            if (!facts.fresh()) {
                                 whole[0] = false;
                             }
                         }));
@@ -327,17 +330,34 @@ public final class Archive {
         });
     }
 
+    /**
+     * One set's facts, and whether they are this run's rather than a stand-in.
+     * <p>Not fresh means the set could not be read now and what was kept from before is standing in
+     * for it - which is worth answering with and not worth remembering, because the answer is built
+     * on facts something has already judged out of date.
+     */
+    private record Facts(Optional<ArchiveAudit.SetFacts> facts, boolean fresh) {
+
+        static Facts standingIn(Optional<ArchiveFacts.Kept> kept) {
+            return new Facts(kept.map(ArchiveFacts.Kept::facts), false);
+        }
+
+        static Facts read(Optional<ArchiveAudit.SetFacts> facts) {
+            return new Facts(facts, facts.isPresent());
+        }
+    }
+
     /** One set's facts: off disk where they still hold, otherwise read again and kept. */
-    private static CompletableFuture<Optional<ArchiveAudit.SetFacts>> factsFor(CollationService collation,
+    private static CompletableFuture<Facts> factsFor(CollationService collation,
             CardDataService cards, java.nio.file.Path root, SetRelease set, boolean drawnFrom) {
         Optional<ArchiveFacts.Kept> kept = ArchiveFacts.read(root, set.code());
         if (kept.isPresent() && kept.get().stillGood(set.cardCount(), System.currentTimeMillis(), drawnFrom)) {
-            return CompletableFuture.completedFuture(kept.map(ArchiveFacts.Kept::facts));
+            return CompletableFuture.completedFuture(new Facts(kept.map(ArchiveFacts.Kept::facts), true));
         }
-        return cards.everyPrintingToAudit(set.code()).thenCompose(read -> {
+        return cards.everyPrintingToAudit(set.code()).<Facts>thenCompose(read -> {
             if (read.isEmpty()) {
                 // Short or unreadable: whatever was kept stands until it can be read whole.
-                return CompletableFuture.completedFuture(kept.map(ArchiveFacts.Kept::facts));
+                return CompletableFuture.completedFuture(Facts.standingIn(kept));
             }
             // Another language's copies of English cards left out; a set's own printings in another
             // language - a Japanese bonus sheet, a promo only given out in Japan - kept.
@@ -347,16 +367,16 @@ public final class Archive {
                     .distinct()
                     .toList();
             if (!drawnFrom) {
-                return CompletableFuture.completedFuture(Optional.of(keep(root, set,
-                        new ArchiveAudit.SetFacts(set.code(), catalog, Set.of(), Set.of(), false))));
+                return CompletableFuture.completedFuture(Facts.read(Optional.of(keep(root, set,
+                        new ArchiveAudit.SetFacts(set.code(), catalog, Set.of(), Set.of(), false)))));
             }
             return collation.collationFor(set.code())
-                    .thenCombine(collation.catalogFor(set.code()), (packs, catalogued) -> Optional.of(keep(root, set,
-                            new ArchiveAudit.SetFacts(set.code(), catalog, inBoosters(packs), inProducts(catalogued),
-                                    true))));
+                    .thenCombine(collation.catalogFor(set.code()), (packs, catalogued) -> Facts.read(Optional.of(
+                            keep(root, set, new ArchiveAudit.SetFacts(set.code(), catalog, inBoosters(packs),
+                                    inProducts(catalogued), true)))));
         }).exceptionally(failure -> {
             LOGGER.warn("Could not audit {} for the archive: {}", set.code(), failure.toString());
-            return kept.map(ArchiveFacts.Kept::facts);
+            return Facts.standingIn(kept);
         });
     }
 

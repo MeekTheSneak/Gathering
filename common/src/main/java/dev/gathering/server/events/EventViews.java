@@ -35,7 +35,10 @@ public final class EventViews {
     }
 
     public static void create(ServerPlayer player, CreateEventPayload payload) {
-        if (!dev.gathering.server.TableReach.within(player, payload.desk())) {
+        // Budgeted like every other event action, which this was not. Creating one searches the room
+        // for free tables and writes a tournament that is kept until it ends, so it is the most
+        // expensive thing on this screen and it was the one nothing counted.
+        if (!withinBudget(player) || !dev.gathering.server.TableReach.within(player, payload.desk())) {
             return;
         }
         // Shown by the desk taking it on.

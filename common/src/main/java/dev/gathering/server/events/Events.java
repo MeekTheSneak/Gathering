@@ -265,7 +265,21 @@ public final class Events {
         if (settings.kind() == EventSettings.Kind.CONSTRUCTED && FormatPresets.byId(settings.formatId()).isEmpty()) {
             return Optional.of("message.gathering.event.needs_a_format");
         }
+        if (running(host.getUUID()) >= EventRecords.MOST_AT_ONCE) {
+            return Optional.of("message.gathering.event.too_many");
+        }
         return EventRecords.whyNotHost(host.getUUID());
+    }
+
+    /** How many tournaments this person has running that are not over. */
+    private static int running(UUID host) {
+        int open = 0;
+        for (EventState state : events().values()) {
+            if (!state.tournament.isOver() && state.tournament.host().equals(host)) {
+                open++;
+            }
+        }
+        return open;
     }
 
     private static EventState open(ServerPlayer host, ServerLevel level, String name, EventSettings settings, List<BlockPos> tables) {

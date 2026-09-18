@@ -3529,3 +3529,46 @@ so it tells the player to paste an export - and I took that as the whole answer 
 import path myself. Moxfield really is link-unfetchable (403 to third parties), and the two were
 wrongly lumped together. The lesson is the one already written down: a reviewer's finding is a lead
 to verify, including when it contradicts something that was already there and correct.
+
+## 2026-09-17: the rest of the review, part one - tournaments and the card pipeline
+
+**No bound on how many tournaments one host could hold open.** The cooldown between creations is
+nought by default and a desk only refuses a second of its own, so with a desk each there was no limit
+at all - and each tournament is state the server keeps, saves and broadcasts until somebody ends it.
+Eight at once (`EventRecords.MOST_AT_ONCE`), and ending one makes room for another
+(`ahostMayNotHoldOpenMoreTournamentsThanAPersonWould`, shown allowing ten without the bound).
+`EventViews.create` is now budgeted like every other event action; it was the most expensive thing on
+that screen and the one nothing counted.
+
+**A refused tournament threw away everything the host had typed.** The draft was forgotten the moment
+Create was pressed, before the server had answered - so a desk that turned out to be busy, a format
+that had gone, or the new bound above left somebody with a blank screen and a line of chat. The draft
+is kept until the server shows them the tournament it made. Scripted-client steps 391-393 press
+Create at a desk that is already running one and check that what was typed is still there.
+
+**A draft was keyed by position without its world**, so a desk in the Nether at an overworld desk's
+coordinates was handed the other one's half-written tournament.
+
+**A failed re-read counted as a whole audit of the archive.** Facts kept from before are used when a
+set cannot be read again - which is right - but they were also counted as whole, so the archive was
+memoized for the rest of the run from facts the code had already judged stale. `Archive.Facts` says
+which it is.
+
+**`warm()` could throw onto the server thread.** Every other way into `CardDataService` catches a full
+queue and answers with a failed future; `warm` threw, and it is reached from `DeckCheck.nowOrSoon`,
+which a table and a tournament both call from the server thread. Warming is a courtesy: not warming is
+a slower lookup later, never a failure now.
+
+**A replaced bulk index leaked its file handle.** The close is scheduled two minutes out and a server
+stopping inside those two minutes canceled it, so the file stayed open and the disk it used stayed
+held - and in single-player the process outlives the server, so it accumulated per world load.
+
+**The card cache had no bound, which its own javadoc said.** Two things fed it: a memo of every set
+whose printings had been read, keyed by a set code the player chooses from a list of nine hundred, and
+the store itself, which held every card ever looked up for the life of the server. The memo keeps the
+last thirty-two sets; the store holds sixteen thousand cards, least recently asked for first out, and
+a card it has let go of is read back off its own disk - which now works for a name and a printing
+lookup as well as for an id, so letting one go costs a disk read rather than a trip to Scryfall. The
+cheapest-printing index keeps the price beside the id, because comparing against a card that is no
+longer in memory used to take whichever printing was stored last (`CardStoreBoundTest`, shown failing
+unbounded).

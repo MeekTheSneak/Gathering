@@ -298,6 +298,16 @@ public final class EventRecords {
     // ------------------------------------------------------------------ hosting
 
     /**
+     * The most tournaments one person may have running at once.
+     * <p>More than one is the point - a store runs a draft in one corner and a constructed event in
+     * the other, and one person books both - so this is not a rule about how anybody plays. It is
+     * only the number past which it is not a person: the cooldown between creations is nought by
+     * default, so without this there was no bound at all on how many a host could hold open, each of
+     * them a tournament the server keeps, saves and broadcasts until somebody ends it.
+     */
+    public static final int MOST_AT_ONCE = 8;
+
+    /**
      * Why this player may not host another event right now, if they may not.
      * <p>Running one is no longer a reason. A store runs a draft in one corner and a constructed
      * event in the other, and one person books both - so what an event is one of is a Scorekeeper's

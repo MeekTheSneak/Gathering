@@ -50,12 +50,11 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
         if (indexed.isPresent()) {
             return indexed;
         }
-        // Only an id query can find its file without an index; name and printing lookups
-        // depend on cards having been indexed, which happens as they are stored or loaded.
-        if (query instanceof CardQuery.ById byId) {
-            return loadFromDisk(byId.id());
-        }
-        return Optional.empty();
+        // The indexes say which printing a name or a set and number means even when the card itself
+        // has been let go of to stay inside the memory bound, so every query shape can find its file.
+        // Only an id query could before, so a name lookup for a card sitting on this disk went back
+        // to the network the moment memory filled up.
+        return idFor(query).flatMap(this::loadFromDisk);
     }
 
     /**

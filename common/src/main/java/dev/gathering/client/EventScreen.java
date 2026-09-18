@@ -67,6 +67,9 @@ public final class EventScreen extends Screen {
 
     public static void accept(EventViewPayload payload) {
         Minecraft client = Minecraft.getInstance();
+        if (payload.youHost()) {
+            EventCreateScreen.hostedOne();
+        }
         if (client.screen instanceof EventScreen open && open.view.id().equals(payload.id())) {
             open.view = payload;
             open.refresh();

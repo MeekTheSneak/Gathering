@@ -60,6 +60,23 @@ public final class EventCreateScreen extends ChildScreen {
         this.draft = EventDrafts.at(desk, () -> EventDraft.blank(defaultFormat()));
     }
 
+    /**
+     * The desk a creation has been sent for and not yet answered.
+     * <p>One at a time, because one screen sends one at a time.
+     */
+    private static BlockPos waitingFor;
+
+    /**
+     * The server has shown this client a tournament of its own, so a creation it was waiting on
+     * worked: that desk's draft is finished with, and the next tournament hosted there starts blank.
+     */
+    static void hostedOne() {
+        if (waitingFor != null) {
+            EventDrafts.forget(waitingFor);
+            waitingFor = null;
+        }
+    }
+
     /** The format a tournament starts on when nobody has chosen one. */
     private static String defaultFormat() {
         return FormatPresets.byId("modern").map(FormatPreset::id).orElse(FormatPresets.defaultPreset().id());
@@ -72,8 +89,13 @@ public final class EventCreateScreen extends ChildScreen {
     }
 
     /** The draft as it stands. For the scripted client. */
-    EventDraft draft() {
+    public EventDraft draft() {
         return draft;
+    }
+
+    /** Types a name into it, the way the box does. For the scripted client. */
+    public void nameForTesting(String typed) {
+        choose(draft.withName(typed));
     }
 
     @Override
@@ -246,9 +268,11 @@ public final class EventCreateScreen extends ChildScreen {
             return;
         }
         ClientNetworking.send(new CreateEventPayload(desk, draft.name(), settings, draft.prizes()));
-        // The draft has become a tournament, so the next one hosted at this desk starts blank rather
-        // than with the last one's name, settings and prizes already filled in.
-        EventDrafts.forget(desk);
+        // Kept until the server says the tournament exists. Dropping it here threw away everything
+        // somebody had typed whenever the server said no - the desk was busy, the format had gone,
+        // they were already running as many as one person may - and left them with a blank screen and
+        // a line of chat.
+        waitingFor = desk;
         this.onClose();
     }
 
