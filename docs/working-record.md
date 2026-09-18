@@ -3694,3 +3694,48 @@ worth more, by what it pays rather than by how often.
 
 The shop's own stock chest still holds three to six, and stays a handful on purpose: it is a till,
 not a find, and it is where a player meets their first coins.
+
+## 2026-09-17: the world keeps pace with a player (owner)
+
+"People will no life this, and find ways to farm it so it's got to be a bit grindy."
+
+Auditing the faucets against that, three of the four bosses an Archive Pack comes off are repeatable:
+a wither is three farmed skulls, a warden is a shrieker triggered again in an ancient city, and the
+dragon is four crystals. At one archive pack in two boss kills, any of them is the one thing nobody
+can buy at any price, on tap. Fishing is AFK-able and an ominous vault reopens on a bottle.
+
+**Thinner odds are the wrong answer.** They punish the player who is out exploring - the player the
+odds were raised for after the owner's own report that packs were too rare - and a machine simply
+runs longer. What separates a farm from a good afternoon is not what it does but how long it keeps
+doing it, so that is what is measured now.
+
+`FindingPace` is a leaky bucket per player per kind of find, and `Finds` is where the counting lives.
+Under the brim nothing is thinned at all; past it the odds quadruple per find. Quadrupling rather
+than doubling because the climb itself is what a machine is paid - every step hands over one more
+find - so the fewer steps between everything and nothing, the less running all night is worth. At
+one-in-two-plus-n, which is where this started, a machine banked three hundred finds on its way to
+settling: a fortnight of play in an afternoon.
+
+| | pace | brim | exploring actually gives |
+|---|---|---|---|
+| Packs | 12 an hour | 24 | ~7 an hour |
+| Coins | 12 an hour | 24 | ~6.5 an hour |
+| Archive Packs | 1 every 2 hours | 3 | ~1 every 15 hours |
+
+So an hour of exploring never meets this, and a machine rolling twenty thousand times is handed
+fifteen archive packs rather than twenty thousand (`amachineDoesNotOutrunThePace`, shown handing over
+all twenty thousand without it). `FindingPaceTest` holds the arithmetic, including a simulated
+machine running flat out for eight hours.
+
+Attribution comes from the loot context, which carries the player in three different parameters
+depending on what happened: who did the killing, who opened the chest or brushed the block, and for
+fishing the hook whose owner holds the rod. A roll nothing can attribute - a command, a datapack, a
+dispenser - is neither counted nor thinned, which is safe because every faucet that can be automated
+runs through one of the three.
+
+Not saved across a session, deliberately: a player who logs out has stopped playing, and a bucket
+that drained while they were away says what the drain would have said anyway.
+
+**Still open for the owner.** The baseline rates are unchanged - this bounds the top end rather than
+making ordinary play grindier. If the intent was also that a casual hour should give less, that is
+the `LootSource` and `CoinDrops` numbers and a separate decision.

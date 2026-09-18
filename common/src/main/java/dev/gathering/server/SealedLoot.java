@@ -147,7 +147,32 @@ public final class SealedLoot {
         // Whether a player did the killing, in the only place that knows: the same parameter
         // vanilla's own killed_by_player condition reads.
         return findsIn(tableId, context.getRandom(),
-                context.hasParam(LootContextParams.LAST_DAMAGE_PLAYER));
+                context.hasParam(LootContextParams.LAST_DAMAGE_PLAYER), whoFound(context));
+    }
+
+    /**
+     * Who this table is being rolled for, where anything knows.
+     * <p>Three different parameters carry it, because vanilla fills in a different one depending on
+     * what happened: the player who did the killing, the player who opened the chest or brushed the
+     * block, and for fishing the hook, whose owner is the player holding the rod.
+     * <p>Empty is not nobody cheating - it is a command, a datapack, a dispenser - and nothing is
+     * counted or thinned for it. What cannot be attributed cannot be farmed by one player either,
+     * because the faucets that can be automated all run through one of the three.
+     */
+    private static java.util.UUID whoFound(LootContext context) {
+        net.minecraft.world.entity.Entity killer = context.getParamOrNull(LootContextParams.LAST_DAMAGE_PLAYER);
+        if (killer instanceof net.minecraft.world.entity.player.Player player) {
+            return player.getUUID();
+        }
+        net.minecraft.world.entity.Entity here = context.getParamOrNull(LootContextParams.THIS_ENTITY);
+        if (here instanceof net.minecraft.world.entity.player.Player player) {
+            return player.getUUID();
+        }
+        if (here instanceof net.minecraft.world.entity.projectile.FishingHook hook
+                && hook.getPlayerOwner() != null) {
+            return hook.getPlayerOwner().getUUID();
+        }
+        return null;
     }
 
     /**
@@ -157,14 +182,38 @@ public final class SealedLoot {
      */
     public static List<ItemStack> findsIn(
             String tableId, RandomSource random, boolean killedByAPlayer) {
-        Optional<ItemStack> pack = rollFor(tableId, random, killedByAPlayer);
-        Optional<ItemStack> coins = coinsFor(tableId, random);
+        return findsIn(tableId, random, killedByAPlayer, null);
+    }
+
+    /**
+     * The same, for a player the world is keeping pace with.
+     * <p>Every rate here is set against an hour of somebody playing rather than against a machine,
+     * and the machines exist - a wither is three farmed skulls, a warden is a shrieker triggered
+     * again, an ominous vault opens on a bottle. So what a player has had lately is counted, and
+     * past a generous burst the finds thin out. See {@link dev.gathering.core.sealed.FindingPace}.
+     *
+     * @param who whom to keep pace with, or null where nothing knows - which is not thinned
+     */
+    public static List<ItemStack> findsIn(
+            String tableId, RandomSource random, boolean killedByAPlayer, java.util.UUID who) {
+        Optional<ItemStack> pack = rollFor(tableId, random, killedByAPlayer)
+                .filter(found -> Finds.arrives(who, paceOf(found), random));
+        Optional<ItemStack> coins = coinsFor(tableId, random)
+                .filter(found -> Finds.arrives(who, dev.gathering.core.sealed.FindingPace.COINS, random));
         if (pack.isEmpty()) {
             // Nothing allocated on the overwhelmingly common path, which is every block broken
             // and every mob killed on the server.
             return coins.isEmpty() ? List.of() : List.of(coins.get());
         }
         return coins.isEmpty() ? List.of(pack.get()) : List.of(pack.get(), coins.get());
+    }
+
+    /** Which pace a pack is kept to: the archive has its own, being the one thing nobody can buy. */
+    private static dev.gathering.core.sealed.FindingPace paceOf(ItemStack pack) {
+        return dev.gathering.item.PackItem.packOf(pack)
+                .filter(dev.gathering.item.PackComponent::isArchive)
+                .map(archive -> dev.gathering.core.sealed.FindingPace.ARCHIVE)
+                .orElse(dev.gathering.core.sealed.FindingPace.PACKS);
     }
 
     /**

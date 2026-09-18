@@ -33,6 +33,7 @@ public final class ServerState {
         Refusals.clear();
         ReplayWatch.clear();
         SealedLoot.clear();
+        Finds.clear();
         ServerTicks.clear();
         PackWrappers.clear();
         DeckVault.clear();

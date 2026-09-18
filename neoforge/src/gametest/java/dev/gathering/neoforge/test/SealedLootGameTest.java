@@ -325,4 +325,52 @@ public final class SealedLootGameTest {
         }
         return all.isEmpty() ? null : all.toString();
     }
+
+    /**
+     * A machine does not outrun the pace the world was written for.
+     * <p>Every rate this mod has is set against an hour of somebody playing, and none of them is set
+     * against a wither farm, a re-triggered shrieker or a weighted fishing rod. This rolls a chest
+     * that always pays, over and over, as a machine would - and checks that what comes out settles
+     * near the pace rather than near the machine's own rate, while a player who has been exploring
+     * for an hour is thinned by nothing at all.
+     */
+    @GameTest(template = "empty")
+    public static void amachineDoesNotOutrunThePace(GameTestHelper helper) {
+        java.util.UUID farmer = java.util.UUID.randomUUID();
+        java.util.UUID explorer = java.util.UUID.randomUUID();
+        try {
+            // An hour of exploring, as LootYieldTest counts one: nothing is refused.
+            int given = 0;
+            for (int find = 0; find < dev.gathering.core.sealed.FindingPace.PACKS.burst(); find++) {
+                if (dev.gathering.server.Finds.arrives(explorer,
+                        dev.gathering.core.sealed.FindingPace.PACKS, helper.getLevel().getRandom())) {
+                    given++;
+                }
+            }
+            if (given != dev.gathering.core.sealed.FindingPace.PACKS.burst()) {
+                helper.fail("an hour of exploring was thinned: " + given + " of "
+                        + dev.gathering.core.sealed.FindingPace.PACKS.burst() + " arrived");
+                return;
+            }
+
+            // And a machine, rolling far more times than any player could in the same wall clock.
+            int minted = 0;
+            for (int roll = 0; roll < 20_000; roll++) {
+                if (dev.gathering.server.Finds.arrives(farmer,
+                        dev.gathering.core.sealed.FindingPace.ARCHIVE, helper.getLevel().getRandom())) {
+                    minted++;
+                }
+            }
+            // The brim it starts with, plus the climb out of it. Nothing like twenty thousand.
+            if (minted > dev.gathering.core.sealed.FindingPace.ARCHIVE.burst() + 12) {
+                helper.fail("a machine rolling twenty thousand times was given " + minted
+                        + " archive packs");
+                return;
+            }
+        } finally {
+            dev.gathering.server.Finds.forget(farmer);
+            dev.gathering.server.Finds.forget(explorer);
+        }
+        helper.succeed();
+    }
 }
