@@ -20,7 +20,16 @@ import net.minecraft.network.chat.Component;
  */
 public final class ContextMenu {
 
-    private static final int PADDING = 4;
+    /**
+     * How far in from the menu's own frame its writing and its rows sit.
+     * <p>Asked of the panel rather than written down: the looks do not agree on how thick a frame
+     * is, and the four built around a drawn one have theirs twice as thick as the rest - so four
+     * pixels put the words on the border, which the owner reported on Ember. Used for the menu's
+     * size as well as for the writing in it, so the row somebody clicks is the row they read.
+     */
+    private static int padding() {
+        return GatheringSprites.textInsetFor(GatheringSprites.Element.PANEL);
+    }
     /**
      * How tall a row is at the size the menu shipped at.
      * <p>Never used directly: a player may ask for larger controls or larger text, and a row
@@ -122,19 +131,19 @@ public final class ContextMenu {
         // has a lot of things you can do to it, and at a GUI scale of two on a small window
         // the list is taller than the window. So it wraps into columns, which is what a long
         // menu does everywhere else and never costs an entry.
-        int room = Math.max(1, screenHeight - highest - SCREEN_EDGE - PADDING * 2);
+        int room = Math.max(1, screenHeight - highest - SCREEN_EDGE - padding() * 2);
         dev.gathering.core.ui.MenuFit fit = dev.gathering.core.ui.MenuFit.of(
                 entries.size(), widest, font.lineHeight,
                 screenWidth - SCREEN_EDGE * 2, room,
                 ROW_HEIGHT, ClientSettings.controlScale(), GuiText.askedScale(),
-                PADDING, MIN_WIDTH);
+                padding(), MIN_WIDTH);
         int rows = fit.rowHeight();
         int columnWidth = fit.columnWidth();
         // Spread evenly rather than filling the first column and leaving a stub.
         int perColumn = fit.perColumn(entries.size());
 
         int width = fit.width();
-        int height = fit.height(entries.size(), PADDING);
+        int height = fit.height(entries.size(), padding());
 
         int left = pointX;
         if (left + width > screenWidth - SCREEN_EDGE) {
@@ -156,10 +165,10 @@ public final class ContextMenu {
         for (int index = 0; index < entries.size(); index++) {
             Entry entry = entries.get(index);
             int left = x + (index / perColumn) * columnWidth;
-            int row = y + PADDING + (index % perColumn) * rowHeight;
+            int row = y + padding() + (index % perColumn) * rowHeight;
             if (entry.isRule()) {
                 GatheringSprites.draw(graphics, Element.MENU_RULE,
-                        left + PADDING, row + rowHeight / 2, columnWidth - PADDING * 2, 1);
+                        left + padding(), row + rowHeight / 2, columnWidth - padding() * 2, 1);
                 continue;
             }
             boolean hovered = entry.enabled() && index == indexAt(mouseX, mouseY);
@@ -175,10 +184,10 @@ public final class ContextMenu {
             // At the menu's own size, not fitted per line: the column was measured for this
             // size, so every row gets it and the menu reads as one thing.
             GuiText.drawExactly(graphics, font, entry.label(),
-                    left + PADDING, row + 2, scale, color);
+                    left + padding(), row + 2, scale, color);
             if (entry.shortcut() != null) {
                 GuiText.drawExactly(graphics, font, entry.shortcut(),
-                        left + columnWidth - PADDING - Math.round(shortcutWidth * scale)
+                        left + columnWidth - padding() - Math.round(shortcutWidth * scale)
                                 + Math.round(SHORTCUT_GAP * scale),
                         row + 2, scale, SHORTCUT);
             }
@@ -191,11 +200,11 @@ public final class ContextMenu {
      * cursor and then run a different entry when it is clicked.
      */
     private int indexAt(int pointX, int pointY) {
-        if (pointX < x || pointX >= x + width || pointY < y + PADDING) {
+        if (pointX < x || pointX >= x + width || pointY < y + padding()) {
             return -1;
         }
         int column = (pointX - x) / columnWidth;
-        int row = (pointY - y - PADDING) / rowHeight;
+        int row = (pointY - y - padding()) / rowHeight;
         if (row < 0 || row >= perColumn) {
             return -1;
         }

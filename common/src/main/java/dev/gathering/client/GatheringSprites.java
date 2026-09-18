@@ -448,6 +448,30 @@ public final class GatheringSprites {
     }
 
     /**
+     * How far in from this element's edge writing should start.
+     * <p>A fixed four pixels was chosen against the panel this mod paints itself, whose drawn frame
+     * is three pixels thick. The four looks built around a frame somebody else drew declare a border
+     * twice as thick and draw about seven pixels of it, so writing four pixels in sat on the frame -
+     * which the owner reported of the pop-up notice and the table's own right-click menu on Ember.
+     * <p>Half the declared border and a little, because that is about what these frames actually
+     * draw: three of basic's eight, seven of Ember's sixteen. Never less than the four it was, so no
+     * look ends up tighter than before.
+     */
+    public static int textInsetFor(Element element) {
+        TextureAtlasSprite drawn = drawn(of(element));
+        GuiSpriteScaling.NineSlice nine = drawn == null ? null : sliced(drawn);
+        if (nine == null) {
+            return LEAST_TEXT_INSET;
+        }
+        int border = Math.max(Math.max(nine.border().left(), nine.border().right()),
+                Math.max(nine.border().top(), nine.border().bottom()));
+        return Math.max(LEAST_TEXT_INSET, border / 2 + 2);
+    }
+
+    /** What writing was inset by before any of this, and the floor it keeps. */
+    private static final int LEAST_TEXT_INSET = 4;
+
+    /**
      * The smallest this element may be drawn and still be the picture somebody painted, or zero
      * where nothing about it is sliced.
      * <p>For a screen laying a box out around its own contents. A box sized to its text and nothing

@@ -127,4 +127,20 @@ class NoticeLineTest {
         assertThat(box.width()).isLessThanOrEqualTo(40);
         assertThat(box.height()).isLessThanOrEqualTo(20);
     }
+
+    @Test
+    @DisplayName("starts its writing as far in as the look's own frame does")
+    void athickerFrameGetsAWiderBox() {
+        // Four pixels was chosen against the panel the mod paints itself, whose drawn frame is three
+        // thick. The looks built around a frame somebody drew are about twice that, and the words
+        // sat on the border - which the owner reported of this notice on Ember.
+        Rect thin = NoticeLine.placeIn(400, 300, 60, 9, 0, 0, 4);
+        Rect thick = NoticeLine.placeIn(400, 300, 60, 9, 0, 0, 10);
+
+        assertThat(thick.width()).isGreaterThan(thin.width());
+        assertThat(thick.height()).isGreaterThan(thin.height());
+        // And the writing gets less of the window, because more of it is frame.
+        assertThat(NoticeLine.roomForWriting(400, 10))
+                .isLessThan(NoticeLine.roomForWriting(400, 4));
+    }
 }

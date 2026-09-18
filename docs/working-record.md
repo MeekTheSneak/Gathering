@@ -4126,3 +4126,22 @@ on. Twelve looks, and a template that is not one of them.
 
 **Still open from that list:** text cut off at the left and right of some screens, and the table's
 right-click menu against some of the looks.
+
+## 2026-09-18: writing starts where the frame ends
+
+The owner, on Ember: the pop-up at the top of the screen has its text over the edge a little, and so
+does the table's own right-click menu.
+
+Both inset their writing by four pixels, which was chosen against the panel this mod paints itself -
+thirty-two pixels square, declaring an eight pixel border and drawing about three of it. The four
+looks built around a frame somebody else drew declare sixteen on a sixty-four pixel panel and draw
+about seven, so four pixels put the words on the border.
+
+So the inset is asked of the panel rather than written down: half the declared border and a little,
+which comes to six on the looks the mod paints and ten on the drawn ones, and never less than the
+four it was. `ContextMenu` uses it for its own size as well as for the writing in it, so the row
+somebody clicks is still the row they read - the trap from earlier today, avoided by using one number
+for both rather than by being careful.
+
+`NoticeLineTest` covers the arithmetic. Verified in the scripted client: one failure, the framing one
+that was already there.

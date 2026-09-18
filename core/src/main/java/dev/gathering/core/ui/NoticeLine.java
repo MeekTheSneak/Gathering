@@ -93,14 +93,28 @@ public final class NoticeLine {
      */
     public static Rect placeIn(int screenWidth, int screenHeight, int textWidth, int lineHeight,
             int leastWidth, int leastHeight) {
+        return placeIn(screenWidth, screenHeight, textWidth, lineHeight, leastWidth, leastHeight, PADDING);
+    }
+
+    /**
+     * The same, inset by however far in this look's own frame starts.
+     * <p>Four pixels was chosen against the panel this mod paints itself. The looks built around a
+     * frame somebody drew have theirs about twice as thick, and four put the words on the border -
+     * which the owner reported of this very notice on Ember.
+     *
+     * @param padding how far in from the box's edge the writing starts
+     */
+    public static Rect placeIn(int screenWidth, int screenHeight, int textWidth, int lineHeight,
+            int leastWidth, int leastHeight, int padding) {
         if (screenWidth <= 0 || screenHeight <= 0) {
             return Rect.NONE;
         }
+        int inset = Math.max(0, padding);
         int widest = Math.max(1, screenWidth - SIDE_MARGIN * 2);
         int width = Math.min(widest,
-                Math.max(Math.max(1, textWidth) + PADDING * 2, Math.max(0, leastWidth)));
+                Math.max(Math.max(1, textWidth) + inset * 2, Math.max(0, leastWidth)));
         int height = Math.min(screenHeight,
-                Math.max(Math.max(1, lineHeight) + PADDING * 2, Math.max(0, leastHeight)));
+                Math.max(Math.max(1, lineHeight) + inset * 2, Math.max(0, leastHeight)));
         int x = (screenWidth - width) / 2;
         // Pushed back up if the window is too short to have a top margin at all, which is
         // what a window gets at 200% interface scale on a small screen.
@@ -110,6 +124,11 @@ public final class NoticeLine {
 
     /** How much room the writing itself has inside that box. */
     public static int roomForWriting(int screenWidth) {
-        return Math.max(1, screenWidth - SIDE_MARGIN * 2 - PADDING * 2);
+        return roomForWriting(screenWidth, PADDING);
+    }
+
+    /** The same, for a look whose frame starts further in. */
+    public static int roomForWriting(int screenWidth, int padding) {
+        return Math.max(1, screenWidth - SIDE_MARGIN * 2 - Math.max(0, padding) * 2);
     }
 }
