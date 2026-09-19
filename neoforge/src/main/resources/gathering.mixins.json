@@ -10,7 +10,9 @@
     "CameraMixin",
     "ContainerSweepMixin",
     "CreativeDeckClickMixin",
-    "EntityRenderMixin"
+    "EntityRenderMixin",
+    "ItemInHandLayerMixin",
+    "PlayerModelMixin"
   ],
   "injectors": {
     "defaultRequire": 1

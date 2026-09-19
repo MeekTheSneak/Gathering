@@ -954,6 +954,14 @@ public final class TableScreen extends Screen {
                 .or(() -> TablePointer.at(tableTop(), mouseX, mouseY))
                 .map(spot -> new double[] {spot.x(), spot.y()})
                 .orElse(null);
+        // What the body follows, taken from the point the screen has already worked out rather
+        // than picked again from a tick: the picker answers from matrices captured while the
+        // world was drawn and is only true inside a frame.
+        if (answered == null) {
+            TablePointSender.notHovering();
+        } else {
+            TablePointSender.hovering(table, answered[0], answered[1]);
+        }
         return answered;
     }
 
@@ -1059,6 +1067,7 @@ public final class TableScreen extends Screen {
         // its screen has gone is a player who cannot see where they are.
         TableCameraView.release();
         TablePointer.forget();
+        TablePointSender.notHovering();
         ClientTableHighlight.clear();
         ClientTableRolls.forget();
         // A frame that arrives after the screen has gone must not put it back up.
@@ -6888,6 +6897,7 @@ public final class TableScreen extends Screen {
         ClientHoverState.clear();
         TableCameraView.release();
         TablePointer.forget();
+        TablePointSender.notHovering();
         ClientTableHighlight.clear();
         // Or the next table opens wearing the last one's roll.
         ClientTableRolls.forget();

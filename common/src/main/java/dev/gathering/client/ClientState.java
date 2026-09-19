@@ -34,6 +34,7 @@ public final class ClientState {
         ClientTableNews.clear();
         ClientTableRolls.clear();
         ClientTablePointing.clear();
+        TablePointSender.clear();
         ClientTableState.clear();
         ClientWants.clear();
         PendingWork.clear();

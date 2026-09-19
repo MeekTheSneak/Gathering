@@ -29,6 +29,7 @@ public final class ClientTicks {
         // this count: a frame that read one on the tick that incremented it would interpolate
         // from the future.
         ClientTablePointing.tick();
+        TablePointSender.tick(client);
         ClientCardRequests.tick();
         // Whose the window is, and whether a card is being read: the first decides
         // whether a view is written down or put back, the second holds one still.
