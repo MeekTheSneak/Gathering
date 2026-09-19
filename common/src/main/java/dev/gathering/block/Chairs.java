@@ -10,6 +10,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -136,6 +137,22 @@ public final class Chairs {
         }
         seat.holdsTheSeatAt(at.get().origin());
         TableBlock.satDown(player, at.get().origin());
+    }
+
+    /**
+     * Whether this player is actually sitting in a chair at this table.
+     * <p>Which is not the same question as whether they hold a seat here. A seat outlives standing
+     * up on purpose - that is what keeps it for somebody who has walked off to a chest, and for
+     * somebody who has left the server mid-game - and the cost of that was a player who could
+     * stand anywhere in reach of the table and play the whole game from there, because every
+     * gesture asked only whether the seat was registered. The owner found it (2026-09-18).
+     * <p>So the seat is what you keep and this is what lets you play. A player out of their chair
+     * keeps everything and is told to sit down.
+     */
+    public static boolean isSittingAt(Player player, BlockPos tableOrigin) {
+        return player != null && tableOrigin != null
+                && player.getVehicle() instanceof ChairSeat seat
+                && tableOrigin.equals(seat.tableOrigin());
     }
 
     /** Whether this player's chair is at a seat of the table they are watching, which they could join. */

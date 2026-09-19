@@ -82,18 +82,13 @@ public final class BoardAddressGameTest {
         watching.teleportTo(origin.getX() + 0.5, origin.getY() + 1.0, origin.getZ() + 4.5);
 
         Map<UUID, GameView> sent = new HashMap<>();
-        java.util.function.BiConsumer<UUID, GameView> before = TableBroadcast.builtForTesting;
-        TableBroadcast.builtForTesting = (player, view) -> {
+        TableBroadcast.watchForTesting((player, view) -> {
             if (player.equals(alice.getUUID()) || player.equals(bob.getUUID())
                     || player.equals(watching.getUUID())) {
                 sent.put(player, view);
             }
-        };
-        try {
-            TableBroadcast.sendToTable(level, origin);
-        } finally {
-            TableBroadcast.builtForTesting = before;
-        }
+        });
+        TableBroadcast.sendToTable(level, origin);
 
         String wrong = readsOnly(sent.get(alice.getUUID()), "Alice", aliceSeat, bobSeat);
         if (wrong == null) {

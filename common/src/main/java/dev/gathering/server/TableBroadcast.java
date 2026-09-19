@@ -86,8 +86,31 @@ public final class TableBroadcast {
      * another with every rule and every codec test still green. A stand-in player cannot take a
      * payload, so a test cannot read the wire; it reads this instead, one step before the wire.
      */
-    public static volatile java.util.function.BiConsumer<java.util.UUID, GameView> builtForTesting =
-            (player, view) -> { };
+    // statecheck: test watchers only, set by a game test and holding nothing about a world
+    private static final java.util.List<java.util.function.BiConsumer<java.util.UUID, GameView>>
+            WATCHERS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * Watches every view as it is built. For tests; see above.
+     * <p>A list rather than one slot, because game tests in a batch run alongside each other: a
+     * single field is a collector the next test to start quietly replaces, and a test whose
+     * collector has been taken away passes by observing nothing. Each watcher filters on the
+     * players it cares about, so leftovers cost nothing.
+     */
+    public static void watchForTesting(java.util.function.BiConsumer<java.util.UUID, GameView> watcher) {
+        WATCHERS.add(watcher);
+    }
+
+    /** Stops every test watcher. */
+    public static void forgetTestWatchers() {
+        WATCHERS.clear();
+    }
+
+    private static void built(java.util.UUID player, GameView view) {
+        for (var watcher : WATCHERS) {
+            watcher.accept(player, view);
+        }
+    }
 
     /** Starts both counts again. */
     public static void forgetTheCount() {
@@ -151,7 +174,7 @@ public final class TableBroadcast {
                 }
             }
             boardsSent++;
-            builtForTesting.accept(nearby.getUUID(), shared);
+            built(nearby.getUUID(), shared);
             Sending.to(nearby, new TableViewPayload(tableOrigin, encoded, false));
             CardArtPush.sendFor(nearby, shared);
         }
@@ -202,7 +225,7 @@ public final class TableBroadcast {
                     session.state(), viewer, session.recentLog(LOG_LINES_SENT));
             viewsBuilt++;
             boardsSent++;
-            builtForTesting.accept(player.getUUID(), seen);
+            built(player.getUUID(), seen);
             Sending.to(player,
                     new TableViewPayload(tableOrigin, ViewCodec.write(seen), open));
             // What the table is playing, beside it. Nothing about it is hidden, so it is the same for

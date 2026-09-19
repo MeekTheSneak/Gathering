@@ -47,7 +47,7 @@ public final class TablePointing {
     /**
      * Told of every pointer as it goes out: who it is for, and what they were told. Empty unless
      * a test adds to it.
-     * <p>The same seam {@code TableBroadcast.builtForTesting} is, and for the same reason: a
+     * <p>The same seam {@code TableBroadcast.watchForTesting} is, and for the same reason: a
      * game test's stand-in player cannot take a payload at all - {@code Sending.to} refuses it,
      * deliberately - so a test cannot read the wire and reads this instead, one step before it.
      * What it is for is the refusals: "a player who is not seated here cannot move somebody

@@ -449,6 +449,7 @@
   "message.gathering.event.won_by": "%1$s is over. Won by %2$s. You placed %3$s.",
   "message.gathering.event.you_have_a_bye": "Round %s: you have a bye.",
   "message.gathering.sit_in_a_chair": "Sit in a chair at the middle of the table's edge to play here.",
+  "message.gathering.sit_back_down": "Sit back down to play",
   "screen.gathering.event.add_tables": "Add this table",
   "screen.gathering.event.auto": "Auto",
   "screen.gathering.event.begin": "Begin",

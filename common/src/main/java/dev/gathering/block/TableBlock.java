@@ -458,6 +458,11 @@ public class TableBlock extends BaseEntityBlock {
 
         TableCluster cluster = TableClusters.at(level, tableOrigin);
         boolean seatedHere = TableSeats.seatOf(level, tableOrigin, player.getUUID()).isPresent();
+        // Holding a seat and being at it are different questions, and until the owner found this
+        // (2026-09-18) every gesture asked only the first. A seat outlives standing up on purpose,
+        // so a player who had sat once could stand anywhere in reach and play the whole game from
+        // there. The seat is what you keep; this is what lets you play.
+        boolean sittingHere = seatedHere && Chairs.isSittingAt(player, tableOrigin);
 
         // Watching from the chair at a seat: asked again whether to join the game on, or, with no game on,
         // given the seat - whatever is in hand, since a deck goes down chosen from a list once seated.
@@ -536,8 +541,12 @@ public class TableBlock extends BaseEntityBlock {
                 dev.gathering.server.TableJoining.watching(seated, tableOrigin, true);
                 return ItemInteractionResult.SUCCESS;
             }
+            if (seatedHere && !sittingHere) {
+                seated.sendSystemMessage(Component.translatable("message.gathering.sit_back_down"));
+                return ItemInteractionResult.SUCCESS;
+            }
             dev.gathering.server.TableActions.openFor(seated, tableOrigin);
-            if (seatedHere) {
+            if (sittingHere) {
                 dev.gathering.server.TableJoining.offerDecks(seated, tableOrigin);
             }
             return ItemInteractionResult.SUCCESS;
@@ -551,12 +560,13 @@ public class TableBlock extends BaseEntityBlock {
                 && dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin)) {
             if (dev.gathering.server.TableMatch.isSideboarding(server, tableOrigin)) {
                 dev.gathering.server.Sideboarding.offerTo(between, tableOrigin);
-            } else if (seatedHere) {
+            } else if (sittingHere) {
                 // The next game, on the plain click: the crouch it used to take gets somebody out
                 // of their chair.
                 startOrContinue(level, tableOrigin, player);
             } else {
-                between.sendSystemMessage(Component.translatable("message.gathering.sit_in_a_chair"));
+                between.sendSystemMessage(Component.translatable(seatedHere
+                        ? "message.gathering.sit_back_down" : "message.gathering.sit_in_a_chair"));
             }
             return ItemInteractionResult.SUCCESS;
         }
@@ -597,6 +607,10 @@ public class TableBlock extends BaseEntityBlock {
         // Only somebody sitting at the table chooses what is played on it, and a chair is how to sit.
         if (TableSeats.seatOf(level, tableOrigin, player.getUUID()).isEmpty()) {
             player.sendSystemMessage(Component.translatable("message.gathering.sit_in_a_chair"));
+            return;
+        }
+        if (!Chairs.isSittingAt(player, tableOrigin)) {
+            player.sendSystemMessage(Component.translatable("message.gathering.sit_back_down"));
             return;
         }
         if (!(level instanceof net.minecraft.server.level.ServerLevel server)

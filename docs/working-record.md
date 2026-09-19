@@ -4242,3 +4242,31 @@ so nothing draws, and batches 3 to 6 (the seated-player lookup, the pose, the tw
 fan of card backs, the table view's own rules, and a DevScene step) are untouched. **No graphical
 client has run against any of this**, and no two-client test has happened, which is the only thing
 that can show one player seeing another's arm.
+
+## 2026-09-18: playing takes sitting down
+
+The owner found it while testing: sit at a table, stand up, and you can right-click the table and
+play the whole game from wherever you are standing.
+
+**Why it happened.** A seat outlives standing up on purpose - that is what keeps it for somebody
+who has walked off to a chest, and for somebody who left the server mid-game, which `AwayFromBoard`
+holds for eight minutes. Every gesture at the table asked only whether the seat was *registered*,
+and registration is exactly the thing designed to survive leaving the chair. So the two questions
+were the same question, and the answer to both was yes.
+
+**What it is now.** They are separate: the seat is what you keep, and `Chairs.isSittingAt` is what
+lets you play. A seat-holder out of their chair keeps everything - the seat, the deck the table is
+holding, the away timer - and is told to sit back down. Asked by the owner (2026-09-18), who chose
+this over releasing the seat on standing.
+
+**The tournament had to move with it.** A round that seats a player teleports them to their chair;
+it now puts them *in* it, quietly. Otherwise a round that moved everybody to their seats would
+start by telling them all to sit in the chair they were already standing at.
+
+**Two guards**, and with the old rule put back - registration alone - the standing one fails.
+
+**One shared seam fixed on the way.** `TableBroadcast.builtForTesting` was a single field, and game
+tests in a batch run alongside each other: whichever test started last owned the collector, and any
+other test reading it passed by observing nothing. It is a watcher list now, the same as
+`TablePointing`, and each watcher filters on the players its own test cares about. 689 in-world
+tests.

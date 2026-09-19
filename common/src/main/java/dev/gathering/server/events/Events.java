@@ -1043,6 +1043,10 @@ public final class Events {
         if (atThisLongTable || (bringFromNearby && near)) {
             Chair chair = chairInWorld(level, table, seat);
             online.teleportTo(level, chair.where().x, chair.where().y, chair.where().z, chair.yaw(), LOOKING_AT_THE_TABLE);
+            // Into the chair, not beside it. Playing takes sitting down - see Chairs.isSittingAt -
+            // so a round that moved somebody to their seat and left them standing at it would be a
+            // round that starts with everybody being told to sit in a chair they are already at.
+            sitThemDown(level, online, stand);
         } else {
             EventPointers.pointTo(online, stand);
         }
@@ -1050,6 +1054,18 @@ public final class Events {
 
     /** Where a player moved into a seat stands, and which way they face. */
     record Chair(Vec3 where, float yaw) {
+    }
+
+    /**
+     * Sits a player who has just been moved to their seat in the chair that is there.
+     * <p>Quietly: a chair somebody else is already in, or no chair at all, leaves them standing,
+     * which is the same place they were before and is said by the table when they try to play.
+     */
+    private static void sitThemDown(ServerLevel level, ServerPlayer player, BlockPos stand) {
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(stand);
+        if (state.getBlock() instanceof dev.gathering.block.ChairBlock) {
+            dev.gathering.block.Chairs.sit(player, stand, state);
+        }
     }
 
     /**

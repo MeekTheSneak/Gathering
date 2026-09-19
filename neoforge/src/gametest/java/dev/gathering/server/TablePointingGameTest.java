@@ -28,7 +28,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * table's own felt, and both refusals are guarded here.
  * <p>A stand-in player cannot take a payload at all: {@code Sending.to} refuses one, deliberately
  * and for good reason. So these read {@code TablePointing.watchForTesting}, one step before the
- * wire, the way the board tests read {@code TableBroadcast.builtForTesting}.
+ * wire, the way the board tests read {@code TableBroadcast.watchForTesting}.
  */
 @GameTestHolder(Gathering.MOD_ID)
 @PrefixGameTestTemplate(false)
