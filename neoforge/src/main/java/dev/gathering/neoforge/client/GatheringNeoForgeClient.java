@@ -87,6 +87,22 @@ public final class GatheringNeoForgeClient {
         event.registerEntityRenderer(GatheringContent.CHAIR_SEAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
     }
 
+    /**
+     * The hand of cards a seated player holds, onto every skin the game draws players with.
+     * <p>Both skins, because "default" and "slim" are two models and a layer added to one of them
+     * is a hand of cards that half the players at the table do not have.
+     */
+    @SubscribeEvent
+    public static void onAddLayers(
+            net.neoforged.neoforge.client.event.EntityRenderersEvent.AddLayers event) {
+        for (net.minecraft.client.resources.PlayerSkin.Model skin : event.getSkins()) {
+            net.minecraft.client.renderer.entity.player.PlayerRenderer renderer = event.getSkin(skin);
+            if (renderer != null) {
+                renderer.addLayer(new dev.gathering.client.HandOfCardsLayer(renderer));
+            }
+        }
+    }
+
     @SubscribeEvent
     /**
      * Attaches the card's own renderer, so a card in hand shows its printed face.

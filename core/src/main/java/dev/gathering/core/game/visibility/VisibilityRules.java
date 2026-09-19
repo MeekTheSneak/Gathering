@@ -102,8 +102,7 @@ public final class VisibilityRules {
                 seatState.sleeve(),
                 zones,
                 // Public, like a mulligan is: the table saw the hand go back.
-                seatState.mulligans(),
-                seatState.owedToBottom());
+                seatState.mulligans());
     }
 
     private static ZoneView zoneView(GameState state, ZoneRef ref, Viewer viewer) {

@@ -21,25 +21,6 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class TableBodyPose {
 
-    /**
-     * How far above the felt a seated player's shoulder is, in blocks.
-     * <p>Worked out from the same numbers {@code ChairSeat} sits a player with rather than
-     * measured off a screenshot, so that a change to the chair's height moves the arm with it
-     * instead of leaving it hovering. Expect to correct this once in a running game: the model's
-     * shoulder is not exactly where the arithmetic says the joint is.
-     */
-    private static final double SHOULDER_ABOVE_THE_SEAT =
-            dev.gathering.block.ChairSeat.HIP_HEIGHT - dev.gathering.block.ChairSeat.HALF_A_THIGH;
-
-    /**
-     * How far out from the middle of the body a shoulder sits, in blocks.
-     * <p>Two model pixels past the torso's own edge, at the scale the player is drawn. The arm is
-     * hinged there and not at the player's feet, and pretending otherwise puts the whole pose off
-     * by a hand's width - which at this range is the difference between pointing at a card and
-     * pointing at the one beside it.
-     */
-    private static final double SHOULDER_OUT = 5.0 / 16.0 * 15.0 / 16.0;
-
     private TableBodyPose() {
     }
 
@@ -87,47 +68,41 @@ public final class TableBodyPose {
      * every player at all while the person looking is in the table view.
      */
     public static TablePose.Aim aimOf(Player player, float partialTick) {
-        if (player == null || everybodyIsStill()) {
+        if (player == null || !poses(player)) {
             return TablePose.Aim.RESTING;
         }
-        if (!poses(player)) {
-            return TablePose.Aim.RESTING;
+        // Everything past here is a body already at a table, so what it falls back to is a body at
+        // a table - hands at the edge, head down at the felt - and never a person standing at ease.
+        if (everybodyIsStill()) {
+            return TablePose.Aim.AT_THE_TABLE;
         }
         SeatedPlayers.Seated seated = SeatedPlayers.of(player.getUUID()).orElse(null);
         if (seated == null) {
-            return TablePose.Aim.RESTING;
+            return TablePose.Aim.AT_THE_TABLE;
         }
         ClientTablePointing.Spot spot =
                 ClientTablePointing.pointedAt(player.getUUID(), partialTick).orElse(null);
         if (spot == null || spot.table() == null || !spot.table().equals(seated.table())) {
-            return TablePose.Aim.RESTING;
+            return TablePose.Aim.AT_THE_TABLE;
         }
         Vec3 at = inTheWorld(spot);
         if (at == null) {
-            return TablePose.Aim.RESTING;
+            return TablePose.Aim.AT_THE_TABLE;
         }
 
-        // From the shoulder, not from the feet: the arm is hinged at the top and a pose measured
-        // from anywhere else is out by however far the joint actually is from where it was
-        // measured.
-        Vec3 shoulder = shoulderOf(player, partialTick);
-        double dx = at.x - shoulder.x;
-        double dz = at.z - shoulder.z;
-        double down = shoulder.y - at.y;
-
-        // Into the player's own frame. The body's yaw and not the head's, because the head is one
-        // of the things being posed and reading it here would make the pose chase itself.
-        double yaw = Math.toRadians(player.yBodyRot);
-        double sin = Math.sin(yaw);
-        double cos = Math.cos(yaw);
-        // Minecraft's yaw is zero facing south (+z) and grows clockwise, so forward is that
-        // heading and across is a quarter turn to its right.
-        double forward = dz * cos - dx * sin;
-        double across = -(dx * cos + dz * sin);
-
-        TablePose.Aim aim = TablePose.reaching(across, forward, down);
-        // A player who has just stopped lowers their arm rather than having it vanish.
-        return TablePose.Aim.RESTING.toward(aim, spot.settling());
+        // The shoulder, the frame and the angles are all TableReach's, in :core, where they can
+        // be checked in milliseconds - which is where they belong, because getting the shoulder's
+        // height wrong is precisely what made every body at a table look at the ceiling. The
+        // body's yaw and not the head's: the head is one of the things being posed, and reading it
+        // here would make the pose chase itself.
+        Vec3 feet = player.getPosition(partialTick);
+        TablePose.Aim aim = dev.gathering.core.ui.TableReach.toward(
+                feet.x, feet.y, feet.z, player.yBodyRot,
+                player.getMainArm() == HumanoidArm.RIGHT,
+                at.x, at.y, at.z);
+        // A player who has just stopped lowers their arm back to the table rather than having it
+        // vanish, and lands where a seated body sits rather than where a standing one does.
+        return TablePose.Aim.AT_THE_TABLE.toward(aim, spot.settling());
     }
 
     /**
@@ -162,20 +137,6 @@ public final class TableBodyPose {
                 / dev.gathering.core.table.TableCluster.SEATS_PER_TABLE);
         return TableTop.forCluster(corner.getX(), corner.getY(), corner.getZ(), tables, 1,
                 dev.gathering.block.TableClusters.at(level, corner).turned());
-    }
-
-    /** Where the pointing shoulder is this frame, in the world. */
-    private static Vec3 shoulderOf(Player player, float partialTick) {
-        Vec3 feet = player.getPosition(partialTick);
-        double yaw = Math.toRadians(player.yBodyRot);
-        // The main arm's shoulder, on whichever side that is: a left-handed player points with
-        // their left and holds their cards in the right, and a pose that assumed otherwise draws
-        // the fan straight through the pointing arm.
-        double side = player.getMainArm() == HumanoidArm.RIGHT ? SHOULDER_OUT : -SHOULDER_OUT;
-        // A quarter turn right of the way the body faces.
-        double outX = -side * Math.cos(yaw);
-        double outZ = -side * Math.sin(yaw);
-        return new Vec3(feet.x + outX, feet.y + SHOULDER_ABOVE_THE_SEAT, feet.z + outZ);
     }
 
     /**

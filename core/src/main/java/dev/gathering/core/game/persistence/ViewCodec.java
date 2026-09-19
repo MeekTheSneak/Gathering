@@ -45,8 +45,13 @@ import java.util.UUID;
  */
 public final class ViewCodec {
 
-    /** Four: a seat's mulligans and the cards it owes to the bottom for them. */
-    public static final int VERSION = 5;
+    /**
+     * Six: a seat carries its mulligan count and no longer the cards it owed the bottom for them.
+     * <p>A board written by an older build is refused below rather than read, which is what the
+     * version is for: the two shapes differ by an int in the middle of every seat, so reading one
+     * as the other would not fail - it would quietly shift every field after it.
+     */
+    public static final int VERSION = 6;
 
     /** A ceiling on any length read from the wire, checked before it sizes anything. */
     public static final int MAX_ENTRIES = 20_000;
@@ -264,7 +269,6 @@ public final class ViewCodec {
         }
 
         out.writeInt(seat.mulligans());
-        out.writeInt(seat.owedToBottom());
     }
 
     private static SeatView seat(DataInput in) throws IOException {
@@ -319,10 +323,9 @@ public final class ViewCodec {
             zones.put(zone, zone(in));
         }
         int mulligans = in.readInt();
-        int owedToBottom = in.readInt();
         return new SeatView(
                 id, player, lastPlayer, life, damage, tax, commanders, counters, conceded,
-                handShownTo, sleeve, zones, mulligans, owedToBottom);
+                handShownTo, sleeve, zones, mulligans);
     }
 
     private static PlayerRef readPlayer(DataInput in) throws IOException {

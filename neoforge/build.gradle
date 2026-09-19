@@ -42,6 +42,9 @@ neoForge {
     runs {
         client {
             client()
+            if (project.hasProperty('posedebug')) {
+                systemProperty 'gathering.posedebug', '1'
+            }
             // Opt-in rendering characterization; only development runs include the probe.
             if (project.hasProperty('screenRefactorScene')) {
                 systemProperty 'gathering.screenRefactorScene', project.property('screenRefactorScene')
@@ -72,6 +75,25 @@ neoForge {
                     systemProperty 'gathering.devscene.to', project.property('devsceneTo').toString()
                 }
             }
+        }
+        // A second client, for the things one client cannot show you.
+        //
+        // A player at a table has the table's own camera, so they cannot press F5 and look at
+        // their own body - which makes "does the arm point the right way" a question that needs
+        // two people in one world. Its own game directory so the two do not fight over saves and
+        // options, and its own name so the server lets both in at once.
+        //
+        // Open the first client's world to LAN, then Direct Connect this one to the port it says.
+        // Nothing in the gate runs this.
+        clientTwo {
+            client()
+            gameDirectory = project.file('runs/second')
+            // -Pposedebug says, in the log, what each seated body is being told to do. See PoseProbe.
+            if (project.hasProperty('posedebug')) {
+                systemProperty 'gathering.posedebug', '1'
+            }
+            programArguments.addAll '--username', 'Guest'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
         server {
             server()

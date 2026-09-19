@@ -88,8 +88,6 @@ public final class GameFold {
 
             case GameEvent.Mulliganed mulligan -> mulligan(state, mulligan, seed);
 
-            case GameEvent.BottomingDone done -> bottomingDone(state, done);
-
             case GameEvent.LibraryShuffled shuffled -> shuffleLibrary(state, shuffled.seat(), seed);
 
             // Looking moves nothing. Taking a card afterwards is a separate move, and that
@@ -303,14 +301,6 @@ public final class GameFold {
         if (from != null && from.zone() == Zone.LIBRARY) {
             updated = theWindowStillHoldsWhatWasRevealed(state, updated, from.seat());
         }
-        if (from != null && from.zone() == Zone.HAND && moved.to().zone() == Zone.LIBRARY
-                && moved.to().seat().equals(from.seat()) && moved.placement() instanceof Placement.Bottom) {
-            // A card from a hand to the bottom of its own library: what a mulligan owes.
-            SeatState seat = updated.seatState(from.seat());
-            if (seat.owedToBottom() > 0) {
-                updated = updated.withSeatState(seat.oneWentToTheBottom());
-            }
-        }
         if (moved.to().zone() == Zone.LIBRARY) {
             updated = theWindowStillHoldsWhatWasRevealed(state, updated, moved.to().seat());
         }
@@ -510,10 +500,6 @@ public final class GameFold {
         return arrivingOnTop(updated, moved.to(), moved.placement());
     }
 
-    private static GameState bottomingDone(GameState state, GameEvent.BottomingDone event) {
-        return state.withSeatState(state.seatState(event.seat()).nothingOwedToTheBottom());
-    }
-
     private static GameState mulligan(GameState state, GameEvent.Mulliganed event, SessionSeed seed) {
         SeatId seat = event.seat();
         ZoneRef library = ZoneRef.of(seat, Zone.LIBRARY);
@@ -522,33 +508,8 @@ public final class GameFold {
             updated = updated.place(id, library, Placement.BOTTOM);
         }
         updated = shuffleLibrary(updated, seat, seed);
-        updated = updated.withSeatState(updated.seatState(seat).mulliganed(isMultiplayer(updated)));
+        updated = updated.withSeatState(updated.seatState(seat).mulliganed());
         return draw(updated, seat, event.newHandSize());
-    }
-
-    /**
-     * Whether more than two players are in this game, which is what makes a first mulligan
-     * free (rule 103.5c). Counted by boards rather than chairs: a player who stood up is still
-     * in the game their cards are in - and somebody who sat down and left before putting a deck
-     * down never was, though their name stays on the chair.
-     */
-    public static boolean isMultiplayer(GameState state) {
-        int players = 0;
-        for (SeatId seat : state.seats()) {
-            if (state.seatState(seat).whoseBoard().isPresent() && hasCards(state, seat)) {
-                players++;
-            }
-        }
-        return players > 2;
-    }
-
-    private static boolean hasCards(GameState state, SeatId seat) {
-        for (Zone zone : Zone.values()) {
-            if (state.count(ZoneRef.of(seat, zone)) > 0) {
-                return true;
-            }
-        }
-        return false;
     }
 
     // ------------------------------------------------------------ pile verbs

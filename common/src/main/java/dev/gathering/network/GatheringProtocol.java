@@ -98,11 +98,17 @@ public final class GatheringProtocol {
      * A hint about how to draw somebody and nothing else - it moves no card and reaches no log -
      * but a client that does not know the payload is a client whose players all sit still, and
      * the version is how it finds out rather than by silently doing nothing.
+     * <p>Twenty-nine, for taking something out of the board: a seat no longer carries how many
+     * cards a mulligan owes the bottom of its library. The mod was counting the London mulligan
+     * and printing the number under the button, and it cannot know whether this table plays free
+     * mulligans or whether something on the board says otherwise - so it was the mod telling a
+     * player what the rules are, which it does not do. The count is gone rather than hidden,
+     * because a number nothing reads is a number that comes back.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 28;
+    public static final int VERSION = 29;
 
     private GatheringProtocol() {
     }

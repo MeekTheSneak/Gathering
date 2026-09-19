@@ -83,6 +83,11 @@ public final class Chairs {
         // claimed first once, and the mount's own answer ignored: a mount something refused - another mod,
         // a canceled spawn - left a player standing beside the table holding its seat.
         ChairSeat seat = ChairSeat.in(level, chair, null);
+        // The seat faces the way the chair does, and the sitter is squared to the seat - see
+        // ChairSeat.faceTheChair. Without this the body kept whichever way the player had been
+        // walking, which is both a player sitting sideways at the table and every angle a body
+        // at that table works out measured from the wrong forward.
+        seat.setYRot(facing.toYRot());
         if (!level.addFreshEntity(seat)) {
             return;
         }
@@ -90,9 +95,12 @@ public final class Chairs {
             seat.discard();
             return;
         }
-        // Facing the table, so the board and the world agree about which way is forward.
+        // Facing the table, so the board and the world agree about which way is forward. The body
+        // as well as the look: the body is what a player is drawn from, and it is what everything
+        // about a seated body measures its own left and right against.
         player.setYRot(facing.toYRot());
         player.setYHeadRot(facing.toYRot());
+        player.setYBodyRot(facing.toYRot());
         if (watching != null) {
             seat.watches(watching);
             dev.gathering.server.TableJoining.watching(player, watching, askToJoin);

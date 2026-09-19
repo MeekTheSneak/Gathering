@@ -79,6 +79,27 @@ public final class CardFaceRenderer {
     }
 
     /**
+     * Draws a card back, and nothing else, at the origin of whatever pose is current.
+     * <p>For the fan a seated player holds: what the room sees of somebody's hand is the backs,
+     * and it has to stay that way whatever anybody later changes about the thing drawing it.
+     * <p><b>This signature is the boundary.</b> It takes no card, no stack, no view - there is
+     * nothing here that could carry an identity, so no path from the hand-of-cards layer can
+     * reach one however that layer is rewritten. The visibility rules send another seat's hand as
+     * a count and this draws a count's worth of backs; the two halves of that agreement are a
+     * type signature rather than a promise in a comment.
+     * <p>Both sides, and both of them the back. A single quad is invisible from behind, so a fan
+     * drawn with one was a hand that existed from the owner's chair and nowhere else - which is
+     * the opposite of what a hand of cards held up at a table is for. Drawing the same back on
+     * both faces is also the safe way round: there is no angle anybody can get to where a card in
+     * somebody's hand shows anything but its back.
+     */
+    public static void renderBack(PoseStack poseStack, MultiBufferSource buffers, int packedLight) {
+        Matrix4f pose = poseStack.last().pose();
+        drawFace(buffers, pose, CARD_BACK, packedLight, HALF_THICKNESS);
+        drawFace(buffers, pose, CARD_BACK, packedLight, -HALF_THICKNESS);
+    }
+
+    /**
      * The texture for one side of a card.
      * <p>A double-faced card genuinely has two printed sides, so turning one over shows its
      * other face. Everything else has a front and a back, and its back is the sleeve it sits

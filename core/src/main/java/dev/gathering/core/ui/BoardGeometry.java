@@ -299,6 +299,22 @@ public final class BoardGeometry implements BoardPlacement {
                 camera.toTableY(screenY, viewportDown()));
     }
 
+    /**
+     * Where a screen point is on the felt, in the surface's own units.
+     * <p>The flat board and the board drawn on the block are the same surface seen two ways, and
+     * this is the flat one's answer to the question the block's ray cast answers: not whose mat,
+     * not where on that mat, but where on the table. What a body at the table points at is a place
+     * on the felt, and it has to be the same place from either view or a player's arm would move
+     * when they changed how they were looking rather than where they were pointing.
+     *
+     * @return the two coordinates, which may be off the felt - the caller decides what that means
+     */
+    public double[] feltPointAt(double screenX, double screenY) {
+        return new double[] {
+                camera.toTableX(screenX, width),
+                camera.toTableY(screenY, viewportDown())};
+    }
+
     /** Whose mat is under this screen point, or null for the felt between them. */
     @Override
     public SeatId seatAt(double screenX, double screenY) {

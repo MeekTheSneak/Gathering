@@ -423,30 +423,15 @@ public sealed interface GameEvent {
     record Mulliganed(SeatId actor, SeatId seat, int newHandSize) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
-            // What the London mulligan asks for, worked out from the board before it: how many
-            // this is, and how many cards go to the bottom. See SeatState#mulliganed.
-            SeatState after = before.seatState(seat).mulliganed(dev.gathering.core.game.GameFold.isMultiplayer(before));
-            return LogLine.of("log.gathering.mulliganed", actor, seat, newHandSize, after.owedToBottom());
+            // What happened, and not what should happen next. This used to work out how many cards
+            // the London mulligan asks for and say so; the owner had that out (2026-09-19),
+            // because the mod does not know what this table has agreed or what is on the board.
+            return LogLine.of("log.gathering.mulliganed", actor, seat, newHandSize);
         }
 
         @Override
         public boolean revealsInformation(GameState before) {
             return true;
-        }
-    }
-
-    /**
-     * The cards a mulligan owed the bottom are no longer owed, however that was settled.
-     * <p>A reminder being put down rather than a rule being broken. The table may have agreed to
-     * free mulligans, or somebody may have bottomed them by hand and not through the menu, and
-     * before this the only way to be rid of the line was to actually move that many cards - which
-     * is the mod telling a table how to play, and it does not do that.
-     */
-    record BottomingDone(SeatId actor, SeatId seat) implements GameEvent {
-        @Override
-        public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.bottoming_done", actor, seat,
-                    before.seatState(seat).owedToBottom());
         }
     }
 

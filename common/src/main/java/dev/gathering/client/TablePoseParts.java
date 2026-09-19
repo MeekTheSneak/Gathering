@@ -31,28 +31,33 @@ public final class TablePoseParts {
      * <p>Runs for every drawn player in every frame, so the cheap refusal comes first.
      */
     public static void pose(PlayerModel<?> model, LivingEntity entity) {
+        PoseProbe.sawHook(entity);
         if (model == null || !(entity instanceof Player player) || !TableBodyPose.poses(player)) {
             return;
         }
         TablePose.Aim aim = TableBodyPose.aimOf(player, partialTick());
+        PoseProbe.sawPose(player, aim);
 
         boolean rightHanded = player.getMainArm() == HumanoidArm.RIGHT;
         ModelPart pointing = rightHanded ? model.rightArm : model.leftArm;
         ModelPart holding = rightHanded ? model.leftArm : model.rightArm;
 
-        // The arm is hinged at the shoulder: swing it out sideways first, then bring it forward.
-        // Vanilla's own idle bob pushes the right arm's zRot positive and the left arm's negative
-        // as the arms drift away from the body, which is what says which way "out" is on each side.
-        float out = (float) Math.toRadians(aim.armSwing()) * (rightHanded ? 1f : -1f);
-        // Forward is negative xRot - an arm raised in front of the body runs toward -x - which is
-        // the sign the brief warned would be written the other way round first.
-        float forward = (float) -Math.toRadians(aim.armPitch());
-        pointing.zRot = out;
-        pointing.xRot = forward;
+        // Up from hanging, then round to the side. A model part is turned in Z, then Y, then X,
+        // so the Y rotation swings an already-pitched arm horizontally - which is what pointing
+        // across a table is. Rolling it sideways instead, which is what this did first, pins the
+        // arm against its across-the-body limit and leaves it moving only up and down.
+        //
+        // Neither sign is mirrored between the arms: the model's Y turns both of them toward the
+        // player's right, and raising either one forward is negative in X.
+        pointing.xRot = (float) -Math.toRadians(aim.armPitch());
+        pointing.yRot = (float) Math.toRadians(aim.armYaw());
+        pointing.zRot = 0f;
 
-        // The other hand holds the cards, at the edge of the table, wherever the pointing one is.
-        holding.zRot = rightHanded ? -CARDS_OUT : CARDS_OUT;
+        // The other hand holds the cards up at the table's edge, turned in toward the chest so the
+        // fan is in front of its owner rather than out over somebody else's mat.
         holding.xRot = -CARDS_UP;
+        holding.yRot = rightHanded ? CARDS_IN : -CARDS_IN;
+        holding.zRot = 0f;
 
         // The head is not the arm: it turns to look at what it cannot reach, and it is set rather
         // than added to, because HumanoidModel has already pointed it wherever the entity is
@@ -69,14 +74,19 @@ public final class TablePoseParts {
     }
 
     /**
-     * How far out from the body the hand of cards is held, and how far up, in radians.
-     * <p>A hand of cards at a table is held low and close: up at the table's edge rather than up
-     * at the chin, which is where a card game is played and is also the only place it does not
-     * cover the player's own face.
+     * How far out from the body the hand of cards is held, and how far forward, in radians.
+     * <p>A Minecraft arm has no elbow: it is one rigid part hinged at the shoulder, so "forward"
+     * and "up" are the same number and the hand ends up wherever that one angle puts it. Held
+     * halfway forward and close to the body, the hand lands in front of the hips, which is not
+     * where anybody holds cards and reads exactly as badly as it sounds - the owner said so the
+     * first time he saw it.
+     * <p>So the arm comes most of the way up, to about horizontal, and turns in toward the chest:
+     * the hand finishes over the table's near edge holding the fan in front of its owner, which is
+     * where a hand of cards is actually held and is plainly away from the body on the way there.
      */
-    private static final float CARDS_OUT = (float) Math.toRadians(12);
+    private static final float CARDS_IN = (float) Math.toRadians(22);
 
-    private static final float CARDS_UP = (float) Math.toRadians(52);
+    private static final float CARDS_UP = (float) Math.toRadians(74);
 
     /**
      * How far into the current tick this frame is.

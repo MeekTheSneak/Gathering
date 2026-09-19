@@ -4292,3 +4292,58 @@ table with no game gives the seat up when you stand, so "the seat survives stand
 mid-game - and even then only for somebody with cards in a zone or a deck down, which
 `AwayFromBoard.keepsTheSeat` decides. That is its own rule with its own tests; this one checks only
 that the arm comes down.
+
+## Asked for, not yet done
+
+- **The first mulligan should not ask for a card to the bottom.** The owner's point (2026-09-19):
+  players use the first mulligan as "shuffle and draw seven again", which is how most tables
+  actually play it, and being asked to bottom a card the first time is the London rule being
+  applied a step earlier than anybody expects. `SeatState.mulliganed` counts from one; it should
+  owe nothing until the second.
+
+## 2026-09-19: the body at the table, and three bugs found by logging
+
+The pose hooks went in and the owner looked at them in a running client. What followed is the
+useful part of this entry: four rounds of guessing at signs and angles, all wrong, and then three
+real defects found in one read once the numbers were written to a log.
+
+**What he saw, in order:** the arm did not move at all; then it moved but looked wrong and, in his
+words, inappropriate; then the face was not looking at the table; then the arm moved up and down
+rather than across it. Each report got a guess. None of the guesses was right.
+
+**The instrument.** `PoseProbe`, behind `-Pposedebug` and off in every shipped jar, logs what each
+seated body is being told to do - the body's facing, the arm and head angles, and every pointer as
+it lands. It cost one relaunch and it named all three defects immediately. It should have been the
+answer to the first report rather than the fourth.
+
+**One, the chair never turned the body.** `Chairs.sit` set the player's *look* and not
+`yBodyRot`, which is what a model is drawn from - so a player sat down facing whichever way they
+had been walking. Nobody had noticed, because until a seated body had an arm to point with nothing
+read that angle. Every across-and-forward measurement was taken against the wrong forward. The seat
+entity now faces the way the chair does and squares its sitter to it each tick, head clamped like a
+boat's.
+
+**Two, the shoulder was at hip height.** `SHOULDER_ABOVE_THE_SEAT` was a hip minus a thigh, 0.59 of
+a block. A table's felt is 0.94 above its block, so the thing being pointed at was *above* the
+shoulder: the arm reached up and the head tipped up, and from across the room a player at a table
+appeared to be staring at the ceiling. It is 1.29 now, off the player model rather than off the
+chair.
+
+**Three, the arm was decomposed as a roll.** Swing the hanging arm out sideways, then bring it
+forward - which is wrong for a model part, because a part is turned Z, then Y, then X, so an arm
+already pitched forward is swung sideways by its **yaw**. A hand a third of a block to one side of
+a shoulder came out past the thirty-degree across-the-body clamp and sat pinned there, moving only
+up and down however far the cursor travelled. It is a pitch and a yaw now, and `yRot` - which the
+first version never touched at all - does the sideways half.
+
+**What the first two taught.** The arithmetic lived in a class that needs a running game, so
+nothing could catch it but looking. It is `TableReach` in `:core` now, and the renderer calls it:
+the tested code is the shipped code. Four guards went with it, including a property that a body at
+a table never looks *up* at it from anywhere on the felt, and a walk of a cursor across the near
+edge asserting the arm keeps turning. Restoring either old value fails them.
+
+**Also fixed on the way.** The pointer was only ever sent from the on-the-block view, so in the
+flat board - which is where games are actually played - nothing was sent at all and the arm sat
+still through a whole game. A held card was one quad and invisible from behind. And a seated player
+with no pointer fell back to a pose meaning "standing at ease", which is why the face was level:
+there is a separate `AT_THE_TABLE` rest now, hands at the edge and head down at the felt.

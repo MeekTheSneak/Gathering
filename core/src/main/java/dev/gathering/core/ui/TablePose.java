@@ -16,7 +16,7 @@ package dev.gathering.core.ui;
  * depends on the edge they are sitting at, and that rotation happens once on the render side -
  * there is no compass in here, which is what lets this be checked over every target rather than
  * over the ones somebody thought to write down.
- * <p><b>Degrees, and a stated convention.</b> {@link Aim#armSwing} is how far the arm has come
+ * <p><b>Degrees, and a stated convention.</b> {@link Aim#armYaw} is which way the arm points
  * away from hanging straight down, positive toward the player's right. {@link Aim#armPitch} is how
  * far it has come forward from there, positive forward. Turning those into a model part's radians
  * is the renderer's job and the signs are mirrored between left and right arms, which is a thing
@@ -42,22 +42,23 @@ public final class TablePose {
     private static final double EXTENSION = 0.9;
 
     /**
-     * How far the arm may swing across the body before it stops following.
+     * How far the arm may point across the body before it stops following.
      * <p>A target to the player's left is reached for by the left arm, and this one is the right.
      * Left unbounded, pointing at the far left of a pod folded the right arm through the chest,
-     * which is the single worst frame this feature can produce. Thirty degrees across is about
-     * where a person stops and turns their shoulders instead.
+     * which is the single worst frame this feature can produce. Forty-five degrees across is about
+     * where a person stops and turns their shoulders instead - and it is generous rather than
+     * mean, because the clamp being met is what pins an arm in place.
      */
-    private static final double SWING_ACROSS_THE_BODY = -30;
+    private static final double YAW_ACROSS_THE_BODY = -45;
 
     /** And how far out to the side, which is where an arm stops without the other shoulder moving. */
-    private static final double SWING_OUT = 100;
+    private static final double YAW_OUT = 95;
 
-    /** How far forward the arm may come. Past this it is a salute rather than a reach. */
-    private static final double PITCH_FORWARD = 95;
+    /** How far up from hanging the arm may come. Past this it is a salute rather than a reach. */
+    private static final double PITCH_FORWARD = 100;
 
     /** And how far back, which at a table is never far: a hand at rest hangs, it does not trail. */
-    private static final double PITCH_BACK = -15;
+    private static final double PITCH_BACK = 0;
 
     /** How far a head turns before the neck has had enough and the body would follow. */
     private static final double HEAD_YAW = 70;
@@ -73,15 +74,30 @@ public final class TablePose {
     /**
      * An arm and a head, in degrees, in the player's own frame.
      *
-     * @param armSwing  away from hanging straight down, positive toward the player's right
-     * @param armPitch  forward from there, positive away from the chest
+     * @param armYaw    which way the arm points, positive toward the player's right
+     * @param armPitch  how far it has come up from hanging straight down: zero hanging, ninety
+     *     straight out in front of the shoulder
      * @param headYaw   positive toward the player's right
      * @param headPitch positive downward, the way Minecraft's own pitch runs
      */
-    public record Aim(float armSwing, float armPitch, float headYaw, float headPitch) {
+    public record Aim(float armYaw, float armPitch, float headYaw, float headPitch) {
 
         /** Nobody pointing at anything: arms down, head level. The pose to fall back to. */
         public static final Aim RESTING = new Aim(0, 0, 0, 0);
+
+        /**
+         * Sitting at a table, not pointing at anything: hands at the near edge, head down at the
+         * felt.
+         * <p>Not {@link #RESTING}, and the difference is the whole of what a seated body looks
+         * like. Resting is a person standing with their arms down and their eyes on the horizon,
+         * which is what a player at a table was drawn as for as long as nothing had told their
+         * client where they were pointing - so they sat bolt upright staring across the room with
+         * their arms by their sides. A card player leans in, hands on the table, looking down at
+         * it.
+         * <p>This is what a pointer moves <em>from</em>, too, so an arm that comes up to point and
+         * goes back down again starts and finishes somewhere a body would actually be.
+         */
+        public static final Aim AT_THE_TABLE = new Aim(10, 72, 0, 32);
 
         /**
          * This aim a fraction of the way toward another one.
@@ -93,7 +109,7 @@ public final class TablePose {
         public Aim toward(Aim other, float fraction) {
             float part = Math.max(0f, Math.min(1f, fraction));
             return new Aim(
-                    armSwing + (other.armSwing - armSwing) * part,
+                    armYaw + (other.armYaw - armYaw) * part,
                     armPitch + (other.armPitch - armPitch) * part,
                     headYaw + (other.headYaw - headYaw) * part,
                     headPitch + (other.headPitch - headPitch) * part);
@@ -138,14 +154,16 @@ public final class TablePose {
         double handForward = hand[1];
         double handDown = hand[2];
 
-        // Straight down is zero swing; positive is out to the player's right. Measured against the
-        // downward component rather than against the horizontal one, so an arm reaching for
-        // something almost underneath it barely swings at all.
-        double swing = Math.toDegrees(Math.atan2(handAcross, Math.max(1e-6, handDown)));
-        // And forward from wherever that swing left it. The hypotenuse of the other two is how far
-        // the arm has got in its own plane, which is what the forward reach is an angle against.
-        double pitch = Math.toDegrees(Math.atan2(
-                handForward, Math.hypot(handAcross, handDown)));
+        // How far the arm has come up from hanging straight down, which is the angle between the
+        // arm and the way gravity goes. Zero hanging, ninety straight out in front.
+        double reach = Math.sqrt(
+                handAcross * handAcross + handForward * handForward + handDown * handDown);
+        double pitch = reach <= 0 ? 0
+                : Math.toDegrees(Math.acos(clamp(handDown / reach, -1, 1)));
+        // And which way it points once it is up there. This is a yaw about the body's own
+        // vertical, which is what a model part's Y rotation does to an arm already pitched
+        // forward - see the note at the top about why it is not a sideways swing.
+        double yaw = Math.toDegrees(Math.atan2(handAcross, handForward));
 
         // The head is not hinged like the arm and is not clamped to reach at all - a neck turns to
         // look at things it cannot touch. It is the raw target, not the shortened one, for exactly
@@ -154,7 +172,7 @@ public final class TablePose {
         double headPitch = Math.toDegrees(Math.atan2(down, Math.hypot(across, forward)));
 
         return new Aim(
-                (float) clamp(swing, SWING_ACROSS_THE_BODY, SWING_OUT),
+                (float) clamp(yaw, YAW_ACROSS_THE_BODY, YAW_OUT),
                 (float) clamp(pitch, PITCH_BACK, PITCH_FORWARD),
                 (float) clamp(headYaw, -HEAD_YAW, HEAD_YAW),
                 (float) clamp(headPitch, HEAD_PITCH_UP, HEAD_PITCH_DOWN));

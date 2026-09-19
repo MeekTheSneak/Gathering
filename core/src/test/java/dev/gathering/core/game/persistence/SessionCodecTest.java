@@ -228,7 +228,6 @@ class SessionCodecTest {
                 new GameEvent.CardFacingSet(a, card, Facing.FACE_DOWN),
                 new GameEvent.CardsDrawn(a, b, 7),
                 new GameEvent.Mulliganed(a, b, 6),
-                new GameEvent.BottomingDone(a, b),
                 new GameEvent.LibraryShuffled(a, b),
                 new GameEvent.LibrarySearched(a, b),
                 new GameEvent.LibraryClosed(a),

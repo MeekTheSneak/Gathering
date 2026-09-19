@@ -294,6 +294,16 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     // ------------------------------------------------------------ the math
 
+    /**
+     * Whether a point is on the felt at all.
+     * <p>Off it is a real answer, not an edge case to clamp away: a cursor over a menu, past the
+     * edge of the table, or on the floor beyond it is a cursor pointing at nothing, and what a
+     * body does about that is put its arm down.
+     */
+    public boolean holds(double x, double y) {
+        return x >= 0 && y >= 0 && x <= width && y <= height;
+    }
+
     public Rect matOf(int seat) {
         return seat >= 0 && seat < mats.size() ? mats.get(seat) : Rect.NONE;
     }

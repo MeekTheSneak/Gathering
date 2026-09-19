@@ -52,8 +52,7 @@ public record SeatState(
         boolean conceded,
         Set<SeatId> handShownTo,
         dev.gathering.core.card.Sleeve sleeve,
-        int mulligans,
-        int owedToBottom) {
+        int mulligans) {
 
     public SeatState {
         if (seat == null) {
@@ -76,65 +75,35 @@ public record SeatState(
         // logs written before sleeves existed.
         sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
         mulligans = Math.max(0, mulligans);
-        owedToBottom = Math.max(0, owedToBottom);
     }
 
     /**
-     * This seat has taken another mulligan: a new hand drawn, and cards owed to the bottom of the
-     * library for it.
-     * <p>The London mulligan (rule 103.5): draw a new hand of seven, then put one card on the
-     * bottom for each mulligan taken - except that in a multiplayer game the first mulligan is
-     * free (103.5c). The table only counts; it never makes anybody put a card anywhere.
-     *
-     * @param multiplayer whether more than two players are in the game
+     * This seat has taken another mulligan: the count goes up, and nothing else happens.
+     * <p>How many is worth knowing, because a game asks aloud how many times somebody has taken
+     * one. What comes of it is not: the London mulligan asks for a card to the bottom per
+     * mulligan taken, and this used to count those and say so on the screen. The owner had it
+     * taken out (2026-09-19), and he is right - the mod cannot know whether the table has agreed
+     * to free mulligans, or whether something on the board says otherwise, and a count that
+     * appears as an instruction is the mod telling a player what the rules are. See the hard
+     * rule: it never decides whether a play is legal.
      */
-    public SeatState mulliganed(boolean multiplayer) {
-        int taken = mulligans + 1;
-        // Never more than a hand. Owing eight cards to the bottom of a seven card hand is not a
-        // thing that can happen at a table, and the count is a reminder rather than a rule - so
-        // somebody pressing Mulligan a dozen times was told to bottom twelve, which reads as the
-        // mod having lost count. Capped at the hand, which is also where the real rule stops: past
-        // seven there is nothing left to put anywhere.
-        int owed = Math.min(MOST_OWED, multiplayer ? taken - 1 : taken);
+    public SeatState mulliganed() {
         return new SeatState(
                 seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters,
-                conceded, handShownTo, sleeve, taken, owed);
-    }
-
-    /** The most cards a mulligan can owe the bottom: a hand of them, and no more. */
-    public static final int MOST_OWED = 7;
-
-    /**
-     * Nothing is owed the bottom any more, whether or not the cards went there.
-     * <p>The table may have agreed to free mulligans, or a player may simply have dealt with it
-     * their own way - and the count is this mod's reminder rather than its rule. Without this the
-     * only way to be rid of it was to actually put that many cards on the bottom, which is the mod
-     * telling somebody how to play. See the hard rule: it never decides whether a play is legal.
-     */
-    public SeatState nothingOwedToTheBottom() {
-        return owedToBottom == 0 ? this : new SeatState(
-                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters,
-                conceded, handShownTo, sleeve, mulligans, 0);
-    }
-
-    /** One of the cards owed to the bottom after a mulligan has gone there. */
-    public SeatState oneWentToTheBottom() {
-        return owedToBottom == 0 ? this : new SeatState(
-                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters,
-                conceded, handShownTo, sleeve, mulligans, owedToBottom - 1);
+                conceded, handShownTo, sleeve, mulligans + 1);
     }
 
     public static SeatState startingAt(SeatId seat, int startingLife) {
         return new SeatState(
                 seat, null, null, startingLife, Map.of(), Map.of(), java.util.List.of(), Map.of(), false,
-                Set.of(), dev.gathering.core.card.Sleeve.DEFAULT, 0, 0);
+                Set.of(), dev.gathering.core.card.Sleeve.DEFAULT, 0);
     }
 
     /** A seat is held until the player leaves it, not until they walk away or log out. */
     public SeatState occupiedBy(PlayerRef player) {
         return new SeatState(
                 seat, player, player, life, commanderDamage, commanderTax, commanders, counters, conceded,
-                handShownTo, sleeve, mulligans, owedToBottom);
+                handShownTo, sleeve, mulligans);
     }
 
     /**
@@ -147,7 +116,7 @@ public record SeatState(
     public SeatState released() {
         return new SeatState(
                 seat, null, lastOccupant, life, commanderDamage, commanderTax, commanders, counters, conceded,
-                handShownTo, sleeve, mulligans, owedToBottom);
+                handShownTo, sleeve, mulligans);
     }
 
     public java.util.Optional<PlayerRef> player() {
@@ -172,7 +141,7 @@ public record SeatState(
     public SeatState withLife(int delta) {
         return new SeatState(
                 seat, occupant, lastOccupant, life + delta, commanderDamage, commanderTax, commanders, counters,
-                conceded, handShownTo, sleeve, mulligans, owedToBottom);
+                conceded, handShownTo, sleeve, mulligans);
     }
 
     public SeatState withCommanderDamage(CardInstanceId commander, int delta) {
@@ -185,21 +154,21 @@ public record SeatState(
         }
         return new SeatState(
                 seat, occupant, lastOccupant, life, updated, commanderTax, commanders, counters, conceded,
-                handShownTo, sleeve, mulligans, owedToBottom);
+                handShownTo, sleeve, mulligans);
     }
 
     /** Sleeves this seat's cards, once, when the deck goes down. */
     public SeatState withSleeve(dev.gathering.core.card.Sleeve chosen) {
         return new SeatState(
                 seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters,
-                conceded, handShownTo, chosen, mulligans, owedToBottom);
+                conceded, handShownTo, chosen, mulligans);
     }
 
     /** Names this seat's commanders, once, when the deck goes down. */
     public SeatState withCommanders(java.util.List<CardInstanceId> named) {
         return new SeatState(
                 seat, occupant, lastOccupant, life, commanderDamage, commanderTax, named, counters, conceded,
-                handShownTo, sleeve, mulligans, owedToBottom);
+                handShownTo, sleeve, mulligans);
     }
 
     public SeatState withCommanderTax(CardInstanceId commander, int delta) {
@@ -212,7 +181,7 @@ public record SeatState(
         }
         return new SeatState(
                 seat, occupant, lastOccupant, life, commanderDamage, updated, commanders, counters, conceded,
-                handShownTo, sleeve, mulligans, owedToBottom);
+                handShownTo, sleeve, mulligans);
     }
 
     public SeatState withConcede() {
@@ -220,7 +189,7 @@ public record SeatState(
                 ? this
                 : new SeatState(
                         seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters, true,
-                        handShownTo, sleeve, mulligans, owedToBottom);
+                        handShownTo, sleeve, mulligans);
     }
 
     /**
@@ -250,7 +219,7 @@ public record SeatState(
         }
         return new SeatState(
                 seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, updated, conceded,
-                handShownTo, sleeve, mulligans, owedToBottom);
+                handShownTo, sleeve, mulligans);
     }
 
     public int counter(String name) {
@@ -275,7 +244,7 @@ public record SeatState(
         }
         return new SeatState(
                 seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters,
-                conceded, updated, sleeve, mulligans, owedToBottom);
+                conceded, updated, sleeve, mulligans);
     }
 
     /** Turns this hand face up to all of these seats at once, or face down to everybody. */
@@ -286,7 +255,7 @@ public record SeatState(
                 ? this
                 : new SeatState(
                         seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders,
-                        counters, conceded, without, sleeve, mulligans, owedToBottom);
+                        counters, conceded, without, sleeve, mulligans);
     }
 
     /** Whether that seat may currently read this hand. Its own seat always may. */

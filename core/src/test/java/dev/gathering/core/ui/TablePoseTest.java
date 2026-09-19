@@ -58,10 +58,16 @@ class TablePoseTest {
         void theDirectionSurvivesTheClamp() {
             // Five blocks across a four-table cluster, which is the case the clamp is for: the arm
             // cannot get there, and it must still be aimed at it rather than given up on.
+            //
+            // Against something straight ahead, not against a nearer target in the same direction:
+            // the arm's yaw is a direction, so it does not change with distance, and comparing two
+            // points on one line asks nothing. The first version of this did exactly that and went
+            // on passing when the decomposition beneath it was replaced.
             TablePose.Aim far = TablePose.reaching(5.0, 1.0, 0.4);
-            TablePose.Aim near = TablePose.reaching(0.5, 0.1, 0.4);
+            TablePose.Aim ahead = TablePose.reaching(0.0, 1.0, 0.4);
 
-            assertThat(far.armSwing()).isGreaterThan(near.armSwing());
+            assertThat(far.armYaw()).isGreaterThan(ahead.armYaw());
+            assertThat(far.armYaw()).isGreaterThan(45f);
         }
     }
 
@@ -78,9 +84,9 @@ class TablePoseTest {
                 @ForAll @DoubleRange(min = -4, max = 4) double down) {
             TablePose.Aim aim = TablePose.reaching(across, forward, down);
 
-            assertThat(aim.armSwing()).isGreaterThanOrEqualTo(-30f);
-            assertThat(aim.armSwing()).isLessThanOrEqualTo(100f);
-            assertThat(aim.armPitch()).isBetween(-15f, 95f);
+            assertThat(aim.armYaw()).isGreaterThanOrEqualTo(-45f);
+            assertThat(aim.armYaw()).isLessThanOrEqualTo(95f);
+            assertThat(aim.armPitch()).isBetween(0f, 100f);
         }
 
         @Property
@@ -98,10 +104,84 @@ class TablePoseTest {
         @Test
         @DisplayName("nobody pointing anywhere is a body at rest")
         void restingIsResting() {
-            assertThat(TablePose.Aim.RESTING.armSwing()).isZero();
+            assertThat(TablePose.Aim.RESTING.armYaw()).isZero();
             assertThat(TablePose.Aim.RESTING.armPitch()).isZero();
             assertThat(TablePose.Aim.RESTING.headYaw()).isZero();
             assertThat(TablePose.Aim.RESTING.headPitch()).isZero();
+        }
+    }
+
+    @Nested
+    @net.jqwik.api.Group
+    @DisplayName("reaching a table from a chair")
+    class ReachingATable {
+
+        /** A table's felt, measured from its own block, as {@code TableTop} has it. */
+        private static final double FELT_ABOVE_ITS_BLOCK = 15.02 / 16.0;
+
+        @Test
+        @DisplayName("a shoulder is above the felt, not below it")
+        void theShoulderIsAboveTheTable() {
+            // The defect this whole class was pulled out of the renderer for: the shoulder was put
+            // at hip height, the felt was above it, and every body at a table looked at the
+            // ceiling. A player sits no lower than the block their table stands on.
+            assertThat(TableReach.belowTheShoulder(0, FELT_ABOVE_ITS_BLOCK)).isGreaterThan(0);
+        }
+
+        @Test
+        @DisplayName("pointing at the table in front of you looks down at it")
+        void theHeadLooksDownAtTheTable() {
+            // Facing south, a table a block away, its felt below the shoulder.
+            TablePose.Aim aim = TableReach.toward(
+                    0, 0, 0, 0, true, 0, FELT_ABOVE_ITS_BLOCK, 1.0);
+
+            assertThat(aim.headPitch()).isGreaterThan(0f);
+            assertThat(aim.armPitch()).isGreaterThan(0f);
+        }
+
+        @Test
+        @DisplayName("the arm swings the way the cursor went")
+        void theArmFollowsAcross() {
+            TablePose.Aim left = TableReach.toward(
+                    0, 0, 0, 0, true, 1.0, FELT_ABOVE_ITS_BLOCK, 1.0);
+            TablePose.Aim right = TableReach.toward(
+                    0, 0, 0, 0, true, -1.0, FELT_ABOVE_ITS_BLOCK, 1.0);
+
+            // Facing south (+z), the player's right hand is to the west (-x). So a target at -x is
+            // further to their right than one at +x, and the arm has to turn further out for it.
+            assertThat(right.armYaw()).isGreaterThan(left.armYaw());
+        }
+
+        @Test
+        @DisplayName("a cursor crossing the felt moves the arm across it, not up and down")
+        void theArmFollowsTheCursorAcross() {
+            // Six places along the near edge of a table, left to right, from a seat facing it.
+            // What the owner saw twice was an arm pinned at its across-the-body clamp while only
+            // its pitch moved - so this asks for movement in the direction the cursor actually
+            // went, which is the thing that was missing rather than any particular angle.
+            float[] yaws = new float[6];
+            for (int step = 0; step < yaws.length; step++) {
+                double across = -0.9 + step * 0.36;
+                yaws[step] = TableReach.toward(
+                        0, 0, 0, 0, true, across, FELT_ABOVE_ITS_BLOCK, 0.9).armYaw();
+            }
+            for (int step = 1; step < yaws.length; step++) {
+                assertThat(yaws[step])
+                        .as("the arm stopped following at step " + step + " of " + java.util.Arrays.toString(yaws))
+                        .isLessThan(yaws[step - 1]);
+            }
+        }
+
+        @Property
+        @Label("a body at a table never looks up at it, wherever on the felt it points")
+        void nothingOnATableIsAboveTheShoulder(
+                @ForAll @DoubleRange(min = -8, max = 8) double across,
+                @ForAll @DoubleRange(min = -8, max = 8) double along,
+                @ForAll @DoubleRange(min = 0, max = 360) double bodyYaw) {
+            TablePose.Aim aim = TableReach.toward(
+                    0, 0, 0, bodyYaw, true, across, FELT_ABOVE_ITS_BLOCK, along);
+
+            assertThat(aim.headPitch()).isGreaterThanOrEqualTo(0f);
         }
     }
 

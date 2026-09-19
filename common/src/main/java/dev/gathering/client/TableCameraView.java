@@ -439,11 +439,28 @@ public final class TableCameraView {
      * entity, and item frames, armor stands and everything else somebody has arranged around
      * their table are part of the room they built - hiding those would be tidying up after
      * them. A player is the only thing here that is in the way rather than in the scene.
+     * <p><b>Except the people you are playing against.</b> Every player was hidden while a table
+     * was open, which left a board with nobody at it: four empty chairs and a game happening by
+     * itself. The players seated at <em>this</em> cluster are kept, because they are the game -
+     * and they are drawn at rest, hands at the table's edge, never following a cursor. An arm
+     * reaching out over the felt is foreshortened into a line by a camera looking straight down
+     * at it, so a pointing player at a pod would sweep their own arm across three other people's
+     * mats. That rule is {@link TableBodyPose}'s; this only decides who is there at all.
+     * <p>You are never drawn to yourself: your own body is directly under the camera and covers
+     * the middle of the board, which is the one player this always hid most reliably.
      * <p>The decision lives here rather than in either loader's mixin so the two cannot come
      * to different conclusions, which is the same reason {@link #wanted} does.
      */
     public static boolean hides(net.minecraft.world.entity.Entity entity) {
-        return entity instanceof net.minecraft.world.entity.player.Player && table != null;
+        BlockPos watching = table;
+        if (watching == null || !(entity instanceof net.minecraft.world.entity.player.Player player)) {
+            return false;
+        }
+        var client = net.minecraft.client.Minecraft.getInstance();
+        if (client.player != null && client.player.getUUID().equals(player.getUUID())) {
+            return true;
+        }
+        return !SeatedPlayers.isSeatedAt(player.getUUID(), watching);
     }
 
     /**

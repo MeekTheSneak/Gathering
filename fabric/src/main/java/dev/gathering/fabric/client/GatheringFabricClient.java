@@ -100,6 +100,15 @@ public final class GatheringFabricClient implements ClientModInitializer {
                         dev.gathering.client.PackFaceRenderer.render(stack, matrices, buffers, light));
 
         // The miniature on the table top, which is what makes a table worth more than a menu.
+        // The hand of cards a seated player holds. Every player renderer the game has, because
+        // "default" and "slim" are two models and a layer added to one is a hand of cards half
+        // the table does not have.
+        net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT
+                .register((entityType, renderer, helper, context) -> {
+                    if (renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer player) {
+                        helper.register(new dev.gathering.client.HandOfCardsLayer(player));
+                    }
+                });
         net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
                 GatheringContent.TABLE_ENTITY.get(),
                 dev.gathering.client.TableMiniatureRenderer::new);

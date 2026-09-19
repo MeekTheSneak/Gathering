@@ -108,6 +108,40 @@ public final class ChairSeat extends Entity {
         return false;
     }
 
+    /**
+     * A sitter faces the way the chair does, and may turn their head but not their shoulders.
+     * <p>The chair used to set only the player's <em>look</em> when they sat down, which is not
+     * what a body is drawn from: {@code yBodyRot} kept whatever direction they happened to be
+     * walking in, so a player sat down at a table facing across the room. Nobody noticed until a
+     * body at the table had an arm to point with - and then every angle it worked out was
+     * measured from the wrong forward, so the arm swung at the floor. The owner saw it
+     * (2026-09-19).
+     * <p>The head is clamped rather than fixed, the way a boat's is: you can look around, up to
+     * about where a neck stops, and your shoulders stay square to the table.
+     */
+    private void faceTheChair(Entity sitter) {
+        sitter.setYBodyRot(getYRot());
+        float turned = net.minecraft.util.Mth.wrapDegrees(sitter.getYRot() - getYRot());
+        float allowed = net.minecraft.util.Mth.clamp(turned, -HEAD_TURNS, HEAD_TURNS);
+        sitter.yRotO += allowed - turned;
+        sitter.setYRot(sitter.getYRot() + allowed - turned);
+        sitter.setYHeadRot(sitter.getYRot());
+    }
+
+    /** How far a sitter may turn their head from square, in degrees. A neck, not a swivel. */
+    private static final float HEAD_TURNS = 105f;
+
+    @Override
+    public void onPassengerTurned(Entity passenger) {
+        faceTheChair(passenger);
+    }
+
+    @Override
+    protected void positionRider(Entity passenger, MoveFunction move) {
+        super.positionRider(passenger, move);
+        faceTheChair(passenger);
+    }
+
     @Override
     public void tick() {
         super.tick();

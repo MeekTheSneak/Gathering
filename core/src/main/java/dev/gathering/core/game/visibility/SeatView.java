@@ -31,17 +31,16 @@ public record SeatView(
         java.util.Set<SeatId> handShownTo,
         dev.gathering.core.card.Sleeve sleeve,
         Map<Zone, ZoneView> zones,
-        int mulligans,
-        int owedToBottom) {
+        int mulligans) {
 
-    /** A seat that has taken no mulligan and owes nothing to the bottom. */
+    /** A seat that has taken no mulligan. */
     public SeatView(
             SeatId seat, PlayerRef player, PlayerRef lastPlayer, int life,
             Map<CardInstanceId, Integer> commanderDamage, Map<CardInstanceId, Integer> commanderTax,
             java.util.List<CardInstanceId> commanders, Map<String, Integer> counters, boolean conceded,
             java.util.Set<SeatId> handShownTo, dev.gathering.core.card.Sleeve sleeve, Map<Zone, ZoneView> zones) {
         this(seat, player, lastPlayer, life, commanderDamage, commanderTax, commanders, counters, conceded,
-                handShownTo, sleeve, zones, 0, 0);
+                handShownTo, sleeve, zones, 0);
     }
 
     public SeatView {

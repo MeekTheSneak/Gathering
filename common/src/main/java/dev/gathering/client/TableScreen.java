@@ -943,6 +943,10 @@ public final class TableScreen extends Screen {
      */
     private double[] pointer(double mouseX, double mouseY) {
         if (!playingOnTheBlock) {
+            // The body follows the cursor from this view too. It is the view most games are
+            // actually played in, and a pointer that only worked on the block was a pointer
+            // nobody ever saw - the arm sat still through a whole game.
+            tellTheTableWhereIAmPointing(geometry.feltPointAt(mouseX, mouseY));
             return new double[] {mouseX, mouseY};
         }
         if (mouseX == askedX && mouseY == askedY) {
@@ -957,12 +961,21 @@ public final class TableScreen extends Screen {
         // What the body follows, taken from the point the screen has already worked out rather
         // than picked again from a tick: the picker answers from matrices captured while the
         // world was drawn and is only true inside a frame.
-        if (answered == null) {
-            TablePointSender.notHovering();
-        } else {
-            TablePointSender.hovering(table, answered[0], answered[1]);
-        }
+        tellTheTableWhereIAmPointing(answered);
         return answered;
+    }
+
+    /**
+     * Hands the point the cursor is over to the thing that tells the table about it.
+     * <p>Off the felt is a real answer and the one that puts the arm down: the cursor over a
+     * menu, off the edge of the table, or on the floor beyond it.
+     */
+    private void tellTheTableWhereIAmPointing(double[] onTheFelt) {
+        if (onTheFelt == null || !board().surface().holds(onTheFelt[0], onTheFelt[1])) {
+            TablePointSender.notHovering();
+            return;
+        }
+        TablePointSender.hovering(table, onTheFelt[0], onTheFelt[1]);
     }
 
     /**
@@ -2329,9 +2342,12 @@ public final class TableScreen extends Screen {
 
     /**
      * What the rules still ask of this player that this button is about, or null.
-     * <p>Mulligan: the London mulligan's cards owed to the bottom (103.5). Draw: going first in a
-     * two-player game, the first turn's draw is skipped (103.8a). Reminders, never rules: the
-     * button does exactly what it always does.
+     * <p>Draw: going first in a two-player game, the first turn's draw is skipped (103.8a). A
+     * reminder, never a rule: the button does exactly what it always does.
+     * <p>Mulligan used to carry one too - the London mulligan's cards owed to the bottom
+     * (103.5) - and the owner had it taken out (2026-09-19). The mod cannot know whether this
+     * table plays free mulligans or whether something on the board says otherwise, and a count
+     * printed under a button reads as an instruction rather than as a note.
      */
     private Component reminderFor(TableVerb verb) {
         SeatId me = mySeat().orElse(null);
@@ -2341,10 +2357,6 @@ public final class TableScreen extends Screen {
             return null;
         }
         return switch (verb) {
-            case MULLIGAN -> {
-                int owed = shown.seat(me).owedToBottom();
-                yield owed > 0 ? Component.translatable("screen.gathering.table.mulligan_owed", owed) : null;
-            }
             case DRAW -> dev.gathering.core.game.FirstDraw.isSkippedBy(shown.players(), shown.turn(), me)
                     ? Component.translatable("screen.gathering.table.first_turn_no_draw")
                     : null;
@@ -2718,10 +2730,10 @@ public final class TableScreen extends Screen {
             return;
         }
         int row = 0;
-        // What the rules still ask of this player - cards a mulligan owes the bottom, the draw
-        // going first skips - said in words over the hand. Each was a lit pip in the corner of
-        // the button it is about, and a player who had just mulliganed saw a mark appear and
-        // could not tell what it wanted of them. Reminders, never rules.
+        // What the rules still ask of this player - the draw going first skips - said in words
+        // over the hand. It was a lit pip in the corner of the button it is about, and a player
+        // who saw a mark appear could not tell what it wanted of them. Reminders, never rules,
+        // and fewer of them than there were: see reminderFor for the one that was taken out.
         // Not during the lesson, which says what to do next itself: a second voice over the hand
         // talking about mulligans and first draws was one too many.
         for (TableVerb verb : TableVerb.values()) {
@@ -4937,14 +4949,9 @@ public final class TableScreen extends Screen {
             entries.add(entry("draw_many", () -> ask("draw_many", 1,
                     count -> send(new GameEvent.CardsDrawn(me, me, count)))));
             entries.add(entry("mulligan", () -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND))));
-            // Only while something is owed. The reminder over the hand is the mod's own counting,
-            // and a table that agreed to free mulligans - or a player who bottomed their cards by
-            // hand rather than through this menu - had no way to put it down but to move that many
-            // cards, which is this mod telling somebody how to play.
-            GameView owing = view().orElse(null);
-            if (owing != null && owing.seat(me).owedToBottom() > 0) {
-                entries.add(entry("bottoming_done", () -> send(new GameEvent.BottomingDone(me, me))));
-            }
+            // No "done bottoming" beside it. That entry existed only to put down a count this mod
+            // was keeping, and the count is gone - see reminderFor. Putting cards under a library
+            // is a move like any other, and the menu already has one.
             entries.add(entry("scry", () -> ask("scry", 1, count -> {
                 send(new GameEvent.LibraryLooked(me, me, count));
                 decideOnLibrary(me, PileScreen.Decision.SCRY);
@@ -6379,16 +6386,11 @@ public final class TableScreen extends Screen {
      * it saved a keystroke and cost the rule the rest of the table is trusting.
      */
     private void passTurn(GameView board, SeatId me) {
-        // Handing on your own turn with more than seven in hand: the cleanup step's discard,
-        // said once over the hotbar. Never done - see HandSize.
-        if (board.turn().activeSeat().equals(me) && this.minecraft != null && this.minecraft.player != null
-                && board.seats().stream().anyMatch(seat -> seat.seat().equals(me))) {
-            int over = dev.gathering.core.game.HandSize.overBy(count(board.seat(me), Zone.HAND));
-            if (over > 0) {
-                ScreenNotice.tell(
-                        Component.translatable("message.gathering.hand_over_maximum", over));
-            }
-        }
+        // Nothing said about hand size. It used to count your hand as you passed and tell you to
+        // discard down to seven, which is the mod knowing a rule - and it does not know whether
+        // the player has something on the board that says otherwise, which is exactly the owner's
+        // objection (2026-09-19). Anything that tells a player what the rules are is a step from
+        // telling them what they may do.
         send(new GameEvent.TurnPassed(me, board.nextSeatWithABoard(board.turn().activeSeat())));
     }
 

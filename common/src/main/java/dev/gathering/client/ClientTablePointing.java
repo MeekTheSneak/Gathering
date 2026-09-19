@@ -88,6 +88,7 @@ public final class ClientTablePointing {
                     had.table(), had.surfaceX(), had.surfaceY(), fromX, fromY, tick, false));
             return;
         }
+        PoseProbe.sawPointer(payload);
         POINTERS.put(payload.player(), new Pointing(payload.table(),
                 payload.surfaceX(), payload.surfaceY(), fromX, fromY, tick, true));
     }

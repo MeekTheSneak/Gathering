@@ -4102,10 +4102,12 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 348 -> {
-                // A mulligan owes cards to the bottom, and the board has to say so in words. It was a
-                // lit pip in the corner of the Mulligan button, and the owner, having just mulliganed,
-                // could not tell what the mark wanted.
-                // Twice: at a table of eight the first mulligan is free (103.5c), and owes nothing.
+                // A mulligan takes the hand back and deals a new one, and says nothing about what
+                // to do next. It used to count the cards the London mulligan asks for and print
+                // the number over the hand; the owner had that out (2026-09-19), because the mod
+                // cannot know what this table has agreed or what is on the board.
+                // Twice, because one was never the interesting case: what is checked below is that
+                // neither of them puts an instruction on the screen.
                 // The steps from here on are at that table, not the one the tour began at.
                 if (client.screen instanceof TableScreen eight) {
                     ofEight = eight.tablePosition();
@@ -4118,13 +4120,17 @@ public final class DevScene {
                 if (client.screen instanceof TableScreen owing) {
                     String said = String.join(" / ", owing.handBands);
                     System.out.println("[devscene] over the hand after a mulligan: " + said);
-                    if (owing.handBands.stream().noneMatch(band -> band.contains("bottom") && band.contains("1"))) {
-                        fail("a mulligan owed one card to the bottom and the hand said \"" + said + "\"");
+                    // The other way round from what this used to assert. Nothing over the hand may
+                    // tell a player to put cards anywhere: the mod does not know whether this table
+                    // plays free mulligans, and a count printed under the button reads as an
+                    // instruction. This is the guard for that, in the only place it can be seen.
+                    if (owing.handBands.stream().anyMatch(band -> band.toLowerCase().contains("bottom"))) {
+                        fail("a mulligan told the player what to do with their cards: \"" + said + "\"");
                     }
                 } else {
                     fail("no board to mulligan at");
                 }
-                shoot(client, "107c-a-mulligan-owes-the-bottom");
+                shoot(client, "107c-a-mulligan-says-nothing-about-the-bottom");
                 // Searching a library is typing a name, and the box has to be there and listening
                 // the moment the library opens.
                 SeatId searcher = ClientTableState.seatAt(ofEight).orElse(null);
