@@ -178,6 +178,17 @@ public final class ClientTableState {
     }
 
     /**
+     * Every table this client is holding a board for, in no order.
+     * <p>A copy, because {@code BOARDS} is written from the network hand-off and this is walked
+     * from the render thread. Small by construction - the map is bounded - and walked once per
+     * drawn player per frame by {@link SeatedPlayers}, which is why it hands back the keys rather
+     * than the boards.
+     */
+    public static java.util.List<BlockPos> tablesInSight() {
+        return java.util.List.copyOf(BOARDS.keySet());
+    }
+
+    /**
      * The board at this position, whoever is keeping it.
      * <p>The guided first game's board is built in this client rather than sent by a server,
      * and it is filed at a position no table can occupy - so a lookup by position is exactly
