@@ -53,7 +53,14 @@ public final class TableBodyPose {
      * pose applies and the arm is simply at rest.
      */
     public static boolean poses(Player player) {
-        return player != null && SeatedPlayers.of(player.getUUID()).isPresent();
+        // In a chair, not merely holding a seat. A seat outlives standing up on purpose - it is
+        // what keeps your place while you are away from the board - so a player who had stood up
+        // and walked off went on holding their cards and pointing at the felt from across the
+        // room. The owner saw it (2026-09-18); it is the same confusion the table's own gestures
+        // had, and the same answer.
+        return player != null
+                && player.getVehicle() instanceof dev.gathering.block.ChairSeat
+                && SeatedPlayers.of(player.getUUID()).isPresent();
     }
 
     /**
@@ -81,6 +88,9 @@ public final class TableBodyPose {
      */
     public static TablePose.Aim aimOf(Player player, float partialTick) {
         if (player == null || everybodyIsStill()) {
+            return TablePose.Aim.RESTING;
+        }
+        if (!poses(player)) {
             return TablePose.Aim.RESTING;
         }
         SeatedPlayers.Seated seated = SeatedPlayers.of(player.getUUID()).orElse(null);
@@ -188,6 +198,9 @@ public final class TableBodyPose {
      */
     public static Optional<SeatedPlayers.Seated> fanOf(Player player) {
         if (player == null) {
+            return Optional.empty();
+        }
+        if (!poses(player)) {
             return Optional.empty();
         }
         // An empty hand holds nothing: a fan of no cards drew a sliver at the wrist.

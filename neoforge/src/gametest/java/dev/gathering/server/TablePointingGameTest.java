@@ -111,7 +111,15 @@ public final class TablePointingGameTest {
         helper.succeed();
     }
 
-    /** Standing up puts the arm down, for everybody who was watching it. */
+    /**
+     * Standing up puts the arm down, for everybody who was watching it.
+     * <p>Through getting out of the chair rather than by calling the stop directly, because a seat
+     * survives standing up and that is the whole trap: a player who stood and walked off went on
+     * pointing at the felt from across the room, since everything asked whether they held a seat
+     * and holding a seat is exactly what standing up does not change. The owner saw it in a
+     * running game (2026-09-18). Whether the seat itself is kept is {@code AwayFromBoard}'s rule
+     * and has its own tests; what is checked here is only that the arm comes down.
+     */
     @GameTest(template = "tables")
     public static void standingUpStopsThePointer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -119,6 +127,10 @@ public final class TablePointingGameTest {
         ServerPlayer pointing = seat(level, origin, helper, 0);
         ServerPlayer watching = helper.makeMockServerPlayerInLevel();
         watching.setPos(origin.getCenter());
+        dev.gathering.block.ChairSeat chair = dev.gathering.block.ChairSeat.in(
+                level, origin.above(), origin);
+        level.addFreshEntity(chair);
+        pointing.startRiding(chair, true);
 
         List<TablePointingPayload> said = java.util.Collections.synchronizedList(new ArrayList<>());
         UUID arm = pointing.getUUID();
@@ -129,10 +141,11 @@ public final class TablePointingGameTest {
         });
         TablePointing.handle(pointing, new TablePointPayload(origin, ON_THE_FELT, ON_THE_FELT, true));
         said.clear();
-        TablePointing.stopped(pointing);
+        // The real gesture: out of the chair.
+        pointing.stopRiding();
 
         if (said.isEmpty()) {
-            helper.fail("a player stopped pointing and nobody was told, so the arm stays out");
+            helper.fail("a player stood up and nobody was told, so the arm stays out over the felt");
             return;
         }
         if (said.stream().anyMatch(TablePointingPayload::pointing)) {

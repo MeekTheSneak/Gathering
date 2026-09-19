@@ -4270,3 +4270,25 @@ tests in a batch run alongside each other: whichever test started last owned the
 other test reading it passed by observing nothing. It is a watcher list now, the same as
 `TablePointing`, and each watcher filters on the players its own test cares about. 689 in-world
 tests.
+
+## 2026-09-18: standing up puts the arm down
+
+Found by the owner the moment the body hooks were in a running client: get up from a table without
+conceding and your character went on holding its cards and pointing at the felt from wherever it
+had walked to.
+
+**The same confusion as the seat bug, on the drawing side.** `TableBodyPose.poses` asked whether the
+player *held* a seat, and holding a seat is exactly what standing up is designed not to change.
+It asks whether they are in the chair now - riding a `ChairSeat` - and the fan asks the same
+question, so a standing player holds nothing up either. The server already stopped the pointer on
+`Chairs.gotUp`; what was wrong was that the pose did not need a pointer to apply.
+
+**The guard goes through getting out of the chair**, not through calling the stop directly, because
+the direct call is the version that would have passed while the bug was live. With the stop removed
+from `gotUp` it fails.
+
+**Two fixture mistakes worth writing down**, both of which read as bugs in the code at first. A
+table with no game gives the seat up when you stand, so "the seat survives standing" is only true
+mid-game - and even then only for somebody with cards in a zone or a deck down, which
+`AwayFromBoard.keepsTheSeat` decides. That is its own rule with its own tests; this one checks only
+that the arm comes down.
