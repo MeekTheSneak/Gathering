@@ -13,7 +13,7 @@ automated.
 
 | | |
 |---|---|
-| **Version** | 0.3.1 (pre-release) |
+| **Version** | 0.3.5 (pre-release) |
 | **Minecraft** | 1.21.1 |
 | **Loaders** | NeoForge 21.1.1+ and Fabric (Loader 0.15.11+, Fabric API 0.102.0+) |
 | **Players** | Singleplayer, LAN, or a dedicated server |
