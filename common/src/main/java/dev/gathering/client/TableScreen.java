@@ -627,6 +627,15 @@ public final class TableScreen extends Screen {
             geometry = new BoardGeometry(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
             onBlock = new SurfaceBoard(anchors());
+            // On the real board, unless this player has said otherwise. It is the table they
+            // built, with cards lying on it, and it is what the mod is - worth seeing before a
+            // flat diagram of it. The flat one is still a key away and is remembered once chosen,
+            // which is what makes it the competitive player's board rather than a hidden mode.
+            //
+            // Not while learning: the lesson drives the flat board's own rectangles and reads
+            // them back, so a lesson that opened on the block would be pointing at places the
+            // learner is not looking.
+            playingOnTheBlock = !mode.isLearning() && ClientSettings.playOnTheBlock();
             // Opened on your own board rather than on the whole table: see focusOn. Somebody
             // with no seat has no own board to open on, and used to get whatever the camera
             // happened to be constructed with - which put the far player's zones off the top
@@ -1061,6 +1070,10 @@ public final class TableScreen extends Screen {
      */
     private void useTheBlock(boolean wanted) {
         playingOnTheBlock = wanted;
+        // Remembered, because which board you play on is a preference and not a mode: a player
+        // who prefers the flat one should not have to say so at every table, and a player who
+        // has never said anything gets the real one. See ClientSettings#playOnTheBlock.
+        ClientSettings.playOnTheBlock(wanted);
         forgetThePointer();
         gesture.cancel();
         if (wanted) {
@@ -1266,16 +1279,17 @@ public final class TableScreen extends Screen {
             // screen rather than to the table. Card art is drawn above plain text, so without
             // this a mat, a counter or a card slid under the strip would cover what it says.
             graphics.enableScissor(0, layout().status().bottom(), this.width, this.height);
-            renderMats(graphics, board);
+            GameView measuring = board;
+            RenderProbe.part("mats", () -> renderMats(graphics, measuring));
             // Kept between the strip along the top and your own hand, for the reason the pot
             // is: a fan fixed to the table can be carried under either by the camera, and
             // card art is drawn over plain text.
             graphics.enableScissor(tableArea().x(), tableArea().y(),
                     tableArea().right(), tableArea().bottom());
-            renderOtherHands(graphics, board);
+            RenderProbe.part("hands", () -> renderOtherHands(graphics, measuring));
             graphics.disableScissor();
-            renderVerbs(graphics, mouseX, mouseY);
-            renderPiles(graphics, board, mouseX, mouseY);
+            RenderProbe.part("verbs", () -> renderVerbs(graphics, mouseX, mouseY));
+            RenderProbe.part("piles", () -> renderPiles(graphics, measuring, mouseX, mouseY));
             // Under the cards in play. The pot is beside the table rather than in the game, and
             // a card dragged off the east edge should pass over it rather than under.
             // Kept between the strip along the top and the hand: panned or zoomed, the column
@@ -1283,11 +1297,16 @@ public final class TableScreen extends Screen {
             // scripted client once photographed staked cards over whose turn it is.
             graphics.enableScissor(tableArea().x(), tableArea().y(),
                     tableArea().right(), tableArea().bottom());
-            renderPot(graphics, mouseX, mouseY);
+            RenderProbe.part("pot", () -> renderPot(graphics, mouseX, mouseY));
             graphics.disableScissor();
 
+            long walkBegan = System.nanoTime();
             List<Placed> onTable = everythingOnTheTable(board);
+            RenderProbe.note("walk", System.nanoTime() - walkBegan);
             hovered = frontMostAt(onTable, mouseX, mouseY);
+            int drawn = 0;
+            int skipped = 0;
+            long cardsBegan = System.nanoTime();
             long flying = ClientCardFlights.now();
         // Asked once for the frame rather than once per card: see ClientCardFlights#flyingAt.
         java.util.Set<CardInstanceId> inTheAir = ClientCardFlights.flyingAt(table, flying);
@@ -1302,6 +1321,7 @@ public final class TableScreen extends Screen {
                     continue;
                 }
                 if (isOffScreen(placed.where())) {
+                    skipped++;
                     // Reported as "GUI Table gets laggy when zooming in", and this is where
                     // the cost is: zooming in does not draw fewer cards, it draws the same
                     // cards bigger, and the ones that have gone off the edges were still
@@ -1310,14 +1330,18 @@ public final class TableScreen extends Screen {
                     // share gets, which is exactly the shape of the complaint.
                     continue;
                 }
+                drawn++;
                 drawCard(graphics, placed.card(), CardSleeves.of(board, placed.seat()),
                         placed.where(), placed.angle(),
                         placed == hovered || isSelected(placed.card()), true);
             }
-            renderPileBadges(graphics, board, onTable);
-            renderOwnerBadges(graphics, onTable);
-            renderFlights(graphics, board);
+            RenderProbe.note("cards", System.nanoTime() - cardsBegan);
+            List<Placed> counted = onTable;
+            RenderProbe.part("pileBadges", () -> renderPileBadges(graphics, measuring, counted));
+            RenderProbe.part("ownerBadges", () -> renderOwnerBadges(graphics, counted));
+            RenderProbe.part("flights", () -> renderFlights(graphics, measuring));
             graphics.disableScissor();
+            RenderProbe.frame(drawn, skipped);
             if (hovered == null && tooltip.isEmpty()) {
                 List<Component> life = tipForLife(board, mouseX, mouseY);
                 if (life != null) {
@@ -1629,15 +1653,19 @@ public final class TableScreen extends Screen {
             boolean taken = seat.hasABoard();
             if (taken) {
                 boolean mine = me != null && me.equals(seat.seat());
+                long began = System.nanoTime();
                 GatheringSprites.draw(graphics, mine ? Element.SEAT_MAT_MINE : Element.SEAT_MAT,
                         mat.x(), mat.y(), mat.width(), mat.height());
+                RenderProbe.note("mat.felt", System.nanoTime() - began);
             }
             // The seat's own color, which is how four identical rectangles become four
             // boards. Brighter for whoever's turn it is, faint for a chair nobody is in.
+            long ringBegan = System.nanoTime();
             GatheringSprites.draw(graphics, Element.SEAT_RING,
                     mat.x(), mat.y(), mat.width(), mat.height(),
                     SeatColor.at(seat.seat().index(), !taken ? FREE_SEAT_EDGE
                             : seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
+            RenderProbe.note("mat.ring", System.nanoTime() - ringBegan);
             if (!taken) {
                 continue;
             }
@@ -1648,7 +1676,9 @@ public final class TableScreen extends Screen {
                 GatheringSprites.draw(graphics, Element.SEAT_DIVIDER,
                         divider.x(), divider.y(), divider.width(), divider.height());
             }
+            long lifeBegan = System.nanoTime();
             drawLife(graphics, seat);
+            RenderProbe.note("mat.life", System.nanoTime() - lifeBegan);
             drawCountersOnTheMat(graphics, seat);
         }
     }
@@ -5891,7 +5921,7 @@ public final class TableScreen extends Screen {
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_V -> {
                 // Between the two boards. Same game either way; only the place you are
-                // looking at it from changes.
+                // looking at it from changes, and which one you were last on is remembered.
                 useTheBlock(!playingOnTheBlock);
                 return true;
             }

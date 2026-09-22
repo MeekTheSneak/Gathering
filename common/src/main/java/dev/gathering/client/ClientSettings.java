@@ -60,6 +60,8 @@ public final class ClientSettings {
     private static final String REDUCED_MOTION_KEY = "accessibility.reduced_motion";
     private static final String EFFECTS_KEY = "accessibility.effect_intensity";
     private static final String HOLD_TO_INSPECT_KEY = "accessibility.hold_to_inspect";
+
+    private static final String PLAY_ON_THE_BLOCK_KEY = "table.play_on_the_block";
     private static final String TABLE_SOUNDS_KEY = "feedback.table_sounds";
     private static final String SOUND_VOLUME_KEY = "feedback.table_sound_volume";
     private static final String TURN_NOTICE_KEY = "feedback.turn_notification";
@@ -90,6 +92,15 @@ public final class ClientSettings {
     private static boolean reducedMotion;
     private static int effectIntensity = 100;
     private static boolean holdToInspect = true;
+
+    /**
+     * Whether a table opens on the real board rather than the flat one.
+     * <p>On, because the real board is what the mod is: a table in a world with cards lying on
+     * it, which is worth seeing before anything else. The flat board is the one to switch to when
+     * a game gets competitive and every pixel is a tool - so it stays, and this is which one you
+     * come back to. The owner settled it (2026-09-22).
+     */
+    private static boolean playOnTheBlock = true;
     private static boolean tableSounds = true;
     private static int soundVolume = 100;
     private static boolean turnNotification = true;
@@ -155,6 +166,12 @@ public final class ClientSettings {
     public static boolean holdToInspect() {
         load();
         return holdToInspect;
+    }
+
+    /** Whether a table opens on the real board in the world rather than on the flat one. */
+    public static boolean playOnTheBlock() {
+        load();
+        return playOnTheBlock;
     }
 
     /** Whether this client plays the table's own sounds at all. */
@@ -262,6 +279,14 @@ public final class ClientSettings {
         load();
         if (wanted != holdToInspect) {
             holdToInspect = wanted;
+            changed();
+        }
+    }
+
+    public static void playOnTheBlock(boolean wanted) {
+        load();
+        if (wanted != playOnTheBlock) {
+            playOnTheBlock = wanted;
             changed();
         }
     }
@@ -471,6 +496,7 @@ public final class ClientSettings {
             reducedMotion = read.flag(REDUCED_MOTION_KEY, false);
             effectIntensity = Math.clamp(read.number(EFFECTS_KEY, 100), 0, 100);
             holdToInspect = read.flag(HOLD_TO_INSPECT_KEY, true);
+            playOnTheBlock = read.flag(PLAY_ON_THE_BLOCK_KEY, true);
             tableSounds = read.flag(TABLE_SOUNDS_KEY, true);
             soundVolume = Math.clamp(read.number(SOUND_VOLUME_KEY, 100), 0, 100);
             turnNotification = read.flag(TURN_NOTICE_KEY, true);
@@ -586,6 +612,13 @@ public final class ClientSettings {
         text.append("# Whether reading a card means holding the key, or pressing it to toggle.\n");
         text.append("hold_to_inspect = ").append(holdToInspect).append("\n\n");
         text.append("""
+                [table]
+                # Whether a table opens on the real board in the world, or on the flat one.
+                # Both play the same game and have the same verbs; the flat one is easier to
+                # read at a glance and the real one is the table you built.
+                """);
+        text.append("play_on_the_block = ").append(playOnTheBlock).append("\n\n");
+        text.append("""
                 [feedback]
                 # The table's own sounds, and how loud they are here. Minecraft's own volume
                 # sliders still apply on top of this.
@@ -663,6 +696,7 @@ public final class ClientSettings {
         written.put(REDUCED_MOTION_KEY, Boolean.toString(reducedMotion));
         written.put(EFFECTS_KEY, Integer.toString(effectIntensity));
         written.put(HOLD_TO_INSPECT_KEY, Boolean.toString(holdToInspect));
+        written.put(PLAY_ON_THE_BLOCK_KEY, Boolean.toString(playOnTheBlock));
         written.put(TABLE_SOUNDS_KEY, Boolean.toString(tableSounds));
         written.put(SOUND_VOLUME_KEY, Integer.toString(soundVolume));
         written.put(TURN_NOTICE_KEY, Boolean.toString(turnNotification));

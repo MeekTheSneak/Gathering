@@ -4299,6 +4299,45 @@ that the arm comes down.
   the owner then asked for the bottoming reminder gone in its entirety, so there is no first-time
   case left to special-case. Nothing asks for a card to the bottom at all.
 
+- **The flat board's lag: cause found, fix not yet.** Measured with `RenderProbe`
+  (`-Prenderdebug`) rather than guessed at, which matters because the previous attempt guessed -
+  it culled off-screen cards, wrote the owner's complaint into the comment beside the guess, and
+  the complaint came back unchanged. The cost is not the cards:
+
+      mats 3.25ms/frame | cards 0.01ms | piles 0.26ms | hands 0.00ms
+      inside mats:  mat.felt 0.41ms | mat.ring 2.77ms | mat.life 0.07ms
+
+  `mat.ring` and `mat.felt` are the same sprite at the same size. The ring is tinted in the
+  seat's color, and the tint was applied by setting a shader color before the draw and resetting
+  it after - which breaks the draw batch on both sides, so every tinted rectangle is its own
+  submission and the reset is another. Seven times the cost, per ring, per seat, per frame, and
+  it explains why culling cards did nothing.
+
+  **The obvious fix does not work.** Handing the tint to `GuiGraphics#blitSprite`'s color
+  argument instead compiles and is the right API, but the scripted client then hangs at step 5a
+  at full CPU with no exception, every run; reverting it, the same segment completes. A/B'd twice.
+  Something about that path is not equivalent for these sprites and it needs finding before the
+  change goes anywhere near the gate. What is worth keeping from the attempt is the shape of the
+  answer: the win is in not changing shader color per rectangle, whether that comes from a tinted
+  blit or from batching the rings so one color change covers all of them.
+
+  *Measurement hygiene, learned the hard way here:* the first numbers were contaminated. The
+  scripted tour arms the cramped-draw diagnostic, which walked the stack on every cramped draw -
+  sixty times a second for the run. That is now bounded to once per element, but the first
+  reading was of the tour rather than of a player, and was very nearly acted on.
+
+- **The two board views have to be one feature set.** The owner played a four-player game
+  (2026-09-22): the only bugs were the ones already reported, but the flat GUI board is laggy,
+  "especially when zooming in", and he would rather make the board-on-the-block the default - or
+  drop the flat one entirely - than keep a slow view. **If either of those happens, the block view
+  must first have every feature the flat one has, with no discrepancy at all.** His words.
+  *What is actually different today:* almost nothing, because one screen drives both and
+  `board()` hands it whichever placement applies. The exceptions are all drop feedback that the
+  seated screen draws and the block view leaves to the world renderer - the landing mat's outline,
+  the slot footprint a card snaps into, and the ring around a stack a card would join. Before the
+  flat view goes anywhere, each of those needs checking in a running client to confirm the world
+  genuinely draws an equivalent rather than nothing.
+
 - **Table presence, the last of it.** Each seat's hand drawn on the felt below its mat, using the
   same fan the bodies hold, so the two views agree about what a hand looks like; and a scripted
   step that *asserts* an arm angle rather than photographing it. See `docs/prompts/table-presence.md`

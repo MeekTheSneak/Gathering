@@ -45,6 +45,10 @@ neoForge {
             if (project.hasProperty('posedebug')) {
                 systemProperty 'gathering.posedebug', '1'
             }
+            // -Prenderdebug says where a frame of the board goes. See RenderProbe.
+            if (project.hasProperty('renderdebug')) {
+                systemProperty 'gathering.renderdebug', '1'
+            }
             // Opt-in rendering characterization; only development runs include the probe.
             if (project.hasProperty('screenRefactorScene')) {
                 systemProperty 'gathering.screenRefactorScene', project.property('screenRefactorScene')

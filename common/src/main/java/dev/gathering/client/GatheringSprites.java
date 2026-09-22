@@ -431,8 +431,16 @@ public final class GatheringSprites {
         if (!watchingForCramped) {
             return;
         }
-        // Where it was drawn from, so the box can be found rather than hunted for. Walking the stack
-        // is dear and this only ever runs while a tour is on and only for a draw already too small.
+        // Once per element; the second one costs a map lookup. Walking the stack is dear and "only
+        // while a tour is on" turned out not to be the bound it reads as - a cramped element is
+        // usually cramped in every frame it is drawn in, so a tour walked the stack sixty times a
+        // second for its whole run. Found while measuring something else, in a number that was
+        // never a player's.
+        synchronized (CRAMPED) {
+            if (CRAMPED.containsKey(element.name())) {
+                return;
+            }
+        }
         String from = "";
         for (StackTraceElement at : Thread.currentThread().getStackTrace()) {
             if (at.getClassName().startsWith("dev.gathering.")
