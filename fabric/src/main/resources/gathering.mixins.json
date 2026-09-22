@@ -4,7 +4,8 @@
   "package": "dev.gathering.fabric.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "CreativeSlotMixin"
+    "CreativeSlotMixin",
+    "ExplosionMixin"
   ],
   "client": [
     "CameraMixin",

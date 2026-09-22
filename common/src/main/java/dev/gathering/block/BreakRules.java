@@ -54,6 +54,65 @@ public final class BreakRules {
     }
 
     /**
+     * Whether an explosion has to leave this block where it is.
+     * <p>A creeper wandering into a shop is not an argument anybody was having. Everything the
+     * by-hand rules above refuse is refused because somebody is using it or something of theirs is
+     * inside it, and none of those reasons stops being true because the thing that arrived was TNT
+     * instead of a pickaxe - so the same list, minus the parts that need a player to ask about.
+     * <p>The owner's report was a table blown up mid-game (2026-09-22) and his instruction was to
+     * look for the rest of it, which is what this is: a seat somebody is in, a tournament being
+     * scored, a cabinet with cards in it, a case with a card on show, and a trophy somebody won.
+     * <p>Deliberately not every block the mod has. An empty table, a spare chair and a bare
+     * counter are furniture, and furniture in a world with TNT in it is furniture that can be
+     * blown up - making the mod's blocks blast-proof as a family would be a mod deciding how
+     * somebody's world works.
+     */
+    public static boolean survivesExplosions(BlockGetter level, BlockPos pos) {
+        if (!TableSeats.mayBreak(level, pos)) {
+            return true;
+        }
+        if (level instanceof net.minecraft.world.level.Level world) {
+            // A chair with somebody in it, whether or not a game is on: blowing it up stands them
+            // out of a seat they were sitting in, which is the same thing breaking it by hand is
+            // refused for.
+            if (level.getBlockState(pos).getBlock() instanceof ChairBlock
+                    && !world.getEntitiesOfClass(
+                            ChairSeat.class, new net.minecraft.world.phys.AABB(pos)).isEmpty()) {
+                return true;
+            }
+            // A table of a cluster with a game on, wherever in the cluster the charge went off.
+            net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+            if (state.getBlock() instanceof TableBlock
+                    && TableSessions.hasSession(world, TableBlock.originOf(state, pos))) {
+                return true;
+            }
+        }
+        net.minecraft.world.level.block.entity.BlockEntity entity = level.getBlockEntity(pos);
+        if (entity instanceof CollectionBlockEntity collection) {
+            return !collection.cards().isEmpty();
+        }
+        if (entity instanceof DisplayCaseBlockEntity display) {
+            return !display.isEmpty();
+        }
+        if (entity instanceof ScorekeepersDeskBlockEntity desk) {
+            return desk.event().isPresent();
+        }
+        if (entity instanceof TrophyBlockEntity trophy) {
+            return trophy.engraved().isEngraved();
+        }
+        return false;
+    }
+
+    /**
+     * How hard this block is for an explosion to take, given the above.
+     * <p>Obsidian's own number, near enough: the point is not that it is stronger than TNT by some
+     * margin, it is that it is not going anywhere.
+     */
+    public static float explosionResistance(BlockGetter level, BlockPos pos, float ordinarily) {
+        return survivesExplosions(level, pos) ? 1200f : ordinarily;
+    }
+
+    /**
      * After a break was refused: sends the table the block belongs to out to clients again, block and
      * everything the table carries.
      * <p>The client does not wait to be told. It breaks the block the moment the swing lands, and for a
