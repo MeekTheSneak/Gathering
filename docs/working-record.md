@@ -4314,8 +4314,13 @@ that the arm comes down.
   it explains why culling cards did nothing.
 
   **The obvious fix does not work.** Handing the tint to `GuiGraphics#blitSprite`'s color
-  argument instead compiles and is the right API, but the scripted client then hangs at step 5a
-  at full CPU with no exception, every run; reverting it, the same segment completes. A/B'd twice.
+  argument instead compiles and is the right API - the 1.21.1 overload really is
+  `(sprite, x, y, width, height, color)`, and `SeatColor.at` really does return ARGB - but the
+  scripted client then hangs at step 5a at full CPU with no exception, every run.
+  *Isolated properly on the third try:* the first A/B reverted the whole file and so compared
+  "tint change plus stack-walk bound" against "neither", which proves nothing about either. The
+  shipped tree - stack-walk bound, no tint change - runs the same segment to completion, so the
+  tint change is the cause and the bound is not.
   Something about that path is not equivalent for these sprites and it needs finding before the
   change goes anywhere near the gate. What is worth keeping from the attempt is the shape of the
   answer: the win is in not changing shader color per rectangle, whether that comes from a tinted
@@ -4331,12 +4336,15 @@ that the arm comes down.
   "especially when zooming in", and he would rather make the board-on-the-block the default - or
   drop the flat one entirely - than keep a slow view. **If either of those happens, the block view
   must first have every feature the flat one has, with no discrepancy at all.** His words.
-  *What is actually different today:* almost nothing, because one screen drives both and
-  `board()` hands it whichever placement applies. The exceptions are all drop feedback that the
-  seated screen draws and the block view leaves to the world renderer - the landing mat's outline,
-  the slot footprint a card snaps into, and the ring around a stack a card would join. Before the
-  flat view goes anywhere, each of those needs checking in a running client to confirm the world
-  genuinely draws an equivalent rather than nothing.
+  **Checked in the source 2026-09-22, and the three suspected gaps are not gaps.** One screen
+  drives both views and `board()` hands it whichever placement applies, so everything is shared by
+  construction. The three pieces of drop feedback the flat view paints itself - the landing mat's
+  outline, the slot a card snaps into, and the ring around a stack it would join - are fed to
+  `ClientTableHighlight` by `renderHeldCard`, which runs *outside* the view branch and therefore
+  for both. The world renderer reads all three: `isLandingOn` at `TableMiniatureRenderer:314`,
+  `isAimedAt` at 587, `isLit` at 1014. Same information, different painter.
+  *Still worth a human's eyes* on how the three read at a pod, which is a question about whether
+  they are legible rather than whether they exist.
 
 - **Table presence, the last of it.** Each seat's hand drawn on the felt below its mat, using the
   same fan the bodies hold, so the two views agree about what a hand looks like; and a scripted
