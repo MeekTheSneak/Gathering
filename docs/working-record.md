@@ -4295,11 +4295,26 @@ that the arm comes down.
 
 ## Asked for, not yet done
 
-- **The first mulligan should not ask for a card to the bottom.** The owner's point (2026-09-19):
-  players use the first mulligan as "shuffle and draw seven again", which is how most tables
-  actually play it, and being asked to bottom a card the first time is the London rule being
-  applied a step earlier than anybody expects. `SeatState.mulliganed` counts from one; it should
-  owe nothing until the second.
+- ~~**The first mulligan should not ask for a card to the bottom.**~~ **Overtaken 2026-09-19:**
+  the owner then asked for the bottoming reminder gone in its entirety, so there is no first-time
+  case left to special-case. Nothing asks for a card to the bottom at all.
+
+- **Table presence, the last of it.** Each seat's hand drawn on the felt below its mat, using the
+  same fan the bodies hold, so the two views agree about what a hand looks like; and a scripted
+  step that *asserts* an arm angle rather than photographing it. See `docs/prompts/table-presence.md`
+  steps 5 and 6. The bodies, the pointer and the table view are done.
+
+- **`TableReach` is two classes.** `dev.gathering.server.TableReach` is whether a player can reach a
+  table; `dev.gathering.core.ui.TableReach` is how far an arm reaches. The second one is mine and is
+  the one to rename - this is the `HandFan`/`HeldFan` trap again, which `DIALECT.md` already records.
+
+- **`CountersLayout` still has its commander-damage grid**, reachable now only from its own test.
+  Taking the parameter out means rewriting five test methods, one of them a property about the order
+  sections give way in - real coverage, so it is worth doing deliberately rather than in passing.
+
+- **`PoseProbe` is still in**, behind `-Pposedebug` and off in every shipped jar. It found three
+  defects in an hour and the next person to touch a seated body will want it. The owner was asked
+  whether to keep it and has not said.
 
 ## 2026-09-19: the body at the table, and three bugs found by logging
 
