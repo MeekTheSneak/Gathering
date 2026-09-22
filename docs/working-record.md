@@ -4347,3 +4347,40 @@ flat board - which is where games are actually played - nothing was sent at all 
 still through a whole game. A held card was one quad and invisible from behind. And a seated player
 with no pointer fell back to a pose meaning "standing at ease", which is why the face was level:
 there is a separate `AT_THE_TABLE` rest now, hands at the edge and head down at the felt.
+
+## 2026-09-22: three things the mod was doing wrong about a table
+
+All three from the owner, with the instruction to look for whatever was adjacent to each rather
+than fix the one instance.
+
+**Commander damage is damage.** It was recorded under counters and subtracted from life by hand,
+which is two numbers to keep in step and one of them got forgotten. `SeatState.withCommanderDamage`
+now moves both, in both directions - taking damage back gives the life back, because a misclick
+should be undone by the gesture that made it. Off the change that actually happened rather than off
+what was asked for, so a tally refusing part of a step never charges for the part it refused.
+Nothing here decides whether the damage was dealt or whether twenty-one of it has ended anything.
+It moved to the life counter's own screen, reached by crouching on a life total; the plus and minus
+halves keep exactly the rectangles they had, because carving a middle band out of this board is how
+hit areas and drawings came apart before.
+
+**Counters are on the felt.** They were in the strip along the top of the window and only when that
+strip had room for them, so at a four-seat table the only way to read somebody's poison was to hover
+their seat - a number nobody looks at. They are written beside each seat's life total now, and off
+the hover tip, which would otherwise repeat what the table is already saying.
+
+*The correction worth keeping:* the first placement put them further out than the life total. Two
+seats facing each other keep their life boxes back to back in the strip of table between their
+boards, so "further out" is straight onto the opponent's - which the guard caught before the client
+did. They sit alongside instead: both boxes are centered on their own mat, so a step sideways
+clears the other seat's without leaving the strip they share.
+
+**What is in use does not get blown up.** A table was lost mid-game to TNT. Everything the by-hand
+break rules refuse is refused because somebody is using it or something of theirs is inside it, and
+none of those reasons stops being true because what arrived was TNT - so the same list, minus the
+parts that need a player to ask about. Deliberately not the whole family: an empty table is
+furniture, and a guard holds that half so nobody later turns this into blanket immunity.
+
+**One slip of mine, caught by a reviewer rather than by me.** Both new members went in between a
+javadoc and the member it belonged to - the same orphaned-javadoc mistake this project has made
+repeatedly. `tools/doccheck.py` names it; it is cheap to run and I did not run it before handing the
+work on.

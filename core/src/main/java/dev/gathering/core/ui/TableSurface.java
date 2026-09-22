@@ -435,6 +435,43 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
+     * Where a seat's counters are written, just beyond its life total.
+     * <p>On the table rather than in the strip along the top of the window, which is where they
+     * used to be and where a player had to hover a seat to read them. The owner's point
+     * (2026-09-22): a poison count is something you glance at while deciding what to do, and a
+     * number you have to go and ask for is a number nobody looks at.
+     * <p><b>Beside the life box, not past it.</b> Two seats facing each other put their life
+     * totals back to back in the strip of table between their boards, so anything placed further
+     * out than a life total is placed on the opponent's - which is what the first version of this
+     * did, and what the guard caught. Alongside is free: both boxes are centered on their own
+     * mat, so a step sideways clears the other seat's without leaving the strip they share.
+     * <p>To the right if the table has room there and to the left if it does not, and empty if
+     * neither - the same answer the life box gives when it runs out of felt, for the same reason:
+     * half a label hanging off the table is worse than none.
+     */
+    public Rect countersBox(int seat) {
+        Rect life = lifeBox(seat);
+        if (life.isEmpty()) {
+            return Rect.NONE;
+        }
+        int gap = Math.max(1, (int) Math.round(life.height() * COUNTERS_GAP));
+        Rect right = new Rect(life.right() + gap, life.y(), life.width(), life.height());
+        if (onTheTable(right)) {
+            return right;
+        }
+        Rect left = new Rect(life.x() - gap - life.width(), life.y(), life.width(), life.height());
+        return onTheTable(left) ? left : Rect.NONE;
+    }
+
+    /** Whether the whole of this lies on the felt. */
+    private boolean onTheTable(Rect box) {
+        return box.y() >= 0 && box.bottom() <= height() && box.x() >= 0 && box.right() <= width();
+    }
+
+    /** How far the counters sit from the life box, so the two read as a pair and not one word. */
+    private static final double COUNTERS_GAP = 0.25;
+
+    /**
      * Where a seat's life total is written, on the table just past the far edge of its mat.
      * <p>Not on the mat: the board is where cards go, and a number in the play area is one
      * somebody puts a land on. Past the far edge it sits in the strip between the mats, which

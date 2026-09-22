@@ -144,17 +144,32 @@ public record SeatState(
                 conceded, handShownTo, sleeve, mulligans);
     }
 
+    /**
+     * Damage from one commander, and the life it costs.
+     * <p>Commander damage <em>is</em> damage: three from somebody's commander is three off your
+     * life, and recording it in two places was two places to forget. The owner asked for the one
+     * gesture (2026-09-22).
+     * <p>Taking it back gives the life back. A misclick on a counter is undone by clicking the
+     * other way, and a table correcting a tally that got ahead of itself is doing the same thing
+     * - so the pair moves together in both directions or it is a trap that only works once.
+     * <p>This is not the mod deciding anything. Nothing here works out whether the damage was
+     * dealt, whether it was prevented, or whether twenty-one of it has ended anything; it moves
+     * the number the player asked to move and the one that follows from it.
+     */
     public SeatState withCommanderDamage(CardInstanceId commander, int delta) {
         Map<CardInstanceId, Integer> updated = new LinkedHashMap<>(commanderDamage);
-        int now = updated.getOrDefault(commander, 0) + delta;
+        int was = updated.getOrDefault(commander, 0);
+        int now = was + delta;
         if (now == 0) {
             updated.remove(commander);
         } else {
             updated.put(commander, now);
         }
+        // Off the change that actually happened rather than off what was asked for, so a tally
+        // that refuses part of a step never takes life for the part it refused.
         return new SeatState(
-                seat, occupant, lastOccupant, life, updated, commanderTax, commanders, counters, conceded,
-                handShownTo, sleeve, mulligans);
+                seat, occupant, lastOccupant, life - (now - was), updated, commanderTax, commanders,
+                counters, conceded, handShownTo, sleeve, mulligans);
     }
 
     /** Sleeves this seat's cards, once, when the deck goes down. */

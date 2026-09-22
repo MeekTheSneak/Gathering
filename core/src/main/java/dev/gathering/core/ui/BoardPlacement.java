@@ -77,6 +77,13 @@ public interface BoardPlacement {
      */
     Rect lifeRect(SeatId seat);
 
+    /**
+     * Where this seat's counters are written, past its life total, or empty for no room.
+     * <p>On the table with the life total rather than in the strip along the top: see
+     * {@link TableSurface#countersBox}.
+     */
+    Rect countersRect(SeatId seat);
+
 
     /** The line across a mat marking off the row nearest its own player. */
     Rect matDividerRect(SeatId seat, int count);

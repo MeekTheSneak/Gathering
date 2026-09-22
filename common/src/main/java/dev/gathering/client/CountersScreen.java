@@ -10,7 +10,6 @@ import dev.gathering.core.game.SeatState;
 import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
-import dev.gathering.item.CardComponent;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
@@ -107,9 +106,6 @@ public final class CountersScreen extends ChildScreen {
      */
     private GameView countedFrom;
     private Map<String, Integer> counted = Map.of();
-
-    /** And which enemy commanders it was built to take damage from. */
-    private List<CardInstanceId> builtOpponents = List.of();
 
     /** The commanders whose tax rows have widgets, to notice a new cast needing buttons. */
     private List<CardInstanceId> builtTaxed = List.of();
@@ -248,13 +244,15 @@ public final class CountersScreen extends ChildScreen {
         List<String> present = new ArrayList<>(current().keySet());
         builtRows = List.copyOf(present);
         builtButtons = common();
-        List<CardInstanceId> opponents = commanderDamageFrom();
         List<CardInstanceId> taxed = taxedCommanders();
-        builtOpponents = opponents;
         builtTaxed = taxed;
 
+        // Never any damage rows: commander damage is life, and it is recorded on the life
+        // panel now - see LifeScreen. The layout still has a damage grid and no longer has a
+        // caller that asks for one; taking it out means rewriting the property that checks the
+        // order sections give way in, which is worth doing on purpose rather than in passing.
         this.layout = CountersLayout.of(this.width, this.height,
-                present.size(), builtButtons.size(), opponents.size(), taxed.size());
+                present.size(), builtButtons.size(), 0, taxed.size());
         // Clamped here rather than where the wheel turns, because the list also shortens
         // under it: taking the last counter off a scrolled list would otherwise leave the
         // panel looking at rows that are no longer there.
@@ -275,14 +273,6 @@ public final class CountersScreen extends ChildScreen {
             String name = common.get(index);
             addRenderableWidget(GatheringButtons.of(layout.commonButton(index),
                     Component.literal(CounterText.name(name)), () -> change(name, 1)));
-        }
-
-        // Commander damage, one row per opponent, on a table that has commanders. A grid on
-        // paper, which is what everybody uses because twenty-one from each of three people is
-        // three numbers nobody can hold in their head for an hour.
-        for (int index = 0; index < layout.damageRows(); index++) {
-            CardInstanceId from = opponents.get(index);
-            steppers(layout.damageRow(index), () -> hitBy(from, -1), () -> hitBy(from, 1));
         }
 
         // Commander tax, one row per commander here, on a table that has commanders. The same
@@ -320,21 +310,6 @@ public final class CountersScreen extends ChildScreen {
         addRenderableWidget(GatheringButtons.of(
                 row.right() - STEP_WIDTH, row.y(), STEP_WIDTH, row.height(),
                 Component.literal("+"), up));
-    }
-
-    /**
-     * Records commander damage this seat has taken from one opponent.
-     * <p>Signed by whoever is pressing it, like every other move: the table lets anybody
-     * adjust anybody's numbers, because on a real table the person who notices says so and
-     * whoever is nearest the pad writes it down.
-     */
-    private void hitBy(CardInstanceId commander, int delta) {
-        SeatId me = ClientTableState.seatAt(table).orElse(null);
-        if (me == null || !(subject instanceof Subject.Seat mine)) {
-            return;
-        }
-        ClientTableActions.send(table,
-                new GameEvent.CommanderDamageChanged(me, mine.seat(), commander, delta));
     }
 
     private void addCustom() {
@@ -375,55 +350,12 @@ public final class CountersScreen extends ChildScreen {
         }
     }
 
-    /**
-     * Every other seat's commanders, in seat order, when this screen is about a seat at a
-     * table with a command zone - and nothing otherwise.
-     * <p>One row per commander and not per opponent, because the rule is twenty-one from the
-     * <em>same</em> commander and a partner deck fields two: a single number per enemy seat
-     * could not tell one partner's damage from the other's, which is the pair the rule
-     * exists to separate. A seat that brought no commanders contributes no rows, so a table
-     * playing Modern gets no grid rather than a grid of zeroes nobody can use.
-     */
-    private List<CardInstanceId> commanderDamageFrom() {
-        if (!(subject instanceof Subject.Seat mine) || !tableCountsCommanderDamage()) {
-            return List.of();
-        }
-        GameView board = ClientTableState.viewOf(table).orElse(null);
-        if (board == null) {
-            return List.of();
-        }
-        List<CardInstanceId> others = new ArrayList<>();
-        for (SeatView seat : board.seats()) {
-            if (!seat.seat().equals(mine.seat())) {
-                others.addAll(seat.commanders());
-            }
-        }
-        return others;
-    }
-
     /** Asked of the block, which is where the table keeps what kind of game it is running. */
     private boolean tableHasACommandZone() {
         return net.minecraft.client.Minecraft.getInstance().level != null
                 && net.minecraft.client.Minecraft.getInstance().level
                         .getBlockEntity(table) instanceof dev.gathering.block.TableBlockEntity entity
                 && entity.hasCommandZone();
-    }
-
-    /** Whether the game on the table counts commander damage - Commander does, Oathbreaker does not. */
-    private boolean tableCountsCommanderDamage() {
-        return net.minecraft.client.Minecraft.getInstance().level != null
-                && net.minecraft.client.Minecraft.getInstance().level
-                        .getBlockEntity(table) instanceof dev.gathering.block.TableBlockEntity entity
-                && entity.countsCommanderDamage();
-    }
-
-    /** How much commander damage this seat has taken from that commander. */
-    private int damageFrom(CardInstanceId commander) {
-        GameView board = ClientTableState.viewOf(table).orElse(null);
-        if (board == null || !(subject instanceof Subject.Seat mine)) {
-            return 0;
-        }
-        return board.seat(mine.seat()).commanderDamage().getOrDefault(commander, 0);
     }
 
     /**
@@ -565,10 +497,8 @@ public final class CountersScreen extends ChildScreen {
             return;
         }
         // A counter that has just come into existence needs a row, and one that has just gone
-        // needs to stop having one. So does an opponent: somebody sitting down opposite adds
-        // a commander to take damage from, and this screen is open for the length of a turn.
+        // needs to stop having one.
         if (!List.copyOf(current().keySet()).equals(builtRows)
-                || !commanderDamageFrom().equals(builtOpponents)
                 // And a commander newly cast: its tax row is drawn regardless, but the
                 // +/- buttons beside it only exist after a rebuild - a row with no way to
                 // change it until some unrelated counter happened to change too.
@@ -696,24 +626,6 @@ public final class CountersScreen extends ChildScreen {
         }
 
         renderCommanderTax(graphics);
-        if (layout.damage().isEmpty()) {
-            return;
-        }
-        GuiText.draw(graphics, this.font,
-                heading("screen.gathering.counters.commander_damage",
-                        builtOpponents.size() - layout.damageRows()),
-                layout.damage().x(), layout.damage().y() + 5, layout.damage().width(), DIM);
-        for (int row = 0; row < layout.damageRows(); row++) {
-            CardInstanceId from = builtOpponents.get(row);
-            int taken = damageFrom(from);
-            Rect at = layout.damageRow(row);
-            GuiText.draw(graphics, this.font, nameOf(from),
-                    at.x(), at.y() + 5, at.width() - 60, LABEL);
-            // Twenty-one is a fact about the number, not a thing the mod does about it.
-            GuiText.draw(graphics, this.font, Component.literal(Integer.toString(taken)),
-                    at.right() - STEP_WIDTH * 2 - GAP - 24, at.y() + 5, 22,
-                    dev.gathering.core.game.LossReminders.commanderDamageIsAtALoss(taken) ? LETHAL : VALUE);
-        }
     }
 
     /**
@@ -758,41 +670,13 @@ public final class CountersScreen extends ChildScreen {
                         Component.translatable(key), hidden);
     }
 
-    /**
-     * What to call a card on a row, which is its name once this client knows it.
-     * <p>Which card an id belongs to is asked once and remembered. It used to be asked every
-     * frame by walking every card in every zone of every seat - libraries included, so four
-     * hundred cards on a Commander table - to answer a question whose answer cannot change:
-     * a card instance is one printing for its whole life. The name itself is still looked up
-     * each frame, because that arrives from the cache whenever it arrives.
-     */
+    /** What to call a card on a row, asked of the one place that knows. */
     private Component nameOf(CardInstanceId card) {
-        CardComponent known = printings.get(card);
-        if (known == null) {
-            GameView board = ClientTableState.viewOf(table).orElse(null);
-            if (board == null) {
-                return Component.translatable("screen.gathering.counters.somewhere_hidden");
-            }
-            for (CardView held : board.allCardViews()) {
-                if (held instanceof CardView.Visible visible && visible.id().equals(card)) {
-                    known = CardComponent.of(visible.identity());
-                    printings.put(card, known);
-                    break;
-                }
-            }
-            if (known == null) {
-                return Component.translatable("screen.gathering.counters.somewhere_hidden");
-            }
-        }
-        CardComponent asked = known;
-        return ClientCardCache.get().summary(asked)
-                .map(summary -> (Component) Component.literal(summary.name()))
-                .orElseGet(() -> ClientCardCache.get().unnamed(asked));
+        return names.of(ClientTableState.viewOf(table).orElse(null), card);
     }
 
-    /** Which printing each card on a row is, found once - it cannot change. */
-    private final java.util.Map<CardInstanceId, CardComponent> printings =
-            new java.util.HashMap<>();
+    /** One per screen, so its cache of which printing each id is goes when the screen does. */
+    private final BoardCardNames names = new BoardCardNames();
 
     /** The label for a card menu opening this, which has to name what it will act on. */
     public static Component titleFor(List<CardInstanceId> cards, Component single) {

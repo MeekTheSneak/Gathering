@@ -13,6 +13,37 @@ import org.junit.jupiter.api.Test;
 class CommanderDamageTest {
 
     @Test
+    @DisplayName("commander damage comes off life, and giving it back gives the life back")
+    void damageCostsLife() {
+        // The owner's point (2026-09-22): commander damage is damage. Recorded in one place and
+        // subtracted in another, it was two numbers to keep in step by hand, and the second one
+        // got forgotten. Nothing here decides whether the damage was dealt - it moves the number
+        // the player asked for and the one that follows from it.
+        GameSession session = GameFixtures.twoPlayerTable(40);
+        SeatId them = session.state().seats().get(0);
+        SeatId me = session.state().seats().get(1);
+        session.submit(new GameEvent.DeckLoaded(
+                them,
+                List.of(CardIdentity.ofPrinting(UUID.randomUUID())),
+                List.of(CardIdentity.ofPrinting(UUID.randomUUID()))));
+        CardInstanceId commander = session.state().seatState(them).commanders().get(0);
+
+        session.submit(new GameEvent.CommanderDamageChanged(me, me, commander, 7));
+        assertThat(session.state().seatState(me).life()).isEqualTo(33);
+        assertThat(session.state().seatState(me).commanderDamage().get(commander)).isEqualTo(7);
+
+        // And back the other way, which is how a misclick is undone with the gesture that made it.
+        session.submit(new GameEvent.CommanderDamageChanged(me, me, commander, -3));
+        assertThat(session.state().seatState(me).life()).isEqualTo(36);
+        assertThat(session.state().seatState(me).commanderDamage().get(commander)).isEqualTo(4);
+
+        // All the way back to none leaves the life exactly where it started.
+        session.submit(new GameEvent.CommanderDamageChanged(me, me, commander, -4));
+        assertThat(session.state().seatState(me).life()).isEqualTo(40);
+        assertThat(session.state().seatState(me).commanderDamage()).doesNotContainKey(commander);
+    }
+
+    @Test
     @DisplayName("two partners deal two separate twenty-ones")
     void partnersAreTrackedApart() {
         // The rule is 21 from the SAME commander, and a partner deck fields two. One number

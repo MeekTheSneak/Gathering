@@ -356,6 +356,11 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     @Override
+    public Rect countersRect(SeatId seat) {
+        return surfaceRect(surface.countersBox(seat.index()));
+    }
+
+    @Override
     public Rect lifeRect(SeatId seat) {
         Rect box = surfaceRect(surface.lifeBox(seat.index()));
         if (box.isEmpty() || box.height() >= LEAST_LIFE_TALL) {

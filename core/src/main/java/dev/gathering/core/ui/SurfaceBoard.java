@@ -123,6 +123,11 @@ public final class SurfaceBoard implements BoardPlacement {
     }
 
     @Override
+    public Rect countersRect(SeatId seat) {
+        return surface.countersBox(seat.index());
+    }
+
+    @Override
     public int pileAt(SeatId seat, int count, double x, double y) {
         return surface.pileAt(seat.index(), count, x, y);
     }

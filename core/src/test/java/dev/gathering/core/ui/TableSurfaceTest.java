@@ -823,6 +823,53 @@ class TableSurfaceTest {
     }
 
     /**
+     * The counters, on the table with the life total rather than in the strip along the top.
+     * <p>They were in that strip and only when it had room, so on a four-seat table the only way
+     * to read somebody's poison was to hover their seat. The owner asked for them on the felt
+     * (2026-09-22). What that has to mean is the same thing the life total means: on the table,
+     * off every board, and never on top of somebody else's.
+     */
+    @Test
+    @DisplayName("counters sit on the table past the life total, on nobody's board")
+    void countersSitOnTheTable() {
+        for (int seats : new int[] {1, 2, 3, 4}) {
+            TableSurface surface = TableSurface.forSeatCount(seats);
+            for (int seat = 0; seat < seats; seat++) {
+                Rect counters = surface.countersBox(seat);
+                if (counters.isEmpty()) {
+                    // A table with no room for them says so, which is a real answer - half a
+                    // label hanging off the felt is worse than none.
+                    continue;
+                }
+                Rect life = surface.lifeBox(seat);
+                assertThat(counters.overlaps(life))
+                        .describedAs("%s seats: seat %s writes its counters over its life", seats, seat)
+                        .isFalse();
+                // Alongside the life total and in the same band of table, which is what keeps
+                // them off the seat facing this one - see countersBox.
+                assertThat(counters.y()).isEqualTo(life.y());
+                assertThat(counters.height()).isEqualTo(life.height());
+                for (int other = 0; other < seats; other++) {
+                    assertThat(counters.overlaps(surface.matOf(other)))
+                            .describedAs("%s seats: seat %s writes its counters on seat %s's board",
+                                    seats, seat, other)
+                            .isFalse();
+                    if (other != seat) {
+                        assertThat(counters.overlaps(surface.countersBox(other)))
+                                .describedAs("%s seats: seat %s and seat %s share a counters strip",
+                                        seats, seat, other)
+                                .isFalse();
+                        assertThat(counters.overlaps(surface.lifeBox(other)))
+                                .describedAs("%s seats: seat %s writes its counters over seat %s's"
+                                        + " life", seats, seat, other)
+                                .isFalse();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * A seat's life total sits off its own board, on the far side from its player.
      * <p>Off the mat because the mat is where cards go, and a number printed in the play area
      * is a number somebody puts a land on top of. On the far side because that is the strip

@@ -1649,7 +1649,34 @@ public final class TableScreen extends Screen {
                         divider.x(), divider.y(), divider.width(), divider.height());
             }
             drawLife(graphics, seat);
+            drawCountersOnTheMat(graphics, seat);
         }
+    }
+
+    /**
+     * A seat's counters, written on the table past its life total.
+     * <p>They used to live in the strip along the top of the window, and only when that strip
+     * had room for them - so on a four-seat table they were visible by hovering a seat and in no
+     * other way. The owner's point (2026-09-22): a poison count is something you glance at while
+     * deciding what to do, and a number you have to go and ask for is one nobody looks at.
+     * <p>Nothing is drawn for a seat with none, which is almost every seat of almost every game.
+     * An empty strip of felt says "no counters" exactly as well as the words would, and without
+     * putting a label on every mat at a table where nobody has any.
+     */
+    private void drawCountersOnTheMat(GuiGraphics graphics, SeatView seat) {
+        if (seat.counters().isEmpty()) {
+            return;
+        }
+        Rect box = board().countersRect(seat.seat());
+        if (box.isEmpty() || box.height() < SMALLEST_LIFE_BOX) {
+            return;
+        }
+        float scale = Math.max(SMALLEST_LIFE_SCALE,
+                Math.min(1f, (box.height() - 2f) / this.font.lineHeight));
+        GuiText.drawCenteredAt(graphics, this.font,
+                Component.literal(describeCounters(seat)),
+                (int) box.centerX(), (int) box.centerY() - this.font.lineHeight / 2,
+                scale, SeatColor.at(seat.seat().index(), 0xFF));
     }
 
     /**
@@ -2152,6 +2179,10 @@ public final class TableScreen extends Screen {
                     Component.translatable("screen.gathering.table.life.hint")
                             .withStyle(ChatFormatting.DARK_GRAY),
                     Component.translatable("screen.gathering.table.life.hint_more")
+                            .withStyle(ChatFormatting.DARK_GRAY),
+                    // The only sign that commander damage is here rather than under counters,
+                    // where it used to be and where people will look for it first.
+                    Component.translatable("screen.gathering.table.life.hint_damage")
                             .withStyle(ChatFormatting.DARK_GRAY));
         }
         return null;
@@ -2178,6 +2209,15 @@ public final class TableScreen extends Screen {
                 continue;
             }
             SeatId whose = seat.seat();
+            if (button == 0 && hasShiftDown()) {
+                // The whole box, not a band carved out of its middle. The two halves are the
+                // plus and the minus and they keep exactly the rectangles they have: moving a
+                // hit area on this board is how a life counter came to take life off the seat
+                // facing the other way, and the crouch costs nobody a pixel.
+                openLife(whose);
+                GatheringButtons.clickSound();
+                return true;
+            }
             if (button == 1) {
                 // Typed rather than clicked eleven times. A Commander game that opens on
                 // forty life and takes eleven off in one swing is the case a counter you can
@@ -3108,9 +3148,9 @@ public final class TableScreen extends Screen {
         lines.add(Component.translatable("screen.gathering.table.seat_tip.life", seat.life()));
         lines.add(Component.translatable("screen.gathering.table.seat_tip.cards",
                 count(seat, Zone.HAND), count(seat, Zone.LIBRARY), count(seat, Zone.GRAVEYARD), count(seat, Zone.EXILE)));
-        if (!seat.counters().isEmpty()) {
-            lines.add(Component.literal(describeCounters(seat)));
-        }
+        // Not the counters. They are written on the felt beside this seat's life now, where they
+        // are read without asking - see drawCountersOnTheMat. Repeating them here would be the
+        // hover saying what the table is already saying.
         return lines;
     }
 
@@ -3138,7 +3178,7 @@ public final class TableScreen extends Screen {
      * shorter sentence first means nothing here is ever an ellipsis unless even the shortest
      * one is, which takes a name nobody could fit anywhere.
      * <p>Everything the short forms leave out is still on the table: the hand and library on
-     * the mat's own piles, and the counters in the counters panel.
+     * the mat's own piles, and the counters written on the felt beside each seat's life.
      */
     private Component seatLine(SeatView seat, int room) {
         String mark = SeatMark.of(seat.seat().index());
@@ -3166,9 +3206,6 @@ public final class TableScreen extends Screen {
         MutableComponent full = Component.translatable(
                 "screen.gathering.table.mat_line", name,
                 seat.life(), count(seat, Zone.HAND), count(seat, Zone.LIBRARY)).append(away);
-        if (!seat.counters().isEmpty()) {
-            full.append(Component.literal("  " + describeCounters(seat)));
-        }
         List<Component> ways = List.of(
                 full,
                 Component.translatable("screen.gathering.table.mat_line_short", name, seat.life())
@@ -5690,6 +5727,12 @@ public final class TableScreen extends Screen {
     private void openCounters(CountersScreen.Subject subject) {
         net.minecraft.client.Minecraft.getInstance()
                 .setScreen(new CountersScreen(table, subject, this));
+    }
+
+    /** A seat's life, and the commander damage that comes off it. */
+    private void openLife(SeatId seat) {
+        net.minecraft.client.Minecraft.getInstance()
+                .setScreen(new LifeScreen(table, seat, this));
     }
 
     /**
