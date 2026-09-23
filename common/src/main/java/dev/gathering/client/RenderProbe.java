@@ -35,35 +35,30 @@ public final class RenderProbe {
     private RenderProbe() {
     }
 
-    /** Whether anything here does anything, for a caller that would otherwise do work to ask. */
-    public static boolean on() {
-        return ON;
+    /**
+     * Where a frame's first timed part begins: the clock when the probe is on, and nothing at all
+     * when it is off.
+     * <p>A start and a lap rather than a method that takes the work as a lambda. The lambda version
+     * was how this was first written, and it allocated one object per part per frame whether the
+     * probe was on or not - in the one render path this probe exists to make cheaper.
+     */
+    public static long start() {
+        return ON ? System.nanoTime() : 0L;
     }
 
-    /** Times one named part of a frame. */
-    public static void part(String name, Runnable work) {
+    /**
+     * Charges the time since {@code since} to this part, and returns now, for the next part to be
+     * measured from. Does nothing, and reads no clock, when the probe is off.
+     */
+    public static long lap(String name, long since) {
         if (!ON) {
-            work.run();
-            return;
+            return 0L;
         }
-        long began = System.nanoTime();
-        try {
-            work.run();
-        } finally {
-            long[] sum = PARTS.computeIfAbsent(name, each -> new long[2]);
-            sum[0] += System.nanoTime() - began;
-            sum[1]++;
-        }
-    }
-
-    /** Adds time somebody measured themselves, for a part that cannot be wrapped in a lambda. */
-    public static void note(String name, long nanos) {
-        if (!ON) {
-            return;
-        }
+        long now = System.nanoTime();
         long[] sum = PARTS.computeIfAbsent(name, each -> new long[2]);
-        sum[0] += nanos;
+        sum[0] += now - since;
         sum[1]++;
+        return now;
     }
 
     /**

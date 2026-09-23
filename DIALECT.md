@@ -495,3 +495,18 @@ cannot be inferred from reading the code.
   is `HeldFan`, in card widths. Two fans, two frames of reference, and the obvious name belongs
   to the older one; a new class called `HandFan` overwrites a file that eleven screens' tests
   depend on, and the compiler is the first thing that says so.
+- **Read Minecraft's own source before reasoning about it.** The decompiled 1.21.1 + NeoForge
+  sources are at `neoforge/build/moddev/artifacts/neoforge-21.1.248-sources.jar`. The flat board's
+  lag took three wrong explanations, all from recall, before anybody opened `GuiGraphics.java`,
+  and each one was settled by reading it in a minute. What that file says, for anybody drawing GUI
+  sprites:
+  - **A nine-sliced sprite is tiled, one draw call per tile.** Its edges and middle repeat at the
+    painted size, and `innerBlit` draws every repeat on its own. A small sprite drawn big is
+    hundreds of draw calls; `GatheringSprites.draw` goes through `OneCallSprites` so each is one.
+  - **`blitSprite(sprite, x, y, a, b, c)` is `(x, y, blitOffset, width, height)`.** There is no
+    color argument in 1.21.1 - that arrived later. Passed a color, the color becomes the height.
+  - **`setColor` only flushes in managed mode.** In ordinary drawing it is a uniform write, so it
+    is not what makes tinted drawing slow.
+  - **`position_tex` and `position_tex_color` are not interchangeable.** The second discards
+    anything under a tenth opacity after the tint; the first only discards what is fully clear. A
+    free seat's ring is drawn at about a quarter, so switching shaders erases most of it.

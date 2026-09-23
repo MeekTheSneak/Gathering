@@ -383,8 +383,17 @@ public final class GatheringSprites {
         // this runs for every rectangle on every frame of a screen that may have two hundred
         // of them.
         TextureAtlasSprite drawn = drawn(sprite);
-        if (drawn == null || hasRoomForItsBorder(drawn, width, height)) {
+        if (drawn == null) {
+            // Before the atlas has one: the game's own path, which knows what to draw instead.
             graphics.blitSprite(sprite, x, y, width, height);
+            return;
+        }
+        if (hasRoomForItsBorder(drawn, width, height)) {
+            // The same picture the game's blitSprite draws, in one draw call instead of one per
+            // tile. This was the flat board's lag, and it was not the cards: a seat's ring tiles
+            // every eight pixels, so a ring across a mat was four hundred draw calls and one across
+            // a zoomed-in mat several thousand. See OneCallSprites and SpriteTiles.
+            OneCallSprites.blit(graphics, drawn, x, y, width, height);
             return;
         }
         if (element.whenCramped() == Element.WhenCramped.LEFT_OFF) {

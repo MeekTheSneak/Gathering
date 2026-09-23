@@ -1279,17 +1279,21 @@ public final class TableScreen extends Screen {
             // screen rather than to the table. Card art is drawn above plain text, so without
             // this a mat, a counter or a card slid under the strip would cover what it says.
             graphics.enableScissor(0, layout().status().bottom(), this.width, this.height);
-            GameView measuring = board;
-            RenderProbe.part("mats", () -> renderMats(graphics, measuring));
+            long phase = RenderProbe.start();
+            renderMats(graphics, board);
+            phase = RenderProbe.lap("mats", phase);
             // Kept between the strip along the top and your own hand, for the reason the pot
             // is: a fan fixed to the table can be carried under either by the camera, and
             // card art is drawn over plain text.
             graphics.enableScissor(tableArea().x(), tableArea().y(),
                     tableArea().right(), tableArea().bottom());
-            RenderProbe.part("hands", () -> renderOtherHands(graphics, measuring));
+            renderOtherHands(graphics, board);
+            phase = RenderProbe.lap("hands", phase);
             graphics.disableScissor();
-            RenderProbe.part("verbs", () -> renderVerbs(graphics, mouseX, mouseY));
-            RenderProbe.part("piles", () -> renderPiles(graphics, measuring, mouseX, mouseY));
+            renderVerbs(graphics, mouseX, mouseY);
+            phase = RenderProbe.lap("verbs", phase);
+            renderPiles(graphics, board, mouseX, mouseY);
+            phase = RenderProbe.lap("piles", phase);
             // Under the cards in play. The pot is beside the table rather than in the game, and
             // a card dragged off the east edge should pass over it rather than under.
             // Kept between the strip along the top and the hand: panned or zoomed, the column
@@ -1297,16 +1301,16 @@ public final class TableScreen extends Screen {
             // scripted client once photographed staked cards over whose turn it is.
             graphics.enableScissor(tableArea().x(), tableArea().y(),
                     tableArea().right(), tableArea().bottom());
-            RenderProbe.part("pot", () -> renderPot(graphics, mouseX, mouseY));
+            renderPot(graphics, mouseX, mouseY);
+            phase = RenderProbe.lap("pot", phase);
             graphics.disableScissor();
 
-            long walkBegan = System.nanoTime();
             List<Placed> onTable = everythingOnTheTable(board);
-            RenderProbe.note("walk", System.nanoTime() - walkBegan);
+            phase = RenderProbe.lap("walk", phase);
             hovered = frontMostAt(onTable, mouseX, mouseY);
             int drawn = 0;
             int skipped = 0;
-            long cardsBegan = System.nanoTime();
+
             long flying = ClientCardFlights.now();
         // Asked once for the frame rather than once per card: see ClientCardFlights#flyingAt.
         java.util.Set<CardInstanceId> inTheAir = ClientCardFlights.flyingAt(table, flying);
@@ -1335,11 +1339,11 @@ public final class TableScreen extends Screen {
                         placed.where(), placed.angle(),
                         placed == hovered || isSelected(placed.card()), true);
             }
-            RenderProbe.note("cards", System.nanoTime() - cardsBegan);
-            List<Placed> counted = onTable;
-            RenderProbe.part("pileBadges", () -> renderPileBadges(graphics, measuring, counted));
-            RenderProbe.part("ownerBadges", () -> renderOwnerBadges(graphics, counted));
-            RenderProbe.part("flights", () -> renderFlights(graphics, measuring));
+            phase = RenderProbe.lap("cards", phase);
+            renderPileBadges(graphics, board, onTable);
+            renderOwnerBadges(graphics, onTable);
+            renderFlights(graphics, board);
+            RenderProbe.lap("badges", phase);
             graphics.disableScissor();
             RenderProbe.frame(drawn, skipped);
             if (hovered == null && tooltip.isEmpty()) {
@@ -1653,19 +1657,15 @@ public final class TableScreen extends Screen {
             boolean taken = seat.hasABoard();
             if (taken) {
                 boolean mine = me != null && me.equals(seat.seat());
-                long began = System.nanoTime();
                 GatheringSprites.draw(graphics, mine ? Element.SEAT_MAT_MINE : Element.SEAT_MAT,
                         mat.x(), mat.y(), mat.width(), mat.height());
-                RenderProbe.note("mat.felt", System.nanoTime() - began);
             }
             // The seat's own color, which is how four identical rectangles become four
             // boards. Brighter for whoever's turn it is, faint for a chair nobody is in.
-            long ringBegan = System.nanoTime();
             GatheringSprites.draw(graphics, Element.SEAT_RING,
                     mat.x(), mat.y(), mat.width(), mat.height(),
                     SeatColor.at(seat.seat().index(), !taken ? FREE_SEAT_EDGE
                             : seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
-            RenderProbe.note("mat.ring", System.nanoTime() - ringBegan);
             if (!taken) {
                 continue;
             }
@@ -1676,9 +1676,7 @@ public final class TableScreen extends Screen {
                 GatheringSprites.draw(graphics, Element.SEAT_DIVIDER,
                         divider.x(), divider.y(), divider.width(), divider.height());
             }
-            long lifeBegan = System.nanoTime();
             drawLife(graphics, seat);
-            RenderProbe.note("mat.life", System.nanoTime() - lifeBegan);
             drawCountersOnTheMat(graphics, seat);
         }
     }

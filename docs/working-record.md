@@ -4299,37 +4299,80 @@ that the arm comes down.
   the owner then asked for the bottoming reminder gone in its entirety, so there is no first-time
   case left to special-case. Nothing asks for a card to the bottom at all.
 
-- **The flat board's lag: cause found, fix not yet.** Measured with `RenderProbe`
-  (`-Prenderdebug`) rather than guessed at, which matters because the previous attempt guessed -
-  it culled off-screen cards, wrote the owner's complaint into the comment beside the guess, and
-  the complaint came back unchanged. The cost is not the cards:
+- **The flat board's lag: fixed 2026-09-23. The cause, the fix, and a correction of the record.** Measured with
+  `RenderProbe` (`-Prenderdebug`) rather than guessed at - the attempt before that culled
+  off-screen cards, wrote the owner's complaint into the comment beside the guess, and the
+  complaint came back unchanged. The cost is not the cards:
 
       mats 3.25ms/frame | cards 0.01ms | piles 0.26ms | hands 0.00ms
       inside mats:  mat.felt 0.41ms | mat.ring 2.77ms | mat.life 0.07ms
 
-  `mat.ring` and `mat.felt` are the same sprite at the same size. The ring is tinted in the
-  seat's color, and the tint was applied by setting a shader color before the draw and resetting
-  it after - which breaks the draw batch on both sides, so every tinted rectangle is its own
-  submission and the reset is another. Seven times the cost, per ring, per seat, per frame, and
-  it explains why culling cards did nothing.
+  **The explanation first written here was wrong, twice, and both halves came from recall rather
+  than from the source.** It said the tint broke the draw batch: `GuiGraphics#setColor` only
+  flushes in *managed* mode, and in ordinary drawing it is a uniform write. And it said the 1.21.1
+  overload `blitSprite(sprite, x, y, width, height, color)` exists: the six-int overload is
+  `(sprite, x, y, blitOffset, width, height)`. Read from the decompiled 21.1.248 sources in
+  `neoforge/build/moddev/artifacts/neoforge-21.1.248-sources.jar`, which is where it should have
+  been read from the start.
 
-  **The obvious fix does not work.** Handing the tint to `GuiGraphics#blitSprite`'s color
-  argument instead compiles and is the right API - the 1.21.1 overload really is
-  `(sprite, x, y, width, height, color)`, and `SeatColor.at` really does return ARGB - but the
-  scripted client then hangs at step 5a at full CPU with no exception, every run.
-  *Isolated properly on the third try:* the first A/B reverted the whole file and so compared
-  "tint change plus stack-walk bound" against "neither", which proves nothing about either. The
-  shipped tree - stack-walk bound, no tint change - runs the same segment to completion, so the
-  tint change is the cause and the bound is not.
-  Something about that path is not equivalent for these sprites and it needs finding before the
-  change goes anywhere near the gate. What is worth keeping from the attempt is the shape of the
-  answer: the win is in not changing shader color per rectangle, whether that comes from a tinted
-  blit or from batching the rings so one color change covers all of them.
+  **What it actually is.** 1.21.1 draws a nine-sliced sprite by *tiling* its edges and middle
+  (`blitNineSlicedSprite`, `blitTiledSprite`), and every tile is its own draw call - `innerBlit`
+  begins a buffer, writes four vertices and draws it. `seat_ring` is sixteen pixels with a
+  four-pixel border, so its middle repeats every eight; `seat_mat` is 32/8 and repeats every
+  sixteen. The felt was measured for the one seat with a board and the ring for both, so per draw
+  that is 1.39ms against 0.41ms - 3.4 times - and the tile count for a mat that size is 3.3
+  times. The cost is the number of draw calls, and it grows with the square of the zoom, which is
+  the owner's "especially when zooming in" exactly.
+
+  **Why the tinted blit hung.** It passed the seat color as the ring's height. A free seat's ring
+  is `0x44` alpha, which as an int is about 1.1 billion, and vanilla set about tiling a ring a
+  billion pixels tall. Step 5a is the first frame with an empty seat. The A/B that pinned it on
+  the tint change was sound in the end; the explanation beside it was not.
 
   *Measurement hygiene, learned the hard way here:* the first numbers were contaminated. The
   scripted tour arms the cramped-draw diagnostic, which walked the stack on every cramped draw -
   sixty times a second for the run. That is now bounded to once per element, but the first
   reading was of the tour rather than of a player, and was very nearly acted on.
+
+  **The fix.** Every themed GUI sprite goes through `GatheringSprites.draw`, which now hands it to
+  `OneCallSprites`: the same tiles, cut by `SpriteTiles` - a statement-for-statement port of
+  `blitNineSlicedSprite` and `blitTiledSprite`, quirks included - written into one buffer and drawn
+  once. Same shader (`position_tex`; the tinted shader would have erased a free seat's faint ring),
+  same vertex order and texture arithmetic as `innerBlit`, tint still from the shader color. It
+  fixes every screen, not only the board.
+
+  **Verified, same session and same segment, the game's drawing forced by a switch and then not:**
+
+      run A, the game's own drawing:  mats 6.08-6.82ms/frame, mat.ring 5.12-5.71ms, ~167 frames per 3s
+      run B, one call per sprite:     mats 0.08-0.10ms/frame, mat.ring 0.03ms,      ~320 frames per 3s
+
+  Both runs reached step 15 with no failures. **Pixels:** `02-what-kind-of-game` - a full-screen
+  nine-sliced panel with sixteen nine-sliced buttons and two tinted rings - is identical to the
+  last run on the game's drawing in every pixel of the interface; the only differences are the live
+  world behind it. The board frames could not be diffed: run A's screenshots were lost to a
+  scripting mistake, and yesterday's baseline was taken at twice the resolution with the other
+  board as the default. They were looked at instead and are drawn correctly. `SpriteTilesTest`
+  pins the cutting: a hand-worked golden case from the game's source, and properties that the
+  pieces cover the box exactly once and never read outside the painted sprite.
+
+  **Not verified:** a zoomed-in board, where the gain should be largest - nothing in the scripted
+  segment zooms - and the Fabric client, which runs the same code. And a person playing on it.
+
+- **Mat buttons on the real board show no tooltip - probably.** On the flat board, resting on
+  Draw, Shuffle, Mulligan or Untap names the button and its key. A scripted run 2026-09-22 rested
+  on the real board's Draw button, which lit, and nothing was said. The tour normally checks this
+  on the flat board and had never looked at the real one; it only did because of the item below.
+  Both hit tests read correctly and nothing obvious clears the tooltip, so this wants
+  instrumenting in a running client rather than more reading - which needs a client, so it waits
+  for the owner to be away from the machine.
+
+- **The scripted tour assumes the flat board is the default.** It switches views with the same
+  key a player does, so when the real board became the default every section ran on the other
+  board from the one it was written for: its flat-board coverage quietly dropped and the check
+  above ran where it had never run. For the measurements here, `neoforge/run`'s own settings were
+  pinned to the flat board and then put back. The fix is for the tour to choose the view it starts
+  in rather than inherit the player's default - without leaving that choice written into the
+  settings of whoever runs it next.
 
 - **The two board views have to be one feature set.** The owner played a four-player game
   (2026-09-22): the only bugs were the ones already reported, but the flat GUI board is laggy,
