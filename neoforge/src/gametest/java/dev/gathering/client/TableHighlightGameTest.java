@@ -1,10 +1,12 @@
-package dev.gathering.neoforge.test;
+package dev.gathering.client;
 
 import dev.gathering.Gathering;
-import dev.gathering.client.ClientTableHighlight;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.SeatId;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -22,7 +24,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * while you carried yours.
  * <p>A game test rather than a unit test because the holder is keyed by a {@link BlockPos}, which
  * is Minecraft's and so out of reach of {@code :core:test}. It has nothing else from the client
- * in it, so the game-test server can load it.
+ * in it, so the game-test server can load it. In the client's package so it can ask what the tour
+ * asks, {@code isLitAtAll}, which is package-private.
+ * <p>What this cannot reach is {@code TableMiniatureRenderer}: the game-test server refuses to load
+ * it at all ("Attempted to load class .../BlockEntityRenderer for invalid dist DEDICATED_SERVER"), and
+ * its {@code render} needs a window besides. That it hands its own block's position to every read is
+ * held by the signatures, each of which takes a table, and by nothing that runs.
  */
 @GameTestHolder(Gathering.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -38,6 +45,16 @@ public final class TableHighlightGameTest {
     private static final CardInstanceId HELD = CardInstanceId.of(3);
     private static final int PILE = 1;
     private static final int VERB = 2;
+
+    private static final String UNDER_THE_CURSOR = "the card under the cursor";
+    private static final String PICKED_CARD = "the picked card";
+    private static final String IN_THE_AIR = "the card in the air, which is left off the felt";
+    private static final String PILE_AIMED = "the pile aimed at";
+    private static final String MAT_LANDED = "the mat landed on";
+    private static final String BUTTON_POINTED = "the button pointed at";
+    private static final String ANYTHING = "anything lit at all, which the tour asks";
+    private static final List<String> EVERYTHING = List.of(UNDER_THE_CURSOR, PICKED_CARD, IN_THE_AIR,
+            PILE_AIMED, MAT_LANDED, BUTTON_POINTED, ANYTHING);
 
     /**
      * All of it in one test, on purpose: the holder is one set of statics, and tests in a grid
@@ -74,7 +91,8 @@ public final class TableHighlightGameTest {
         // A position equal to the one written, not the same object: the renderer is handed the
         // block entity's own, and the screen was opened with another.
         BlockPos here = new BlockPos(MINE.getX(), MINE.getY(), MINE.getZ());
-        List<String> missing = unlit(here);
+        List<String> lit = lit(here);
+        List<String> missing = EVERYTHING.stream().filter(said -> !lit.contains(said)).toList();
         if (!missing.isEmpty()) {
             helper.fail("at the table the cursor is on, these were not lit: " + missing);
         }
@@ -92,16 +110,28 @@ public final class TableHighlightGameTest {
      * A screen at another table does not pick up where the last one left off.
      * <p>Each writer says one part of what the cursor is doing, so a card hovered at one table
      * and a drag aimed at the next would otherwise be read together as the second table's.
+     * <p>Each writer is tried as the first thing said at the new table. A writer sets its own part
+     * whatever table it names, so a move made by the drag's aim alone clears the last table's aim
+     * by itself, and would never show whether it had been carried over.
      */
     private static void anotherTableStartsFromNothing(GameTestHelper helper) {
-        lightMine();
-        ClientTableHighlight.aimAt(NEXT_DOOR, null, -1);
-        List<String> lit = lit(NEXT_DOOR);
-        if (!lit.isEmpty()) {
-            helper.fail("a table the screen had just moved to still had the last table's: " + lit);
+        List<Runnable> firstWords = List.of(
+                () -> ClientTableHighlight.set(NEXT_DOOR, null, List.of(), null),
+                () -> ClientTableHighlight.aimAt(NEXT_DOOR, null, -1),
+                () -> ClientTableHighlight.landingOn(NEXT_DOOR, null),
+                () -> ClientTableHighlight.pointAtVerb(NEXT_DOOR, null, -1));
+        Set<String> carried = new LinkedHashSet<>();
+        Set<String> left = new LinkedHashSet<>();
+        for (Runnable firstWord : firstWords) {
+            lightMine();
+            firstWord.run();
+            carried.addAll(lit(NEXT_DOOR));
+            left.addAll(lit(MINE));
+        }
+        if (!carried.isEmpty()) {
+            helper.fail("a table the screen had just moved to still had the last table's: " + carried);
             return;
         }
-        List<String> left = lit(MINE);
         if (!left.isEmpty()) {
             helper.fail("the table the screen left still had what the cursor was on there: " + left);
         }
@@ -116,35 +146,30 @@ public final class TableHighlightGameTest {
         }
     }
 
-    /** Everything the world renderer asks a table about, and which of it the answer was yes to. */
+    /** Everything the world renderer and the tour ask a table about, and which of it was a yes. */
     private static List<String> lit(BlockPos table) {
-        List<String> lit = new java.util.ArrayList<>();
+        List<String> lit = new ArrayList<>();
         if (ClientTableHighlight.isLit(table, UNDER)) {
-            lit.add("the card under the cursor");
+            lit.add(UNDER_THE_CURSOR);
         }
         if (ClientTableHighlight.isLit(table, PICKED)) {
-            lit.add("the picked card");
+            lit.add(PICKED_CARD);
         }
         if (ClientTableHighlight.isInTheAir(table, HELD)) {
-            lit.add("the card in the air, which is left off the felt");
+            lit.add(IN_THE_AIR);
         }
         if (ClientTableHighlight.isAimedAt(table, SEAT, PILE)) {
-            lit.add("the pile aimed at");
+            lit.add(PILE_AIMED);
         }
         if (ClientTableHighlight.isLandingOn(table, SEAT)) {
-            lit.add("the mat landed on");
+            lit.add(MAT_LANDED);
         }
         if (ClientTableHighlight.isPointedAtVerb(table, SEAT, VERB)) {
-            lit.add("the button pointed at");
+            lit.add(BUTTON_POINTED);
+        }
+        if (ClientTableHighlight.isLitAtAll(table)) {
+            lit.add(ANYTHING);
         }
         return lit;
-    }
-
-    private static List<String> unlit(BlockPos table) {
-        List<String> all = List.of("the card under the cursor", "the picked card",
-                "the card in the air, which is left off the felt", "the pile aimed at",
-                "the mat landed on", "the button pointed at");
-        List<String> lit = lit(table);
-        return all.stream().filter(said -> !lit.contains(said)).toList();
     }
 }

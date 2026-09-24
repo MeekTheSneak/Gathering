@@ -4680,4 +4680,63 @@ gone from the felt and my mat lit as where it lands, Draw lit with "Draw / 2" be
 **Still unverified:** two tables with boards in view at once in a running client. No tour step hovers
 or carries a card at one table with a neighbor's board in the picture, so the game test is what shows
 the neighbor stays dark; the renderer's side of it is the position threaded through, read rather than
-seen. Fabric's client was not run.
+seen. Fabric's client was not run. Neither `tools/gate.sh` nor `./gradlew verify` was run for this
+change, so it has no Fabric in-world tests and no `:core:test` behind it, and nine of the eighteen static
+checks (gesturecheck, spritecheck, savecheck, runcheck, texturecheck, artcheck, tablecheck, keycheck,
+recipecheck) were not run with it; the review entry below ran all eighteen. *(Added by that review: this
+entry first ended at Fabric's client, and read as gate-clean beside the entry before it.)*
+
+## 2026-09-24: review of 38a0ab4 - the highlight's guard
+
+Two independent reviewers read `38a0ab4`. Each finding was read against the code before acting on it.
+Both traced every writer and reader and found the change itself correct; all three findings are about
+what the guard and the record claim.
+
+**The carried-over check could not see the pile (reviewer's finding, real).** The guard moved to the next
+table with `aimAt(NEXT_DOOR, null, -1)`, and a writer sets its own part whatever table it names, so that
+move cleared the last table's aim by itself: with the comparison but no reset the failure named five, not
+the six `38a0ab4`'s commit message says. The record above quotes the five correctly; the commit message is
+wrong and is corrected here. The check now tries each of the four writers - `set`, `aimAt`, `landingOn`,
+`pointAtVerb` - as the first thing said at the new table, and collects what any of them carried.
+
+**`isLitAtAll` was not exercised (reviewer's finding, real).** It is what the tour asks at step 68, and it
+is package-private, so the game test moved from `dev.gathering.neoforge.test` into `dev.gathering.client`
+in the game-test source set, beside `CardCornersGameTest`, and asks it of every table it asks anything.
+
+**Nothing runs the renderer's reads (reviewer's finding, real, not fixed).** The guard checks the holder's
+own contract; that `TableMiniatureRenderer` hands its own `pos` to all eight reads is held by the
+signatures alone. Measuring a pile through `TableMiniatureRenderer.pileHeight` from the game test was
+tried, and the server refused the class: `ahighlightstaysatitsowntable failed ... Attempted to load class
+net/minecraft/client/renderer/blockentity/BlockEntityRenderer for invalid dist DEDICATED_SERVER`. `render`
+needs a window besides, and no tour step has a neighbor's board in view. Moving the renderer's pile
+arithmetic into a class the server can load would test that arithmetic, not which position `render`
+passes, so it was not done. This stays in "still unverified" below and in the test's own javadoc.
+
+*Guard, re-proved:* `TableHighlightGameTest.ahighlightstaysatitsowntable`, `:neoforge:runGameTestServer`
+each time.
+
+    the fix:                                  All 693 required tests passed :)
+    comparison always true, no reset (the old shape):
+      the table next door lit what the cursor is on at mine: [the card under the cursor, the picked card,
+      the card in the air, which is left off the felt, the pile aimed at, the mat landed on, the button
+      pointed at, anything lit at all, which the tour asks]            1 required tests failed :(
+    comparison, no reset:
+      a table the screen had just moved to still had the last table's: [the pile aimed at, the mat landed
+      on, the button pointed at, the card under the cursor, the picked card, the card in the air, which is
+      left off the felt, anything lit at all, which the tour asks]      1 required tests failed :(
+    isLitAtAll ignoring the table, as before 38a0ab4:
+      the table next door lit what the cursor is on at mine: [anything lit at all, which the tour asks]
+                                                                        1 required tests failed :(
+    the fix restored:                         All 693 required tests passed :)
+
+**The record's gap (reviewer's finding, real).** The entry above did not say the gate had not run, and ran
+nine of the eighteen static checks; its "still unverified" now says so.
+
+**Verified:** `:common:compileJava`, `:neoforge:compileGametestJava`, `:fabric:compileJava`,
+`:fabric:compileTestmodJava`; all eighteen static checks exit 0 (`scenecheck`: 396 scene steps checked, 0
+problems; `statecheck`: 55 clearable holders and 19 per-player ones checked; `plotcheck`: 166 test
+placements checked); `:neoforge:runGameTestServer` as above.
+
+**Still unverified:** `tools/gate.sh` and `./gradlew verify` were not run for `38a0ab4` or this follow-up:
+no Fabric in-world tests and no `:core:test` behind either. The renderer's eight reads, as above. Two boards
+in view at once in a running client, and Fabric's client.
