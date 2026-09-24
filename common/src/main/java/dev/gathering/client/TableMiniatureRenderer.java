@@ -311,12 +311,12 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // seated screen gives, because the two are the same board.
             drawMat(poseStack, buffers, surface.matOf(index), span,
                     SeatColor.at(index, taken ? MAT_EDGE_ALPHA : FREE_SEAT_ALPHA), taken,
-                    taken && ClientTableHighlight.isLandingOn(board.seats().get(index).seat()));
+                    taken && ClientTableHighlight.isLandingOn(pos, board.seats().get(index).seat()));
             if (taken) {
                 // The same buttons the seated board prints, in the same places, because they
                 // are the same mat. A player who learns where their untap button is in one
                 // view has learned where it is in the other.
-                drawVerbs(poseStack, buffers, packedLight, surface,
+                drawVerbs(poseStack, buffers, packedLight, surface, pos,
                         board.seats().get(index).seat(), index, span);
                 // The line marking off the row nearest its player, where lands go. On the mat
                 // rather than above it: it is a marking printed on the felt, not a thing
@@ -350,7 +350,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         int drawn = 0;
         BoardPresentation shown = presentations.of(board);
         for (int index = 0; index < board.seats().size() && drawn < MAX_CARDS; index++) {
-            drawn += drawSeat(poseStack, buffers, packedLight, board.seats().get(index),
+            drawn += drawSeat(poseStack, buffers, packedLight, pos, board.seats().get(index),
                     shown.mats().get(index), surface, placement, index, span, MAX_CARDS - drawn);
         }
         drawFlights(poseStack, buffers, packedLight, board, placement, pos, piles, span);
@@ -528,7 +528,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void drawVerbs(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
-            TableSurface surface, SeatId seat, int seatIndex, float span) {
+            TableSurface surface, BlockPos table, SeatId seat, int seatIndex, float span) {
         int count = VERBS.length;
         drawGroup(poseStack, buffers, surface.verbGroup(seatIndex, count), span);
         float lineHeight = onSurface(WRITING_HEIGHT, span);
@@ -542,7 +542,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             float width = onSurface(slot.width(), span);
             float depth = onSurface(slot.height(), span);
             drawSlot(poseStack, buffers, x, z, width, depth,
-                    ClientTableHighlight.isPointedAtVerb(seat, index));
+                    ClientTableHighlight.isPointedAtVerb(table, seat, index));
             writing(poseStack, buffers, packedLight,
                     VERB_NAMES[index],
                     x + width / 2f, z + depth / 2f, lineHeight, width * WRITING_ROOM,
@@ -584,21 +584,21 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // The slot is drawn whether or not there is anything in it. A zone you can only
             // see once it has cards in it is a zone nobody can aim at, and aiming at it is now
             // how cards get put there.
-            boolean aimed = ClientTableHighlight.isAimedAt(seat.seat(), index);
+            boolean aimed = ClientTableHighlight.isAimedAt(table, seat.seat(), index);
             drawSlot(poseStack, buffers, x, z, width, depth, aimed);
 
             ZoneView contents = seat.zones().get(Zone.PILES.get(index));
-            int held = contents == null ? 0 : showing(contents);
+            int held = contents == null ? 0 : showing(table, contents);
             int angle = surface.facingDegrees(seatIndex);
             // As tall as the cards in it, so a deck stands on the table like a deck and a
             // graveyard of three is a few cards thick. How many is already written on it; the
             // height says roughly the same thing to somebody across the room.
-            float standing = onSurface((float) pileHeight(contents, slot), span);
+            float standing = onSurface((float) pileHeight(table, contents, slot), span);
             tallestPile = Math.max(tallestPile, standing);
             if (held > 0) {
                 drawPileSides(poseStack, buffers, packedLight, seat.sleeve(), held,
                         x, z, width, depth, angle, standing);
-                CardView top = topOf(contents);
+                CardView top = topOf(table, contents);
                 drawSleeved(poseStack, buffers, packedLight, top, seat.sleeve(),
                         x, z, width, depth, angle, false, layer(ON_A_SLOT) + standing);
                 if (aimed) {
@@ -782,10 +782,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * <p>Nothing is not the same as empty. A library's cards are sent to nobody, so an empty
      * list there means a face-down stack - which is why the caller counts separately.
      */
-    private static CardView topOf(ZoneView contents) {
+    private static CardView topOf(BlockPos table, ZoneView contents) {
         for (CardView card : contents.cards()) {
             if (!(card instanceof CardView.Visible visible)
-                    || !ClientTableHighlight.isInTheAir(visible.id())) {
+                    || !ClientTableHighlight.isInTheAir(table, visible.id())) {
                 return card;
             }
         }
@@ -795,9 +795,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /**
      * How tall a pile stands, in surface units: the one answer the drawing and the pointer share,
      * so a player aiming at the top of a deck aims where it is drawn.
+     * <p>Asked at a table, because the card in the air is one table's: the same card number at the
+     * table next door is a different card, and its pile is not a card short.
      */
-    static double pileHeight(ZoneView contents, Rect slot) {
-        int held = contents == null ? 0 : showing(contents);
+    static double pileHeight(BlockPos table, ZoneView contents, Rect slot) {
+        int held = contents == null ? 0 : showing(table, contents);
         return PileThickness.of(held, Math.min(slot.width(), slot.height()));
     }
 
@@ -808,10 +810,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * nothing further down that could be following a cursor - and scanning a fifty-card
      * graveyard every frame to find that out is a scan for an answer already known.
      */
-    private static int showing(ZoneView contents) {
+    private static int showing(BlockPos table, ZoneView contents) {
         for (CardView card : contents.cards()) {
             if (card instanceof CardView.Visible visible) {
-                return ClientTableHighlight.isInTheAir(visible.id())
+                return ClientTableHighlight.isInTheAir(table, visible.id())
                         ? contents.count() - 1
                         : contents.count();
             }
@@ -947,7 +949,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * showing anything at all.
      */
     private int drawSeat(
-            PoseStack poseStack, MultiBufferSource buffers, int packedLight, SeatView seat,
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, BlockPos table, SeatView seat,
             BoardPresentation.Mat mat, TableSurface surface, SurfaceBoard placement,
             int seatIndex, float span, int budget) {
         List<CardView> cards = mat.cards();
@@ -982,7 +984,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 continue;
             }
             if (card instanceof CardView.Visible inHand
-                    && ClientTableHighlight.isInTheAir(inHand.id())) {
+                    && ClientTableHighlight.isInTheAir(table, inHand.id())) {
                 // Following somebody's cursor. It has not moved yet - the server has not been
                 // told - so the board still lists it here, and drawing it would leave a copy
                 // lying on the felt while its twin follows the cursor.
@@ -1011,7 +1013,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             float lift = Math.min(piles.depth(index), PileThickness.TALLEST) * thickness + thickness;
             tallestPile = Math.max(tallestPile, lift);
 
-            if (card instanceof CardView.Visible visible && ClientTableHighlight.isLit(visible.id())) {
+            if (card instanceof CardView.Visible visible && ClientTableHighlight.isLit(table, visible.id())) {
                 // Under the card rather than over it: a ring drawn on top would cover the art
                 // it is pointing at, and a card is a picture before it is a token.
                 drawRing(poseStack, buffers, x, z, cardWidth, cardDepth,
@@ -1039,7 +1041,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             }
             drawn++;
             // What is attached to a card is fanned out beside it, so it shows whatever is on top.
-            drawn += drawAttached(poseStack, buffers, packedLight, attachments, card,
+            drawn += drawAttached(poseStack, buffers, packedLight, table, attachments, card,
                     seat.sleeve(), placed, angle, lift, span, budget - drawn);
             if (!covered) {
                 // On the card rather than at a height of their own: the writing on a card further
@@ -1060,7 +1062,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * flickering on and off its creature reads as a fault rather than as an aura.
      */
     private int drawAttached(
-            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, BlockPos table,
             java.util.Map<CardInstanceId, List<CardView>> attachments, CardView host,
             dev.gathering.core.card.Sleeve sleeve,
             Rect hostRect, int angle, float lift, float span, int budget) {
@@ -1073,7 +1075,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         for (int slot = 0; slot < attached.size() && drawn < budget; slot++) {
             CardView card = attached.get(slot);
             if (card instanceof CardView.Visible inHand
-                    && ClientTableHighlight.isInTheAir(inHand.id())) {
+                    && ClientTableHighlight.isInTheAir(table, inHand.id())) {
                 continue;
             }
             Rect at = left

@@ -3,6 +3,8 @@ package dev.gathering.client;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.SeatId;
 import java.util.List;
+import java.util.Objects;
+import net.minecraft.core.BlockPos;
 
 /**
  * What the cursor is on, for the table in the world to draw a ring around.
@@ -10,11 +12,25 @@ import java.util.List;
  * click, and neither of those things exists as far as a block entity renderer is concerned. So
  * the screen works them out, as it always has, and leaves the answer here for the renderer to
  * pick up on its next frame.
+ * <p>Filed under one table, the one the screen is showing, and asked for by table. See
+ * {@link #table}.
  * <p>One player's own idea about their own screen, never sent anywhere - the same as the
  * selection it carries. Nothing here can be true of anybody else's client.
  * <p>Client-only.
  */
 public final class ClientTableHighlight {
+
+    /**
+     * The table all of this is about: the position the screen files its board under, which is
+     * the one the world renderer is handed for each block it draws ({@link ClientTableState#viewOf}).
+     * <p>Seats are numbered from zero at every table and card numbers are counted per game, so
+     * two tables side by side both have a seat 0 and both have a card 12. Before this was kept,
+     * everything here was true of every table in view: the table next door lit your button,
+     * ringed its own card 12 when you hovered yours, lit the mat and the pile you were aiming at,
+     * and left its card 12 out altogether while yours was in your hand.
+     * <p>Null when nothing has been said, which no position is asked as.
+     */
+    private static BlockPos table;
 
     private static CardInstanceId hovered;
     private static List<CardInstanceId> selected = List.of();
@@ -43,19 +59,40 @@ public final class ClientTableHighlight {
     private ClientTableHighlight() {
     }
 
-    public static void set(CardInstanceId under, List<CardInstanceId> picked, CardInstanceId held) {
+    /**
+     * Makes this table the one everything here is about.
+     * <p>Another table's answers are dropped rather than carried over: each writer below says
+     * one part of what the cursor is doing, and a part left over from the last table would be
+     * read as this one's.
+     */
+    private static void about(BlockPos at) {
+        BlockPos owner = at == null ? null : at.immutable();
+        if (!Objects.equals(owner, table)) {
+            clear();
+            table = owner;
+        }
+    }
+
+    /** Whether what is kept here is about this table. */
+    private static boolean isAbout(BlockPos at) {
+        return at != null && at.equals(table);
+    }
+
+    public static void set(BlockPos at, CardInstanceId under, List<CardInstanceId> picked, CardInstanceId held) {
+        about(at);
         hovered = under;
         selected = List.copyOf(picked);
         inTheAir = held;
     }
 
-    /** Whether this card is the one in the player's hand rather than on the table. */
-    public static boolean isInTheAir(CardInstanceId card) {
-        return card != null && card.equals(inTheAir);
+    /** Whether this card is the one in the player's hand rather than on this table. */
+    public static boolean isInTheAir(BlockPos at, CardInstanceId card) {
+        return card != null && isAbout(at) && card.equals(inTheAir);
     }
 
     /** Which zone a dragged card would go into, so the table can say so before it is let go. */
-    public static void aimAt(SeatId seat, int pile) {
+    public static void aimAt(BlockPos at, SeatId seat, int pile) {
+        about(at);
         aimedSeat = pile < 0 ? null : seat;
         aimedPile = pile;
     }
@@ -67,7 +104,8 @@ public final class ClientTableHighlight {
      * drawn on the block said nothing at all about where a card was going unless the cursor
      * happened to be over one of the four small boxes in the corner.
      */
-    public static void landingOn(SeatId seat) {
+    public static void landingOn(BlockPos at, SeatId seat) {
+        about(at);
         landing = seat;
     }
 
@@ -77,21 +115,24 @@ public final class ClientTableHighlight {
      * the cursor to hand and the world renderer does not, which is the only reason this is
      * kept rather than asked for.
      */
-    public static void pointAtVerb(SeatId seat, int verb) {
+    public static void pointAtVerb(BlockPos at, SeatId seat, int verb) {
+        about(at);
         pointedSeat = verb < 0 ? null : seat;
         pointedVerb = verb;
     }
 
-    public static boolean isPointedAtVerb(SeatId seat, int verb) {
-        return pointedVerb >= 0 && pointedVerb == verb && seat != null && seat.equals(pointedSeat);
+    public static boolean isPointedAtVerb(BlockPos at, SeatId seat, int verb) {
+        return pointedVerb >= 0 && pointedVerb == verb && seat != null && isAbout(at)
+                && seat.equals(pointedSeat);
     }
 
-    public static boolean isLandingOn(SeatId seat) {
-        return seat != null && seat.equals(landing);
+    public static boolean isLandingOn(BlockPos at, SeatId seat) {
+        return seat != null && isAbout(at) && seat.equals(landing);
     }
 
     /** Cleared when the in-world view closes, so a ring never outlives the cursor that made it. */
     public static void clear() {
+        table = null;
         hovered = null;
         selected = List.of();
         inTheAir = null;
@@ -102,16 +143,17 @@ public final class ClientTableHighlight {
         pointedVerb = -1;
     }
 
-    public static boolean isLit(CardInstanceId card) {
-        return card != null && (card.equals(hovered) || selected.contains(card));
+    public static boolean isLit(BlockPos at, CardInstanceId card) {
+        return card != null && isAbout(at) && (card.equals(hovered) || selected.contains(card));
     }
 
-    /** Whether anything at all is lit. For the scripted harness, which cannot see a ring. */
-    static boolean isLitAtAll() {
-        return hovered != null;
+    /** Whether anything at all is lit on this table. For the scripted harness, which cannot see a ring. */
+    static boolean isLitAtAll(BlockPos at) {
+        return hovered != null && isAbout(at);
     }
 
-    public static boolean isAimedAt(SeatId seat, int pile) {
-        return aimedPile >= 0 && aimedPile == pile && seat != null && seat.equals(aimedSeat);
+    public static boolean isAimedAt(BlockPos at, SeatId seat, int pile) {
+        return aimedPile >= 0 && aimedPile == pile && seat != null && isAbout(at)
+                && seat.equals(aimedSeat);
     }
 }

@@ -1345,7 +1345,7 @@ public final class DevScene {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
-                if (!ClientTableHighlight.isLitAtAll()) {
+                if (!ClientTableHighlight.isLitAtAll(table)) {
                     fail("the table in the world was not told what the cursor was on");
                 }
                 shoot(client, "22-on-the-table-hovering");
@@ -11419,13 +11419,13 @@ public final class DevScene {
         int graveyard = Zone.PILES.indexOf(Zone.GRAVEYARD);
         Rect slot = board.board().pileRect(me, library, board.pileCount());
         var cards = view.seat(me).zone(Zone.LIBRARY);
-        double height = TableMiniatureRenderer.pileHeight(cards, slot);
+        double height = TableMiniatureRenderer.pileHeight(table, cards, slot);
         double one = dev.gathering.core.ui.PileThickness.of(1, Math.min(slot.width(), slot.height()));
         if (cards.count() < 2 || height < one * Math.min(cards.count(), dev.gathering.core.ui.PileThickness.TALLEST) - 1e-9) {
             fail("a library of " + cards.count() + " stands " + height + " tall on the block, not a card's thickness per card");
             return;
         }
-        double graveyardHeight = TableMiniatureRenderer.pileHeight(view.seat(me).zone(Zone.GRAVEYARD),
+        double graveyardHeight = TableMiniatureRenderer.pileHeight(table, view.seat(me).zone(Zone.GRAVEYARD),
                 board.board().pileRect(me, graveyard, board.pileCount()));
         if (view.seat(me).zone(Zone.GRAVEYARD).count() < cards.count() && graveyardHeight >= height) {
             fail("a graveyard of " + view.seat(me).zone(Zone.GRAVEYARD).count() + " stands as tall as a library of "
@@ -11579,7 +11579,7 @@ public final class DevScene {
         TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
         double pileX = top.worldX(slot.centerX());
         double pileZ = top.worldZ(slot.centerY());
-        double pileY = top.topY() + top.blocks(TableMiniatureRenderer.pileHeight(view.seat(me).zone(Zone.LIBRARY), slot));
+        double pileY = top.topY() + top.blocks(TableMiniatureRenderer.pileHeight(table, view.seat(me).zone(Zone.LIBRARY), slot));
         // Back from the pile, away from the middle of the table, and a little to the side.
         double awayX = pileX - (table.getX() + 1.0);
         double awayZ = pileZ - (table.getZ() + 1.0);
@@ -12874,7 +12874,7 @@ public final class DevScene {
             // none - is the two halves of this feature disagreeing about where the cursor is.
             SeatId me = ClientTableState.seatAt(board.tablePosition()).orElse(null);
             int index = java.util.Arrays.asList(TableVerb.values()).indexOf(verb);
-            if (!ClientTableHighlight.isPointedAtVerb(me, index)) {
+            if (!ClientTableHighlight.isPointedAtVerb(board.tablePosition(), me, index)) {
                 fail("resting on the " + verb + " button" + where + " said what it does and did not light it");
                 return;
             }

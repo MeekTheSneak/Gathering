@@ -1084,7 +1084,7 @@ public final class TableScreen extends Screen {
             }
             for (int index = 0; index < pileCount(); index++) {
                 Rect slot = onBlock.pileRect(seat.seat(), index, pileCount());
-                double height = TableMiniatureRenderer.pileHeight(seat.zones().get(Zone.PILES.get(index)), slot);
+                double height = TableMiniatureRenderer.pileHeight(table, seat.zones().get(Zone.PILES.get(index)), slot);
                 if (height <= tallest || slot.isEmpty()) {
                     continue;
                 }
@@ -1309,14 +1309,14 @@ public final class TableScreen extends Screen {
             // The block draws its own board. What it needs from here is what the cursor is on,
             // because the world renderer has no idea where anybody's mouse is.
             hovered = frontMostAt(everythingOnTheTable(board), mouseX, mouseY);
-            ClientTableHighlight.set(idOf(hovered), List.copyOf(selected),
+            ClientTableHighlight.set(table, idOf(hovered), List.copyOf(selected),
                     gesture.held() == null ? null : gesture.held().card());
             // The mats on the block carry the same buttons and the same piles as the seated
             // board, and until the cursor could light them and name them they were boxes
             // painted on a table - pressable, but only by somebody who already knew.
             SeatId mine = mySeat().orElse(null);
             int verb = hovered == null ? verbSlotAt(mine, mouseX, mouseY) : -1;
-            ClientTableHighlight.pointAtVerb(mine, verb);
+            ClientTableHighlight.pointAtVerb(table, mine, verb);
             if (verb >= 0) {
                 tooltip = verbTip(verb);
             } else if (hovered == null) {
@@ -2156,7 +2156,7 @@ public final class TableScreen extends Screen {
         // looked at it. So a player dragging toward a column of four or five slots had the
         // whole mat outlined and nothing saying which of them they were about to hit, which
         // is a question you could only answer by letting go and reading the log.
-        if (ClientTableHighlight.isAimedAt(view.seat(), Zone.PILES.indexOf(zone))) {
+        if (ClientTableHighlight.isAimedAt(table, view.seat(), Zone.PILES.indexOf(zone))) {
             litSeat = view.seat();
             litPile = Zone.PILES.indexOf(zone);
             // Two rings and a wash rather than one thin outline. This is answering "which of
@@ -3720,8 +3720,8 @@ public final class TableScreen extends Screen {
         if (gesture.held() == null) {
             aimReport = "nothing held";
             aimedSlotLastFrame = -1;
-            ClientTableHighlight.aimAt(null, -1);
-            ClientTableHighlight.landingOn(null);
+            ClientTableHighlight.aimAt(table, null, -1);
+            ClientTableHighlight.landingOn(table, null);
             return;
         }
         checkLongHold(board);
@@ -3742,16 +3742,16 @@ public final class TableScreen extends Screen {
                     + " -> board " + Math.round(at[0]) + "," + Math.round(at[1])
                     + " seat " + landing.index() + " slot " + slot + " of " + pileCount()
                     + "; lit " + (litSeat == null ? "nothing" : litSeat.index() + " slot " + litPile);
-            ClientTableHighlight.aimAt(landing, slot);
+            ClientTableHighlight.aimAt(table, landing, slot);
         } else {
             aimReport = "cursor " + mouseX + "," + mouseY + " is on nobody's mat";
-            ClientTableHighlight.aimAt(null, -1);
+            ClientTableHighlight.aimAt(table, null, -1);
         }
         aimedSlotLastFrame = aimedSlot;
         // Whose side of the table it would land on, which the board on the block draws as a
         // lit mat. Most of a mat is not a zone, so aiming alone left a card being dragged
         // across the felt with nothing at all saying where it was about to go.
-        ClientTableHighlight.landingOn(landing);
+        ClientTableHighlight.landingOn(table, landing);
 
         // The mat it would land on, outlined, so you can see whose side you are about to put
         // it on. Only on the seated screen: the mats on the block are measured on the table

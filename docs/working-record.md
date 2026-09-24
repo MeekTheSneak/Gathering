@@ -4391,7 +4391,8 @@ that the arm comes down.
   outline, the slot a card snaps into, and the ring around a stack it would join - are fed to
   `ClientTableHighlight` by `renderHeldCard`, which runs *outside* the view branch and therefore
   for both. The world renderer reads all three: `isLandingOn` at `TableMiniatureRenderer:314`,
-  `isAimedAt` at 587, `isLit` at 1014. Same information, different painter.
+  `isAimedAt` at 587, `isLit` at 1016. Same information, different painter - and, since 2026-09-24,
+  asked for by table (see "a highlight stays at its own table").
   *Still worth a human's eyes* on how the three read at a pod, which is a question about whether
   they are legible rather than whether they exist.
 
@@ -4634,3 +4635,49 @@ seat. It calls the same `frameTheBoard` the guarded branch does. Standing up wit
 puts the camera over the middle of the table at the starting height (`height=2.2`), as arriving with no
 seat does; the flat board shows the whole table instead, and whether 2.2 shows all of it at every window
 size was not checked. Steps 359 on and Fabric's client were not run.
+
+## 2026-09-24: a highlight stays at its own table
+
+Found while tracing the real board's button tooltip, not asked for. `ClientTableHighlight` - what the
+screen leaves for the world renderer: the card under the cursor, the ones picked, the one in the air,
+the pile and the mat a drag is aimed at, the button the cursor rests on - was one set of statics keyed
+by seat and card number alone, and `TableMiniatureRenderer` asks it for every table in view. Seats are
+numbered from zero at every table and card numbers are counted per game (`GameFold`, `nextId++`), so at
+a long table played apart the table next door lit your button, ringed its own card with your hovered
+card's number, lit the mat and pile you were aiming at, and left its same-numbered card off the felt
+altogether while you carried yours.
+
+**Fix.** The holder remembers the table it is about - the position the screen files its board under,
+which is the one `ClientTableState.viewOf` and the renderer's `pos` use - and every writer and reader
+takes it: `set`, `aimAt`, `landingOn`, `pointAtVerb`, `isLit`, `isInTheAir`, `isAimedAt`,
+`isLandingOn`, `isPointedAtVerb`, `isLitAtAll`. A write for another table drops what the last one left
+before taking it, so a hover at one table and a drag at the next are never read together; `clear()`
+drops the table with the rest. The renderer threads its own `pos` through `drawVerbs`, `drawPiles`,
+`topOf`, `showing`, `pileHeight`, `drawSeat` and `drawAttached`; `TableScreen` passes its `table`
+(`NOT_A_TABLE` for a replay and `TutorialDemo.NOWHERE` for the lesson, neither of which is a block, so
+neither can light one); `DevScene` asks step 68 about its own `table` - which now also checks the screen
+files the highlight under the table in the world - and `aButtonSaysWhatItDoes` about the screen's.
+
+*Guard:* `TableHighlightGameTest.ahighlightstaysatitsowntable` lights all six at one table, checks they
+are lit there (so the rest cannot pass on a holder that lights nothing), that none is lit at the table
+next door, that a write for another table carries none of the last table's over, and that `clear()`
+leaves nothing. With the table comparison always true and no reset (the old shape): `ahighlightstaysatitsowntable
+failed ... the table next door lit what the cursor is on at mine: [the card under the cursor, the picked
+card, the card in the air, which is left off the felt, the pile aimed at, the mat landed on, the button
+pointed at]`, `1 required tests failed`. With the comparison but no reset: `... a table the screen had
+just moved to still had the last table's: [the card under the cursor, the picked card, the card in the
+air, which is left off the felt, the mat landed on, the button pointed at]`. With the fix: `All 693
+required tests passed :)`.
+
+**Verified:** `:common:compileJava`, `:neoforge:compileGametestJava`, `:fabric:compileJava`,
+`:fabric:compileTestmodJava`; statecheck, doccheck, spellcheck, scenecheck, plotcheck, langcheck,
+prefcheck, mixincheck and voicecheck exit 0; `:neoforge:runGameTestServer` as above; and a NeoForge tour
+under Xvfb, `-PdevsceneTo=71`: `reached step 72 of 396`, `failures: 1` - the pass-turn sound, which this
+container cannot play. `22-on-the-table-hovering`, `22a-carrying-a-card-on-the-table` and
+`22ab-a-button-says-what-it-does-on-the-table` looked at: the hovered card ringed, the carried card
+gone from the felt and my mat lit as where it lands, Draw lit with "Draw / 2" beside it.
+
+**Still unverified:** two tables with boards in view at once in a running client. No tour step hovers
+or carries a card at one table with a neighbor's board in the picture, so the game test is what shows
+the neighbor stays dark; the renderer's side of it is the position threaded through, read rather than
+seen. Fabric's client was not run.
