@@ -40,7 +40,13 @@ stage() {
 }
 
 #: Where the build's own output is kept, so the in-world results can be read back out of it.
-GRADLE_LOG=$(mktemp -t gathering-gate)
+#: A full template rather than `mktemp -t name`: that form is macOS's, and GNU mktemp refuses a
+#: name with no X's in it - which left this empty on Linux, sent the whole build to nowhere and
+#: reported every stage that reads the log as failed without saying why.
+GRADLE_LOG=$(mktemp "${TMPDIR:-/tmp}/gathering-gate.XXXXXX") || {
+    echo "gate: could not make a file for the build's log" >&2
+    exit 2
+}
 trap 'rm -f "$GRADLE_LOG"' EXIT
 
 # The Gradle half, as one task: verify is the one that knows what it has to cover and fails
