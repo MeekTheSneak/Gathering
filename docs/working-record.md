@@ -4358,7 +4358,12 @@ that the arm comes down.
   **Not verified:** a zoomed-in board, where the gain should be largest - nothing in the scripted
   segment zooms - and the Fabric client, which runs the same code. And a person playing on it.
 
-- **Mat buttons on the real board show no tooltip - probably.** On the flat board, resting on
+- ~~**Mat buttons on the real board show no tooltip - probably.**~~ **Not reproduced 2026-09-24,
+  and now asserted.** Read again, the game draws the tooltip in both views from the same answer that
+  lights the button; the likeliest cause is the tour's own step 12, which switched boards and aimed
+  at Draw in the same tick, through the camera of the frame before. The tour now aims a frame later,
+  asserts the tooltip was *drawn* and the button lit on the real board, and photographs it (`22ab`).
+  See the 2026-09-24 entry. On the flat board, resting on
   Draw, Shuffle, Mulligan or Untap names the button and its key. A scripted run 2026-09-22 rested
   on the real board's Draw button, which lit, and nothing was said. The tour normally checks this
   on the flat board and had never looked at the real one; it only did because of the item below.
@@ -4366,7 +4371,8 @@ that the arm comes down.
   instrumenting in a running client rather than more reading - which needs a client, so it waits
   for the owner to be away from the machine.
 
-- **The scripted tour assumes the flat board is the default.** It switches views with the same
+- ~~**The scripted tour assumes the flat board is the default.**~~ **Done 2026-09-24:** it holds the
+  flat board for the run (`ClientSettings.holdTheBoardForARun`), which is never written. It switches views with the same
   key a player does, so when the real board became the default every section ran on the other
   board from the one it was written for: its flat-board coverage quietly dropped and the check
   above ran where it had never run. For the measurements here, `neoforge/run`'s own settings were
@@ -4489,3 +4495,79 @@ furniture, and a guard holds that half so nobody later turns this into blanket i
 javadoc and the member it belonged to - the same orphaned-javadoc mistake this project has made
 repeatedly. `tools/doccheck.py` names it; it is cheap to run and I did not run it before handing the
 work on.
+
+## 2026-09-24: the tour chooses its own board, and three defects around opening one
+
+**The tour holds the flat board.** `ClientSettings.holdTheBoardForARun(Boolean)`: while held, the getter
+answers the held board and the setter returns before remembering or writing anything; V still switches
+the open table. `DevScene` holds the flat board at step 0 and lets go in `finish()`; `PackScene` holds it
+where it sets `tutorialOffered`. Every section is back on the board it was written for (step 8 opens flat,
+`04-seated-board` is the flat board again, step 358 passes). The run directory's own settings file said
+`play_on_the_block = true` before the runs below and still said it after them, with V pressed dozens of
+times in each.
+*Guard:* `ClientPreferencesGameTest.theplayersownsettingsfile` now includes
+`aboardheldforarunisneverwritten` (file says true, hold false, press as V does, flush, file still says
+true). Without the setter's early return: `theplayersownsettingsfile failed ... a board chosen while a run
+held it was written to the player's file: ... play_on_the_block = false`, `1 required tests failed`.
+With it: `All 692 required tests passed :)`.
+
+**D1, a replay opened on the block.** `TableScreen.init` excluded only the lesson, so with the real board
+as the default a replay - whose table is `NOT_A_TABLE`, below the world - put the camera over empty
+space. Now `mode.hasABlock() && ClientSettings.playOnTheBlock()`. *Guard:* the tour holds the block for
+the replay's opening (step 276) and step 277 fails if the replay is on a `SurfaceBoard` or the camera is
+over a table. Reverted: `FAIL a replay opened on the block, where its game no longer is: board
+SurfaceBoard, camera over a table true`, and `82-the-whole-game-back` was black but for one block.
+
+**D2, a table opened straight onto the block was not framed on your own mat.** The first init only
+resumed the camera, which keeps its height and pan between tables. Now the first init on the block calls
+`TableCameraView.focusOn` as V does; a re-init (coming back from a graveyard or a panel) still resumes.
+*Guard:* step 358, after its own check, frames the whole table and drags the far mat to the middle
+(checked: `before opening the turned table again, the middle of the window is on seat seat1; mine
+seat0`), then opens the table again with the block held. Reverted: `FAIL a table opened straight onto the
+block framed seat1 rather than my own mat seat0`. With the fix: `a table opened straight onto the block:
+the middle of the window is on seat seat0; mine seat0`, at the same height V frames it at (1.6255).
+
+**The real board's button tooltip.** Not reproduced. Step 12 switched boards and aimed in the same tick,
+through the last frame's camera; it now switches only from the block and aims a frame later.
+`TableScreen.tooltipDrawn()` is set where the tooltip is actually drawn and cleared with the tooltip;
+`aButtonSaysWhatItDoes` asserts it, and on the real board also `ClientTableHighlight.isPointedAtVerb`.
+Step 70 photographs it: `22ab-a-button-says-what-it-does-on-the-table`, looked at - Draw lit, "Draw / 2"
+beside it. *Guard proven:* with `&& !playingOnTheBlock` added to the draw condition, `FAIL resting on the
+DRAW button on the board on the block worked out a tooltip and never drew it`.
+
+**Steps 82-84, commander damage.** They still opened the counters screen, which lost damage in
+`a5d8e8c`. They open `LifeScreen` now, check `damageRowsLaidOut() == 2`, press the plus on the first
+commander's row (found by `LifeScreen.damageRow(0)`, since the life row's plus comes first), and check
+damage went up by one and life down by one. Step 87's message says the life panel. `24` and `25`
+looked at: 40 to 39 life, Llanowar Elves 0 to 1.
+
+**Found by looking at the pictures, not asked for:** `108-a-table-played-east-to-west` was a screen of
+grass. The turned table was placed a block under the player's feet, and the player arrives there a block
+lower than somebody standing on the grass (the table went in at y -62, the tour's own table is at -61),
+so it was buried and the camera saw the grass over it. Step 358's check passed regardless, because it is
+arithmetic on the pointer. It is placed from the ground's height now (`MOTION_BLOCKING`, less one): the
+last run put it at y -61 and `108` and `108a` show the turned board and its two stacks, looked at.
+
+**Verified:** compiles (`:common:compileJava`, `:neoforge:compileGametestJava`, `:fabric:compileJava`,
+`:fabric:compileTestmodJava`); all eighteen static checks; the game tests above; and three scripted
+NeoForge runs under Xvfb:
+
+    -PdevsceneTo=360, every fix in:            reached step 361 of 396, failures: 5
+    -PdevsceneTo=358, D1, D2 and the tooltip
+      fix reverted together:                  reached step 359 of 396, failures: 8
+    -PdevsceneTo=361, every fix and the
+      table placed on the ground:              reached step 362 of 396, failures: 5
+
+The three the reverted run added are the three guards' own lines quoted above; the five in every run
+are the ones below.
+
+**Not from this batch, seen in every run here:** the three sound checks (`Failed to open OpenAL device`:
+this container has no audio); the known whole-table framing difference at a 427x240 window (2026-09-17);
+and `eight seats in a 854-wide window went into two rows` at step 347. That last one reads its rows off
+`statusRows`, which depends on the window width, the seat count and the font and on nothing changed
+here; it was not chased.
+
+**Still unverified:** steps 362 onward (the full tour is the orchestrator's); Fabric's client; the
+crouched click that opens the life panel (a script cannot hold the real shift key, so the tour opens the
+panel the way the board does); and a board opened onto the block by somebody with no seat yet, which
+frames the whole table and is not re-framed when the seat arrives - the flat board is, the block is not.

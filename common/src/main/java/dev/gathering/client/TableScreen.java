@@ -451,6 +451,9 @@ public final class TableScreen extends Screen {
      */
     private List<Component> tooltip = List.of();
 
+    /** Whether the last frame drew {@link #tooltip}, rather than only working it out. */
+    private boolean tooltipDrawn;
+
     /** Measured once per screen: how much room the longest zone name needs. Nought is unasked. */
     private int longestZoneNameWidth;
 
@@ -516,6 +519,17 @@ public final class TableScreen extends Screen {
     /** What the last frame's cursor position had to say for itself. For the harness. */
     List<Component> tooltipShowing() {
         return tooltip;
+    }
+
+    /**
+     * Whether the last frame actually drew a tooltip. For the harness.
+     * <p>Not the same question as {@link #tooltipShowing()}: that is what the frame worked out
+     * to say, and between working it out and drawing it stand the log, the key list, a card
+     * in the air and the read overlay, any of which suppress it. A check on the worked-out
+     * answer alone passes for a button that lights and says nothing.
+     */
+    boolean tooltipDrawn() {
+        return tooltipDrawn;
     }
 
     /**
@@ -623,7 +637,8 @@ public final class TableScreen extends Screen {
         gesture.cancel();
         attaching = List.of();
         swallowingTheChatKey = false;
-        if (geometry == null) {
+        boolean arriving = geometry == null;
+        if (arriving) {
             geometry = new BoardGeometry(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
             onBlock = new SurfaceBoard(anchors());
@@ -632,10 +647,12 @@ public final class TableScreen extends Screen {
             // flat diagram of it. The flat one is still a key away and is remembered once chosen,
             // which is what makes it the competitive player's board rather than a hidden mode.
             //
-            // Not while learning: the lesson drives the flat board's own rectangles and reads
-            // them back, so a lesson that opened on the block would be pointing at places the
-            // learner is not looking.
-            playingOnTheBlock = !mode.isLearning() && ClientSettings.playOnTheBlock();
+            // Only where there is a block. The lesson drives the flat board's own rectangles
+            // and reads them back, so a lesson that opened on the block would be pointing at
+            // places the learner is not looking. And a replay's game has left its table: on
+            // the block, a replay put the camera over a place no table can be and showed
+            // empty space, with no key to get back from it.
+            playingOnTheBlock = mode.hasABlock() && ClientSettings.playOnTheBlock();
             // Opened on your own board rather than on the whole table: see focusOn. Somebody
             // with no seat has no own board to open on, and used to get whatever the camera
             // happened to be constructed with - which put the far player's zones off the top
@@ -660,10 +677,19 @@ public final class TableScreen extends Screen {
                     layout.status().height(), layout.hand().height());
             onBlock.reshape(anchors());
         }
-        // A screen this one opened - a graveyard, a counters panel - took the camera back to
-        // the player on its way in. Coming back to the same instance has to take it over the
-        // table again, or the player is left holding a board they cannot see.
-        if (playingOnTheBlock) {
+        // Arriving on the block is framed on your own mat, the same as pressing V is. The camera
+        // keeps its height and its pan between tables, so a board that only resumed opened the
+        // first table of a session over its middle at the starting height, and every table
+        // after it wherever the last one was left - somebody else's mat, or no mat at all.
+        //
+        // Coming back is not arriving. A screen this one opened - a graveyard, a counters panel
+        // - took the camera back to the player on its way in, and returning to the same
+        // instance has to take it over the table again where the player had left it, or they
+        // are left holding a board they cannot see.
+        if (playingOnTheBlock && arriving) {
+            TableCameraView.focusOn(table, myMatIsOnTheSouthHalf(), myMatOnTheBlock(),
+                    coveredByTheStatus(), coveredByTheHand());
+        } else if (playingOnTheBlock) {
             TableCameraView.resume(table, myMatIsOnTheSouthHalf(),
                     coveredByTheStatus(), coveredByTheHand());
         }
@@ -1240,6 +1266,7 @@ public final class TableScreen extends Screen {
         cursorY = mouseY;
         ClientHoverState.clear();
         tooltip = List.of();
+        tooltipDrawn = false;
         handSaid = "";
         forgetThePointer();
 
@@ -1455,6 +1482,7 @@ public final class TableScreen extends Screen {
             // totals and the turn.
             int tall = tooltip.size() * (this.font.lineHeight + 1) + 8;
             int lowest = layout().status().bottom() + tall + 12;
+            tooltipDrawn = true;
             graphics.renderComponentTooltip(
                     this.font, tooltip, mouseX, Math.max(mouseY, lowest));
         }

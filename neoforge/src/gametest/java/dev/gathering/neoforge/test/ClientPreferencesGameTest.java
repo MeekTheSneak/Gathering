@@ -45,6 +45,7 @@ public final class ClientPreferencesGameTest {
         thesamenameunderanotherheadingisleftalone(helper);
         skippingisnotfinishing(helper);
         afailedwriteistriedagain(helper);
+        aboardheldforarunisneverwritten(helper);
         helper.succeed();
     }
 
@@ -91,6 +92,50 @@ public final class ClientPreferencesGameTest {
             Files.deleteIfExists(blocker);
             Files.deleteIfExists(root);
         }
+    }
+
+    /**
+     * A board held for a scripted run is answered while held and never written.
+     * <p>The scripted tours hold the flat board and press V dozens of times. Each press used
+     * to be written to the settings file of whoever ran the tour a second later, so a run
+     * killed by its timer left the player's own choice of board changed, and every table they
+     * opened afterwards opened on the other one. Held here, pressed the way V presses, and
+     * flushed: the file has to say what it said before.
+     */
+    private static void aboardheldforarunisneverwritten(GameTestHelper helper) throws Exception {
+        withFile("""
+                [file]
+                schema = 2
+
+                [table]
+                play_on_the_block = true
+                """, helper, where -> {
+            try {
+                if (!ClientSettings.playOnTheBlock()) {
+                    helper.fail("a file saying play_on_the_block = true was read as the flat board");
+                    return;
+                }
+                ClientSettings.holdTheBoardForARun(false);
+                if (ClientSettings.playOnTheBlock()) {
+                    helper.fail("the flat board held for a run is not what a table is told to open on");
+                    return;
+                }
+                // What V does: TableScreen.useTheBlock hands the board it switched to straight here.
+                ClientSettings.playOnTheBlock(false);
+                ClientSettings.flush();
+                String after = Files.readString(where, StandardCharsets.UTF_8);
+                if (!after.contains("play_on_the_block = true") || after.contains("play_on_the_block = false")) {
+                    helper.fail("a board chosen while a run held it was written to the player's file:\n" + after);
+                    return;
+                }
+                ClientSettings.holdTheBoardForARun(null);
+                if (!ClientSettings.playOnTheBlock()) {
+                    helper.fail("letting go of the held board did not give back the player's own choice");
+                }
+            } finally {
+                ClientSettings.holdTheBoardForARun(null);
+            }
+        });
     }
 
     /**

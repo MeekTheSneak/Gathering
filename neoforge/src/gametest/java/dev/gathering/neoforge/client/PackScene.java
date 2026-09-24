@@ -119,6 +119,10 @@ public final class PackScene {
                 }
                 client.options.pauseOnLostFocus = false;
                 dev.gathering.client.ClientSettings.tutorialOffered(true);
+                // The flat board, held for the run and never written: step 10 photographs the seated
+                // board and presses V to reach the block, which only works from the flat one, and a
+                // remembered choice would have it start on whichever board the last run left.
+                dev.gathering.client.ClientSettings.holdTheBoardForARun(false);
                 onTheServer(client, PackScene::buildTheBoard);
                 advance(SETTLE * 8);
             }
@@ -568,6 +572,7 @@ public final class PackScene {
     }
 
     private static void finish(Minecraft client) {
+        dev.gathering.client.ClientSettings.holdTheBoardForARun(null);
         if (event != null) {
             Events.removeForTesting(event);
         }

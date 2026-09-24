@@ -257,4 +257,14 @@ public final class LifeScreen extends ChildScreen {
     int damageRowsLaidOut() {
         return layout == null ? 0 : layout.damageRows();
     }
+
+    /**
+     * Where one commander's row is, for the scripted run to press its plus.
+     * <p>Asked of the layout the buttons were built from, because the life row's plus comes
+     * first on this panel and a run that pressed the first plus it found moved the life total
+     * and never touched the damage it was there to record.
+     */
+    Rect damageRow(int row) {
+        return layout == null || row < 0 || row >= layout.damageRows() ? Rect.NONE : layout.damageRow(row);
+    }
 }

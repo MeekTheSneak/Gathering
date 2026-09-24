@@ -177,6 +177,10 @@ public final class DevScene {
     private static boolean committed;
     /** Whether the seated board has been shown with a seat kept for a player away from it. */
     private static boolean awayShown;
+    /** Whether step 12 has gone back to the flat board and is waiting a frame before aiming at a button. */
+    private static boolean backForTheButton;
+    /** How far through checking that a table opened straight onto the block is framed on your own mat step 358 is. */
+    private static int arrivingPhase;
 
     /** How far through choosing a game from the chair step 8 is. */
     private static int opening;
@@ -281,6 +285,9 @@ public final class DevScene {
 
     /** And how much commander damage had been taken before the button was pressed. */
     private static int tookCommanderDamage;
+
+    /** And this player's life before it, which commander damage takes with it. */
+    private static int lifeBeforeTheDamage;
 
     /** How many cards the library held before a scry, which a scry must not change. */
     private static int onTopBefore;
@@ -424,6 +431,13 @@ public final class DevScene {
                     // Off for the tour. Reduced motion puts no card in the air and lights no pile, and a
                     // run directory left with it on failed three steps with nothing saying why.
                     ClientSettings.reducedMotion(false);
+                    // And the flat board, held rather than set. Every section below was written for
+                    // one board or the other and gets there by pressing V from the flat one, and the
+                    // choice is remembered: left to it, the tour opened on whatever the last run's
+                    // last press left and ran each section on the opposite board. Held in memory, so
+                    // the presses are not written into this machine's settings file either - not
+                    // even by a run the timer kills before it can put anything back.
+                    ClientSettings.holdTheBoardForARun(false);
                     // And the shortcuts written while playing go to a file of the tour's own.
                     try {
                         dev.gathering.client.RecentThings.fileForTesting(
@@ -441,7 +455,8 @@ public final class DevScene {
                             ClientSettings.tutorialSkipped()};
                     System.out.println("[devscene] running with reduced motion " + (ClientSettings.reducedMotion() ? "on" : "off")
                             + ", text " + ClientSettings.textScale() + "%, controls " + ClientSettings.controlScale()
-                            + "%, table sounds " + (ClientSettings.tableSounds() ? "on" : "off"));
+                            + "%, table sounds " + (ClientSettings.tableSounds() ? "on" : "off")
+                            + ", tables opening on the " + (ClientSettings.playOnTheBlock() ? "block" : "flat board"));
                     System.out.println("[devscene] first screen: " + client.screen.getClass().getName());
                     client.setScreen(new TitleScreen());
                     advance(SETTLE);
@@ -630,11 +645,28 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 12 -> {
-                shoot(client, "06-on-the-table");
-                // Back to the seated screen for the rest, which is where the gestures are
-                // easiest to aim without a camera in the way.
-                if (client.screen != null) {
-                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                if (!backForTheButton) {
+                    backForTheButton = true;
+                    if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)) {
+                        fail("the picture of the board on the block was about to be taken of "
+                                + (client.screen == null ? "no screen" : "the flat board"));
+                    }
+                    shoot(client, "06-on-the-table");
+                    // Back to the seated screen for the rest, which is where the gestures are
+                    // easiest to aim without a camera in the way. Only from the block: a V that
+                    // found the flat board already up would put the rest of this on the block.
+                    if (client.screen instanceof TableScreen board && board.board() instanceof SurfaceBoard) {
+                        board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                    }
+                    // And the cursor rested on a button once a frame of that board has been drawn,
+                    // not in the same breath as switching. Placed at once, it was placed through the
+                    // view the last frame was drawn from, which was the other board's.
+                    waitHere(A_MOMENT);
+                    return;
+                }
+                backForTheButton = false;
+                if (client.screen instanceof TableScreen board && board.board() instanceof SurfaceBoard) {
+                    fail("V on the board on the block did not go back to the flat board");
                 }
                 // Rest the cursor on a mat button, so the next step can read what it says.
                 hoverAVerbButton(client, TableVerb.DRAW);
@@ -1339,6 +1371,10 @@ public final class DevScene {
             }
             case 70 -> {
                 aButtonSaysWhatItDoes(client, TableVerb.DRAW, "2");
+                // The same button and its tooltip on the board in the world. The one picture of
+                // it: a scripted run once saw the button lit there with nothing said, and every
+                // other picture of a button's tooltip is of the flat board.
+                shoot(client, "22ab-a-button-says-what-it-does-on-the-table");
                 pressAVerbButton(client, TableVerb.DRAW);
                 advance(A_MOMENT);
             }
@@ -1519,24 +1555,28 @@ public final class DevScene {
                 heard("pass_turn", "the turn going over to the rival");
                 HEARD.clear();
                 theTurnPasses(client, new SeatId(1), new SeatId(0));
-                openMyCounters(client);
+                openMyLife(client);
                 advance(SETTLE / 2);
             }
             case 83 -> {
-                expectScreen(client, "asking for my own counters", CountersScreen.class);
+                expectScreen(client, "asking for my own life", LifeScreen.class);
                 heard("your_turn", "the rival handing the turn back");
                 if (HEARD.contains("pass_turn")) {
                     fail("the turn coming back made the pass sound as well as the your-turn sound");
                 }
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
+                lifeBeforeTheDamage = myLife(client);
                 // One row per enemy commander, and the rival brought partners - so two rows,
                 // or the grid has collapsed back to one number per seat, which is the bug
                 // the keying exists to rule out: twenty-one is counted against the SAME
-                // commander, and partners are two.
-                if (damageRowsShowing(client) != 2) {
-                    fail("a rival with two partners grew " + damageRowsShowing(client)
-                            + " damage rows, not one per commander");
+                // commander, and partners are two. Counted off the panel's own layout rather
+                // than off the board, which says how many rows there ought to be and nothing
+                // about how many were laid out.
+                int rows = client.screen instanceof LifeScreen life ? life.damageRowsLaidOut() : -1;
+                if (rows != 2) {
+                    fail("a rival with two partners grew " + rows
+                            + " damage rows on the life panel, not one per commander");
                 }
                 // And the rows say who. Each enemy commander's name is pushed with the view
                 // that showed it, and a row stuck on "Loading..." cannot answer the one
@@ -1545,13 +1585,22 @@ public final class DevScene {
                     fail("the rival's commander names never arrived, "
                             + "so the damage rows cannot say who");
                 }
-                press(client, "+");
+                pressPlusOnADamageRow(client);
                 advance(SETTLE);
             }
             case 84 -> {
+                // Both numbers, from the one press: commander damage is damage, so recording it
+                // takes the life with it. A run that pressed the life row's plus moved the life
+                // the wrong way and the damage not at all, and this says which.
                 int now = damageTaken(client);
-                if (now <= tookCommanderDamage) {
-                    fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
+                int life = myLife(client);
+                if (now != tookCommanderDamage + 1) {
+                    fail("one press on a commander's row moved commander damage from "
+                            + tookCommanderDamage + " to " + now);
+                }
+                if (life != lifeBeforeTheDamage - 1) {
+                    fail("one point of commander damage moved life from " + lifeBeforeTheDamage
+                            + " to " + life + ", not down by one");
                 }
                 shoot(client, "25-damage-recorded");
                 // Out by the button rather than by the escape key. Every panel needs a way out
@@ -1569,7 +1618,7 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 87 -> {
-                expectScreen(client, "pressing Done on the counters", TableScreen.class);
+                expectScreen(client, "pressing Done on the life panel", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
@@ -3423,10 +3472,22 @@ public final class DevScene {
                     fail("a game was played out and ended, and the shelf came back empty");
                 }
                 shoot(client, "81-games-that-finished");
+                // Watched back by somebody whose tables open on the block. A replay's game has left
+                // its table, and a replay that opened on the block put the camera over a place no
+                // table can be - empty space, with no key to get back from it. Held for this one
+                // opening and let go in the next step, so the replay steps after it run as written.
+                ClientSettings.holdTheBoardForARun(true);
                 watchTheNewestGame(client);
                 advance(SETTLE * 2);
             }
             case 277 -> {
+                if (client.screen instanceof TableScreen watching && watching.isReplay()
+                        && (watching.board() instanceof SurfaceBoard || TableCameraView.isLooking())) {
+                    fail("a replay opened on the block, where its game no longer is: board "
+                            + watching.board().getClass().getSimpleName() + ", camera over a table "
+                            + TableCameraView.isLooking());
+                }
+                ClientSettings.holdTheBoardForARun(false);
                 expectAReplay(client, "watching the game back");
                 // Wound to the end, which is the board as the table was cleared - and the one
                 // frame where a hand full of cards proves the disclosure works.
@@ -4235,6 +4296,10 @@ public final class DevScene {
                 advance(SETTLE * 2);
             }
             case 358 -> {
+                if (arrivingPhase > 0) {
+                    aTableOpenedOntoTheBlockIsFramedOnMyMat(client);
+                    return;
+                }
                 if (client.screen instanceof TableScreen turned && turnedTable != null) {
                     int width = client.getWindow().getGuiScaledWidth();
                     int height = client.getWindow().getGuiScaledHeight();
@@ -4258,7 +4323,15 @@ public final class DevScene {
                     fail("there was no board on the table played east to west");
                 }
                 shoot(client, "108-a-table-played-east-to-west");
-                advance(SETTLE / 2);
+                // Then the same table opened straight onto the block, with no V pressed: see
+                // aTableOpenedOntoTheBlockIsFramedOnMyMat.
+                if (client.screen instanceof TableScreen && turnedTable != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
+                    arrivingPhase = 1;
+                    waitHere(A_MOMENT);
+                } else {
+                    advance(SETTLE / 2);
+                }
             }
             case 359 -> {
                 lookAtTheStacksFromBesideTheTable(client);
@@ -5544,7 +5617,14 @@ public final class DevScene {
             fail("no server to turn a table on");
             return;
         }
-        BlockPos where = client.player.blockPosition().offset(-4, -1, -14);
+        // In the ground where the tour's other tables are, in place of its top block, rather than a block
+        // under the player's feet. The player arrives here a block lower than somebody standing on the grass,
+        // so measured from their feet this table went in under the grass: the camera over it saw nothing but
+        // the grass on top of it, and the picture of a turned board was a picture of a lawn.
+        int acrossFrom = client.player.getBlockX() - 4;
+        int downFrom = client.player.getBlockZ() - 14;
+        BlockPos where = new BlockPos(acrossFrom, client.level.getHeight(
+                net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, acrossFrom, downFrom) - 1, downFrom);
         if (!roomForATableAt(client, where, 3, 3, "the table sat at from the east")) {
             return;
         }
@@ -5609,6 +5689,94 @@ public final class DevScene {
             TableBroadcast.sendToTable(level, where);
             dev.gathering.server.TableActions.openFor(player, where);
         });
+    }
+
+    /**
+     * Checks a table opened straight onto the block is framed on this player's own mat, as V frames it.
+     * <p>The camera keeps its height and its pan from one table to the next. Pressing V frames your own mat;
+     * opening a table that is already on the block only resumed, so the first table of a session opened at
+     * the starting height over its middle and every one after it wherever the last was left. So the camera
+     * is left somewhere that is not this player's mat first - the whole table, with the mat opposite dragged
+     * to the middle, the way somebody reading the other side of the last table would have left it - and the
+     * table is opened again with the block held. Checked through the same pointer step 358 uses: whose mat
+     * is under the middle of the window.
+     * <p>Phased, because every part of it is read off a frame: the drag is aimed from the whole-table frame,
+     * the fixture is checked on the dragged one, and the framing on the first frame of the new board.
+     */
+    private static void aTableOpenedOntoTheBlockIsFramedOnMyMat(Minecraft client) {
+        SeatId me = turnedTable == null ? null : ClientTableState.seatAt(turnedTable).orElse(null);
+        if (arrivingPhase == 1) {
+            arrivingPhase = 2;
+            dragTheFarMatToTheMiddle(client, me);
+            waitHere(A_MOMENT);
+            return;
+        }
+        if (arrivingPhase == 2) {
+            arrivingPhase = 3;
+            SeatId before = seatInTheMiddleOfTheTurnedTable(client);
+            System.out.println("[devscene] before opening the turned table again, the middle of the window is on seat "
+                    + before + "; mine " + me + "; camera " + TableCameraView.report());
+            if (me == null || me.equals(before)) {
+                fail("the camera was still on my own mat before the table was opened again, so its framing proves nothing");
+            }
+            client.setScreen(null);
+            ClientSettings.holdTheBoardForARun(true);
+            // Let go by the next step whatever happens to this one, so a step that throws or stops
+            // moving does not leave every table after it opening on the block.
+            thenCheck(() -> ClientSettings.holdTheBoardForARun(false));
+            client.setScreen(new TableScreen(turnedTable));
+            waitHere(SETTLE / 2);
+            return;
+        }
+        arrivingPhase = 0;
+        ClientSettings.holdTheBoardForARun(false);
+        if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)) {
+            fail("a table opened with the block held did not open on the block");
+        } else {
+            SeatId under = seatInTheMiddleOfTheTurnedTable(client);
+            System.out.println("[devscene] a table opened straight onto the block: the middle of the window is on seat "
+                    + under + "; mine " + me + "; camera " + TableCameraView.report());
+            if (me == null || !me.equals(under)) {
+                fail("a table opened straight onto the block framed " + under + " rather than my own mat " + me);
+            }
+        }
+        advance(SETTLE / 2);
+    }
+
+    /** Drags the board on the block so the middle of the mat opposite this player's lands in the middle of the window. */
+    private static void dragTheFarMatToTheMiddle(Minecraft client, SeatId me) {
+        GameView view = turnedTable == null ? null : ClientTableState.viewOf(turnedTable).orElse(null);
+        if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)
+                || view == null || me == null) {
+            fail("there was no board on the block to look across the turned table on");
+            return;
+        }
+        SeatId far = view.seats().stream().map(SeatView::seat).filter(seat -> !seat.equals(me)).findFirst().orElse(null);
+        if (far == null) {
+            fail("nobody sat opposite me at the turned table");
+            return;
+        }
+        Rect mat = board.board().matRect(far);
+        TableTop top = TableTop.forCluster(turnedTable.getX(), turnedTable.getY(), turnedTable.getZ(), 1, 1, true);
+        double[] at = TablePointer.onScreen(top, mat.centerX(), mat.centerY()).orElse(null);
+        if (at == null) {
+            fail("the mat opposite mine was not in front of the camera over the whole turned table");
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        dragTheBoard(client, (int) Math.round(width / 2.0 - at[0]), (int) Math.round(height / 2.0 - at[1]));
+    }
+
+    /** Whose mat on the turned table is under the middle of the window, as the board up has it; or null. */
+    private static SeatId seatInTheMiddleOfTheTurnedTable(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board) || turnedTable == null) {
+            return null;
+        }
+        TableTop top = TableTop.forCluster(turnedTable.getX(), turnedTable.getY(), turnedTable.getZ(), 1, 1, true);
+        TableTop.Spot middle = TablePointer.at(top, client.getWindow().getGuiScaledWidth() / 2.0,
+                client.getWindow().getGuiScaledHeight() / 2.0).orElse(null);
+        return middle == null ? null : board.board().seatAt(middle.x(), middle.y());
     }
 
     /** The table of eight the last steps are played at. */
@@ -11318,17 +11486,47 @@ public final class DevScene {
         });
     }
 
-    /** Opens this player's own counters, which is where commander damage is written down. */
-    private static void openMyCounters(Minecraft client) {
+    /**
+     * Opens this player's own life panel, which is where commander damage is written down.
+     * <p>The panel the board opens for a crouched click on a life total, opened the way the board
+     * opens it. The crouch is the real keyboard's, which a script cannot hold down, so the click
+     * that asks for it is not what is exercised here - the panel and what it records are.
+     */
+    private static void openMyLife(Minecraft client) {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
-        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
-        if (me == null || board == null) {
-            fail("there was no seat to open the counters of");
+        if (me == null || table == null || ClientTableState.viewOf(table).isEmpty()) {
+            fail("there was no seat to open the life panel of");
             return;
         }
-        client.setScreen(new CountersScreen(table,
-                new CountersScreen.Subject.Seat(me, CountersScreen.titleForSeat(board, me)),
-                client.screen));
+        client.setScreen(new LifeScreen(table, me, client.screen));
+    }
+
+    /**
+     * Presses the plus on the first enemy commander's row of the life panel.
+     * <p>Found by the row the panel laid out, not by its label: the life total's own plus comes first
+     * on the panel, and pressing whichever plus comes first moves life and records no damage at all.
+     */
+    private static void pressPlusOnADamageRow(Minecraft client) {
+        if (!(client.screen instanceof LifeScreen life)) {
+            fail("there was no life panel to record commander damage on");
+            return;
+        }
+        Rect row = life.damageRow(0);
+        if (row.isEmpty()) {
+            fail("the life panel laid out no commander row to press");
+            return;
+        }
+        for (GuiEventListener child : life.children()) {
+            if (child instanceof AbstractWidget widget && "+".equals(widget.getMessage().getString())
+                    && widget.getY() == row.y()) {
+                widget.onClick(widget.getX() + widget.getWidth() / 2.0,
+                        widget.getY() + widget.getHeight() / 2.0);
+                System.out.println("[devscene] pressed + on the first commander's row, at "
+                        + widget.getX() + "," + widget.getY());
+                return;
+            }
+        }
+        fail("the first commander's row on the life panel has no plus");
     }
 
     /** This player's own commander, which is the one card in their command zone. */
@@ -11449,25 +11647,9 @@ public final class DevScene {
                 client.screen));
     }
 
-    /** How many commander-damage rows the counters screen is offering. */
-    private static int damageRowsShowing(Minecraft client) {
-        SeatId me = ClientTableState.seatAt(table).orElse(null);
-        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
-        if (me == null || board == null) {
-            return -1;
-        }
-        int rows = 0;
-        for (dev.gathering.core.game.visibility.SeatView seat : board.seats()) {
-            if (!seat.seat().equals(me)) {
-                rows += seat.commanders().size();
-            }
-        }
-        return rows;
-    }
-
     /**
      * Whether every enemy commander's name has arrived, so a damage row can say who it is.
-     * <p>Known through the same two hops the counters screen uses: the commander's id to its
+     * <p>Known through the same two hops the life panel's rows use: the commander's id to its
      * visible view for the printing, the printing to the client cache for the name. The
      * server pushes both with the view that showed the card, so by the time the screen is
      * open they have had several steps to arrive - a miss here is the push not working, not
@@ -12449,9 +12631,28 @@ public final class DevScene {
             return;
         }
         List<net.minecraft.network.chat.Component> said = board.tooltipShowing();
+        boolean onTheBlock = board.board() instanceof SurfaceBoard;
+        String where = onTheBlock ? " on the board on the block" : " on the flat board";
         if (said.isEmpty()) {
-            fail("resting on the " + verb + " button said nothing at all");
+            fail("resting on the " + verb + " button" + where + " said nothing at all");
             return;
+        }
+        // Drawn, not only worked out. Everything below reads what the frame decided to say, and a
+        // frame can decide and then not draw it - which is a button that lights and says nothing.
+        if (!board.tooltipDrawn()) {
+            fail("resting on the " + verb + " button" + where + " worked out a tooltip and never drew it");
+            return;
+        }
+        if (onTheBlock) {
+            // And lit, in the world, on the same frame's answer. The world renderer lights the
+            // button from what the screen left it; a tooltip for one button with another lit - or
+            // none - is the two halves of this feature disagreeing about where the cursor is.
+            SeatId me = ClientTableState.seatAt(board.tablePosition()).orElse(null);
+            int index = java.util.Arrays.asList(TableVerb.values()).indexOf(verb);
+            if (!ClientTableHighlight.isPointedAtVerb(me, index)) {
+                fail("resting on the " + verb + " button" + where + " said what it does and did not light it");
+                return;
+            }
         }
         String name = net.minecraft.network.chat.Component.translatable(verb.key()).getString();
         String all = said.stream()
@@ -13310,6 +13511,9 @@ public final class DevScene {
     private static Object[] playerSettingsWere;
 
     private static void finish(Minecraft client, String why) {
+        // Whatever step the run stopped at: the board was only ever held, so letting go is all
+        // there is to put back.
+        ClientSettings.holdTheBoardForARun(null);
         if (playerSettingsWere != null) {
             client.options.pauseOnLostFocus = (Boolean) playerSettingsWere[0];
             client.options.guiScale().set((Integer) playerSettingsWere[1]);

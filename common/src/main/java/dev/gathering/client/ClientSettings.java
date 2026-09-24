@@ -101,6 +101,18 @@ public final class ClientSettings {
      * come back to. The owner settled it (2026-09-22).
      */
     private static boolean playOnTheBlock = true;
+
+    /**
+     * Which board a table opens on for the length of one scripted run, or null for this
+     * player's own choice.
+     * <p>Held in memory and never written. The scripted tours were written section by section
+     * for one board or the other, and each of them opens tables and presses V; with the choice
+     * remembered, every table opened on whatever the last press left and every press was
+     * written into the settings file of whoever ran it. Putting the file back afterwards is not
+     * enough, because a run the timer kills never gets to afterwards.
+     */
+    private static Boolean boardHeldForARun;
+
     private static boolean tableSounds = true;
     private static int soundVolume = 100;
     private static boolean turnNotification = true;
@@ -168,8 +180,16 @@ public final class ClientSettings {
         return holdToInspect;
     }
 
-    /** Whether a table opens on the real board in the world rather than on the flat one. */
+    /**
+     * Whether a table opens on the real board in the world rather than on the flat one.
+     * <p>Whatever a scripted run is holding it at, while it holds it: see
+     * {@link #holdTheBoardForARun}.
+     */
     public static boolean playOnTheBlock() {
+        Boolean held = boardHeldForARun;
+        if (held != null) {
+            return held;
+        }
         load();
         return playOnTheBlock;
     }
@@ -283,12 +303,31 @@ public final class ClientSettings {
         }
     }
 
+    /**
+     * Remembers which board this player last chose, for every table after this one.
+     * <p>Nothing at all while a scripted run holds the choice: the run's own presses are not
+     * this player's preference, and a run killed halfway would otherwise leave the file saying
+     * whatever board it happened to be on.
+     */
     public static void playOnTheBlock(boolean wanted) {
+        if (boardHeldForARun != null) {
+            return;
+        }
         load();
         if (wanted != playOnTheBlock) {
             playOnTheBlock = wanted;
             changed();
         }
+    }
+
+    /**
+     * Holds which board a table opens on for a scripted run, or lets go of it with null.
+     * <p>While held, {@link #playOnTheBlock()} answers the held board and choosing a board
+     * remembers nothing. V still switches the table that is open; it only stops being the
+     * player's preference. Nothing in the game calls this.
+     */
+    public static void holdTheBoardForARun(Boolean onTheBlock) {
+        boardHeldForARun = onTheBlock;
     }
 
     public static void tableSounds(boolean wanted) {
