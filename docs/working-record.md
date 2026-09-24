@@ -4764,15 +4764,21 @@ is logged with all four angles. Then:
   head looks down at all four; the two ends turn the head and the arm opposite ways, and the arm
   swings more than thirty degrees between them; the far mat raises the arm and lifts the head;
 - **the table-view rule**: V, a live pointer handed in, and `aimOf` must be `AT_THE_TABLE`;
-- **the model**: back on the flat board, `setupAnim` on the `PlayerRenderer`'s own model, which runs
-  the hook, and the pointing arm, its sleeve and the head compared with the aim to 1e-3 radians;
+- **the model**: back on the flat board, with the left end handed in, `setupAnim` on the
+  `PlayerRenderer`'s own model, which runs the hook, and the pointing arm, its sleeve and the head
+  compared with the aim to 1e-3 radians;
 - **the picture**, `03b-an-arm-pointing-at-the-felt`: board closed, third person from behind, looking
-  forty degrees down, with a check that the camera is detached and looking down. The model is read
-  again as that frame drew it, which is the world render going through the hook.
+  forty degrees down, the right end handed in, with a check that the camera is detached and looking
+  down. The model is read again as that frame drew it. Because the parts were last posed by hand for
+  the *other* end, a match here is a world render since then going through the hook. (As first
+  committed both reads used the right end, so this read could not tell a drawn frame from none - see
+  "review fixes to the seated-arm step" below.)
 
 Then it gets up and opens a fresh flat board, as step 8 does, and puts back the sender, the camera,
-the HUD, the look and the cursor. A check at step 10 asks that the body is no longer posed and the
-look is what it was. A check registered in phase 1 does the same getting up if the step stops partway.
+the HUD, the look and the cursor, all four as the step found them when it began. A check at step 10
+asks that the body is no longer posed and that the look, the HUD and the camera are what they were.
+If step 9 throws or the stuck clock steps over it, step 10 gets up for it first, waits, then runs the
+same check.
 
 The logged aims (NeoForge, Xvfb, the tour's own table):
 
@@ -4834,3 +4840,59 @@ on the one client, so the hop through `TablePointing.tellTheRoom` to a second cl
 wants `clientTwo` and a person. How the off hand's fan looks: the hand is empty at step 9. Fabric's
 client was not run. `tools/gate.sh` was not run; the full scripted tour past step 16 was not run with
 this change; `:core:test` and the game tests were not run (no core or game-test code changed).
+
+## 2026-09-24: review fixes to the seated-arm step
+
+Two independent reviewers read `cde2898`. Three things they found were real, and all three are fixed in
+`DevScene` alone:
+
+- **The second model read proved nothing about the frame** (reported as blocking). Phase 8 posed the
+  shared `PlayerModel` by hand with the right end live, and phases 9 and 10 used the same right end.
+  So the parts matched the aim whether or not any frame drew the player. The comment's "or the parts
+  would still be the riding pose" was wrong: they would still be phase 8's hook output. Phase 7 now
+  hands in the left end for the by-hand read, and phase 9 hands in the right end for the picture,
+  waiting three moments rather than two because the hand travels for four ticks. Logged now: by hand
+  `arm x -1.3566 y -0.7854 ... head x 0.2142 y -0.8057` (left end), as the frame drew it
+  `arm x -1.2978 y 0.4703 ... head x 0.2730 y 0.4703` (right end).
+- **The camera and HUD were saved at phase 8**, after the V round trip. If V had failed to leave the
+  block, the saved HUD was the one the table view had hidden, and it was put back as the player's. Both
+  are now saved in phase 0 with the look and the cursor. The step-10 check now covers the HUD and the
+  camera too.
+- **A step 9 cut short was got up from in the same tick step 10 photographed.** The phase-1 `thenCheck`
+  ran `getUpFromTheArm` at the start of step 10, and step 10 then called `shoot` immediately, so
+  `04-seated-board` was the frame before: the world from behind the chair. And the check that the
+  player got up never ran on that path. Step 10 now gets up for an unfinished step 9 itself
+  (`upFromAnArmCutShort`), waits `SETTLE`, runs the same check, and only then carries on.
+
+**Negative controls**, each a NeoForge client under Xvfb with `-PdevsceneTo=11`, then restored (the file
+compared byte for byte with the fixed copy afterwards):
+
+    no frame after phase 8 (client.noRender), fixed:   failures: 5 - four of "the model, as the frame
+        from behind the chair drew it, has arm y at -0.7853981852531433 where the aim puts it at
+        0.47030106586059756" (arm x, arm y, head x, head y), and the camera check, which that control
+        trips by stopping frames
+    the same, both reads on the right end (unfixed):   failures: 1 - the camera check only; the model
+        read passed with no frame drawn, which is the defect
+    V back to the flat board skipped, HUD saved at phase 8 (unfixed):   "getting up out of the chair
+        after step 9 left the HUD hidden where step 9 found it shown", beside the control's own two
+    the same, HUD saved at phase 0 (fixed):   only the control's own two failures; "HUD hidden false"
+    phase 10 throws, cde2898's code:   failures: 1 (the throw); "out of the chair" logged after step 10
+        began, no check ran, and 04-seated-board is the third-person world picture - looked at
+    phase 10 throws, fixed:   failures: 1 (the throw); "step 9 stopped in phase 10; getting up before
+        step 10", "up from the chair after step 9 ... HUD hidden false, camera FIRST_PERSON", and
+        04-seated-board is the flat board - looked at
+    phase 10 throws, fixed but step 10 not waiting:   failures: 2 - the throw, and "getting up out of the
+        chair after step 9 left the body posed"
+
+**Verified:** the final code, NeoForge client under Xvfb, `-PdevsceneTo=16`: `reached step 17 of 396`,
+`failures: 0`. `03b-an-arm-pointing-at-the-felt` was looked at, cropped: from behind and above the near
+chair, the head turned to the player's right and the right arm, in its sleeve, reaching forward and right
+over the near part of their own mat, as before. `04-seated-board` is the flat board, and `06-on-the-table`
+the board on the block with a hand of seven. The compiles and static checks are listed in the commit.
+
+**Review:** two independent reviewers reported five findings, which come down to the three above. Each
+was checked against the code and then reproduced by a negative control with its fix reverted. The fixes
+themselves have had only self-review.
+
+**Still unverified:** as for `cde2898`. The hop to a second client, Fabric's client, `tools/gate.sh`,
+and the tour past step 16.

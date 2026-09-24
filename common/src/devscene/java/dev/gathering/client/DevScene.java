@@ -622,6 +622,10 @@ public final class DevScene {
                 anArmPointsAtTheFelt(client);
             }
             case 10 -> {
+                // Up first for a step 9 that did not finish, and a wait, so this starts where step 8 left it.
+                if (upFromAnArmCutShort(client)) {
+                    return;
+                }
                 reportSeats(client);
                 shoot(client, "04-seated-board");
                 // Draw a hand, so there is something in it to photograph.
@@ -10357,7 +10361,12 @@ public final class DevScene {
 
     private static java.util.function.Consumer<net.minecraft.network.protocol.common.custom.CustomPacketPayload> senderBeforeTheArm;
 
-    /** The camera, the HUD, the look and the cursor as step 9 found them, each null until it changes one. */
+    /**
+     * The camera, the HUD, the look and the cursor as step 9 found them, each null while nothing is held.
+     * <p>All four taken as the step starts, before it has changed anything. The camera and the HUD were once taken
+     * just before the picture, which after a V that failed to leave the block was the HUD the table view had hidden,
+     * put back as though it were the player's.
+     */
     private static net.minecraft.client.CameraType cameraBeforeTheArm;
 
     private static Boolean hudBeforeTheArm;
@@ -10395,7 +10404,7 @@ public final class DevScene {
         }
         if (armPhase == 2) {
             if (!namedPlacesOnTheFelt(client)) {
-                getUpFromTheArm(client);
+                standUpAndGoOn(client);
                 return;
             }
             aimTheCursorAt(client, ARM_SPOTS.get(armSpot));
@@ -10405,7 +10414,7 @@ public final class DevScene {
         }
         if (armPhase == 3) {
             if (!handWhatWasSentBackIn(client)) {
-                getUpFromTheArm(client);
+                standUpAndGoOn(client);
                 return;
             }
             armPhase = 4;
@@ -10459,7 +10468,9 @@ public final class DevScene {
                     || !(client.screen instanceof TableScreen board) || board.board() instanceof SurfaceBoard) {
                 fail("V in the table view with an arm out did not go back to the flat board");
             }
-            handTheSameSpotInAgain(client, RIGHT_END);
+            // The other end from the one the picture is of, so the parts this poses by hand are not the ones a frame
+            // drawn for the picture would leave: see phase 10.
+            handTheSameSpotInAgain(client, LEFT_END);
             armPhase = 8;
             waitHere(A_MOMENT * 2);
             return;
@@ -10469,8 +10480,6 @@ public final class DevScene {
             // And from outside the table: closed, from behind the chair, looking down at the felt. Closing the
             // board makes the sender say it has stopped, which the server passes to nobody here; the pointer
             // handed in stands for what everybody else at the table would still be drawing for a moment.
-            cameraBeforeTheArm = client.options.getCameraType();
-            hudBeforeTheArm = client.options.hideGui;
             client.setScreen(null);
             client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
             client.options.hideGui = true;
@@ -10486,9 +10495,11 @@ public final class DevScene {
                 client.player.setXRot(40f);
                 client.player.xRotO = 40f;
             }
+            // Across to the right end, which is the arm the picture shows. Three moments rather than two: the hand
+            // travels for four ticks, and the frame read in phase 10 has to be one drawn after it arrived.
             handTheSameSpotInAgain(client, RIGHT_END);
             armPhase = 10;
-            waitHere(A_MOMENT * 2);
+            waitHere(A_MOMENT * 3);
             return;
         }
         // The picture is of what it says: from outside the body, looking down at the table.
@@ -10497,11 +10508,13 @@ public final class DevScene {
             fail("the picture of the arm was about to be taken from " + (camera.isDetached() ? "behind" : "inside")
                     + " the player, looking " + camera.getXRot() + " degrees down, not from behind the chair looking down at the felt");
         }
-        // What the frame just drawn gave the model, read off it before anything else is drawn with it: the render
-        // the picture is of went through the hook, or the parts would still be the riding pose.
+        // What the frame just drawn gave the model, read off it before anything else is drawn with it. Phase 8 left
+        // the parts posed by hand for the left end, and nothing but a frame poses them again, so parts that match the
+        // right end are a render since then going through the hook. With one end for both, a frame that never drew
+        // this player read exactly like one that did.
         theModelTookTheAim(client, false, "as the frame from behind the chair drew it");
         shoot(client, "03b-an-arm-pointing-at-the-felt");
-        getUpFromTheArm(client);
+        standUpAndGoOn(client);
     }
 
     /**
@@ -10519,6 +10532,8 @@ public final class DevScene {
         }
         cursorBeforeTheArm = new double[] {client.mouseHandler.xpos(), client.mouseHandler.ypos()};
         lookBeforeTheArm = new float[] {client.player.getXRot(), client.player.getYRot()};
+        cameraBeforeTheArm = client.options.getCameraType();
+        hudBeforeTheArm = client.options.hideGui;
         BlockPos where = table;
         BlockPos chair = where.offset(1, 0, -1);
         java.util.UUID who = client.player.getUUID();
@@ -10539,18 +10554,14 @@ public final class DevScene {
 
     /** Checks the body is posed and the board flat, starts listening to what it sends, and frames the whole table. */
     private static void listenAndFrameTheWholeTable(Minecraft client) {
-        // Whatever happens to this step, the next one starts with everything it held put back: see getUpFromTheArm.
-        thenCheck(() -> {
-            if (armPhase != 0) {
-                getUpFromTheArm(client);
-            }
-        });
+        // Whatever happens to this step, the next one starts with everything it held put back: a step 9 that throws
+        // or is stepped over is got up from by step 10 itself, see upFromAnArmCutShort.
         if (client.player == null || !(client.player.getVehicle() instanceof dev.gathering.block.ChairSeat)
                 || !TableBodyPose.poses(client.player)) {
             fail("sitting back in the chair did not pose the body: riding "
                     + (client.player == null ? "nothing" : client.player.getVehicle()) + ", seated "
                     + (client.player != null && SeatedPlayers.of(client.player.getUUID()).isPresent()));
-            getUpFromTheArm(client);
+            standUpAndGoOn(client);
             return;
         }
         // Sitting down at a game opens its board, and would ask for a deck if this seat had none down.
@@ -10561,7 +10572,7 @@ public final class DevScene {
         if (TableCameraView.isLooking()
                 || (client.screen instanceof TableScreen board && board.board() instanceof SurfaceBoard)) {
             fail("the arm was to be checked on the flat board and the board was on the block, where everybody is drawn still");
-            getUpFromTheArm(client);
+            standUpAndGoOn(client);
             return;
         }
         POINTS_SENT.clear();
@@ -10854,12 +10865,47 @@ public final class DevScene {
         }
     }
 
+    /** Step 9 is over, however far it got: up out of the chair, and the check that it worked left for step 10. */
+    private static void standUpAndGoOn(Minecraft client) {
+        thenCheck(getUpFromTheArm(client));
+        advance(SETTLE);
+    }
+
+    /** The check a step 9 cut short leaves for step 10 to run once it has waited, or null. */
+    private static Runnable upFromTheArmChecked;
+
+    /**
+     * Whether step 10 has to wait first, for a step 9 that did not finish.
+     * <p>A step 9 that threw, or that the stuck clock stepped over, never got up: the player is in the chair and this
+     * client's camera, HUD, sender and look are still held. Step 10 gets up for it, then waits for the server and
+     * for a frame of the fresh board - a picture taken in the same tick is of the frame before, which here was the
+     * world from behind the chair - and then asks what step 9 would have asked.
+     */
+    private static boolean upFromAnArmCutShort(Minecraft client) {
+        if (armPhase != 0) {
+            System.out.println("[devscene] step 9 stopped in phase " + armPhase + "; getting up before step 10");
+            upFromTheArmChecked = getUpFromTheArm(client);
+            waitHere(SETTLE);
+            return true;
+        }
+        if (upFromTheArmChecked != null) {
+            Runnable due = upFromTheArmChecked;
+            upFromTheArmChecked = null;
+            due.run();
+        }
+        return false;
+    }
+
     /**
      * Ends step 9 however far it got, leaving what step 8 left: the seat held without the chair, a fresh flat board
      * open, and this client as it was.
+     *
+     * @return the check that it did, for once the server has had time to answer
      */
-    private static void getUpFromTheArm(Minecraft client) {
+    private static Runnable getUpFromTheArm(Minecraft client) {
         float[] lookWas = lookBeforeTheArm;
+        Boolean hudWas = hudBeforeTheArm;
+        net.minecraft.client.CameraType cameraWas = cameraBeforeTheArm;
         // The look goes back on the server first, in the same queue as getting up. Getting out of a chair sends the
         // player where they now stand with the rotation the server holds, and the server was still holding the
         // picture's look down at the table: put back only here, the player stood up looking at the floor.
@@ -10885,25 +10931,31 @@ public final class DevScene {
         ARM_SENT.clear();
         POINTS_SENT.clear();
         armSpot = 0;
-        if (armPhase != 0 && step == 9) {
-            armPhase = 0;
-            thenCheck(() -> {
-                net.minecraft.client.player.LocalPlayer player = Minecraft.getInstance().player;
-                if (TableBodyPose.poses(player)) {
-                    fail("getting up out of the chair after step 9 left the body posed");
-                }
-                // The rest of the tour starts from the look it had: step 9 looked down at the table to photograph it.
-                if (player != null && lookWas != null && Math.abs(player.getXRot() - lookWas[0]) > 1) {
-                    fail("getting up out of the chair after step 9 left the player looking " + player.getXRot()
-                            + " degrees down rather than the " + lookWas[0] + " they were");
-                }
-                System.out.println("[devscene] up from the chair after step 9, looking " + (player == null ? "?" : player.getXRot())
-                        + " degrees down; before it " + (lookWas == null ? "?" : lookWas[0]));
-            });
-            advance(SETTLE);
-            return;
-        }
         armPhase = 0;
+        return () -> {
+            Minecraft now = Minecraft.getInstance();
+            net.minecraft.client.player.LocalPlayer player = now.player;
+            if (TableBodyPose.poses(player)) {
+                fail("getting up out of the chair after step 9 left the body posed");
+            }
+            // The rest of the tour starts from the look it had: step 9 looked down at the table to photograph it.
+            if (player != null && lookWas != null && Math.abs(player.getXRot() - lookWas[0]) > 1) {
+                fail("getting up out of the chair after step 9 left the player looking " + player.getXRot()
+                        + " degrees down rather than the " + lookWas[0] + " they were");
+            }
+            // And from the camera and HUD it had: step 9 photographed from behind the chair with the HUD off.
+            if (hudWas != null && now.options.hideGui != hudWas) {
+                fail("getting up out of the chair after step 9 left the HUD " + (now.options.hideGui ? "hidden" : "shown")
+                        + " where step 9 found it " + (hudWas ? "hidden" : "shown"));
+            }
+            if (cameraWas != null && now.options.getCameraType() != cameraWas) {
+                fail("getting up out of the chair after step 9 left the camera " + now.options.getCameraType()
+                        + " where step 9 found it " + cameraWas);
+            }
+            System.out.println("[devscene] up from the chair after step 9, looking " + (player == null ? "?" : player.getXRot())
+                    + " degrees down; before it " + (lookWas == null ? "?" : lookWas[0]) + "; HUD hidden " + now.options.hideGui
+                    + ", camera " + now.options.getCameraType());
+        };
     }
 
     private static String lastSeat = "?";
