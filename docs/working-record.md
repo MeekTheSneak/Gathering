@@ -4397,9 +4397,11 @@ that the arm comes down.
   they are legible rather than whether they exist.
 
 - **Table presence, the last of it.** Each seat's hand drawn on the felt below its mat, using the
-  same fan the bodies hold, so the two views agree about what a hand looks like; and a scripted
-  step that *asserts* an arm angle rather than photographing it. See `docs/prompts/table-presence.md`
-  steps 5 and 6. The bodies, the pointer and the table view are done.
+  same fan the bodies hold, so the two views agree about what a hand looks like. See
+  `docs/prompts/table-presence.md` step 5. The bodies, the pointer and the table view are done.
+  ~~A scripted step that *asserts* an arm angle rather than photographing it (step 6).~~ **Done
+  2026-09-24:** tour step 9 - see "the tour asserts the seated arm". The hop between two clients is
+  still unverified, and wants two clients and a person.
 
 - **`TableReach` is two classes.** `dev.gathering.server.TableReach` is whether a player can reach a
   table; `dev.gathering.core.ui.TableReach` is how far an arm reaches. The second one is mine and is
@@ -4740,3 +4742,95 @@ placements checked); `:neoforge:runGameTestServer` as above.
 **Still unverified:** `tools/gate.sh` and `./gradlew verify` were not run for `38a0ab4` or this follow-up:
 no Fabric in-world tests and no `:core:test` behind either. The renderer's eight reads, as above. Two boards
 in view at once in a running client, and Fabric's client.
+
+## 2026-09-24: the tour asserts the seated arm
+
+`docs/prompts/table-presence.md` step 6, which the tour had only ever photographed. Tour step 9 was an
+empty placeholder since `331b882`; it now has phases (`anArmPointsAtTheFelt` in `DevScene`), so no step
+is renumbered.
+
+**What it does.** Sits the player back in the north chair through `Chairs.sit` on the server thread -
+not through a click, which empties the main hand - and checks the body is posed and the board is the
+flat one the run holds. It wraps the sender to keep every `TablePointPayload` the board sends (still
+passing each on to the server), frames the whole table, and moves the real cursor to four places read
+off the board the screen draws: both ends of my own mat, its middle, and the middle of the far mat.
+Which end is my left comes from the screen, since the flat board is the table seen from my chair. For
+each, the last pointer sent is checked against where that place is on the surface - worked out from
+the mat and the position, not from the pixel - to within a quarter of a card. It is then handed to
+`ClientTablePointing.accept` as the server would hand it to another client, and `TableBodyPose.aimOf`
+is logged with all four angles. Then:
+
+- **the relations**, none of which works an angle out again: every aim differs from both rests; the
+  head looks down at all four; the two ends turn the head and the arm opposite ways, and the arm
+  swings more than thirty degrees between them; the far mat raises the arm and lifts the head;
+- **the table-view rule**: V, a live pointer handed in, and `aimOf` must be `AT_THE_TABLE`;
+- **the model**: back on the flat board, `setupAnim` on the `PlayerRenderer`'s own model, which runs
+  the hook, and the pointing arm, its sleeve and the head compared with the aim to 1e-3 radians;
+- **the picture**, `03b-an-arm-pointing-at-the-felt`: board closed, third person from behind, looking
+  forty degrees down, with a check that the camera is detached and looking down. The model is read
+  again as that frame drew it, which is the world render going through the hook.
+
+Then it gets up and opens a fresh flat board, as step 8 does, and puts back the sender, the camera,
+the HUD, the look and the cursor. A check at step 10 asks that the body is no longer posed and the
+look is what it was. A check registered in phase 1 does the same getting up if the step stops partway.
+
+The logged aims (NeoForge, Xvfb, the tour's own table):
+
+    pointing at the left end of my mat (8132, 2466 on the felt): arm yaw -45.0 pitch 77.7, head yaw -46.2 pitch 12.3
+    pointing at the right end of my mat (1727, 2466 on the felt): arm yaw 26.9 pitch 74.4, head yaw 26.9 pitch 15.6
+    pointing at the middle of my mat (4894, 2466 on the felt): arm yaw -14.5 pitch 73.1, head yaw -14.5 pitch 16.9
+    pointing at the middle of the far mat (4894, 7534 on the felt): arm yaw -6.6 pitch 82.0, head yaw -6.6 pitch 8.0
+    in the table view, with a pointer live: arm yaw 10.0 pitch 72.0, head yaw 0.0 pitch 32.0
+    the model, as the frame from behind the chair drew it: arm x -1.2978 y 0.4703 z 0.0000, sleeve x -1.2978
+      y 0.4703, head x 0.2730 y 0.4703; aim arm yaw 26.9 pitch 74.4, head yaw 26.9 pitch 15.6
+
+The left end's arm yaw is the across-the-body clamp, which is by design.
+
+**Two defects in the step itself, found by running it.** First, the photograph's pitch did not hold:
+closing one of the mod's screens puts the view back on the next tick (`ViewKeeper`), so a look set in the
+same breath was overwritten and the first picture was taken level. The look is now set a phase later,
+and the camera check fails the step if the picture is not looking down. Second, the player got up still
+looking forty degrees down. Getting out of a chair sends the player's position with the rotation the
+*server* holds, and the server still had the picture's look. The look is now put back on the server
+first, in the same queue as getting up. *Guard:* the step-10 check. Without the server-side
+restore: `getting up out of the chair after step 9 left the player looking 40.0 degrees down rather than
+the 0.0 they were`, `failures: 1`. With it: `up from the chair after step 9, looking 0.0 degrees down;
+before it 0.0`, `failures: 0`.
+
+**Negative controls**, each run with `-PdevsceneTo=12` and then restored, the tree checked back to only
+`DevScene` by `git status`:
+
+    TableReach.SHOULDER_UP = 0.59 (the hip):   failures: 6 - four of "pointing at ... tipped the head up,
+        ... looking up is the shoulder put at the hip again", "the arm came up 96.359604 for the middle of
+        the far mat and 100.0 for the middle of my mat", "the head tipped -6.359604 ... and -13.596195"
+    across negated in TableReach.toward:       failures: 3 - "the head turned 46.161335 for the left end of
+        my mat and -26.946266 for the right end", the same for the arm, "the arm swung -73.107605 degrees"
+    pointing.yRot removed in TablePoseParts:   failures: 2 - "the model, posed by the model's own setup, has
+        arm y at 0.0 where the aim puts it at 0.47030103257108397", and the same as the frame drew it
+    TableBodyPose.aimOf without the table-view early return:   "in the table view a seated body pointing at
+        the right end of my mat was drawn arm yaw 26.9 pitch 74.4, head yaw 26.9 pitch 15.6 rather than
+        still at the table"
+
+These ran before the last edits: the look restore, the step-10 look check, a guard so the second V is
+pressed only from the block, and copying the table position before the server task. None of them
+touches the angle checks.
+
+**Verified:** `:neoforge:compileGametestJava`, `:common:compileJava`, `:fabric:compileJava`,
+`:fabric:compileTestmodJava`; all eighteen static checks exit 0 (`scenecheck`: 396 scene steps checked, 0
+problems); and the NeoForge client under Xvfb, final code, `-PdevsceneTo=16`: `reached step 17 of 396`,
+`failures: 0`, in 97 seconds including boot. `03b-an-arm-pointing-at-the-felt` was looked at: from behind
+and above the near chair, the player's head is turned to their right and the right arm, in its sleeve,
+reaches forward and right over the near part of their own mat. `04-seated-board` and `06-on-the-table`
+were compared with an earlier run's: same framing. `04-seated-board` says "(away 7:59)" beside the
+player - and said "(away 7:58)" in a run from before this change too, so it is not from this step. It looks like `keepTheSeatWithoutTheChair` forgets the away record on the server
+without the client hearing. Not investigated here.
+
+**Review:** self-review, two passes over the diff; no independent reviewer was available in this
+session. It found the second defect above - which the check it asked for then proved - and an
+unguarded second V.
+
+**Still unverified:** another client receiving the pointer and drawing it. The pointer here is handed in
+on the one client, so the hop through `TablePointing.tellTheRoom` to a second client is not in it; that
+wants `clientTwo` and a person. How the off hand's fan looks: the hand is empty at step 9. Fabric's
+client was not run. `tools/gate.sh` was not run; the full scripted tour past step 16 was not run with
+this change; `:core:test` and the game tests were not run (no core or game-test code changed).

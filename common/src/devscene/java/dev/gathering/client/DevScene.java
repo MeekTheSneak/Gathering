@@ -616,7 +616,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 9 -> advance(0);
+            case 9 -> {
+                // Back in the chair, pointing at named places on the felt, and what the body did about
+                // each: the angles asserted, then photographed from behind. See anArmPointsAtTheFelt.
+                anArmPointsAtTheFelt(client);
+            }
             case 10 -> {
                 reportSeats(client);
                 shoot(client, "04-seated-board");
@@ -10299,6 +10303,609 @@ public final class DevScene {
         });
     }
 
+    /**
+     * How far through step 9 is: back in the chair (0), listening (1), pointing at one named place after
+     * another (2 to 4), the table view (5 and 6), the model (7 and 8), and the picture from behind (9 and 10).
+     */
+    private static int armPhase;
+
+    /** Which of {@link #ARM_SPOTS} step 9 is pointing at now. */
+    private static int armSpot;
+
+    /**
+     * One named place on the felt: the pixel the cursor goes to on the flat board, and where on the surface a
+     * pointer there has to say it is. The second is worked out from the mat and the position, not from the pixel,
+     * so a board that sent the wrong place is caught rather than agreed with.
+     */
+    private record ArmSpot(String name, int[] pixel, double surfaceX, double surfaceY) {
+    }
+
+    /** The four places step 9 points at, in order, found once the whole table is framed. */
+    private static final List<ArmSpot> ARM_SPOTS = new ArrayList<>();
+
+    /** What the body did for each of them, by name. */
+    private static final Map<String, dev.gathering.core.ui.TablePose.Aim> ARM_AIMS = new java.util.LinkedHashMap<>();
+
+    /** And what the board sent for each, which is what gets handed back in as the server would hand it on. */
+    private static final Map<String, dev.gathering.network.TablePointPayload> ARM_SENT = new java.util.LinkedHashMap<>();
+
+    private static final String LEFT_END = "the left end of my mat";
+    private static final String RIGHT_END = "the right end of my mat";
+    private static final String MY_MAT = "the middle of my mat";
+    private static final String FAR_MAT = "the middle of the far mat";
+
+    /**
+     * How far a pointer may land from the place it was aimed at, in surface units: a quarter of a card.
+     * <p>The places are three and a half thousand units apart at the closest, so this tells them apart with room
+     * to spare, and a pixel of rounding on the way from the cursor is a few dozen.
+     */
+    private static final double A_QUARTER_OF_A_CARD = dev.gathering.core.ui.TableSurface.CARD_WIDTH_UNITS / 4;
+
+    /**
+     * How far the arm has to swing between the two ends of its own mat, in degrees.
+     * <p>The arm was once turned by a roll rather than a yaw, which pinned it at its across-the-body limit so that
+     * it moved only up and down however far the cursor went. A swing this size is the arm crossing the table.
+     */
+    private static final double SWINGS_ACROSS = 30;
+
+    /** Every pointer the board sent while step 9 listened, in order. */
+    private static final List<dev.gathering.network.TablePointPayload> POINTS_SENT =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** Whether step 9 is listening to the sender, and the sender to put back when it stops. */
+    private static boolean listeningForPoints;
+
+    private static java.util.function.Consumer<net.minecraft.network.protocol.common.custom.CustomPacketPayload> senderBeforeTheArm;
+
+    /** The camera, the HUD, the look and the cursor as step 9 found them, each null until it changes one. */
+    private static net.minecraft.client.CameraType cameraBeforeTheArm;
+
+    private static Boolean hudBeforeTheArm;
+
+    private static float[] lookBeforeTheArm;
+
+    private static double[] cursorBeforeTheArm;
+
+    /** Whether a pointer for this player has been handed in, so a stop goes after it. */
+    private static boolean armPointerHandedIn;
+
+    /**
+     * Step 9: a player sat in a chair points at named places on the felt, and the body is asked what it did.
+     * <p><b>One client, so the pointer goes round by hand.</b> The server never sends a player their own pointer -
+     * their body is behind their own camera - and this tour has no second player to send it to. So the board is
+     * listened to for exactly what it sends, and each of those is handed to {@link ClientTablePointing#accept}, the
+     * method the network calls with what the server passes on to everybody else at the table. What that proves is
+     * the board, the pose and the model; the hop between two clients is not in it and wants two clients.
+     * <p><b>Relations, not numbers.</b> Nothing here works an angle out again, which would be {@code TableReach}
+     * checking itself. The head looks down at the felt; the two ends of your own mat turn the head and the arm
+     * opposite ways and swing the arm across; the far mat raises the arm and lifts the head. Two of those are
+     * defects this body has had: the head looking up, from a shoulder put at the hip, and the arm moving only up
+     * and down.
+     * <p>On the flat board, which the run holds: the table view draws everybody still, which is its own rule and is
+     * checked here too.
+     */
+    private static void anArmPointsAtTheFelt(Minecraft client) {
+        if (armPhase == 0) {
+            sitBackInTheChair(client);
+            return;
+        }
+        if (armPhase == 1) {
+            listenAndFrameTheWholeTable(client);
+            return;
+        }
+        if (armPhase == 2) {
+            if (!namedPlacesOnTheFelt(client)) {
+                getUpFromTheArm(client);
+                return;
+            }
+            aimTheCursorAt(client, ARM_SPOTS.get(armSpot));
+            armPhase = 3;
+            waitHere(A_MOMENT * 3);
+            return;
+        }
+        if (armPhase == 3) {
+            if (!handWhatWasSentBackIn(client)) {
+                getUpFromTheArm(client);
+                return;
+            }
+            armPhase = 4;
+            waitHere(A_MOMENT * 2);
+            return;
+        }
+        if (armPhase == 4) {
+            ArmSpot spot = ARM_SPOTS.get(armSpot);
+            dev.gathering.core.ui.TablePose.Aim aim = TableBodyPose.aimOf(client.player, 1f);
+            ARM_AIMS.put(spot.name(), aim);
+            dev.gathering.network.TablePointPayload sent = ARM_SENT.get(spot.name());
+            System.out.println("[devscene] pointing at " + spot.name() + " (" + Math.round(sent.surfaceX()) + ", "
+                    + Math.round(sent.surfaceY()) + " on the felt): " + anglesOf(aim));
+            armSpot++;
+            if (armSpot < ARM_SPOTS.size()) {
+                aimTheCursorAt(client, ARM_SPOTS.get(armSpot));
+                armPhase = 3;
+                waitHere(A_MOMENT * 3);
+                return;
+            }
+            theBodyFollowedTheCursor();
+            // The table view next. V from the flat board, which the run holds.
+            if (client.screen != null) {
+                client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+            }
+            armPhase = 5;
+            waitHere(A_MOMENT);
+            return;
+        }
+        if (armPhase == 5) {
+            if (!TableCameraView.isLooking()) {
+                fail("V from the flat board with an arm out over the felt did not put the table view up");
+            }
+            handTheSameSpotInAgain(client, RIGHT_END);
+            armPhase = 6;
+            waitHere(A_MOMENT * 2);
+            return;
+        }
+        if (armPhase == 6) {
+            everybodyIsStillInTheTableView(client);
+            // Only from the block: a V that found the flat board still up would put the rest of this on the block.
+            if (client.screen instanceof TableScreen board && board.board() instanceof SurfaceBoard) {
+                board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+            }
+            armPhase = 7;
+            waitHere(A_MOMENT);
+            return;
+        }
+        if (armPhase == 7) {
+            if (TableCameraView.isLooking()
+                    || !(client.screen instanceof TableScreen board) || board.board() instanceof SurfaceBoard) {
+                fail("V in the table view with an arm out did not go back to the flat board");
+            }
+            handTheSameSpotInAgain(client, RIGHT_END);
+            armPhase = 8;
+            waitHere(A_MOMENT * 2);
+            return;
+        }
+        if (armPhase == 8) {
+            theModelTookTheAim(client, true, "posed by the model's own setup");
+            // And from outside the table: closed, from behind the chair, looking down at the felt. Closing the
+            // board makes the sender say it has stopped, which the server passes to nobody here; the pointer
+            // handed in stands for what everybody else at the table would still be drawing for a moment.
+            cameraBeforeTheArm = client.options.getCameraType();
+            hudBeforeTheArm = client.options.hideGui;
+            client.setScreen(null);
+            client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
+            client.options.hideGui = true;
+            armPhase = 9;
+            waitHere(A_MOMENT);
+            return;
+        }
+        if (armPhase == 9) {
+            // Looking down at the felt, a tick after the board closed rather than in the same breath: closing one
+            // of the mod's screens puts back the view the player had when it opened, and that happens on the next
+            // tick, over whatever was set here.
+            if (client.player != null) {
+                client.player.setXRot(40f);
+                client.player.xRotO = 40f;
+            }
+            handTheSameSpotInAgain(client, RIGHT_END);
+            armPhase = 10;
+            waitHere(A_MOMENT * 2);
+            return;
+        }
+        // The picture is of what it says: from outside the body, looking down at the table.
+        net.minecraft.client.Camera camera = client.gameRenderer.getMainCamera();
+        if (!camera.isDetached() || camera.getXRot() < 20) {
+            fail("the picture of the arm was about to be taken from " + (camera.isDetached() ? "behind" : "inside")
+                    + " the player, looking " + camera.getXRot() + " degrees down, not from behind the chair looking down at the felt");
+        }
+        // What the frame just drawn gave the model, read off it before anything else is drawn with it: the render
+        // the picture is of went through the hook, or the parts would still be the riding pose.
+        theModelTookTheAim(client, false, "as the frame from behind the chair drew it");
+        shoot(client, "03b-an-arm-pointing-at-the-felt");
+        getUpFromTheArm(client);
+    }
+
+    /**
+     * Into the chair the tour first sat in, on the server's own thread.
+     * <p>Through {@code Chairs.sit} rather than a click on the chair: a click from the tour empties the main hand
+     * first, and what the player is holding is not what this is about. The seat is already this player's, so this
+     * only mounts them, which is the thing a seated body is posed for.
+     */
+    private static void sitBackInTheChair(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null || client.player == null) {
+            fail("there was no server, table or player for an arm to point at the felt");
+            advance(0);
+            return;
+        }
+        cursorBeforeTheArm = new double[] {client.mouseHandler.xpos(), client.mouseHandler.ypos()};
+        lookBeforeTheArm = new float[] {client.player.getXRot(), client.player.getYRot()};
+        BlockPos where = table;
+        BlockPos chair = where.offset(1, 0, -1);
+        java.util.UUID who = client.player.getUUID();
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            BlockState state = server.overworld().getBlockState(chair);
+            if (player == null || !(state.getBlock() instanceof dev.gathering.block.ChairBlock)) {
+                fail("there was no player, or no chair at " + chair + ", to sit back down in");
+                return;
+            }
+            dev.gathering.block.Chairs.sit(player, chair, state);
+            System.out.println("[devscene] back in the chair: riding " + player.getVehicle() + ", seat "
+                    + TableSeats.seatOf(server.overworld(), where, who));
+        });
+        armPhase = 1;
+        waitHere(SETTLE);
+    }
+
+    /** Checks the body is posed and the board flat, starts listening to what it sends, and frames the whole table. */
+    private static void listenAndFrameTheWholeTable(Minecraft client) {
+        // Whatever happens to this step, the next one starts with everything it held put back: see getUpFromTheArm.
+        thenCheck(() -> {
+            if (armPhase != 0) {
+                getUpFromTheArm(client);
+            }
+        });
+        if (client.player == null || !(client.player.getVehicle() instanceof dev.gathering.block.ChairSeat)
+                || !TableBodyPose.poses(client.player)) {
+            fail("sitting back in the chair did not pose the body: riding "
+                    + (client.player == null ? "nothing" : client.player.getVehicle()) + ", seated "
+                    + (client.player != null && SeatedPlayers.of(client.player.getUUID()).isPresent()));
+            getUpFromTheArm(client);
+            return;
+        }
+        // Sitting down at a game opens its board, and would ask for a deck if this seat had none down.
+        expectScreen(client, "sitting back down in the chair", TableScreen.class);
+        if (!(client.screen instanceof TableScreen)) {
+            client.setScreen(new TableScreen(table));
+        }
+        if (TableCameraView.isLooking()
+                || (client.screen instanceof TableScreen board && board.board() instanceof SurfaceBoard)) {
+            fail("the arm was to be checked on the flat board and the board was on the block, where everybody is drawn still");
+            getUpFromTheArm(client);
+            return;
+        }
+        POINTS_SENT.clear();
+        senderBeforeTheArm = ClientNetworking.boundSender();
+        listeningForPoints = true;
+        java.util.function.Consumer<net.minecraft.network.protocol.common.custom.CustomPacketPayload> through =
+                senderBeforeTheArm;
+        ClientNetworking.bindSender(payload -> {
+            if (payload instanceof dev.gathering.network.TablePointPayload point) {
+                POINTS_SENT.add(point);
+            }
+            // Still sent: the server takes it exactly as it would from a player, and passes it to nobody.
+            if (through != null) {
+                through.accept(payload);
+            }
+        });
+        // Both mats on the felt, between the strip along the top and the hand: a pointer is only worked out there.
+        client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
+        armSpot = 0;
+        armPhase = 2;
+        waitHere(A_MOMENT);
+    }
+
+    /**
+     * The four places, off the board the screen draws: both ends of my own mat, its middle, and the middle of the
+     * mat opposite.
+     * <p>Which end is my left is read off the screen, not off the position: the flat board is the table seen from
+     * my own chair, so the right of the window is my right, whichever way the mat's own numbers run.
+     */
+    private static boolean namedPlacesOnTheFelt(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board) || board.board() instanceof SurfaceBoard) {
+            fail("there was no flat board to point at the felt on");
+            return false;
+        }
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        TableSurface surface = board.board().surface();
+        if (me == null || surface.seatCount() < 2) {
+            fail("pointing needs my seat and a mat opposite it: seat " + me + ", " + surface.seatCount() + " mats");
+            return false;
+        }
+        SeatId far = null;
+        for (int index = 0; index < surface.seatCount(); index++) {
+            SeatId seat = new SeatId(index);
+            if (!seat.equals(me) && (far == null
+                    || board.board().matRect(seat).centerY() < board.board().matRect(far).centerY())) {
+                far = seat;
+            }
+        }
+        ArmSpot one = spotAt(board, "", me, TablePosition.of(1500, 5000));
+        ArmSpot other = spotAt(board, "", me, TablePosition.of(8500, 5000));
+        boolean oneIsLeft = one.pixel()[0] < other.pixel()[0];
+        ARM_SPOTS.clear();
+        ARM_AIMS.clear();
+        ARM_SENT.clear();
+        ARM_SPOTS.add(renamed(oneIsLeft ? one : other, LEFT_END));
+        ARM_SPOTS.add(renamed(oneIsLeft ? other : one, RIGHT_END));
+        ARM_SPOTS.add(spotAt(board, MY_MAT, me, TablePosition.of(5000, 5000)));
+        ARM_SPOTS.add(spotAt(board, FAR_MAT, far, TablePosition.of(5000, 5000)));
+        return true;
+    }
+
+    private static ArmSpot spotAt(TableScreen board, String name, SeatId seat, TablePosition at) {
+        Rect card = board.board().rectOf(seat, at);
+        TableSurface surface = board.board().surface();
+        return new ArmSpot(name, new int[] {(int) Math.round(card.centerX()), (int) Math.round(card.centerY())},
+                surface.surfaceX(seat.index(), at.x()), surface.surfaceY(seat.index(), at.y()));
+    }
+
+    private static ArmSpot renamed(ArmSpot spot, String name) {
+        return new ArmSpot(name, spot.pixel(), spot.surfaceX(), spot.surfaceY());
+    }
+
+    /** The real cursor, over one of the places, with what has been sent so far forgotten. */
+    private static void aimTheCursorAt(Minecraft client, ArmSpot spot) {
+        POINTS_SENT.clear();
+        hover(client, spot.pixel());
+    }
+
+    /**
+     * The last pointer the board sent, checked against the place it was aimed at, and handed in as the server
+     * hands one on to everybody else at the table.
+     */
+    private static boolean handWhatWasSentBackIn(Minecraft client) {
+        ArmSpot spot = ARM_SPOTS.get(armSpot);
+        dev.gathering.network.TablePointPayload sent =
+                POINTS_SENT.isEmpty() ? null : POINTS_SENT.get(POINTS_SENT.size() - 1);
+        if (sent == null || !sent.pointing() || !table.equals(sent.table())) {
+            fail("with the cursor on " + spot.name() + " the flat board sent " + (sent == null ? "nothing" : sent)
+                    + " rather than a pointer at the table at " + table);
+            return false;
+        }
+        if (Math.abs(sent.surfaceX() - spot.surfaceX()) > A_QUARTER_OF_A_CARD
+                || Math.abs(sent.surfaceY() - spot.surfaceY()) > A_QUARTER_OF_A_CARD) {
+            fail("with the cursor on " + spot.name() + " the flat board sent a pointer at " + Math.round(sent.surfaceX())
+                    + ", " + Math.round(sent.surfaceY()) + " and the place is at " + Math.round(spot.surfaceX()) + ", "
+                    + Math.round(spot.surfaceY()));
+            return false;
+        }
+        ARM_SENT.put(spot.name(), sent);
+        handIn(client, sent);
+        return true;
+    }
+
+    /** A pointer already sent for one of the places, handed in again. */
+    private static void handTheSameSpotInAgain(Minecraft client, String name) {
+        dev.gathering.network.TablePointPayload sent = ARM_SENT.get(name);
+        if (sent != null) {
+            handIn(client, sent);
+        }
+    }
+
+    /** What the server passes on for a pointer from this player: the same place, on the same table, with who. */
+    private static void handIn(Minecraft client, dev.gathering.network.TablePointPayload sent) {
+        if (client.player == null) {
+            return;
+        }
+        ClientTablePointing.accept(new dev.gathering.network.TablePointingPayload(
+                client.player.getUUID(), sent.table(), sent.surfaceX(), sent.surfaceY(), true));
+        armPointerHandedIn = true;
+    }
+
+    private static String anglesOf(dev.gathering.core.ui.TablePose.Aim aim) {
+        return String.format(java.util.Locale.ROOT, "arm yaw %.1f pitch %.1f, head yaw %.1f pitch %.1f",
+                aim.armYaw(), aim.armPitch(), aim.headYaw(), aim.headPitch());
+    }
+
+    /** The largest difference between two aims in any one angle, in degrees. */
+    private static double apart(dev.gathering.core.ui.TablePose.Aim one, dev.gathering.core.ui.TablePose.Aim two) {
+        return Math.max(Math.max(Math.abs(one.armYaw() - two.armYaw()), Math.abs(one.armPitch() - two.armPitch())),
+                Math.max(Math.abs(one.headYaw() - two.headYaw()), Math.abs(one.headPitch() - two.headPitch())));
+    }
+
+    /** The relations between the four aims. Each failure names the defect it is the shape of. */
+    private static void theBodyFollowedTheCursor() {
+        for (Map.Entry<String, dev.gathering.core.ui.TablePose.Aim> each : ARM_AIMS.entrySet()) {
+            dev.gathering.core.ui.TablePose.Aim aim = each.getValue();
+            if (apart(aim, dev.gathering.core.ui.TablePose.Aim.AT_THE_TABLE) < 1
+                    || apart(aim, dev.gathering.core.ui.TablePose.Aim.RESTING) < 1) {
+                fail("a pointer at " + each.getKey() + " left the body as it was, " + anglesOf(aim));
+            }
+            if (aim.headPitch() <= 0) {
+                fail("pointing at " + each.getKey() + " tipped the head up, " + anglesOf(aim)
+                        + ": a body at a table looks down at it, and looking up is the shoulder put at the hip again");
+            }
+        }
+        dev.gathering.core.ui.TablePose.Aim left = ARM_AIMS.get(LEFT_END);
+        dev.gathering.core.ui.TablePose.Aim right = ARM_AIMS.get(RIGHT_END);
+        dev.gathering.core.ui.TablePose.Aim near = ARM_AIMS.get(MY_MAT);
+        dev.gathering.core.ui.TablePose.Aim far = ARM_AIMS.get(FAR_MAT);
+        if (left == null || right == null || near == null || far == null) {
+            fail("the body was only asked about " + ARM_AIMS.keySet());
+            return;
+        }
+        if (!(right.headYaw() > 0 && left.headYaw() < 0)) {
+            fail("the head turned " + left.headYaw() + " for " + LEFT_END + " and " + right.headYaw() + " for "
+                    + RIGHT_END + ": it has to turn left for one and right for the other");
+        }
+        if (!(right.armYaw() > 0 && left.armYaw() < 0)) {
+            fail("the arm turned " + left.armYaw() + " for " + LEFT_END + " and " + right.armYaw() + " for "
+                    + RIGHT_END + ": it has to point left for one and right for the other");
+        }
+        if (right.armYaw() - left.armYaw() <= SWINGS_ACROSS) {
+            fail("the arm swung " + (right.armYaw() - left.armYaw()) + " degrees from one end of my mat to the other:"
+                    + " it has to cross the table, not only move up and down");
+        }
+        if (far.armPitch() <= near.armPitch()) {
+            fail("the arm came up " + far.armPitch() + " for " + FAR_MAT + " and " + near.armPitch() + " for "
+                    + MY_MAT + ": reaching further has to raise it");
+        }
+        if (far.headPitch() >= near.headPitch()) {
+            fail("the head tipped " + far.headPitch() + " for " + FAR_MAT + " and " + near.headPitch() + " for "
+                    + MY_MAT + ": looking further away has to lift it");
+        }
+    }
+
+    /**
+     * In the table view every seated body is drawn at the table, still, whatever it is pointing at.
+     * <p>The owner's rule: the camera looks straight down, and an arm out over the felt is foreshortened into a line
+     * across other people's mats. The pointer is checked to be live first, so this is the rule holding rather than a
+     * pointer that had simply gone.
+     */
+    private static void everybodyIsStillInTheTableView(Minecraft client) {
+        boolean live = client.player != null
+                && ClientTablePointing.pointedAt(client.player.getUUID(), 1f).isPresent();
+        dev.gathering.core.ui.TablePose.Aim still = TableBodyPose.aimOf(client.player, 1f);
+        System.out.println("[devscene] in the table view, with a pointer " + (live ? "live" : "gone") + ": "
+                + anglesOf(still));
+        if (!TableCameraView.isLooking()) {
+            fail("the table view was not up when the body was asked about it");
+        }
+        if (!live) {
+            fail("the pointer handed in for the table view had gone before it was read, so the rule was not tested");
+        }
+        if (!still.equals(dev.gathering.core.ui.TablePose.Aim.AT_THE_TABLE)) {
+            fail("in the table view a seated body pointing at " + RIGHT_END + " was drawn " + anglesOf(still)
+                    + " rather than still at the table");
+        }
+    }
+
+    /**
+     * What the player model was given: the pointing arm, its sleeve and the head, off the renderer the game draws
+     * this player with, against the aim the pose works out.
+     * <p>With {@code poseNow} the model's own setup runs first - the method the hook is on, so a hook that never
+     * applied fails here. Without it the parts are read as the last frame left them, which is the frame a picture
+     * is about to be taken of.
+     */
+    private static void theModelTookTheAim(Minecraft client, boolean poseNow, String how) {
+        net.minecraft.client.player.LocalPlayer me = client.player;
+        if (me == null) {
+            fail("there was no player to read the model of");
+            return;
+        }
+        var renderer = client.getEntityRenderDispatcher().getRenderer(me);
+        if (!(renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer drawn)) {
+            fail("the player is drawn by " + renderer + " rather than a player renderer, so the arm could not be read");
+            return;
+        }
+        net.minecraft.client.model.PlayerModel<net.minecraft.client.player.AbstractClientPlayer> model = drawn.getModel();
+        float partial = client.getTimer().getGameTimeDeltaPartialTick(false);
+        if (poseNow) {
+            model.setupAnim(me, 0f, 0f, me.tickCount + partial, 0f, 0f);
+        }
+        dev.gathering.core.ui.TablePose.Aim aim = TableBodyPose.aimOf(me, partial);
+        boolean rightHanded = me.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT;
+        net.minecraft.client.model.geom.ModelPart arm = rightHanded ? model.rightArm : model.leftArm;
+        net.minecraft.client.model.geom.ModelPart sleeve = rightHanded ? model.rightSleeve : model.leftSleeve;
+        System.out.println(String.format(java.util.Locale.ROOT,
+                "[devscene] the model, %s: arm x %.4f y %.4f z %.4f, sleeve x %.4f y %.4f, head x %.4f y %.4f; aim %s",
+                how, arm.xRot, arm.yRot, arm.zRot, sleeve.xRot, sleeve.yRot, model.head.xRot, model.head.yRot,
+                anglesOf(aim)));
+        if (apart(aim, dev.gathering.core.ui.TablePose.Aim.AT_THE_TABLE) < 1) {
+            fail("the model was read " + how + " with no pointer behind the pose, so it proves nothing: " + anglesOf(aim));
+            return;
+        }
+        double[][] pairs = {
+                {arm.xRot, -Math.toRadians(aim.armPitch())},
+                {arm.yRot, Math.toRadians(aim.armYaw())},
+                {arm.zRot, 0},
+                {sleeve.xRot, arm.xRot},
+                {sleeve.yRot, arm.yRot},
+                {model.head.xRot, Math.toRadians(aim.headPitch())},
+                {model.head.yRot, Math.toRadians(aim.headYaw())}};
+        String[] parts = {"arm x", "arm y", "arm z", "sleeve x", "sleeve y", "head x", "head y"};
+        for (int index = 0; index < pairs.length; index++) {
+            if (Math.abs(pairs[index][0] - pairs[index][1]) > 1e-3) {
+                fail("the model, " + how + ", has " + parts[index] + " at " + pairs[index][0] + " where the aim puts it at "
+                        + pairs[index][1] + " (" + anglesOf(aim) + ")");
+            }
+        }
+    }
+
+    /**
+     * Puts back everything on this client step 9 changed: the sender, the camera, the HUD, the look and the cursor,
+     * and the pointer it handed in. Safe to call twice, and from {@link #finish}.
+     */
+    private static void putTheArmStepBack(Minecraft client) {
+        if (listeningForPoints) {
+            ClientNetworking.restoreSender(senderBeforeTheArm);
+            listeningForPoints = false;
+            senderBeforeTheArm = null;
+        }
+        if (cameraBeforeTheArm != null) {
+            client.options.setCameraType(cameraBeforeTheArm);
+            cameraBeforeTheArm = null;
+        }
+        if (hudBeforeTheArm != null) {
+            client.options.hideGui = hudBeforeTheArm;
+            hudBeforeTheArm = null;
+        }
+        if (lookBeforeTheArm != null && client.player != null) {
+            client.player.setXRot(lookBeforeTheArm[0]);
+            client.player.setYRot(lookBeforeTheArm[1]);
+            lookBeforeTheArm = null;
+        }
+        if (armPointerHandedIn && client.player != null && table != null) {
+            // A stop, as the server passes one on: the arm travels back down and the entry goes.
+            ClientTablePointing.accept(new dev.gathering.network.TablePointingPayload(
+                    client.player.getUUID(), table, 0, 0, false));
+            armPointerHandedIn = false;
+        }
+        if (cursorBeforeTheArm != null) {
+            org.lwjgl.glfw.GLFW.glfwSetCursorPos(client.getWindow().getWindow(), cursorBeforeTheArm[0], cursorBeforeTheArm[1]);
+            try {
+                set(client.mouseHandler, "xpos", cursorBeforeTheArm[0]);
+                set(client.mouseHandler, "ypos", cursorBeforeTheArm[1]);
+            } catch (ReflectiveOperationException e) {
+                fail("could not put the cursor back: " + e);
+            }
+            cursorBeforeTheArm = null;
+        }
+    }
+
+    /**
+     * Ends step 9 however far it got, leaving what step 8 left: the seat held without the chair, a fresh flat board
+     * open, and this client as it was.
+     */
+    private static void getUpFromTheArm(Minecraft client) {
+        float[] lookWas = lookBeforeTheArm;
+        // The look goes back on the server first, in the same queue as getting up. Getting out of a chair sends the
+        // player where they now stand with the rotation the server holds, and the server was still holding the
+        // picture's look down at the table: put back only here, the player stood up looking at the floor.
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server != null && lookWas != null && client.player != null) {
+            java.util.UUID who = client.player.getUUID();
+            server.execute(() -> {
+                ServerPlayer player = server.getPlayerList().getPlayer(who);
+                if (player != null) {
+                    player.setXRot(lookWas[0]);
+                    player.setYRot(lookWas[1]);
+                }
+            });
+        }
+        keepTheSeatWithoutTheChair(client);
+        if (table != null) {
+            client.setScreen(new TableScreen(table));
+        }
+        // After the screen: opening one lets go of the mouse, which can put the cursor in the middle of the window.
+        putTheArmStepBack(client);
+        ARM_SPOTS.clear();
+        ARM_AIMS.clear();
+        ARM_SENT.clear();
+        POINTS_SENT.clear();
+        armSpot = 0;
+        if (armPhase != 0 && step == 9) {
+            armPhase = 0;
+            thenCheck(() -> {
+                net.minecraft.client.player.LocalPlayer player = Minecraft.getInstance().player;
+                if (TableBodyPose.poses(player)) {
+                    fail("getting up out of the chair after step 9 left the body posed");
+                }
+                // The rest of the tour starts from the look it had: step 9 looked down at the table to photograph it.
+                if (player != null && lookWas != null && Math.abs(player.getXRot() - lookWas[0]) > 1) {
+                    fail("getting up out of the chair after step 9 left the player looking " + player.getXRot()
+                            + " degrees down rather than the " + lookWas[0] + " they were");
+                }
+                System.out.println("[devscene] up from the chair after step 9, looking " + (player == null ? "?" : player.getXRot())
+                        + " degrees down; before it " + (lookWas == null ? "?" : lookWas[0]));
+            });
+            advance(SETTLE);
+            return;
+        }
+        armPhase = 0;
+    }
+
     private static String lastSeat = "?";
 
     private static void watchTheSeat(Minecraft client) {
@@ -13739,6 +14346,8 @@ public final class DevScene {
         // Whatever step the run stopped at: the board was only ever held, so letting go is all
         // there is to put back.
         ClientSettings.holdTheBoardForARun(null);
+        // And the sender, the camera and the HUD, if the run stopped with step 9 holding them.
+        putTheArmStepBack(client);
         if (playerSettingsWere != null) {
             client.options.pauseOnLostFocus = (Boolean) playerSettingsWere[0];
             client.options.guiScale().set((Integer) playerSettingsWere[1]);
