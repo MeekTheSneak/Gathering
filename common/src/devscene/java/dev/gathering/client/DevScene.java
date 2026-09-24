@@ -179,7 +179,10 @@ public final class DevScene {
     private static boolean awayShown;
     /** Whether step 12 has gone back to the flat board and is waiting a frame before aiming at a button. */
     private static boolean backForTheButton;
-    /** How far through checking that a table opened straight onto the block is framed on your own mat step 358 is. */
+    /**
+     * How far through step 358 is: a table opened straight onto the block framed on your own mat (1 to 3), then
+     * the camera staying where it was left across a panel and following the chair when it changes (4 on).
+     */
     private static int arrivingPhase;
 
     /** How far through choosing a game from the chair step 8 is. */
@@ -3688,6 +3691,7 @@ public final class DevScene {
                 if (!expectingStep(dev.gathering.core.tutorial.TutorialStep.DRAW)) {
                     return;
                 }
+                theLessonStaysOffTheBlock(client);
                 shoot(client, "93-learning-the-controls");
                 tutorialKey(client, "draw");
                 advance(SETTLE * 2);
@@ -4290,6 +4294,7 @@ public final class DevScene {
             }
             case 357 -> {
                 expectScreen(client, "a table played east to west", TableScreen.class);
+                nothingLiesOnTheTurnedTable(client);
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
@@ -5728,6 +5733,10 @@ public final class DevScene {
             waitHere(SETTLE / 2);
             return;
         }
+        if (arrivingPhase >= 4) {
+            theCameraStaysOrFollowsTheChair(client);
+            return;
+        }
         arrivingPhase = 0;
         ClientSettings.holdTheBoardForARun(false);
         if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)) {
@@ -5739,8 +5748,194 @@ public final class DevScene {
             if (me == null || !me.equals(under)) {
                 fail("a table opened straight onto the block framed " + under + " rather than my own mat " + me);
             }
+            if (me != null) {
+                // Then the two ways the camera over the block is moved by something other than the player.
+                mySeatAtTheTurnedTable = me;
+                arrivingPhase = 4;
+                waitHere(A_MOMENT);
+                return;
+            }
         }
         advance(SETTLE / 2);
+    }
+
+    /** This player's seat at the turned table, kept for the phases of step 358 that stand up from it. */
+    private static SeatId mySeatAtTheTurnedTable;
+
+    /**
+     * Checks the camera over the block stays where it was left when a panel closes, and follows the chair when
+     * the chair changes.
+     * <p>Both are init and tick deciding for the player where to look. Coming back from a panel is not arriving:
+     * the player had put the camera somewhere, and framing their own mat again would take it away from them.
+     * And a seat that changes with the board open - one freed from under them, one taken back - moved only the
+     * flat board, so the camera stayed over whatever it was over while the flat board nobody was looking at
+     * was framed on the new seat. Each is set up away from this player's own mat first - the mat opposite
+     * dragged to the middle - or its answer would prove nothing.
+     * <p>Phased as the rest of step 358 is, because every answer is read off a drawn frame.
+     */
+    private static void theCameraStaysOrFollowsTheChair(Minecraft client) {
+        SeatId me = mySeatAtTheTurnedTable;
+        switch (arrivingPhase) {
+            case 4 -> {
+                arrivingPhase = 5;
+                dragTheFarMatToTheMiddle(client, me);
+                waitHere(A_MOMENT);
+            }
+            case 5 -> {
+                arrivingPhase = 6;
+                SeatId before = seatInTheMiddleOfTheTurnedTable(client);
+                System.out.println("[devscene] before the life panel, the middle of the window is on seat " + before
+                        + "; mine " + me + "; camera " + TableCameraView.report());
+                if (before == null || before.equals(me)) {
+                    fail("the camera was on my own mat before the life panel opened, so where it comes back to proves nothing");
+                }
+                client.setScreen(new LifeScreen(turnedTable, me, client.screen));
+                waitHere(A_MOMENT);
+            }
+            case 6 -> {
+                arrivingPhase = 7;
+                expectScreen(client, "the life panel over the board on the block", LifeScreen.class);
+                // Its own Done, which is the panel's one way back to the board.
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                waitHere(A_MOMENT);
+            }
+            case 7 -> {
+                arrivingPhase = 8;
+                SeatId after = seatInTheMiddleOfTheTurnedTable(client);
+                System.out.println("[devscene] back from the life panel, the middle of the window is on seat " + after
+                        + "; mine " + me + "; camera " + TableCameraView.report());
+                if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)) {
+                    fail("closing the life panel did not come back to the board on the block");
+                } else if (after == null || after.equals(me)) {
+                    fail("coming back from the life panel moved the camera to " + after
+                            + " rather than leaving it where it was, on the mat opposite");
+                }
+                standUpAtTheTurnedTable(client, me);
+                waitHere(SETTLE / 2);
+            }
+            case 8 -> {
+                arrivingPhase = 9;
+                SeatId still = ClientTableState.seatAt(turnedTable).orElse(null);
+                System.out.println("[devscene] stood up with the board on the block open: seat " + still
+                        + "; camera " + TableCameraView.report());
+                if (still != null) {
+                    fail("standing up from the turned table left this client in seat " + still);
+                }
+                if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)) {
+                    fail("standing up from the turned table did not leave its board open on the block");
+                }
+                dragTheFarMatToTheMiddle(client, me);
+                waitHere(A_MOMENT);
+            }
+            case 9 -> {
+                arrivingPhase = 10;
+                SeatId before = seatInTheMiddleOfTheTurnedTable(client);
+                System.out.println("[devscene] before sitting back down, the middle of the window is on seat " + before
+                        + "; mine " + me + "; camera " + TableCameraView.report());
+                if (before == null || before.equals(me)) {
+                    fail("the camera was on my own mat before I sat back down, so where it goes proves nothing");
+                }
+                sitBackDownAtTheTurnedTable(client, me);
+                waitHere(SETTLE / 2);
+            }
+            default -> {
+                arrivingPhase = 0;
+                SeatId seat = ClientTableState.seatAt(turnedTable).orElse(null);
+                SeatId under = seatInTheMiddleOfTheTurnedTable(client);
+                System.out.println("[devscene] sat back down with the board on the block open: seat " + seat
+                        + "; the middle of the window is on seat " + under + "; camera " + TableCameraView.report());
+                if (seat == null || !seat.equals(me)) {
+                    fail("sitting back down at the turned table gave this client seat " + seat + ", not " + me);
+                } else if (!me.equals(under)) {
+                    fail("a seat that arrived with the board on the block open left the camera on " + under
+                            + " rather than framing my own mat " + me + ", as the flat board is framed");
+                }
+                advance(SETTLE / 2);
+            }
+        }
+    }
+
+    /**
+     * Gives up this player's seat at the turned table, and leaves its board open.
+     * <p>What the table's own Leave table does, less closing the board: the game releases the seat and the
+     * block forgets whose chair it was. The same as a seat freed from under somebody with the board up.
+     */
+    private static void standUpAtTheTurnedTable(Minecraft client, SeatId seat) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null || turnedTable == null || seat == null) {
+            fail("there was no seat at the turned table to stand up from");
+            return;
+        }
+        java.util.UUID mine = client.player.getUUID();
+        BlockPos where = turnedTable;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            GameSession session = TableSessions.sessionAt(level, where).orElse(null);
+            if (session == null) {
+                fail("the turned table's game went away before anybody could stand up from it");
+                return;
+            }
+            session.submit(new GameEvent.SeatReleased(seat));
+            boolean left = TableSeats.leave(level, where, mine);
+            System.out.println("[devscene] stood up from the turned table: " + left);
+            if (!left) {
+                fail("the turned table's block still had me in a chair after I stood up");
+            }
+            TableBroadcast.sendToTable(level, where);
+        });
+    }
+
+    /** Takes this player's seat at the turned table back, at its east edge, the way {@link #sitBackDown} does. */
+    private static void sitBackDownAtTheTurnedTable(Minecraft client, SeatId seat) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null || turnedTable == null || seat == null) {
+            fail("there was no seat at the turned table to sit back down in");
+            return;
+        }
+        java.util.UUID mine = client.player.getUUID();
+        String name = client.player.getGameProfile().getName();
+        BlockPos where = turnedTable;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            GameSession session = TableSessions.sessionAt(level, where).orElse(null);
+            ServerPlayer player = server.getPlayerList().getPlayer(mine);
+            if (session == null || player == null) {
+                fail("the turned table's game went away before anybody could sit back down at it");
+                return;
+            }
+            var claim = TableSeats.take(level, where, new dev.gathering.core.table.TableCell(0, 0),
+                    dev.gathering.core.table.Side.EAST, mine);
+            System.out.println("[devscene] sat back down at the turned table: " + claim);
+            if (claim != TableSeats.Claim.TAKEN) {
+                fail("the east edge of the turned table would not take me back: " + claim);
+                return;
+            }
+            session.submit(new GameEvent.SeatTaken(seat, new PlayerRef(mine, name)));
+            dev.gathering.server.TableActions.openFor(player, where);
+        });
+    }
+
+    /**
+     * Checks nothing lies on the turned table's top, so the camera over it can see the board.
+     * <p>The table was once placed a block under the player's feet, and the player arrives there a block lower
+     * than somebody standing on the grass, so it went in under the grass. Step 358 passed on it, because what
+     * it checks is arithmetic on the pointer, and its picture was of a lawn.
+     */
+    private static void nothingLiesOnTheTurnedTable(Minecraft client) {
+        if (client.level == null || turnedTable == null) {
+            fail("there was no turned table to look down at");
+            return;
+        }
+        for (TablePart part : TablePart.values()) {
+            BlockPos above = part.offsetFrom(turnedTable).above();
+            BlockState over = client.level.getBlockState(above);
+            if (over.canOcclude()) {
+                fail("the turned table is buried: " + over.getBlock().getName().getString() + " lies on it at " + above);
+                return;
+            }
+        }
     }
 
     /** Drags the board on the block so the middle of the mat opposite this player's lands in the middle of the window. */
@@ -8719,6 +8914,36 @@ public final class DevScene {
         client.screen.keyPressed(key.getValue(), 0, 0);
         System.out.println("[devscene] pressed " + key.getDisplayName().getString()
                 + " for " + action);
+    }
+
+    /**
+     * Checks V leaves the lesson on the flat board, and that the lesson's key list does not offer it.
+     * <p>The lesson's table is a place no table can be. V on it put the camera over empty space below the
+     * world - a replay's old fault, reached by a key rather than by opening - and saved the press as the
+     * player's board for every real table after it.
+     */
+    private static void theLessonStaysOffTheBlock(Minecraft client) {
+        if (!(client.screen instanceof TableScreen lesson)) {
+            fail("there was no lesson board to press V on");
+            return;
+        }
+        if (lesson.keyHelp().stream().flatMap(java.util.Arrays::stream)
+                .anyMatch("screen.gathering.table.key_view"::equals)) {
+            fail("the lesson's key list offers V, and the lesson has no block for V to go to");
+        }
+        lesson.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+        boolean onTheBlock = lesson.board() instanceof SurfaceBoard;
+        boolean looking = TableCameraView.isLooking();
+        System.out.println("[devscene] V pressed in the lesson: board " + lesson.board().getClass().getSimpleName()
+                + ", camera over a table " + looking);
+        if (onTheBlock || looking) {
+            fail("V put the lesson on the block, where it has no table: board "
+                    + lesson.board().getClass().getSimpleName() + ", camera over a table " + looking);
+            // And back, so the lesson's steps after this one run on the board they were written for.
+            if (onTheBlock) {
+                lesson.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+            }
+        }
     }
 
     /** Drags whatever is in hand onto the felt, for a hand that may hold exactly one card. */

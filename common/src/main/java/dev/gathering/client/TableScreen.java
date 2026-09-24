@@ -242,6 +242,19 @@ public final class TableScreen extends Screen {
                 "screen.gathering.table.key_leave",
             });
 
+    /** The line of the key list that offers the board on the block, which only a table with a block has. */
+    private static final String KEY_VIEW = "screen.gathering.table.key_view";
+
+    /**
+     * The game's list without V, for the lesson. Its table has no block for V to go to, so the
+     * key does nothing there, and a list that offered it would be a promise the board broke.
+     */
+    private static final List<String[]> KEY_HELP_WITHOUT_A_BLOCK = KEY_HELP.stream()
+            .map(section -> java.util.Arrays.stream(section)
+                    .filter(line -> !KEY_VIEW.equals(line))
+                    .toArray(String[]::new))
+            .toList();
+
     /** How much one wheel notch zooms. A shallow step, because zoom is used constantly. */
     private static final double ZOOM_STEP = 1.18;
 
@@ -475,13 +488,35 @@ public final class TableScreen extends Screen {
         return left;
     }
 
-    /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
+    /**
+     * Frames the board on this seat's own mat, or on the whole table when there is no seat.
+     * <p>Both boards, whichever one is being played. The camera over the block used to be framed by
+     * V alone, so a chair that changed while the board was on the block - somebody sitting down with
+     * it open, a seat freed from under them, another player joining - reframed the flat board nobody
+     * was looking at and left the camera over whatever it had been over.
+     */
     private void frameTheBoard(SeatId seat) {
         if (seat == null) {
             geometry.showEverything(potTray());
         } else {
             geometry.focusOn(seat);
         }
+        if (playingOnTheBlock) {
+            frameTheBlock();
+        }
+    }
+
+    /**
+     * Puts the camera over this player's own mat on the block, as V does.
+     * <p>The camera keeps its height and its pan from one table to the next, so a board that
+     * arrived on the block and only resumed opened the first table of a session over its middle
+     * at the starting height, and every table after it wherever the last one was left - somebody
+     * else's mat, or no mat at all. Somebody with no seat has no mat, and gets the middle of the
+     * table at the starting height.
+     */
+    private void frameTheBlock() {
+        TableCameraView.focusOn(table, myMatIsOnTheSouthHalf(), myMatOnTheBlock(),
+                coveredByTheStatus(), coveredByTheHand());
     }
 
     /**
@@ -670,6 +705,7 @@ public final class TableScreen extends Screen {
                 geometry.focusOn(framedFor);
                 geometry.showEverything(potTray());
             } else {
+                // Arriving on the block is framed here too, on your own mat as V frames it.
                 frameTheBoard(framedFor);
             }
         } else {
@@ -677,19 +713,11 @@ public final class TableScreen extends Screen {
                     layout.status().height(), layout.hand().height());
             onBlock.reshape(anchors());
         }
-        // Arriving on the block is framed on your own mat, the same as pressing V is. The camera
-        // keeps its height and its pan between tables, so a board that only resumed opened the
-        // first table of a session over its middle at the starting height, and every table
-        // after it wherever the last one was left - somebody else's mat, or no mat at all.
-        //
         // Coming back is not arriving. A screen this one opened - a graveyard, a counters panel
         // - took the camera back to the player on its way in, and returning to the same
         // instance has to take it over the table again where the player had left it, or they
         // are left holding a board they cannot see.
-        if (playingOnTheBlock && arriving) {
-            TableCameraView.focusOn(table, myMatIsOnTheSouthHalf(), myMatOnTheBlock(),
-                    coveredByTheStatus(), coveredByTheHand());
-        } else if (playingOnTheBlock) {
+        if (playingOnTheBlock && !arriving) {
             TableCameraView.resume(table, myMatIsOnTheSouthHalf(),
                     coveredByTheStatus(), coveredByTheHand());
         }
@@ -1093,8 +1121,15 @@ public final class TableScreen extends Screen {
      * <p>The camera goes over the table on the way in and back to the player on the way out.
      * Nothing about the game moves: both views are showing the same board, so the swap is
      * only ever a change of where it is being looked at from.
+     * <p>Only where there is a block, the rule {@link #init} opens by. The lesson has none: its
+     * table is a place no table can be, so V there put the camera over empty space below the
+     * world, pointed the lesson's rectangles at nothing the learner could see, and saved the
+     * press as this player's board for every table after it.
      */
     private void useTheBlock(boolean wanted) {
+        if (wanted && !mode.hasABlock()) {
+            return;
+        }
         playingOnTheBlock = wanted;
         // Remembered, because which board you play on is a preference and not a mode: a player
         // who prefers the flat one should not have to say so at every table, and a player who
@@ -1103,8 +1138,7 @@ public final class TableScreen extends Screen {
         forgetThePointer();
         gesture.cancel();
         if (wanted) {
-            TableCameraView.focusOn(table, myMatIsOnTheSouthHalf(), myMatOnTheBlock(),
-                    coveredByTheStatus(), coveredByTheHand());
+            frameTheBlock();
         } else {
             TableCameraView.release();
             ClientTableHighlight.clear();
@@ -3616,9 +3650,16 @@ public final class TableScreen extends Screen {
                     java.util.Map.entry("screen.gathering.table.key_to_zones",
                             List.of("to_exile", "to_graveyard", "to_library_bottom_random")));
 
-    /** Whichever list this screen is teaching: the game's keys, or a watcher's. */
-    private List<String[]> keyHelp() {
-        return mode.isWatching() ? KEY_HELP_REPLAY : KEY_HELP;
+    /**
+     * Whichever list this screen is teaching: the game's keys, the lesson's, or a watcher's.
+     * <p>Package-private so the scripted run can ask what the list offers rather than read it
+     * off a picture.
+     */
+    List<String[]> keyHelp() {
+        if (mode.isWatching()) {
+            return KEY_HELP_REPLAY;
+        }
+        return mode.hasABlock() ? KEY_HELP : KEY_HELP_WITHOUT_A_BLOCK;
     }
 
     /** How many lines the whole key list wants, headings included. */

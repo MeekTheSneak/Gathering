@@ -4569,5 +4569,68 @@ here; it was not chased.
 
 **Still unverified:** steps 362 onward (the full tour is the orchestrator's); Fabric's client; the
 crouched click that opens the life panel (a script cannot hold the real shift key, so the tour opens the
-panel the way the board does); and a board opened onto the block by somebody with no seat yet, which
-frames the whole table and is not re-framed when the seat arrives - the flat board is, the block is not.
+panel the way the board does); and ~~a board opened onto the block by somebody with no seat yet, which
+frames the whole table and is not re-framed when the seat arrives - the flat board is, the block is not~~
+(fixed and guarded the same day: see the next entry).
+
+## 2026-09-24: review of be32a0a - V in the lesson, the camera when a chair changes, three guards
+
+Two independent reviewers read `be32a0a`. Each finding was read against the code before acting on it.
+
+**V put the lesson on a block that is not there (both reviewers).** `init` kept the lesson and replays off
+the block, but V goes through `useTheBlock`, which never asked. A learner has a seat, so V reached it:
+`TableCameraView.focusOn(TutorialDemo.NOWHERE, ...)` put the camera below the world, the lesson's
+rectangles pointed at nothing the learner could see, and `ClientSettings.playOnTheBlock(true)` saved the
+press as the player's board for every real table. `useTheBlock` now refuses the block where
+`mode.hasABlock()` is false, and the lesson's key list leaves out the V line (`keyHelp()`), because V does
+nothing there. A replay never reached it: `watcherPressed` has no V.
+*Guard:* step 301, on the lesson's first step, checks the key list offers no V, presses V, and fails if
+the board is a `SurfaceBoard` or the camera is over a table. Passing: `V pressed in the lesson: board
+BoardGeometry, camera over a table false`. Reverted: `FAIL the lesson's key list offers V, and the lesson
+has no block for V to go to` and `FAIL V put the lesson on the block, where it has no table: board
+SurfaceBoard, camera over a table true`.
+
+**The camera over the block did not follow a chair that changed.** Both branches in `tick` - the seat
+count changing, and this client's own seat appearing or going - reframed the flat board only.
+`frameTheBoard` now frames both boards, through `frameTheBlock`, the one call that arriving on the block,
+V and a changed chair share; `init` keeps only the resume for coming back.
+*Guard:* step 358, phases 8 to 10: stand up from the turned table with its board open on the block (on
+the server: `SeatReleased` and `TableSeats.leave`, which is the table's own Leave table less closing the
+board, and the same as a seat freed from under somebody), drag the far mat to the middle, sit back down,
+and check the middle of the window is on my mat. Passing: `sat back down with the board on the block
+open: seat seat0; the middle of the window is on seat seat0`. Reverted: `FAIL a seat that arrived with
+the board on the block open left the camera on seat1 rather than framing my own mat seat0, as the flat
+board is framed`.
+
+**Coming back from a panel resumes: now checked (reviewer's finding, no defect).** Nothing checked it, and
+dropping the arriving condition passed everything. Phases 4 to 7 of step 358 drag the far mat to the
+middle, open the life panel over the board on the block, close it, and check the far mat is still in the
+middle. Passing: `back from the life panel, the middle of the window is on seat seat1; mine seat0`.
+Reframing on every init (the reviewer's mutation): `FAIL coming back from the life panel moved the camera
+to seat0 rather than leaving it where it was, on the mat opposite`.
+
+**The buried table has a guard.** Step 357 fails if a block that can hide the board lies on any of the
+turned table's four parts. With the old placement (`blockPosition().offset(-4, -1, -14)`): `FAIL the
+turned table is buried: Grass Block lies on it at BlockPos{x=28, y=-61, z=3}`.
+
+**Verified:** `:common:compileJava`, `:neoforge:compileGametestJava`, `:fabric:compileJava`,
+`:fabric:compileTestmodJava`; all eighteen static checks exit 0 (`scenecheck`: 396 scene steps checked, 0
+problems); and two NeoForge tour runs under Xvfb, `-PdevsceneTo=358`:
+
+    every fix in:                            reached step 359 of 396, failures: 5
+    every fix reverted together (V's
+      check, the key list, frameTheBoard's
+      block half, the resume, the old
+      placement):                            reached step 359 of 396, failures: 10
+
+The five the reverted run added are the five guard lines quoted above; the five in both runs are the ones
+the entry before this one lists (three sound checks, the 427x240 framing difference, eight seats in two
+rows). `108-a-table-played-east-to-west` and `93-learning-the-controls` from the passing run were looked at:
+the turned board framed on my mat, and the lesson on the flat board.
+
+**Still unverified:** the seat-count branch of `tick` - another player joining while the board is on the
+block - is not exercised on its own: a lone table seats two, so the tour's turned table cannot gain a
+seat. It calls the same `frameTheBoard` the guarded branch does. Standing up with the board on the block
+puts the camera over the middle of the table at the starting height (`height=2.2`), as arriving with no
+seat does; the flat board shows the whole table instead, and whether 2.2 shows all of it at every window
+size was not checked. Steps 359 on and Fabric's client were not run.
