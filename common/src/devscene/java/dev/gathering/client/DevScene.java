@@ -1666,6 +1666,11 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 91 -> {
+                // First the rival's hand on the felt, counted on both boards and photographed on
+                // each, while the whole table is framed. See handsLieOnTheFelt.
+                if (!handsLieOnTheFelt(client)) {
+                    return;
+                }
                 theWholeTableIsOnScreen(client);
                 if (client.screen instanceof TableScreen framed) {
                     seatedMat = ClientTableState.seatAt(table)
@@ -12019,6 +12024,218 @@ public final class DevScene {
             session.submit(new GameEvent.LibraryMilled(theirs, theirs, 1));
             TableBroadcast.sendToTable(server.overworld(), where);
             System.out.println("[devscene] a rival sat down opposite");
+        });
+    }
+
+    /** How far through the hand on the felt step 91 is; see {@link #handsLieOnTheFelt}. */
+    private static int handsPhase;
+
+    /** How many cards the rival held when the flat board was counted, for the block to match. */
+    private static int rivalHolds;
+
+    /**
+     * Step 91, first: the rival's hand fanned at the near edge of their mat, on both boards.
+     * <p>The rival draws at the server, so what arrives is the seated view with their hand as a count and
+     * nothing else - the path a real game takes. The flat board, framed on the whole table by step 90, is
+     * asked what it drew: the rival's hand as many cards as they hold, up to the most a fan shows, and none
+     * for this player's own seat, whose hand is along the bottom. Photographed. Then V, the whole table on
+     * the block, and the block asked the same question and photographed; then back to the flat board,
+     * framed whole again, for the rest of step 91.
+     * <p>Each board is also asked that the other one drew nothing: the flat board draws no fan while the
+     * block is up, and the block draws none unless its camera is over this table.
+     *
+     * @return whether it has finished, so step 91 goes on
+     */
+    private static boolean handsLieOnTheFelt(Minecraft client) {
+        SeatId rival = new SeatId(1);
+        switch (handsPhase) {
+            case 0 -> {
+                handsPhase = 1;
+                // Five more on the two they kept, so the fan is a real hand rather than a pair.
+                theRivalDraws(client, 5);
+                TableMiniatureRenderer.feltHandCards.clear();
+                waitHere(SETTLE);
+                return false;
+            }
+            case 1 -> {
+                handsPhase = 2;
+                if (!(client.screen instanceof TableScreen board) || board.board() instanceof SurfaceBoard) {
+                    fail("the rival's hand was to be counted on the flat board, and the flat board was not up");
+                    return true;
+                }
+                SeatId me = ClientTableState.seatAt(table).orElse(null);
+                GameView view = ClientTableState.viewOf(table).orElse(null);
+                if (me == null || view == null || view.seats().size() <= rival.index()) {
+                    fail("no seat and no rival to count a hand on the felt for");
+                    return true;
+                }
+                ZoneView held = view.seat(rival).zones().get(Zone.HAND);
+                rivalHolds = held == null ? 0 : held.count();
+                if (rivalHolds < 3) {
+                    fail("the rival drew and holds " + rivalHolds + " cards, which is no fan to look at");
+                }
+                if (held != null && !held.cards().isEmpty()) {
+                    fail("the seated view carried the rival's hand as " + held.cards().size()
+                            + " cards rather than as a count");
+                }
+                aHandLiesOnTheFelt("the flat board", board.feltHandCards, me, rival, rivalHolds);
+                theHandIsInView("the flat board", board, rival, rivalHolds);
+                if (!TableMiniatureRenderer.feltHandCards.isEmpty()) {
+                    fail("the block drew a hand on the felt with its camera not over the table: "
+                            + TableMiniatureRenderer.feltHandCards);
+                }
+                shoot(client, "26b-a-hand-on-the-felt");
+                board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                waitHere(A_MOMENT);
+                return false;
+            }
+            case 2 -> {
+                handsPhase = 3;
+                if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)) {
+                    fail("V did not put the board on the block to count the rival's hand there");
+                    return true;
+                }
+                // The whole table. The block opens on this player's own board, and the rival's hand is at
+                // the far edge of the table from it.
+                board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
+                TableMiniatureRenderer.feltHandCards.clear();
+                waitHere(SETTLE / 2);
+                return false;
+            }
+            case 3 -> {
+                handsPhase = 4;
+                if (!(client.screen instanceof TableScreen board) || !(board.board() instanceof SurfaceBoard)) {
+                    fail("the board left the block before the rival's hand could be counted there");
+                    return true;
+                }
+                if (!TableCameraView.isLookingAt(table)) {
+                    fail("the board is on the block and the table camera is not over this table");
+                }
+                SeatId me = ClientTableState.seatAt(table).orElse(null);
+                aHandLiesOnTheFelt("the board on the block", TableMiniatureRenderer.feltHandCards, me, rival,
+                        rivalHolds);
+                theHandIsInView("the board on the block", board, rival, rivalHolds);
+                if (!board.feltHandCards.isEmpty()) {
+                    fail("the flat board drew a hand on the felt over the block: " + board.feltHandCards);
+                }
+                shoot(client, "26c-a-hand-on-the-block");
+                board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                waitHere(A_MOMENT);
+                return false;
+            }
+            case 4 -> {
+                handsPhase = 5;
+                if (client.screen instanceof TableScreen board && board.board() instanceof SurfaceBoard) {
+                    fail("V on the block did not go back to the flat board after the rival's hand");
+                }
+                // Framed whole again, which is what the rest of step 91 photographs.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
+                }
+                waitHere(SETTLE / 2);
+                return false;
+            }
+            default -> {
+                return true;
+            }
+        }
+    }
+
+    /**
+     * What one board drew on the felt for each seat's hand: the rival's hand as many cards as they hold, up
+     * to the most a fan shows, and nothing for this player's own seat.
+     */
+    private static void aHandLiesOnTheFelt(String which, java.util.Map<Integer, Integer> drawn, SeatId me,
+            SeatId rival, int holds) {
+        int wanted = Math.min(holds, dev.gathering.core.ui.FeltHand.MOST_SHOWN);
+        int theirs = drawn.getOrDefault(rival.index(), 0);
+        int mine = me == null ? -1 : drawn.getOrDefault(me.index(), 0);
+        System.out.println("[devscene] " + which + " drew the rival's hand of " + holds + " as " + theirs
+                + " cards on the felt, and " + mine + " for my own seat");
+        if (theirs != wanted) {
+            fail(which + " drew the rival's hand of " + holds + " as " + theirs + " cards on the felt, not "
+                    + wanted);
+        }
+        if (mine != 0) {
+            fail(which + " drew " + mine + " cards of my own hand on the felt, which is along the bottom");
+        }
+    }
+
+    /**
+     * Every corner of every card of the rival's fan, where this board drew it on the window, inside the part of
+     * the window that is table: clear of the strip along the top and of this player's own hand.
+     * <p>With the whole table framed, which is what the key says. A hand is held partly past the table's edge,
+     * and framed on the table alone the far player's went under the strip; on the block the camera also stopped
+     * zooming out before the table fitted a small interface. On the block the corners are found by running the
+     * picker forwards, so what is checked is where the frame was drawn, not where the layout says.
+     */
+    private static void theHandIsInView(String which, TableScreen board, SeatId rival, int holds) {
+        Rect area = board.tableArea();
+        boolean onTheBlock = board.board() instanceof SurfaceBoard;
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        int checked = 0;
+        TableSurface surface = board.board().surface();
+        for (dev.gathering.core.ui.FeltHand.Slot slot : surface.handFan(rival.index(), holds)) {
+            // Turned as it is drawn, since the ends of a fan are what reach furthest.
+            Rect card = slot.where();
+            double turn = Math.toRadians(slot.angle() + surface.facingDegrees(rival.index()));
+            int[][] corners = new int[4][];
+            int at = 0;
+            for (int across = -1; across <= 1; across += 2) {
+                for (int down = -1; down <= 1; down += 2) {
+                    double dx = across * card.width() / 2.0;
+                    double dy = down * card.height() / 2.0;
+                    corners[at++] = new int[] {
+                            (int) Math.round(card.centerX() + dx * Math.cos(turn) - dy * Math.sin(turn)),
+                            (int) Math.round(card.centerY() + dx * Math.sin(turn) + dy * Math.cos(turn))};
+                }
+            }
+            for (int[] corner : corners) {
+                double x;
+                double y;
+                if (onTheBlock) {
+                    double[] pixel = TablePointer.onScreen(top, corner[0], corner[1]).orElse(null);
+                    if (pixel == null) {
+                        fail(which + " drew a card of the rival's hand nowhere on the window");
+                        return;
+                    }
+                    x = pixel[0];
+                    y = pixel[1];
+                } else {
+                    Rect pixel = board.board().fromSurface(new Rect(corner[0], corner[1], 1, 1));
+                    x = pixel.x();
+                    y = pixel.y();
+                }
+                if (x < area.x() || x > area.right() || y < area.y() || y > area.bottom()) {
+                    fail(which + ", framed whole, drew a corner of the rival's hand at "
+                            + Math.round(x) + "," + Math.round(y) + ": outside " + area
+                            + ", the part of the window that is table");
+                    return;
+                }
+                checked++;
+            }
+        }
+        System.out.println("[devscene] " + which + ", framed whole, drew all " + checked
+                + " corners of the rival's hand inside " + area);
+    }
+
+    /** The rival draws at the server, as their own draw would. */
+    private static void theRivalDraws(Minecraft client, int howMany) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            fail("no server for the rival to draw on");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            GameSession session = TableSessions.sessionAt(server.overworld(), where).orElse(null);
+            if (session == null) {
+                fail("the rival's game went away before they could draw");
+                return;
+            }
+            SeatId theirs = new SeatId(1);
+            session.submit(new GameEvent.CardsDrawn(theirs, theirs, howMany));
+            TableBroadcast.sendToTable(server.overworld(), where);
         });
     }
 

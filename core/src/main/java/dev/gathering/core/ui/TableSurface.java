@@ -894,30 +894,86 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
-     * Where a card going into or out of this seat's hand passes over the mat.
+     * Where a card going into or out of this seat's hand is: the fan it joins or leaves.
      * <p>A hand is not on the table - it is private, and belongs to its player rather than to
-     * a place - so it has no slot to fly to. What it has is an edge: the one nearest its
-     * player, where a real hand is held. A card drawn crosses that edge and stops being
-     * something anybody can point at, which is exactly what happens to a card picked up off a
-     * real table.
-     * <p>The same edge for everybody, so a draw looks the same to the player making it and to
-     * the three people watching. Only the player whose hand it is has anywhere for it to go
-     * afterwards, and that is drawn by the screen rather than by the mat.
+     * a place - so it has no slot to fly to. What it has is the fan held in front of its
+     * player, which every board draws from the count alone. A card drawn flies into that fan and
+     * stops being something anybody can point at, which is exactly what happens to a card
+     * picked up off a real table.
+     * <p>The same place for everybody, so a draw looks the same to the player making it and to
+     * the three people watching. Your own fan is not drawn on the felt - your hand is along the
+     * bottom of the window, face up - so a card of yours arrives where the others see it go.
      */
     public Rect handEdge(int seat) {
+        return FeltHand.landing(handBand(seat), isTurned(seat), cardWidthOn(seat));
+    }
+
+    /**
+     * This seat's hand, fanned at the near edge of its mat: see {@link FeltHand}.
+     * <p>Given a count and nothing else. What the cards are is the painter's to know or not.
+     */
+    public List<FeltHand.Slot> handFan(int seat, int cards) {
+        return FeltHand.of(handBand(seat), isTurned(seat), cards, cardWidthOn(seat));
+    }
+
+    /**
+     * Where a seat's hand is held: a card's depth of table and air just past the near edge of its
+     * mat, in front of its player.
+     * <p>At the edge its player sits at, which is where a real hand is held, and where the flat board
+     * has always drawn one. Half on the felt and half over the edge: the strip of felt between a mat
+     * and the table's edge is too shallow for a fan that reads as cards - a card in it came out a
+     * third the size of one on the mat, and at "show everything" a hand of seven was a smudge of the
+     * sleeve's color. Both boards frame what lies past the edge with the table: see
+     * {@link #handReach()}.
+     * <p>Nothing another seat owns is there: the life total and the counters are past the far edge,
+     * the zones are down the side, and the pot is off the end of the table. Stopped halfway to any
+     * other mat in the way, so a table laid out some other way than a row of chairs facing each
+     * other cannot put one player's hand on another player's board, or two hands in one strip.
+     */
+    public Rect handBand(int seat) {
         Rect mat = matOf(seat);
         if (mat.isEmpty()) {
             return Rect.NONE;
         }
-        int height = Math.max(1, (int) Math.round(cardHeightOn(seat)));
-        int width = Math.max(1, CardShape.widthFor(height));
-        int middle = mat.x() + (mat.width() - width) / 2;
-        // Wholly outside the mat's own near edge, not straddling it. Half on and half off put
-        // every rival's hand across the top row of their own board, so the cards they were
-        // holding sat over the cards they had played - and at a four-player table that is the
-        // part of the screen with the most on it already. A hand belongs in front of its
-        // owner, which from across the table means above their board rather than on it.
-        int edge = isTurned(seat) ? mat.y() - height : mat.bottom();
-        return new Rect(middle, edge, width, height);
+        int deep = Math.max(1, (int) Math.round(cardHeightOn(seat)));
+        int top = isTurned(seat) ? mat.y() - deep : mat.bottom();
+        int bottom = isTurned(seat) ? mat.y() : mat.bottom() + deep;
+        for (int other = 0; other < mats.size(); other++) {
+            Rect beyond = matOf(other);
+            if (other == seat || beyond.isEmpty()
+                    || beyond.right() <= mat.x() || beyond.x() >= mat.right()) {
+                continue;
+            }
+            if (isTurned(seat) && beyond.bottom() <= mat.y()) {
+                top = Math.max(top, (beyond.bottom() + mat.y() + 1) / 2);
+            } else if (!isTurned(seat) && beyond.y() >= mat.bottom()) {
+                bottom = Math.min(bottom, (mat.bottom() + beyond.y()) / 2);
+            }
+        }
+        return bottom <= top ? Rect.NONE : new Rect(mat.x(), top, mat.width(), bottom - top);
+    }
+
+    /**
+     * Everywhere a hand may be drawn, together: what "show everything" has to take in besides the
+     * table, since a hand is held partly past its edge.
+     * <p>One answer for both boards, so the flat one and the one on the block frame the same
+     * things. Empty on a table with no mats.
+     */
+    public Rect handReach() {
+        int left = Integer.MAX_VALUE;
+        int top = Integer.MAX_VALUE;
+        int right = Integer.MIN_VALUE;
+        int bottom = Integer.MIN_VALUE;
+        for (int seat = 0; seat < mats.size(); seat++) {
+            Rect band = handBand(seat);
+            if (band.isEmpty()) {
+                continue;
+            }
+            left = Math.min(left, band.x());
+            top = Math.min(top, band.y());
+            right = Math.max(right, band.right());
+            bottom = Math.max(bottom, band.bottom());
+        }
+        return right <= left ? Rect.NONE : new Rect(left, top, right - left, bottom - top);
     }
 }

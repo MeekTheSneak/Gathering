@@ -37,10 +37,10 @@ final class FlightPath {
 
     /**
      * Where a place is on this board.
-     * <p>A pile has a slot. A hand has an edge rather than a slot, because a hand is not on
-     * the table. The battlefield has wherever the card actually was, which the flight carries
-     * with it - a card that has just left a mat is not in the board any more, and the middle
-     * of a mat is not where anybody watched it sitting.
+     * <p>A pile has a slot. A hand has the fan both boards draw at the near edge of its mat,
+     * so a card drawn lands in it. The battlefield has wherever the card actually was, which
+     * the flight carries with it - a card that has just left a mat is not in the board any
+     * more, and the middle of a mat is not where anybody watched it sitting.
      */
     private static Rect rectOf(
             BoardPlacement board, int pileCount,

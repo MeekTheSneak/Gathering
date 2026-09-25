@@ -4396,8 +4396,11 @@ that the arm comes down.
   *Still worth a human's eyes* on how the three read at a pod, which is a question about whether
   they are legible rather than whether they exist.
 
-- **Table presence, the last of it.** Each seat's hand drawn on the felt below its mat, using the
-  same fan the bodies hold, so the two views agree about what a hand looks like. See
+- ~~**Table presence, the last of it.** Each seat's hand drawn on the felt below its mat, using the
+  same fan the bodies hold, so the two views agree about what a hand looks like.~~ **Done 2026-09-24,
+  not yet through `tools/gate.sh`:** see "each seat's hand at the edge of its mat, on both boards".
+  Still wants a person at a table with a second real player, for how it sits beside that player's
+  body in the table view. See
   `docs/prompts/table-presence.md` step 5. The bodies, the pointer and the table view are done.
   ~~A scripted step that *asserts* an arm angle rather than photographing it (step 6).~~ **Done
   2026-09-24:** tour step 9 - see "the tour asserts the seated arm". The hop between two clients is
@@ -5031,3 +5034,148 @@ of them ran, 2064 tests in all". `./gradlew :common:compileJava :neoforge:compil
 **Noticed and left:** `LifeLayoutTest`'s properties stop at ten commanders (`max = 10`); seven
 opponents fielding partners are fourteen. `LifeLayout`'s give-way loop does not look at the count
 either, so it is the same gap in a test domain rather than a layout defect, and outside this review.
+
+## 2026-09-24: each seat's hand at the edge of its mat, on both boards
+
+`docs/prompts/table-presence.md` step 5 (§1, §3F), the last of table presence. Every other seat's
+hand is now a fan drawn at the near edge of that seat's mat on the flat board *and* on the block,
+from one layout, and a card drawn flies into it.
+
+**What a player sees.** Across the table, the rival's hand is a fan of their sleeve's backs held at
+their edge of the table, turned toward them the way the cards on their mat are, and as many as they
+hold up to ten. A hand shown to you, or any hand in a replay, is faces instead - exactly where the
+flat board drew faces before; nothing new is revealed. Your own hand is not on the felt in either
+view (it is the strip along the bottom). On the block it is drawn only while this client's table
+camera is over that table; a player standing beside the table sees the hand in the seated body's
+off hand, as before.
+
+**How.**
+- `core/ui/FeltHand` (new; `git ls-files '*/FeltHand.java'` was empty): `of(band, turned, count,
+  widestCard)` lays `HeldFan.of(min(count, 10))` into a band, one card size for every count (fitted
+  so the widest fan of any count fits the band with 6% clearance), turned half round about the band's
+  middle for a turned seat. It takes an `int`, never a view. Memoized per band, capped at 512 bands.
+  `MOST_SHOWN = 10` moved here from `TableScreen.MOST_BACKS_SHOWN`.
+- `TableSurface.handBand(seat)` is the placement, the one method: from the mat's near edge outward,
+  a card's height deep (stopped halfway to any other mat in the way). `handFan(seat, n)` and
+  `handEdge(seat)` (the flights' target, now the card a hand of one is) both come from it, and
+  `handReach()` is the union of every band.
+- Flat: `TableScreen.renderOtherHands` rewritten over `surface.handFan`, each card through
+  `board().fromSurface` at `slot.angle() + board().facingDegrees(seat)`, faces and backs both through
+  `drawCard` (so a back turns too). Moved after the cards and their badges and before the flights -
+  hands over cards, one order in both views - still inside the table-area scissor.
+- Block: `TableMiniatureRenderer.drawHands`, gated by the new `TableCameraView.isLookingAt(pos)`,
+  after the mats' cards and before the flights, a card's step (`perCard`) between fan cards above
+  everything lying on the table; `tallestPile` is raised past the hand so a flight clears it.
+- Per-frame counters for the tour: `TableScreen.feltHandCards` (cleared every frame, filled only by
+  the flat painter) and `TableMiniatureRenderer.feltHandCards` (filled only under the table camera).
+
+**The placement, chosen from the pictures.** Both candidates were built behind the one method and
+photographed in the same tour step (854x480 window, GUI 427x240, whole table framed):
+- *B, the felt strip between the mat and the table's edge* (416 units deep): cards 208 units wide, a
+  third of a mat card. `26b-a-hand-on-the-felt` showed the rival's seven as a purple smudge about 5 GUI
+  pixels across; on the block (`26c-a-hand-on-the-block`) it sat under the status text.
+- *A, a card's depth past the mat's near edge* (the old `handEdge` spot): cards 426 units wide, 70%
+  of a mat card, half on the felt and half past the edge. The flat picture read as a fan of seven
+  backs; on the block it was cut off at the top of the window.
+- **A was chosen**: it reads as a hand of cards and covers nothing another seat owns (property-tested).
+  Its cost is that "show everything" has to frame past the table's edges, which both views now do.
+
+**Found by the pictures, and fixed: the block's zoom-out floor was half of the flat one.**
+`TableCameraView.heightBounded` converted the seated camera's card floor (24 px) but not its second
+half, "unless the whole surface would not fit" (`TableCamera.lowestScale`). At GUI 427x240 the block
+framed the whole table a fifth bigger than the space for it (mat 315 px against the flat board's 260
+in the same frame), so its far edge - and now the far hand - was under the status strip. It now uses
+`TableCamera.furthestScale` (new, the same function); in the final pictures the mats are 240 px on
+the block and 235 on the flat board.
+- The flat framing takes in the hands: `BoardGeometry.showEverything` frames surface ∪ pot ∪
+  `handReach()`; the block's uses `TableFraming.everythingDown(top, surface)` (new overload), the depth
+  plus twice the furthest hand's overhang.
+- `TableCamera.SMALLEST_SURFACE_PIXELS` 140 -> 130: the floor was sized as "what fits the 148 px band
+  at 320x240"; with a hand past both edges that thing is 10872 units deep, not 10000, and at 140 the far
+  hand was 2 px under the strip at 427x240.
+- `HeldFan.widthOf` removed: its one intended caller now exists and measures the turned fan itself.
+
+**Tests** (`:core`, `FeltHandTest`, nested groups carry `@Group` and properties `@Label`): every turned
+corner of every card inside its band (1-8 seats, 0-60 cards); no band over any mat, life box, counters
+box, the pot tray or another band; a hand held at its player's edge, a card deep; showing everything
+shows every hand (427x240, 320x240, 854x480; 2, 4, 8 seats); a card drawn lands in the fan at the
+fan's size; zero and capped counts; one card size; the fan meets toward its player (the guard against
+the `(slide, -lift)` sign, which makes a bowtie); a turned fan is the other one turned half round; the
+fan is remembered; the block frames every hand; both boards agree. `TablePotTest` no longer restates the
+old row's footprint - it checks the band.
+
+**Negative controls**, each reverted afterwards (`cmp` against a kept copy):
+
+    lift sign flipped in FeltHand:        "the cards meet toward their player and splay toward the mat" FAILED
+    no cap (shown = cards):               4 FAILED - "a big hand is shown as the most a fan shows", ...
+    flat framing without handReach:       "showing everything shows every hand" - "[seat 0 of 2 at 427x240]
+                                          Expecting actual: 13 to be greater than or equal to: 16"
+    SMALLEST_SURFACE_PIXELS back at 140:  the same test, "Expecting actual: 14 ... 16"
+    everythingDown(top, surface) = depth: "the board on the block frames every hand" - "[1 tables]
+                                          Expecting actual: 1.5 to be greater than or equal to: 1.6308"
+    tour, block floor card-only + block painter not skipping my seat (-PdevsceneTo=91), failures: 5:
+        "the board on the block drew 10 cards of my own hand on the felt, which is along the bottom"
+        "the board on the block, framed whole, drew a corner of the rival's hand at 220,7: outside
+         Rect[x=0, y=16, width=427, height=148], the part of the window that is table"
+    tour, block framing without hands + flat painter not skipping my seat, failures: 5:
+        "the flat board drew 10 cards of my own hand on the felt, which is along the bottom"
+        "the board on the block, framed whole, drew a corner of the rival's hand at 215,13: outside ..."
+    (the other three failures in every run are the sound checks: this container has no OpenAL device -
+     "Failed to open OpenAL device" in the log - so no sound is ever heard)
+
+**The tour.** Step 91 now has phases before its old content (`handsLieOnTheFelt`, nothing
+renumbered): the rival draws five at the server (two kept + five = seven), the flat board - framed
+whole by step 90 - must have drawn 7 for the rival and 0 for my seat, the block must have drawn none,
+every turned corner of the fan must be inside `tableArea()`; photographed `26b-a-hand-on-the-felt`;
+V, HOME, the same three checks on the block with the corners found by `TablePointer.onScreen`, the
+flat board must have drawn none; photographed `26c-a-hand-on-the-block`; V back and HOME again for the
+rest of step 91. Final run, `-PdevsceneTo=95`:
+
+    [devscene] the flat board drew the rival's hand of 7 as 7 cards on the felt, and 0 for my own seat
+    [devscene] the flat board, framed whole, drew all 28 corners of the rival's hand inside Rect[x=0, y=16, width=427, height=148]
+    [devscene] the board on the block drew the rival's hand of 7 as 7 cards on the felt, and 0 for my own seat
+    [devscene] the board on the block, framed whole, drew all 28 corners of the rival's hand inside Rect[x=0, y=16, width=427, height=148]
+    [devscene] reached step 96 of 396 (stopped early by -PdevsceneTo)
+    [devscene] failures: 3   (the three sound checks, above)
+
+**Measured** (`-Prenderdebug`, flat board, software GL under Xvfb): the "hands" lap is 0.06-0.07
+ms/frame with the rival holding two and 0.09 ms/frame holding seven, against mats 0.32-0.45, piles
+0.41-0.49 and cards 0.14-0.17 in the same lines. It was 0.00 with nobody else at the table. The block's
+hands are not separately timed.
+
+**Review:** self-review, two passes over the diff; no reviewer agent was available in this session.
+It found stale wording (a hand "on the felt in front of" its mat, from option B) in five places and
+the dead `HeldFan.widthOf`, both fixed.
+
+**The whole tour, after the last edit** (`./gradlew :neoforge:runClient -Pdevscene`, NeoForge, Xvfb,
+software GL): `reached step 396 of 396`, `failures: 4` - the three sound checks and `eight seats in a
+854-wide window went into two rows` at step 347, all four seen in every run in this container before
+this batch (see the two entries above that list them). The fifth those runs listed, the whole-table
+framing difference at 427x240, is gone: `the mat on the block is drawn 121 by 55, against
+Rect[x=154, y=95, width=119, height=55] on the screen`. **That corrects "Two views, two sizes"
+(2026-09-17), which put it down to the block using the whole window:** the block's zoom-out floor was
+missing the flat camera's whole-table clause, above.
+
+**Verified:** `./gradlew :core:test` - 2077 tests, 0 failures, 5 skipped; `tools/coretestcheck.py`: "249
+test classes, every one of them ran, 2077 tests in all". `:common:compileJava`,
+`:neoforge:compileGametestJava`, `:fabric:compileJava`, `:fabric:compileTestmodJava`. All eighteen
+static checks exit 0 (`statecheck` needed a `statecheck:` line on the block's per-frame counter). The
+pictures looked at: `26b-a-hand-on-the-felt` and `26c-a-hand-on-the-block` from both placements and
+from the final code, cropped and magnified; `23-two-players` (B), `107-eight-at-a-table`.
+
+**Still unverified:**
+- **A real second player at the table, in the table view.** The tour's rival is a seat with no body,
+  so how the fan at the edge sits beside that player's own fan, held at rest at the same edge, has not
+  been seen. That wants two clients and a person.
+- A hand shown to you (faces on the felt) and a replay: the code path is the one the flat board had,
+  now also on the block, and no tour step shows a hand to another seat.
+- A pod's hands photographed on either board; a turned (north-south) table's hands on the block.
+- A card flying into a rival's fan, looked at frame by frame; the count already includes a card in
+  the air, so the fan grows as the flight starts (as the flat row did).
+- Fabric's client; `tools/gate.sh`; the game tests (none changed).
+- The block's "show everything" still does not frame the pot tray, which the flat one does. Noticed,
+  not changed here.
+- The body's fan (`HandOfCardsLayer`) applies `HeldFan`'s slide and lift in the card renderer's units
+  (a card 0.64 wide), so it spreads about 1.56 times what `HeldFan` documents. The felt fan uses card
+  widths. Left alone: changing the body wants a picture of a seated body with cards, which this tour
+  does not have.

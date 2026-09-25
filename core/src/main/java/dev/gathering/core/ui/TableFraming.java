@@ -58,4 +58,21 @@ public final class TableFraming {
     public static double everythingDown(TableTop top) {
         return top.depthInBlocks();
     }
+
+    /**
+     * How deep, with every hand held at the table's edges: the table and, both ways, as far past
+     * its edge as the furthest hand reaches.
+     * <p>Both ways from the middle rather than one strip at each edge, because the camera looks at
+     * the middle of the cluster: a hand past one edge needs the same room kept at the other.
+     *
+     * @param surface the board laid out on that table, which says where its hands are held
+     */
+    public static double everythingDown(TableTop top, TableSurface surface) {
+        Rect reach = surface.handReach();
+        if (reach.isEmpty()) {
+            return everythingDown(top);
+        }
+        int past = Math.max(Math.max(0, -reach.y()), Math.max(0, reach.bottom() - surface.height()));
+        return top.depthInBlocks() + 2 * top.blocks(past);
+    }
 }

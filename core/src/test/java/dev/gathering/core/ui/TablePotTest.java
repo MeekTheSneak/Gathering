@@ -45,7 +45,7 @@ class TablePotTest {
         assertThat(Math.abs(centerY - surface.height() / 2)).isLessThanOrEqualTo(1);
     }
 
-    /** Nothing a seat owns is under it: no mat, no life total, no hand held at a mat's edge. */
+    /** Nothing a seat owns is under it: no mat, no life total, no hand fanned in front of a mat. */
     @Property
     void thePotCoversNothingASeatOwns(
             @ForAll @IntRange(min = 1, max = 8) int seats,
@@ -59,13 +59,11 @@ class TablePotTest {
             assertThat(!life.isEmpty() && tray.overlaps(life))
                     .as("pot tray " + tray + " over seat " + seat + "'s life box " + life)
                     .isFalse();
-            Rect hand = surface.handEdge(seat);
-            // The widest fan a hand is drawn as: ten cards, two thirds of a card apart.
-            int fan = hand.width() * 2 / 3 * 9 + hand.width();
-            Rect fanned = new Rect(hand.x() + hand.width() / 2 - fan / 2, hand.y(),
-                    fan, hand.height());
-            assertThat(tray.overlaps(fanned))
-                    .as("pot tray " + tray + " over seat " + seat + "'s hand " + fanned)
+            // The strip the hand is laid in, which holds every card of every fan - see FeltHandTest -
+            // rather than a footprint worked out again here.
+            Rect hand = surface.handBand(seat);
+            assertThat(tray.overlaps(hand))
+                    .as("pot tray " + tray + " over seat " + seat + "'s hand " + hand)
                     .isFalse();
         }
     }

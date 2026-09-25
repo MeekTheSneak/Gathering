@@ -27,6 +27,7 @@ import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.BulkLimit;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.FeltHand;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.TableGesture;
 import dev.gathering.core.ui.Legibility;
@@ -1302,6 +1303,8 @@ public final class TableScreen extends Screen {
         tooltip = List.of();
         tooltipDrawn = false;
         handSaid = "";
+        // Emptied every frame and filled by the flat board alone, so on the block it says none.
+        feltHandCards.clear();
         forgetThePointer();
 
         Placed hovered = null;
@@ -1343,14 +1346,6 @@ public final class TableScreen extends Screen {
             long phase = RenderProbe.start();
             renderMats(graphics, board);
             phase = RenderProbe.lap("mats", phase);
-            // Kept between the strip along the top and your own hand, for the reason the pot
-            // is: a fan fixed to the table can be carried under either by the camera, and
-            // card art is drawn over plain text.
-            graphics.enableScissor(tableArea().x(), tableArea().y(),
-                    tableArea().right(), tableArea().bottom());
-            renderOtherHands(graphics, board);
-            phase = RenderProbe.lap("hands", phase);
-            graphics.disableScissor();
             renderVerbs(graphics, mouseX, mouseY);
             phase = RenderProbe.lap("verbs", phase);
             renderPiles(graphics, board, mouseX, mouseY);
@@ -1403,8 +1398,18 @@ public final class TableScreen extends Screen {
             phase = RenderProbe.lap("cards", phase);
             renderPileBadges(graphics, board, onTable);
             renderOwnerBadges(graphics, onTable);
+            phase = RenderProbe.lap("badges", phase);
+            // Over the cards lying on the table, because a hand is held above it - the same order
+            // the board on the block draws them in. Kept between the strip along the top and your
+            // own hand, for the reason the pot is: a fan on the felt can be carried under either
+            // by the camera, and card art is drawn over plain text.
+            graphics.enableScissor(tableArea().x(), tableArea().y(),
+                    tableArea().right(), tableArea().bottom());
+            renderOtherHands(graphics, board);
+            graphics.disableScissor();
+            phase = RenderProbe.lap("hands", phase);
             renderFlights(graphics, board);
-            RenderProbe.lap("badges", phase);
+            RenderProbe.lap("flights", phase);
             graphics.disableScissor();
             RenderProbe.frame(drawn, skipped);
             if (hovered == null && tooltip.isEmpty()) {
@@ -1643,57 +1648,54 @@ public final class TableScreen extends Screen {
      * <p>Backs or faces is not this method's decision - what arrives in the view is what is
      * drawn. So a hand turned face up toward you is face up here, and a replay shows all of
      * them, without either case being special: the fence is the view and was passed already.
-     * <p>At {@link SurfaceBoard#handEdgeRect}, where the board already says a hand is, so a
-     * card drawn flies to the spot the fan is sitting in. Not your own - yours runs along the
-     * bottom of the screen face up.
+     * <p>Fanned at the near edge of that player's mat, by {@link FeltHand} - the board on the
+     * block asks the same thing and draws the same fan, and a card drawn flies into it. Turned
+     * with the seat, the way a card lying on that seat's mat is. Not your own - yours runs along
+     * the bottom of the screen face up, in both views.
      */
     private void renderOtherHands(GuiGraphics graphics, GameView board) {
         SeatId me = mySeat().orElse(null);
+        TableSurface surface = board().surface();
         for (SeatView seat : board.seats()) {
             if (seat.seat().equals(me) || !seat.hasABoard()) {
                 continue;
             }
-            int held = count(seat, Zone.HAND);
-            if (held <= 0) {
+            // Asked of the map, not of zone(): a seat still being set up can arrive without one,
+            // and zone() throws for that.
+            ZoneView hand = seat.zones().get(Zone.HAND);
+            if (hand == null || hand.count() <= 0) {
                 continue;
             }
-            Rect edge = board().handEdgeRect(seat.seat());
-            if (edge.isEmpty()) {
-                continue;
-            }
-            // Where the player is sitting, and nowhere else. This used to be held down out of
-            // the status bar whenever the seat's edge rose above it, which kept the far
-            // player's fan on screen - and which meant zooming or panning slid the hand along
-            // the top of the window instead of carrying it with the table, a hand chasing the
-            // camera rather than sitting in front of its player. Now it moves with the felt,
-            // passes under the strip the way a card does, and goes off the edge when the view
-            // does. The caller clips it between the strip and your own hand.
-            if (isOffScreen(edge)) {
-                continue;
-            }
-            // Fanned about the middle of that edge, overlapping so a big hand stays a hand
-            // rather than a row of cards wider than the mat it belongs to.
-            List<CardView> faces = board.seat(seat.seat()).zone(Zone.HAND).cards();
-            // A fan wide enough to read when the cards are face up, and no wider when they
-            // are not: a row of backs spread as far apart as a row of faces reads as a much
-            // bigger hand than it is.
-            int shown = Math.min(held, MOST_BACKS_SHOWN);
-            int step = Math.max(2, faces.isEmpty() ? edge.width() / 3 : edge.width() * 2 / 3);
-            int left = (int) Math.round(edge.centerX()) - (step * (shown - 1) + edge.width()) / 2;
-            for (int index = 0; index < shown; index++) {
-                Rect at = new Rect(left + index * step, edge.y(), edge.width(), edge.height());
-                if (index < faces.size()) {
-                    drawCard(graphics, faces.get(index), seat.sleeve(), at, 0, false, true);
-                } else {
-                    CardSleeves.draw(graphics, seat.sleeve(),
-                            at.x(), at.y(), at.width(), at.height());
+            // A face where the view carries one - a hand shown to you, or any hand in a replay -
+            // and the seat's sleeve otherwise. The fence is the view, and it was passed already.
+            List<CardView> faces = hand.cards();
+            int facing = board().facingDegrees(seat.seat());
+            int drawn = 0;
+            List<FeltHand.Slot> fan = surface.handFan(seat.seat().index(), hand.count());
+            for (int index = 0; index < fan.size(); index++) {
+                FeltHand.Slot slot = fan.get(index);
+                // Where the player is sitting, and nowhere else: it moves with the felt, passes
+                // under the strip the way a card does, and goes off the edge when the view does.
+                // It was once held down out of the status bar, which slid a hand along the top of
+                // the window as the camera moved - a hand chasing the camera rather than sitting
+                // in front of its player.
+                Rect at = board().fromSurface(slot.where());
+                if (at.isEmpty() || isOffScreen(at)) {
+                    continue;
                 }
+                drawCard(graphics, index < faces.size() ? faces.get(index) : A_SLEEVE, seat.sleeve(),
+                        at, slot.angle() + facing, false, false);
+                drawn++;
             }
+            feltHandCards.put(seat.seat().index(), drawn);
         }
     }
 
-    /** How many backs a fan draws before it stops counting. Ten reads as "a lot" already. */
-    private static final int MOST_BACKS_SHOWN = 10;
+    /**
+     * How many cards each seat's hand was drawn with on the felt in the last frame of the flat
+     * board, by seat. For the scripted run, which asks both boards the same question.
+     */
+    final java.util.Map<Integer, Integer> feltHandCards = new java.util.HashMap<>();
 
     /**
      * Everybody's mat, with their name and life on it.

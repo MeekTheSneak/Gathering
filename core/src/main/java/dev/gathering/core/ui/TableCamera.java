@@ -235,10 +235,23 @@ public record TableCamera(
     /**
      * The fewest pixels the long side of a whole surface is ever drawn across.
      * <p>Sized to the smallest window: 320 by 240 leaves a band of about 148 above the hand,
-     * and a table fitted into that is 142 across. Any smaller and zooming out stops being about
-     * fitting the table and starts being about losing it.
+     * and what "show everything" fits into that is 142 across - the table and the hands held
+     * past both its edges, which make it about a twelfth deeper than the table alone. So the
+     * table is 130. At 140 it was the table alone that fitted, and the far player's hand went
+     * under the strip along the top. Any smaller and zooming out stops being about fitting the
+     * table and starts being about losing it.
      */
-    private static final double SMALLEST_SURFACE_PIXELS = 140.0;
+    private static final double SMALLEST_SURFACE_PIXELS = 130.0;
+
+    /**
+     * The furthest out a surface this size may be drawn, in pixels per surface unit: a card at the
+     * size it stops being identifiable, unless the whole surface would not fit at that size.
+     * <p>For the board on the block, which works in eye heights rather than scales and has to stop
+     * where this one stops - see {@code TableCameraView}.
+     */
+    public static double furthestScale(int spanX, int spanY) {
+        return lowestScale(spanX, spanY);
+    }
 
     /** How far out the surface may go, as the pixels its long side is drawn across. */
     public static double smallestSurfacePixels() {

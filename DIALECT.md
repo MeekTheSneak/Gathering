@@ -520,3 +520,11 @@ cannot be inferred from reading the code.
   - **`position_tex` and `position_tex_color` are not interchangeable.** The second discards
     anything under a tenth opacity after the tint; the first only discards what is fully clear. A
     free seat's ring is drawn at about a quarter, so switching shaders erases most of it.
+- **A limit carried from one board to the other has to be carried whole.** The board on the block
+  converted the seated camera's zoom-out floor - a card twenty-four pixels tall - and not the clause
+  after it, "unless the whole table would not fit at that size". So at a small interface "show
+  everything" on the block framed the table a fifth bigger than the room for it, the far mat's edge
+  under the strip along the top, and nothing said so until a hand was drawn there. The block now asks
+  `TableCamera.furthestScale`, the same function. And "everything" means everything drawn: a hand is
+  held partly past the table's edge, so both framings take in `TableSurface.handReach()` - the flat one
+  in `BoardGeometry.showEverything`, the block's in `TableFraming.everythingDown(top, surface)`.

@@ -195,7 +195,6 @@ class TablePoseTest {
         void anEmptyHandIsEmpty() {
             assertThat(HeldFan.of(0)).isEmpty();
             assertThat(HeldFan.of(-3)).isEmpty();
-            assertThat(HeldFan.widthOf(0)).isZero();
         }
 
         @Test

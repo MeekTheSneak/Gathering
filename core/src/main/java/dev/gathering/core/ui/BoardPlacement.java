@@ -89,7 +89,8 @@ public interface BoardPlacement {
     Rect matDividerRect(SeatId seat, int count);
 
     /**
-     * Where a card going into or out of this seat's hand crosses the mat's near edge.
+     * Where a card going into or out of this seat's hand is: the fan held at the near edge of
+     * its mat.
      * <p>A hand has no slot on the table, so a card on its way to one needs somewhere to be
      * going. See {@link TableSurface#handEdge(int)}.
      */

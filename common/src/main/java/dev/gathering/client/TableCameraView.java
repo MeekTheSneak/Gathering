@@ -91,6 +91,16 @@ public final class TableCameraView {
     }
 
     /**
+     * The board laid out on the table at this corner, from the same seat count {@link #surfaceOf}
+     * reads, so the two agree about how many tables it is.
+     */
+    private static TableSurface boardOf(BlockPos corner) {
+        return TableSurface.forSeatCount(dev.gathering.client.ClientTableState.viewOf(corner)
+                .map(board -> board.seats().size())
+                .orElse(dev.gathering.core.table.TableCluster.SEATS_PER_TABLE));
+    }
+
+    /**
      * Whether the table at this corner lies a quarter turn round - a line running north to south, or a
      * lone table seated east and west - read off the blocks this client has, the same way the board
      * drawn on it is.
@@ -196,7 +206,15 @@ public final class TableCameraView {
                 * TableTop.SPAN_BLOCKS;
         double window = Math.max(1, Minecraft.getInstance().getWindow().getGuiScaledHeight());
         double perBlock = spread();
-        double furthest = cardBlocks * window / (TableCamera.smallestCardPixels() * perBlock);
+        // The seated board's floor, whole: a card at the size it stops being identifiable, unless
+        // the whole table would not fit at that size. The card alone was converted and the second
+        // half was not, so on a small interface "show everything" on the block framed the table a
+        // fifth bigger than the space for it and put its far edge under the strip along the top.
+        TableSurface board = table == null ? null : boardOf(table);
+        double furthest = board == null
+                ? cardBlocks * window / (TableCamera.smallestCardPixels() * perBlock)
+                : window * TableTop.SPAN_BLOCKS / (TableSurface.SPAN * perBlock
+                        * TableCamera.furthestScale(board.width(), board.height()));
         double closest = cardBlocks * window / (TableCamera.largestCardPixels() * perBlock);
         return Math.max(closest, Math.min(furthest, wanted));
     }
@@ -297,6 +315,14 @@ public final class TableCameraView {
 
     public static boolean isLooking() {
         return table != null;
+    }
+
+    /**
+     * Whether this camera is over the table at this corner: the board its player is playing on,
+     * rather than any other table in sight.
+     */
+    public static boolean isLookingAt(BlockPos corner) {
+        return table != null && table.equals(corner);
     }
 
     /**
@@ -420,10 +446,12 @@ public final class TableCameraView {
     public static void showEverything() {
         BlockPos corner = table;
         TableTop top = corner == null ? null : surfaceOf(corner);
+        // With every hand, which is held partly past the table's edge: framed on the table alone the
+        // far player's hand went under the strip along the top. The flat board frames the same.
         height = top == null
                 ? heightThatFrames(TableTop.SPAN_BLOCKS, TableTop.SPAN_BLOCKS)
                 : heightThatFrames(dev.gathering.core.ui.TableFraming.everythingAcross(top),
-                        dev.gathering.core.ui.TableFraming.everythingDown(top));
+                        dev.gathering.core.ui.TableFraming.everythingDown(top, boardOf(corner)));
         offsetX = 0;
         offsetZ = 0;
     }

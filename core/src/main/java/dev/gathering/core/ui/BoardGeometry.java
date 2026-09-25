@@ -228,10 +228,28 @@ public final class BoardGeometry implements BoardPlacement {
     /**
      * The whole table, and something lying beside it - the pot, which sits off the edge of
      * the table and would otherwise be the one thing "everything" left out.
+     * <p>And every hand, which is held partly past the table's edge: framed on the table alone,
+     * the far player's hand went under the strip along the top. See
+     * {@link TableSurface#handReach()}.
      */
     public void showEverything(Rect beside) {
-        camera = TableCamera.showingAll(surface.width(), surface.height(), beside, width, visible())
+        camera = TableCamera.showingAll(surface.width(), surface.height(),
+                union(beside, surface.handReach()), width, visible())
                 .seenFrom(turned);
+    }
+
+    /** The smallest rectangle holding both, either of which may be empty. */
+    private static Rect union(Rect one, Rect other) {
+        if (one.isEmpty()) {
+            return other;
+        }
+        if (other.isEmpty()) {
+            return one;
+        }
+        int left = Math.min(one.x(), other.x());
+        int top = Math.min(one.y(), other.y());
+        return new Rect(left, top, Math.max(one.right(), other.right()) - left,
+                Math.max(one.bottom(), other.bottom()) - top);
     }
 
     public void pan(double pixelsX, double pixelsY) {

@@ -6,11 +6,11 @@ import java.util.List;
 /**
  * How a held hand of cards sits: the angle, slide and depth of each card in it.
  * <p>One place for it because it is asked twice and the two answers have to match. A player
- * sitting at the table sees everyone's hand drawn on the felt below their mat; a player standing
- * beside the table sees the same hand in that player's off hand, in the world. Two fans built
- * from two pieces of arithmetic would be two different hands, and the one thing a fan of card
- * backs says is <em>how many</em> - which is public, and which has to be the same number from
- * both chairs.
+ * sitting at the table sees everyone's hand drawn at the near edge of their mat - laid out by
+ * {@link FeltHand}, which measures this fan to fit it there; a player standing beside the table
+ * sees the same hand in that player's off hand, in the world. Two fans built from two pieces of
+ * arithmetic would be two different hands, and the one thing a fan of card backs says is
+ * <em>how many</em> - which is public, and which has to be the same number from both chairs.
  * <p><b>Nothing here knows what a card is.</b> It is given a count. That is deliberate and it is
  * the visibility invariant written as a signature: a renderer that cannot be handed an identity
  * cannot leak one.
@@ -100,20 +100,5 @@ public final class HeldFan {
                     (float) (at * DEPTH_STEP)));
         }
         return List.copyOf(fan);
-    }
-
-    /**
-     * How wide the drawn fan is, in card widths, for a caller that has to fit it somewhere.
-     * <p>The board view draws each seat's hand below that seat's mat, and a mat is a fixed share of
-     * the table; a fan that did not know its own width would be scaled by eye until somebody
-     * noticed it overlapping the mat below it.
-     */
-    public static double widthOf(int cards) {
-        if (cards <= 0) {
-            return 0;
-        }
-        double spread = Math.min(WIDEST, PER_CARD * Math.max(0, cards - 1));
-        // The ends of the fan, plus half a card either side because a card has width of its own.
-        return 2 * Math.sin(Math.toRadians(spread / 2)) + 1;
     }
 }
