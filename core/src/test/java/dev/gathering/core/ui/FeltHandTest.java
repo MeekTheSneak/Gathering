@@ -2,7 +2,14 @@ package dev.gathering.core.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.gathering.core.game.GameFixtures;
+import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.Zone;
+import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.game.visibility.GameView;
+import dev.gathering.core.game.visibility.Viewer;
+import dev.gathering.core.game.visibility.VisibilityRules;
 import dev.gathering.core.table.TableCluster;
 import java.util.List;
 import net.jqwik.api.ForAll;
@@ -24,8 +31,12 @@ class FeltHandTest {
 
     /** The four corners of a card lying at its slot's angle, as x and y pairs. */
     private static double[][] cornersOf(FeltHand.Slot slot, int facing) {
-        Rect card = slot.where();
-        double turn = Math.toRadians(slot.angle() + facing);
+        return cornersOf(slot.where(), slot.angle() + facing);
+    }
+
+    /** The four corners of a rectangle turned this far about its middle, as x and y pairs. */
+    private static double[][] cornersOf(Rect card, int degrees) {
+        double turn = Math.toRadians(degrees);
         double cos = Math.cos(turn);
         double sin = Math.sin(turn);
         double[][] corners = new double[4][];
@@ -70,6 +81,17 @@ class FeltHandTest {
                             .isBetween((double) band.x(), (double) band.right());
                     assertThat(corner[1]).as("a corner of %s in %s", slot, band)
                             .isBetween((double) band.y(), (double) band.bottom());
+                }
+            }
+            // And a hand shown face up, which is turned to whoever reads it: either way up.
+            for (FeltHand.Slot slot : surface.handRow(seat, cards)) {
+                for (int reader : new int[] {0, 180}) {
+                    for (double[] corner : cornersOf(slot, reader)) {
+                        assertThat(corner[0]).as("a corner of the face %s in %s", slot, band)
+                                .isBetween((double) band.x(), (double) band.right());
+                        assertThat(corner[1]).as("a corner of the face %s in %s", slot, band)
+                                .isBetween((double) band.y(), (double) band.bottom());
+                    }
                 }
             }
         }
@@ -214,8 +236,10 @@ class FeltHandTest {
             List<FeltHand.Slot> fan = surface.handFan(1, cards);
 
             assertThat(fan).hasSize(Math.min(cards, FeltHand.MOST_SHOWN));
+            assertThat(surface.handRow(1, cards)).hasSize(Math.min(cards, FeltHand.MOST_SHOWN));
             if (cards > FeltHand.MOST_SHOWN) {
                 assertThat(fan).isEqualTo(surface.handFan(1, FeltHand.MOST_SHOWN));
+                assertThat(surface.handRow(1, cards)).isEqualTo(surface.handRow(1, FeltHand.MOST_SHOWN));
             }
         }
 
@@ -274,6 +298,41 @@ class FeltHandTest {
                 }
                 assertThat(toward * (last.where().centerX() - first.where().centerX())).isGreaterThan(0);
             }
+        }
+
+        /**
+         * A hand shown to you is laid out to be read: a row, none of it turned, each card two thirds
+         * of a card along from the one before, so every card's name and most of its picture are
+         * clear of the next - the step the flat board always gave a shown hand.
+         * <p>Fanned like the backs, each card turned about its own middle a few hundredths of a card
+         * from the one under it, and only the top card of a shown hand could be read.
+         */
+        @Property(tries = 200)
+        @Label("a hand shown face up is a row that can be read")
+        void aShownHandCanBeRead(
+                @ForAll @IntRange(min = 1, max = 8) int seats,
+                @ForAll @IntRange(min = 0, max = 7) int seatIndex,
+                @ForAll @IntRange(min = 2, max = 30) int cards) {
+            TableSurface surface = TableSurface.forSeatCount(seats);
+            int seat = seatIndex % surface.seatCount();
+            List<FeltHand.Slot> row = surface.handRow(seat, cards);
+            double toward = surface.isTurned(seat) ? -1 : 1;
+
+            assertThat(row).hasSize(Math.min(cards, FeltHand.MOST_SHOWN));
+            for (int at = 0; at < row.size(); at++) {
+                Rect card = row.get(at).where();
+                assertThat(row.get(at).angle()).as("face %s of %s is turned", at, cards).isZero();
+                assertThat(card.centerY()).as("face %s of %s is off the row", at, cards)
+                        .isEqualTo(row.get(0).where().centerY());
+                if (at > 0) {
+                    double along = toward * (card.centerX() - row.get(at - 1).where().centerX());
+                    assertThat(along).as("face %s of %s along from the one before it", at, cards)
+                            .isGreaterThanOrEqualTo(card.width() * 2 / 3.0 - 1);
+                }
+            }
+            // One size with the fan, and a row of one is where a card drawn lands.
+            assertThat(row.get(0).where().width()).isEqualTo(surface.handFan(seat, cards).get(0).where().width());
+            assertThat(surface.handRow(seat, 1).get(0).where()).isEqualTo(surface.handEdge(seat));
         }
 
         /**
@@ -340,15 +399,116 @@ class FeltHandTest {
         }
     }
 
-    /** The two boards place a hand from one answer: the block's and the seated screen's agree. */
+    /**
+     * Both boards draw every hand from one answer, {@link BoardPlacement#handsOnTheFelt}, and it puts
+     * each card in the same place on the table and the same way round relative to the table.
+     * <p>The flat board looks at the table through a camera that is turned half round for the far
+     * chair, so a card's rectangle on it is the block's put through that camera, and its angle is
+     * the block's plus that half turn. Asked of real views - the viewer's own seat left out, a
+     * hand shown to them as faces turned to them - from every chair of a table of two and of four,
+     * and from a replay.
+     */
     @Test
-    @DisplayName("both boards put a hand in the same place on the table")
+    @DisplayName("both boards draw each hand in the same place and the same way round")
     void bothBoardsAgree() {
-        SurfaceBoard block = new SurfaceBoard(TableCluster.assumedSeating(2));
-        BoardGeometry seated = new BoardGeometry(TableCluster.assumedSeating(2), 854, 480);
-        for (int seat = 0; seat < 2; seat++) {
-            assertThat(block.surface().handFan(seat, 7)).isEqualTo(seated.surface().handFan(seat, 7));
-            assertThat(block.handEdgeRect(new SeatId(seat))).isEqualTo(block.surface().handEdge(seat));
+        for (int seats : new int[] {2, 4}) {
+            GameSession session = GameFixtures.table(seats, 20);
+            for (int seat = 0; seat < seats; seat++) {
+                session.submit(new GameEvent.CardsDrawn(SeatId.of(seat), SeatId.of(seat), 3 + seat));
+            }
+            TableSurface surface = new SurfaceBoard(TableCluster.assumedSeating(seats)).surface();
+            for (int shown = 0; shown < 2; shown++) {
+                if (shown == 1) {
+                    // Every hand turned toward the whole table.
+                    for (int seat = 0; seat < seats; seat++) {
+                        session.submit(new GameEvent.HandShown(SeatId.of(seat), null, true));
+                    }
+                }
+                for (int chair = 0; chair < seats; chair++) {
+                    SeatId viewer = SeatId.of(chair);
+                    boolean faces = shown == 1;
+                    GameView view = VisibilityRules.viewFor(session.state(), new Viewer.Seated(viewer));
+                    SurfaceBoard block = new SurfaceBoard(TableCluster.assumedSeating(seats));
+                    BoardGeometry flat = new BoardGeometry(TableCluster.assumedSeating(seats), 854, 480);
+                    flat.seenFrom(viewer);
+                    int cameraTurn = surface.facingDegrees(viewer.index());
+                    List<BoardPlacement.HandOnTheFelt> onBlock = block.handsOnTheFelt(view);
+                    List<BoardPlacement.HandOnTheFelt> onFlat = flat.handsOnTheFelt(view);
+
+                    assertThat(onBlock).as("%s's own hand is not on the felt", viewer).hasSize(seats - 1);
+                    assertThat(onFlat).hasSize(seats - 1);
+                    for (int hand = 0; hand < onBlock.size(); hand++) {
+                        SeatId other = onBlock.get(hand).seat().seat();
+                        assertThat(other).isNotEqualTo(viewer);
+                        assertThat(onFlat.get(hand).seat().seat()).isEqualTo(other);
+                        int holds = session.state().contents(other, Zone.HAND).size();
+                        String whose = other + "'s hand, seen by " + viewer + " at a table of " + seats;
+                        theyAgree(whose, surface, flat, cameraTurn, other, holds, faces,
+                                onBlock.get(hand), onFlat.get(hand));
+                        // And a card drawn flies into the fan on both: to the card a hand of one is.
+                        Rect one = surface.handFan(other.index(), 1).get(0).where();
+                        assertThat(block.handEdgeRect(other)).as(whose).isEqualTo(one);
+                        assertThat(flat.handEdgeRect(other)).as(whose).isEqualTo(flat.fromSurface(one));
+                    }
+                }
+            }
+            // A replay's view has no seat to leave out, and every hand in it face up and upright.
+            GameView replay = VisibilityRules.viewFor(session.state(), new Viewer.Historian());
+            BoardGeometry flat = new BoardGeometry(TableCluster.assumedSeating(seats), 854, 480);
+            List<BoardPlacement.HandOnTheFelt> every = flat.handsOnTheFelt(replay);
+            assertThat(every).hasSize(seats);
+            for (BoardPlacement.HandOnTheFelt hand : every) {
+                theyAgree(hand.seat().seat() + "'s hand in a replay", surface, flat, 0, hand.seat().seat(),
+                        session.state().contents(hand.seat().seat(), Zone.HAND).size(), true,
+                        new SurfaceBoard(TableCluster.assumedSeating(seats)).handsOnTheFelt(replay)
+                                .get(every.indexOf(hand)),
+                        hand);
+            }
+        }
+    }
+
+    /**
+     * One hand as the block draws it and as the flat board does, against the layout: backs are the fan in
+     * its order turned with their seat, faces the row turned to the reader and running to the reader's
+     * right, so each face covers the right of the one under it rather than its name; and the flat board's
+     * card is the block's through its camera, the same way round relative to the table.
+     */
+    private static void theyAgree(String whose, TableSurface surface, BoardGeometry flat, int cameraTurn,
+            SeatId other, int holds, boolean faces, BoardPlacement.HandOnTheFelt onBlock,
+            BoardPlacement.HandOnTheFelt onFlat) {
+        assertThat(onBlock.cards()).as(whose).hasSize(Math.min(holds, FeltHand.MOST_SHOWN));
+        assertThat(onBlock.faces()).as(whose).hasSize(faces ? holds : 0);
+        assertThat(onFlat.faces()).as(whose).hasSize(faces ? holds : 0);
+        List<FeltHand.Slot> laid = faces
+                ? surface.handRow(other.index(), holds)
+                : surface.handFan(other.index(), holds);
+        assertThat(onBlock.cards().stream().map(BoardPlacement.HandCard::where).toList()).as(whose)
+                .containsExactlyInAnyOrderElementsOf(laid.stream().map(FeltHand.Slot::where).toList());
+        for (int at = 0; at < laid.size(); at++) {
+            BoardPlacement.HandCard blockCard = onBlock.cards().get(at);
+            BoardPlacement.HandCard flatCard = onFlat.cards().get(at);
+            if (faces) {
+                assertThat(Math.floorMod(blockCard.angle() - cameraTurn, 360)).as(whose).isZero();
+                assertThat(Math.floorMod(flatCard.angle(), 360)).as("%s: a face upright on the screen", whose)
+                        .isZero();
+                if (at > 0) {
+                    double right = cameraTurn == 0 ? 1 : -1;
+                    assertThat(right * (blockCard.where().centerX() - onBlock.cards().get(at - 1).where().centerX()))
+                            .as("%s: face %s on the block, to the reader's right of the one before", whose, at)
+                            .isPositive();
+                    assertThat(flatCard.where().centerX() - onFlat.cards().get(at - 1).where().centerX())
+                            .as("%s: face %s on the flat board, to the right of the one before", whose, at)
+                            .isPositive();
+                }
+            } else {
+                assertThat(blockCard.where()).as(whose).isEqualTo(laid.get(at).where());
+                assertThat(Math.floorMod(blockCard.angle() - laid.get(at).angle()
+                        - surface.facingDegrees(other.index()), 360))
+                        .as("%s: card %s on the block turned with its seat", whose, at).isZero();
+            }
+            assertThat(flatCard.where()).as(whose).isEqualTo(flat.fromSurface(blockCard.where()));
+            assertThat(Math.floorMod(flatCard.angle() - blockCard.angle() + cameraTurn, 360))
+                    .as("%s: card %s on the flat board the same way round as on the block", whose, at).isZero();
         }
     }
 }

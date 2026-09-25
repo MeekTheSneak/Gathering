@@ -10,7 +10,11 @@ import java.util.List;
  * {@link FeltHand}, which measures this fan to fit it there; a player standing beside the table
  * sees the same hand in that player's off hand, in the world. Two fans built from two pieces of
  * arithmetic would be two different hands, and the one thing a fan of card backs says is
- * <em>how many</em> - which is public, and which has to be the same number from both chairs.
+ * <em>how many</em> - which is public.
+ * <p>The same number from both chairs up to {@link FeltHand#MOST_SHOWN}, and not past it: the
+ * felt stops there and the strip along the top says the count, while a body holds every card,
+ * thinner. The two are never on one screen - under the table camera the body's fan is not
+ * drawn - so nobody is shown one hand as two numbers.
  * <p><b>Nothing here knows what a card is.</b> It is given a count. That is deliberate and it is
  * the visibility invariant written as a signature: a renderer that cannot be handed an identity
  * cannot leak one.

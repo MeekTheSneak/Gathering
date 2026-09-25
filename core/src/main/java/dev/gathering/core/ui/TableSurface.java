@@ -917,6 +917,14 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
+     * This seat's hand laid face up in a row where its fan would be, for a painter that has the
+     * faces: see {@link FeltHand#row}. Given a count and nothing else, the same as the fan.
+     */
+    public List<FeltHand.Slot> handRow(int seat, int cards) {
+        return FeltHand.row(handBand(seat), isTurned(seat), cards, cardWidthOn(seat));
+    }
+
+    /**
      * Where a seat's hand is held: a card's depth of table and air just past the near edge of its
      * mat, in front of its player.
      * <p>At the edge its player sits at, which is where a real hand is held, and where the flat board

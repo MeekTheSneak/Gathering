@@ -15,7 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p><b>It is given a number.</b> Not a hand, not a view - a count, and the band to lay it in. The
  * count of another player's hand is public; what is in it is not, and a layout that cannot be
  * handed a card cannot place one where it would give it away. Whether a card is drawn face up is
- * the painter's business, decided by what the view already carries.
+ * the painter's business, decided by what the view already carries - and a painter that has the
+ * faces asks for {@link #row} instead of {@link #of}, which is told nothing more than the fan is.
  * <p>Pure, and remembered: each fan is worked out once per band and count and then shared, because
  * both boards ask for every seat on every frame and the answer never changes.
  */
@@ -35,8 +36,15 @@ public final class FeltHand {
      */
     private static final double CLEARANCE = 0.06;
 
-    /** Fans already worked out, by the band they were fitted to. */
-    private static final Map<Fit, List<List<Slot>>> FANS = new ConcurrentHashMap<>();
+    /**
+     * How far along the row each face is from the one before, as a share of a card's width.
+     * <p>Two thirds, the step the flat board always gave a hand shown to you: each card's name and
+     * most of its picture clear of the next, and a hand of ten still a hand rather than a shelf.
+     */
+    private static final double FACES_APART = 2.0 / 3;
+
+    /** Fans and rows already worked out, by the band they were fitted to. */
+    private static final Map<Fit, Fitted> FITTED = new ConcurrentHashMap<>();
 
     /**
      * How many fitted bands are remembered. A table has a band per seat and there are only so many
@@ -62,6 +70,10 @@ public final class FeltHand {
     private record Fit(Rect band, boolean turned, double widestCard) {
     }
 
+    /** Every fan and every row from one card to {@link #MOST_SHOWN}, for one band, by count less one. */
+    private record Fitted(List<List<Slot>> fans, List<List<Slot>> rows) {
+    }
+
     /**
      * A hand of this many cards, laid in this band, in the order they are drawn: the one on top last.
      * <p>Empty for no cards, or for a band with no room in it. Past {@link #MOST_SHOWN} it is the fan
@@ -76,19 +88,43 @@ public final class FeltHand {
      *     hand is never drawn bigger than the table's own cards
      */
     public static List<Slot> of(Rect band, boolean turned, int cards, double widestCard) {
-        int shown = Math.min(cards, MOST_SHOWN);
-        if (shown <= 0 || band == null || band.isEmpty() || !(widestCard > 0)) {
-            return List.of();
+        Fitted fitted = fittedTo(band, turned, cards, widestCard);
+        return fitted == null ? List.of() : fitted.fans().get(Math.min(cards, MOST_SHOWN) - 1);
+    }
+
+    /**
+     * A hand of this many cards laid face up in a row, for a painter that has the faces: a hand shown
+     * to its viewer, or any hand in a replay.
+     * <p>A row rather than the fan because a fan is for counting and a hand shown to you is for
+     * reading. Fanned, each card turns about its own middle a few hundredths of a card from the one
+     * under it, so of a shown hand only the top card could be read and the rest were corners. Here
+     * each card is {@link #FACES_APART} of a card along from the one before, closer only if the band
+     * is too narrow for that, and none of them is turned: a painter turns the row to whoever is
+     * reading it.
+     * <p>The fan's card size and the fan's place - a row of one is the fan of one - so a card drawn
+     * into a shown hand still lands where {@link #landing} says. Past {@link #MOST_SHOWN} it is the
+     * row of {@link #MOST_SHOWN}, the same as the fan. Given the same things {@link #of} is, and
+     * nothing that says what any card is.
+     */
+    public static List<Slot> row(Rect band, boolean turned, int cards, double widestCard) {
+        Fitted fitted = fittedTo(band, turned, cards, widestCard);
+        return fitted == null ? List.of() : fitted.rows().get(Math.min(cards, MOST_SHOWN) - 1);
+    }
+
+    /** Everything fitted to this band, remembered; null when there is nothing to lay out. */
+    private static Fitted fittedTo(Rect band, boolean turned, int cards, double widestCard) {
+        if (cards <= 0 || band == null || band.isEmpty() || !(widestCard > 0)) {
+            return null;
         }
         Fit fit = new Fit(band, turned, widestCard);
-        List<List<Slot>> fans = FANS.get(fit);
-        if (fans == null) {
-            if (FANS.size() >= MOST_REMEMBERED) {
-                FANS.clear();
+        Fitted fitted = FITTED.get(fit);
+        if (fitted == null) {
+            if (FITTED.size() >= MOST_REMEMBERED) {
+                FITTED.clear();
             }
-            fans = FANS.computeIfAbsent(fit, FeltHand::fitted);
+            fitted = FITTED.computeIfAbsent(fit, FeltHand::fitted);
         }
-        return fans.get(shown - 1);
+        return fitted;
     }
 
     /**
@@ -100,8 +136,8 @@ public final class FeltHand {
         return one.isEmpty() ? Rect.NONE : one.get(0).where();
     }
 
-    /** Every fan from one card to {@link #MOST_SHOWN}, fitted to this band. */
-    private static List<List<Slot>> fitted(Fit fit) {
+    /** Every fan and every row from one card to {@link #MOST_SHOWN}, fitted to this band. */
+    private static Fitted fitted(Fit fit) {
         double tall = CardShape.heightFor(1.0);
         // How far the fans reach about their middle card, in card widths and at every count at once,
         // so one card size and one anchor serve them all and no count spills out of the band.
@@ -127,11 +163,13 @@ public final class FeltHand {
                 Math.min(roomAcross / (right - left), roomDown / (near - far))));
         int height = CardShape.heightFor(width);
         List<List<Slot>> fans = new ArrayList<>(MOST_SHOWN);
+        List<List<Slot>> rows = new ArrayList<>(MOST_SHOWN);
         if (width <= 0 || height <= 0) {
             for (int count = 1; count <= MOST_SHOWN; count++) {
                 fans.add(List.of());
+                rows.add(List.of());
             }
-            return List.copyOf(fans);
+            return new Fitted(List.copyOf(fans), List.copyOf(rows));
         }
         // The reach, centered in the band. The middle card is not in the middle of it: the ends of a
         // fan come round toward the hand holding it, so the fan reaches further that way.
@@ -153,6 +191,23 @@ public final class FeltHand {
             }
             fans.add(List.copyOf(fan));
         }
-        return List.copyOf(fans);
+        // The row: along the middle card's line, where the fan of one lies, so a row of one is that
+        // card. As far apart as FACES_APART, or as the band allows the widest row, whichever is less.
+        double rowDown = band.centerY() + toward * (0 - middleDown) * width;
+        double roomBeside = (roomAcross / width - 1) / (MOST_SHOWN - 1);
+        double apart = Math.max(0, Math.min(FACES_APART, roomBeside));
+        for (int count = 1; count <= MOST_SHOWN; count++) {
+            List<Slot> row = new ArrayList<>(count);
+            for (int at = 0; at < count; at++) {
+                double along = (at - (count - 1) / 2.0) * apart;
+                double x = band.centerX() + toward * (along - middleAcross) * width;
+                row.add(new Slot(
+                        new Rect((int) Math.round(x - width / 2.0), (int) Math.round(rowDown - height / 2.0),
+                                width, height),
+                        0));
+            }
+            rows.add(List.copyOf(row));
+        }
+        return new Fitted(List.copyOf(fans), List.copyOf(rows));
     }
 }

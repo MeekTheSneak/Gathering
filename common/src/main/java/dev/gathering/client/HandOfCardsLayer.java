@@ -21,6 +21,8 @@ import net.minecraft.world.entity.HumanoidArm;
  * has always sent it as {@code ZoneView.countOnly}. An identity is not, and the way this class is
  * kept honest about that is that it has no type in scope that could carry one -
  * {@link CardFaceRenderer#renderBack} takes nothing at all.
+ * <p>Not while this client's table camera is over the table the player is seated at: the board
+ * there draws every other seat's hand on the felt at their edge, and one hand is drawn once.
  * <p>Client-only.
  */
 public class HandOfCardsLayer
@@ -53,6 +55,13 @@ public class HandOfCardsLayer
         // almost every one of them is standing up somewhere else entirely.
         SeatedPlayers.Seated seated = TableBodyPose.fanOf(player).orElse(null);
         if (seated == null) {
+            return;
+        }
+        // Not while this client's table camera is over that player's table. The board there draws
+        // their hand on the felt at the edge they sit at, which is where this fan is held, and the
+        // camera keeps the players at that table in view: both would be one player's hand twice,
+        // and past ten cards two different counts of it.
+        if (TableCameraView.isLookingAt(seated.table())) {
             return;
         }
         List<HeldFan.Card> fan = HeldFan.of(seated.cards());

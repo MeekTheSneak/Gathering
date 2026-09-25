@@ -4399,8 +4399,10 @@ that the arm comes down.
 - ~~**Table presence, the last of it.** Each seat's hand drawn on the felt below its mat, using the
   same fan the bodies hold, so the two views agree about what a hand looks like.~~ **Done 2026-09-24,
   not yet through `tools/gate.sh`:** see "each seat's hand at the edge of its mat, on both boards".
-  Still wants a person at a table with a second real player, for how it sits beside that player's
-  body in the table view. See
+  Its review (see "review of the hands on the felt") made a shown hand a readable row again, taught
+  the picker that a hand is drawn over the cards, and stopped a seated body holding its fan under
+  the table camera. Still wants a person at a table with a second real player, for how that player's
+  body, now without its fan, sits beside the fan on the felt in the table view. See
   `docs/prompts/table-presence.md` step 5. The bodies, the pointer and the table view are done.
   ~~A scripted step that *asserts* an arm angle rather than photographing it (step 6).~~ **Done
   2026-09-24:** tour step 9 - see "the tour asserts the seated arm". The hop between two clients is
@@ -5167,8 +5169,10 @@ from the final code, cropped and magnified; `23-two-players` (B), `107-eight-at-
 - **A real second player at the table, in the table view.** The tour's rival is a seat with no body,
   so how the fan at the edge sits beside that player's own fan, held at rest at the same edge, has not
   been seen. That wants two clients and a person.
-- A hand shown to you (faces on the felt) and a replay: the code path is the one the flat board had,
-  now also on the block, and no tour step shows a hand to another seat.
+- ~~A hand shown to you (faces on the felt) and a replay: the code path is the one the flat board had,
+  now also on the block, and no tour step shows a hand to another seat.~~ **Wrong, corrected
+  2026-09-24:** the faces went through the fan and lost the flat board's two-thirds spread. See
+  "review of the hands on the felt".
 - A pod's hands photographed on either board; a turned (north-south) table's hands on the block.
 - A card flying into a rival's fan, looked at frame by frame; the count already includes a card in
   the air, so the fan grows as the flight starts (as the flat row did).
@@ -5179,3 +5183,134 @@ from the final code, cropped and magnified; `23-two-players` (B), `107-eight-at-
   (a card 0.64 wide), so it spreads about 1.56 times what `HeldFan` documents. The felt fan uses card
   widths. Left alone: changing the body wants a picture of a seated body with cards, which this tour
   does not have.
+
+## 2026-09-24: review of the hands on the felt - a shown hand is read, and a hand is on top of what it covers
+
+Two independent reviews of fff411f, eight findings (two pairs were the same finding). Six were fixed,
+and none were rejected outright. Each finding was checked against the code before it was fixed.
+
+**What a player sees now.**
+- **A hand shown to you is a row you can read**, on both boards: upright to you, each face two thirds
+  of a card along from the one before, the rightmost on top, so each card covers the right third of
+  the one under it and not its name. That is the flat board's old spread. fff411f had put faces
+  through the fan of backs: 0.06 of a card apart, each turned about its own middle, and turned with the
+  seat, so across the table only the top card showed and it was upside down. Backs are still the fan.
+- **What a hand covers cannot be pointed at through it.** Hands are drawn over the cards on the table
+  in both views, but `frontMostAt` had not been told. A permanent at the near edge of its mat, half
+  under its player's fan, was hovered, described, inspected, picked up and dragged from under the
+  fan. Now a point on a hand card hovers nothing. The part of that permanent on the mat is still
+  hovered as before.
+- **Under the table camera, a seated player's body no longer holds its own fan.** `HandOfCardsLayer`
+  skips it while `TableCameraView.isLookingAt` the table that player sits at. The camera keeps those
+  players in view and the board draws their hand on the felt at the same edge, so each hand was drawn
+  twice, and past ten cards the two copies showed different counts (the felt stops at ten and the
+  body does not). Bystanders see the body's fan as before.
+
+**How.** `BoardPlacement.handsOnTheFelt(GameView)` (new, a default method) is now the one answer for
+"which hands, where, which way round". It leaves out the viewer's own seat and uses the fan for backs
+or `TableSurface.handRow` for faces. It puts every card through the board's `fromSurface` and adds the
+seat's facing, or the viewer's facing for faces. For a row read from the other way up, it lays the row
+right to left over the same places. The flat painter, the block painter and the new picker test
+`TableScreen.aHandIsOver` all iterate it, so the painters no longer each compose the angle or skip
+seats themselves. `FeltHand.row` (new) uses the fan's card size and
+the fan's middle line, so a row of one is the fan of one and a card drawn still lands where `landing`
+says. It has the same memo (renamed `FITTED`) and the same cap of ten. Still only a count, and never
+told what a card is. Per-frame `feltHandFaces` counters sit beside `feltHandCards` on both painters.
+
+**The findings, one by one.**
+1. and 8. *Picker hits the card under the fan* - real, fixed (above).
+2. and 5. *Faces unreadable, and the record said the code path was the flat board's* - real, fixed
+   (above); the earlier entry's line is struck through and corrected.
+3. and 6. *`bothBoardsAgree` cannot fail* - real. It compared two equal surfaces and a one-line
+   delegation. It is rewritten: real views from every chair of a two- and a four-seat table
+   (`GameFixtures.table`), before and after every hand is shown to the table, plus a replay. Both
+   boards must draw the same seats (never the viewer's), the block's cards must be the layout's
+   places, backs turned with their seat and faces turned to the reader running to the reader's right,
+   and the flat board's cards must be the block's through its camera, with the same turn relative to
+   the table. `handEdgeRect` must be the fan-of-one on both, which is what catches the flat board skipping
+   `surfaceRect`. The reviewers' mutations "painter without `+ facing`" and "`handFan(index + 1)`"
+   are gone as code: the painters no longer compose either, so there is one place to break and it is
+   tested.
+4. *`HeldFan` promised equal counts past ten* - real, and the doc was what was wrong. It now says the
+   two agree up to `FeltHand.MOST_SHOWN` and not past it, and that they are never on one screen.
+   The body still holds every card, thinner, as `HeldFan` intends.
+7. *"two hands" under the gate* - real, fixed (the body's fan, above). `drawHands`' comment now says
+   what the code does. `TableSurface.handBand`'s "nothing another seat owns is there" is about the
+   surface layout and is still true: the body at that edge is the owner's.
+
+**Guards, each shown to fail without its fix** (each mutation reverted with `cp` and checked with
+`cmp`):
+
+    FeltHandTest, "a hand shown face up is a row that can be read"  (new property)
+      FACES_APART = 0.06 (the fan's slide):  [face 1 of 2 along from the one before it]
+                                             Expecting actual: 26.0 to be greater than or equal to: 283.0
+    FeltHandTest, "both boards draw each hand in the same place and the same way round"  (rewritten)
+      faces fanned like backs (fff411f):     [seat1's hand, seen by seat0 at a table of 2] Expecting actual:
+                                             [Rect[x=4825, ...] ...] to contain exactly in any order: [Rect[x=4361, ...
+      faces turned with their seat:          [seat1's hand, seen by seat0 at a table of 2] expected: 0 but was: 180
+      row in its seat's order for any reader: [... face 1 on the block, to the reader's right of the one before]
+                                             Expecting actual: -284.0 to be greater than: 0.0
+      no facing added to the angle:          [... card 0 on the flat board the same way round as on the block]
+                                             expected: 0 but was: 180
+      BoardGeometry.handEdgeRect without surfaceRect: expected: Rect[x=418, y=17, width=18, height=25]
+                                             but was: Rect[x=4787, y=9679, width=426, height=594]
+      the viewer's own seat not left out:    [seat0's own hand is not on the felt] Expected size: 1 but was: 2
+    Tour step 91, the picker, with the aHandIsOver check removed from frontMostAt (-PdevsceneTo=92),
+    failures: 5:
+      "the flat board hovered the card under the rival's hand, which is drawn over it: []"
+      "the board on the block hovered the card under the rival's hand, which is drawn over it: []"
+      (and the three sound checks, as in every run in this container)
+
+**The tour.** Step 91's hand phases now also put the rival's one card with its middle on their mat's
+near edge (`TablePosition.of(5000, 10000)`), half under their hand. On each board they look for a
+pixel whose picked point is on that card *and* on a hand card, by running the board's own picker
+over every pixel of `tableArea`, hover it, and require nothing hovered. Then a pixel on the card clear
+of the hand must be hovered, or the first check proves nothing. Then the rival shows their hand to this
+player at the server (`HandShown`). On both boards the view must carry seven faces and the painter must
+have drawn seven, all seven of them faces. Every corner must be inside `tableArea`, and each board is
+photographed whole and zoomed in on the row. Then the hand is taken back, the card goes back to (7000,
+6000), the cursor goes back and HOME. The corner check now reads the cards from `handsOnTheFelt`, the
+list the painters draw, not from a recomputed layout. Final run, `-PdevsceneTo=92`:
+
+    [devscene] the flat board drew the rival's hand of 7 as 7 cards on the felt, 0 of them faces, and 0 for my own seat
+    [devscene] the flat board hovered nothing where the rival's hand is over their card
+    [devscene] the board on the block hovered nothing where the rival's hand is over their card
+    [devscene] the board on the block, the hand shown drew the rival's hand of 7 as 7 cards on the felt, 7 of them faces, and 0 for my own seat
+    [devscene] the flat board, the hand shown drew the rival's hand of 7 as 7 cards on the felt, 7 of them faces, and 0 for my own seat
+    [devscene] the flat board, the hand shown, framed whole, drew all 28 corners of the rival's hand inside Rect[x=0, y=16, width=427, height=148]
+    [devscene] reached step 93 of 396 (stopped early by -PdevsceneTo)
+    [devscene] failures: 3   (the three sound checks: no OpenAL device here)
+
+**Pictures looked at:** `26b-a-hand-on-the-felt`, `26c-a-hand-on-the-block` (the fan of backs over the
+top half of the rival's card), `26d-a-shown-hand-on-the-block`, `26e-a-shown-hand-on-the-felt` (whole
+table: a row of seven), `26f-a-shown-hand-close-on-the-block` and `26g-a-shown-hand-close-on-the-felt`
+(zoomed in: seven upright cards, two thirds of each clear, the rightmost on top, over the top of the
+rival's card). The rival's cards have no printing in this run, so their faces are the placeholder each
+board draws for a card with no art: a blank dark card on the flat board, the classic back on the block.
+The rival's card on the table is drawn the same way. So the pictures show where each face is and
+how the row is spaced, not how readable the art and text are.
+
+**Measured** (`-Prenderdebug`, flat board, software GL under Xvfb, `-PdevsceneTo=92`): the "hands" lap
+is 0.04-0.09 ms/frame with the rival holding seven, backs or faces. The picker's extra walk of
+`handsOnTheFelt` falls in the "cards" lap, 0.17-0.24 ms/frame in the same lines.
+
+**Verified:** `./gradlew :core:test` - 2078 tests, 0 failures, 5 skipped (one test added);
+`tools/coretestcheck.py`: "249 test classes, every one of them ran, 2078 tests in all".
+`:common:compileJava`, `:neoforge:compileGametestJava`, `:fabric:compileJava`,
+`:fabric:compileTestmodJava`. All eighteen static checks exit 0.
+
+**Review:** the two reviews' findings are above. After fixing, a self-review read the diff from the
+player's side and found one comment claiming that "others here" still reaches a card under a hand.
+It does not: that entry is on a card's menu, and a right-click on the hand opens no card's menu. The
+claim was removed.
+
+**Still unverified:**
+- A real second player's body at the table in the table view, now without its fan. The tour's rival
+  has no body. Wants two clients and a person.
+- A shown hand's art and text at reading size. The tour's rival has no printed cards (above).
+- Clicking and dragging on a hand. Only hovering was driven. A press uses the same `frontMostAt`, but
+  no step presses there.
+- A replay's row on the flat board, and a pod's rows, were not photographed. `FeltHandTest` covers
+  both as layout (every chair of four seats, and a replay's view).
+- Fabric's client; `tools/gate.sh`; the game tests (none changed).
+

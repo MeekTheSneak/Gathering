@@ -27,7 +27,6 @@ import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.BulkLimit;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.CardShape;
-import dev.gathering.core.ui.FeltHand;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.TableGesture;
 import dev.gathering.core.ui.Legibility;
@@ -1305,13 +1304,14 @@ public final class TableScreen extends Screen {
         handSaid = "";
         // Emptied every frame and filled by the flat board alone, so on the block it says none.
         feltHandCards.clear();
+        feltHandFaces.clear();
         forgetThePointer();
 
         Placed hovered = null;
         if (playingOnTheBlock) {
             // The block draws its own board. What it needs from here is what the cursor is on,
             // because the world renderer has no idea where anybody's mouse is.
-            hovered = frontMostAt(everythingOnTheTable(board), mouseX, mouseY);
+            hovered = frontMostAt(board, everythingOnTheTable(board), mouseX, mouseY);
             ClientTableHighlight.set(table, idOf(hovered), List.copyOf(selected),
                     gesture.held() == null ? null : gesture.held().card());
             // The mats on the block carry the same buttons and the same piles as the seated
@@ -1363,7 +1363,7 @@ public final class TableScreen extends Screen {
 
             List<Placed> onTable = everythingOnTheTable(board);
             phase = RenderProbe.lap("walk", phase);
-            hovered = frontMostAt(onTable, mouseX, mouseY);
+            hovered = frontMostAt(board, onTable, mouseX, mouseY);
             int drawn = 0;
             int skipped = 0;
 
@@ -1648,47 +1648,56 @@ public final class TableScreen extends Screen {
      * <p>Backs or faces is not this method's decision - what arrives in the view is what is
      * drawn. So a hand turned face up toward you is face up here, and a replay shows all of
      * them, without either case being special: the fence is the view and was passed already.
-     * <p>Fanned at the near edge of that player's mat, by {@link FeltHand} - the board on the
-     * block asks the same thing and draws the same fan, and a card drawn flies into it. Turned
-     * with the seat, the way a card lying on that seat's mat is. Not your own - yours runs along
-     * the bottom of the screen face up, in both views.
+     * <p>Where and how is {@link BoardPlacement#handsOnTheFelt}, which the board on the block and
+     * the picker ask as well: a fan of backs at the near edge of that player's mat, turned with
+     * the seat, or a row of faces there turned to you. A card drawn flies into it. Not your own -
+     * yours runs along the bottom of the screen face up, in both views.
      */
     private void renderOtherHands(GuiGraphics graphics, GameView board) {
-        SeatId me = mySeat().orElse(null);
-        TableSurface surface = board().surface();
-        for (SeatView seat : board.seats()) {
-            if (seat.seat().equals(me) || !seat.hasABoard()) {
-                continue;
-            }
-            // Asked of the map, not of zone(): a seat still being set up can arrive without one,
-            // and zone() throws for that.
-            ZoneView hand = seat.zones().get(Zone.HAND);
-            if (hand == null || hand.count() <= 0) {
-                continue;
-            }
-            // A face where the view carries one - a hand shown to you, or any hand in a replay -
-            // and the seat's sleeve otherwise. The fence is the view, and it was passed already.
-            List<CardView> faces = hand.cards();
-            int facing = board().facingDegrees(seat.seat());
+        for (BoardPlacement.HandOnTheFelt hand : board().handsOnTheFelt(board)) {
+            SeatView seat = hand.seat();
+            List<CardView> faces = hand.faces();
             int drawn = 0;
-            List<FeltHand.Slot> fan = surface.handFan(seat.seat().index(), hand.count());
-            for (int index = 0; index < fan.size(); index++) {
-                FeltHand.Slot slot = fan.get(index);
+            int shown = 0;
+            for (int index = 0; index < hand.cards().size(); index++) {
+                BoardPlacement.HandCard card = hand.cards().get(index);
                 // Where the player is sitting, and nowhere else: it moves with the felt, passes
                 // under the strip the way a card does, and goes off the edge when the view does.
                 // It was once held down out of the status bar, which slid a hand along the top of
                 // the window as the camera moved - a hand chasing the camera rather than sitting
                 // in front of its player.
-                Rect at = board().fromSurface(slot.where());
+                Rect at = card.where();
                 if (at.isEmpty() || isOffScreen(at)) {
                     continue;
                 }
-                drawCard(graphics, index < faces.size() ? faces.get(index) : A_SLEEVE, seat.sleeve(),
-                        at, slot.angle() + facing, false, false);
+                boolean face = index < faces.size();
+                drawCard(graphics, face ? faces.get(index) : A_SLEEVE, seat.sleeve(),
+                        at, card.angle(), false, false);
                 drawn++;
+                if (face) {
+                    shown++;
+                }
             }
             feltHandCards.put(seat.seat().index(), drawn);
+            feltHandFaces.put(seat.seat().index(), shown);
         }
+    }
+
+    /**
+     * Whether a point is on a card of somebody else's hand on the felt.
+     * <p>Those are drawn over everything lying on the table, in both views, so a card they cover
+     * cannot be hovered, read or picked up through them: what is on top is what the pointer is
+     * on. The point is in the board's own space, the one {@link #pointer} answers in.
+     */
+    private boolean aHandIsOver(GameView board, int pointX, int pointY) {
+        for (BoardPlacement.HandOnTheFelt hand : board().handsOnTheFelt(board)) {
+            for (BoardPlacement.HandCard card : hand.cards()) {
+                if (card.where().containsTurned(card.angle(), pointX, pointY)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -1696,6 +1705,9 @@ public final class TableScreen extends Screen {
      * board, by seat. For the scripted run, which asks both boards the same question.
      */
     final java.util.Map<Integer, Integer> feltHandCards = new java.util.HashMap<>();
+
+    /** And how many of those were faces, by seat, for the same run. */
+    final java.util.Map<Integer, Integer> feltHandFaces = new java.util.HashMap<>();
 
     /**
      * Everybody's mat, with their name and life on it.
@@ -3944,7 +3956,7 @@ public final class TableScreen extends Screen {
             return true;
         }
 
-        Placed onTable = frontMostAt(everythingOnTheTable(board), x, y);
+        Placed onTable = frontMostAt(board, everythingOnTheTable(board), x, y);
         if (!attaching.isEmpty()) {
             // Anywhere but a card cancels, which is what clicking off a half-finished thing
             // should always do.
@@ -4512,8 +4524,12 @@ public final class TableScreen extends Screen {
      * <p>Front to back, because the card you can see is the card you meant, and turned cards
      * are tested at the angle they are drawn at - so the empty corner of an angled card is
      * table and a click there reaches whatever is underneath it.
+     * <p>Nothing under somebody else's hand on the felt, which is drawn over every card on the
+     * table: a permanent at the near edge of its mat can lie half under its player's fan, and
+     * the half that cannot be seen is not the half to hover, read or pick up. The part of it on
+     * the mat still is.
      */
-    private Placed frontMostAt(List<Placed> onTable, int x, int y) {
+    private Placed frontMostAt(GameView board, List<Placed> onTable, int x, int y) {
         // Two spaces, and the guard belongs to the screen either way: the hand and the bar sit
         // over the table in both views, and a click on your own hand must not also reach the
         // felt underneath it.
@@ -4526,6 +4542,9 @@ public final class TableScreen extends Screen {
         }
         int pointX = (int) Math.round(at[0]);
         int pointY = (int) Math.round(at[1]);
+        if (aHandIsOver(board, pointX, pointY)) {
+            return null;
+        }
         for (int index = onTable.size() - 1; index >= 0; index--) {
             Placed placed = onTable.get(index);
             if (placed.where().containsTurned(placed.angle(), pointX, pointY)) {
@@ -6083,7 +6102,7 @@ public final class TableScreen extends Screen {
         if (board == null) {
             return List.of();
         }
-        Placed under = frontMostAt(everythingOnTheTable(board), cursorX, cursorY);
+        Placed under = frontMostAt(board, everythingOnTheTable(board), cursorX, cursorY);
         return under != null && under.card() instanceof CardView.Visible visible
                 ? List.of(visible.id())
                 : List.of();

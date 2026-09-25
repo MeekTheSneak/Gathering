@@ -13,13 +13,13 @@ import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
-import dev.gathering.core.ui.FeltHand;
 import dev.gathering.core.ui.FlatLayers;
 import dev.gathering.core.ui.PileThickness;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.Shaking;
 import dev.gathering.core.ui.SeatColor;
 import dev.gathering.core.ui.SurfaceBoard;
+import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.BoardPresentation;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
@@ -355,7 +355,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                     shown.mats().get(index), surface, placement, index, span, MAX_CARDS - drawn);
         }
         if (TableCameraView.isLookingAt(pos)) {
-            drawHands(poseStack, buffers, packedLight, board, surface, span);
+            drawHands(poseStack, buffers, packedLight, board, placement, span);
         }
         drawFlights(poseStack, buffers, packedLight, board, placement, pos, piles, span);
         poseStack.popPose();
@@ -372,12 +372,17 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     // statecheck: emptied every time the table camera draws a table, and holds counts rather than a game
     static final java.util.Map<Integer, Integer> feltHandCards = new java.util.HashMap<>();
 
+    /** And how many of those were faces, by seat, for the same harness. */
+    // statecheck: emptied every time the table camera draws a table, and holds counts rather than a game
+    static final java.util.Map<Integer, Integer> feltHandFaces = new java.util.HashMap<>();
+
     /**
-     * Everybody else's hand, fanned at the near edge of their mat: the fan the flat board draws,
-     * from the same {@link FeltHand}, so the two boards cannot hold a hand two ways.
-     * <p><b>Only under the table camera, and only at the table it is over.</b> Everybody else sees a
-     * seated player's hand where it actually is, in that player's off hand; drawing it on the felt
-     * as well would be two hands, and it would be every table in sight paying for it every frame.
+     * Everybody else's hand on the felt: {@link BoardPlacement#handsOnTheFelt}, the one answer the
+     * flat board draws and the screen's picker tests, so the two boards cannot hold a hand two ways.
+     * <p><b>Only under the table camera, and only at the table it is over.</b> Anybody else sees a
+     * seated player's hand where it actually is, in that player's off hand - and under the table
+     * camera that fan is not drawn (see {@link HandOfCardsLayer}), so a hand is on the screen once.
+     * Drawing this at every table in sight would also be every table paying for it every frame.
      * <p>Not your own, which is along the bottom of the window face up. A face where the view
      * carries one - a hand shown to you - and the seat's sleeve otherwise.
      * <p>Above everything lying on the table, the order the flat board draws in: a hand is held
@@ -386,37 +391,28 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void drawHands(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, GameView board,
-            TableSurface surface, float span) {
+            BoardPlacement placement, float span) {
         feltHandCards.clear();
+        feltHandFaces.clear();
         float above = tallestPile + layer(ON_A_SLOT + PILE_TOP_LAYERS + 1);
         float highest = tallestPile;
-        for (int index = 0; index < board.seats().size(); index++) {
-            SeatView seat = board.seats().get(index);
-            if (board.viewer().isSeatedAt(seat.seat()) || !seat.hasABoard()) {
-                continue;
-            }
-            // Asked of the map, not of zone(): a seat still being set up can arrive without one,
-            // and zone() throws for that.
-            ZoneView hand = seat.zones().get(Zone.HAND);
-            if (hand == null || hand.count() <= 0) {
-                continue;
-            }
-            List<CardView> faces = hand.cards();
-            int facing = surface.facingDegrees(index);
-            List<FeltHand.Slot> fan = surface.handFan(index, hand.count());
-            for (int card = 0; card < fan.size(); card++) {
-                FeltHand.Slot slot = fan.get(card);
-                Rect at = slot.where();
+        for (BoardPlacement.HandOnTheFelt hand : placement.handsOnTheFelt(board)) {
+            SeatView seat = hand.seat();
+            List<CardView> faces = hand.faces();
+            for (int card = 0; card < hand.cards().size(); card++) {
+                BoardPlacement.HandCard held = hand.cards().get(card);
+                Rect at = held.where();
                 float lift = above + perCard() * card;
                 drawSleeved(poseStack, buffers, packedLight, card < faces.size() ? faces.get(card) : null,
                         seat.sleeve(),
                         onSurface(at.x(), span), onSurface(at.y(), span),
                         onSurface(at.width(), span), onSurface(at.height(), span),
-                        slot.angle() + facing, false, lift);
+                        held.angle(), false, lift);
                 // The sleeve's picture sits a step over its card.
                 highest = Math.max(highest, lift + layer(1));
             }
-            feltHandCards.put(seat.seat().index(), fan.size());
+            feltHandCards.put(seat.seat().index(), hand.cards().size());
+            feltHandFaces.put(seat.seat().index(), Math.min(faces.size(), hand.cards().size()));
         }
         // A card in the air clears a hand the way it clears a pile, so one flying into a fan is
         // seen arriving rather than sliding in underneath it.
