@@ -499,10 +499,12 @@ cannot be inferred from reading the code.
   is whether a player can reach a table, and a `core.ui.TableReach` beside it worked out where a
   seated body's shoulder is - two classes of one name answering different questions. The core
   one is `Shoulder` now, named for its frame of reference like `HeldFan`. Before naming a class,
+  `git ls-files '*/<Name>.java'` says whether the name is taken anywhere. Afterwards,
   `git ls-files 'core/*.java' 'common/*.java' | xargs -n1 basename | sort | uniq -d` lists the
-  names already used twice. `Facing` and `TableActions` are still on it. Only `core` and
-  `common` are listed because the two loaders' mixins and entry points are same-named twins by
-  design, and `docs/prompts/` holds copies.
+  names used twice - only once the new file is `git add`ed, since it sees tracked files alone,
+  and never a same-package overwrite, which leaves one file. `Facing` and `TableActions` are still
+  on it. Only `core` and `common` are listed because the two loaders' mixins and entry points
+  are same-named twins by design, and `docs/prompts/` holds copies.
 - **Read Minecraft's own source before reasoning about it.** The decompiled 1.21.1 + NeoForge
   sources are at `neoforge/build/moddev/artifacts/neoforge-21.1.248-sources.jar`. The flat board's
   lag took three wrong explanations, all from recall, before anybody opened `GuiGraphics.java`,

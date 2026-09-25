@@ -18,8 +18,12 @@ class CountersLayoutTest {
     /** How many counter names a table can put on the button grid. */
     private static final int MOST_BUTTONS = 9;
 
-    /** How many commanders one selection can hold: a pod of four, every one fielding partners. */
-    private static final int MOST_COMMANDERS = 8;
+    /**
+     * How many commanders one selection ordinarily holds: eight seats, the most a cluster has,
+     * every one fielding partners. A command zone takes whatever is put in it, so a table can go
+     * past this; the layout's arithmetic does not depend on the count.
+     */
+    private static final int MOST_COMMANDERS = 16;
 
     @Test
     @DisplayName("a roomy window shows the whole window of counters and every button")
@@ -40,7 +44,7 @@ class CountersLayoutTest {
         // would push the add-a-counter field and the Done button off the bottom of the screen,
         // as six commanders' damage rows once did. The tax grid has to give way here, or this
         // case is not the one it says it is: the property below lands in that corner about one
-        // try in twenty.
+        // try in five.
         CountersLayout layout = CountersLayout.of(NARROWEST, SHORTEST, 8, MOST_BUTTONS, 6);
 
         assertThat(layout.done().bottom()).isLessThanOrEqualTo(SHORTEST);
@@ -49,6 +53,31 @@ class CountersLayoutTest {
                 .isLessThanOrEqualTo(layout.custom().y());
         assertThat(layout.taxRows()).isGreaterThanOrEqualTo(1);
         assertThat(layout.taxRows()).isLessThan(6);
+    }
+
+    @Test
+    @DisplayName("the tax grid shows every row from a height its commanders alone decide")
+    void everyTaxRowShowsFromAFixedHeight() {
+        // 146 units tall plus a step, 22, per commander. CountersScreen.heading's javadoc quotes
+        // what that comes to: under the shortest window until five commanders, then 256 for
+        // five, 322 for eight and 498 for sixteen. The counters and the buttons give way before
+        // the tax grid does, so how many of those there are cannot move the line - checked here
+        // at none of either and at a full panel of both.
+        for (int taxed = 1; taxed <= MOST_COMMANDERS; taxed++) {
+            int needs = 146 + CountersLayout.step() * taxed;
+            for (int counters : new int[] {0, 12}) {
+                for (int buttons : new int[] {0, MOST_BUTTONS}) {
+                    for (int height = SHORTEST; height <= 720; height++) {
+                        CountersLayout layout =
+                                CountersLayout.of(NARROWEST, height, counters, buttons, taxed);
+                        assertThat(layout.taxRows() == taxed)
+                                .as("%d commanders, %d counters, %d buttons, %d tall",
+                                        taxed, counters, buttons, height)
+                                .isEqualTo(height >= needs);
+                    }
+                }
+            }
+        }
     }
 
     @Property

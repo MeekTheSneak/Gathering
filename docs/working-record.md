@@ -4403,14 +4403,16 @@ that the arm comes down.
   2026-09-24:** tour step 9 - see "the tour asserts the seated arm". The hop between two clients is
   still unverified, and wants two clients and a person.
 
-- ~~**`TableReach` is two classes.**~~ **Done 2026-09-24:** the core one is `Shoulder` - see "two
-  small debts". `dev.gathering.server.TableReach` is whether a player can reach a table; the core
-  class was where a seated body's shoulder is and which way it faces (not how far an arm reaches -
-  that is `TablePose.ARM_REACH`). The `HandFan`/`HeldFan` trap again, and `DIALECT.md` records both.
+- ~~**`TableReach` is two classes.**~~ **Done 2026-09-24, not yet through `tools/gate.sh`:** the
+  core one is `Shoulder` - see "two small debts". `dev.gathering.server.TableReach` is whether a
+  player can reach a table; the core class was where a seated body's shoulder is and which way it
+  faces (not how far an arm reaches - that is `TablePose.ARM_REACH`). The `HandFan`/`HeldFan` trap
+  again, and `DIALECT.md` records both.
 
 - ~~**`CountersLayout` still has its commander-damage grid**, reachable now only from its own test.~~
-  **Done 2026-09-24** - see "two small debts". The give-way property was rewritten around the tax
-  grid, with a clause added, and each clause was shown failing against a reordered loop.
+  **Done 2026-09-24, not yet through `tools/gate.sh`** - see "two small debts". The give-way
+  property was rewritten around the tax grid, with a clause added, and each clause was shown
+  failing against a reordered loop.
 
 - **`PoseProbe` is still in**, behind `-Pposedebug` and off in every shipped jar. It found three
   defects in an hour and the next person to touch a seated body will want it. The owner was asked
@@ -4921,9 +4923,10 @@ zero, and zero is all `CountersScreen` ever passed, so the panel is laid out exa
 `CountersScreen`: the call and the note beside it, the dead `nameOf(SeatId)` (its only caller was the
 damage grid), and four comments that described the damage grid or "enemy commanders". The tax heading's
 javadoc now says when it can read "not shown". Measured against the compiled class: five or more
-commanders in one selection, on a window under 256 units tall for five and under 322 for eight.
+commanders in one selection, on a window under 256 units tall for five and under 322 for eight. (It
+stopped at eight, and a selection can hold sixteen - corrected in "review of the two small debts".)
 
-**`CountersLayoutTest`, rewritten around the tax grid (`taxed` 0 to 8).** The give-way property keeps
+**`CountersLayoutTest`, rewritten around the tax grid (`taxed` 0 to 8, 16 since the review).** The give-way property keeps
 clause 1 (the counter list drops below three only once the buttons are gone). Clause 2 is now about tax:
 the tax grid loses a row only once the buttons and the counter list are both gone. A new clause 3 checks
 that the buttons start going only once the counter list is down to three. `crowdedAndSmall` is
@@ -4967,3 +4970,64 @@ on this change.
 **Noticed and left:** `spellcheck.py` does not know "neighbour". About twenty files use it, including
 `CountersLayout`'s own javadoc and `CLAUDE.md`. The debt map for this batch said tour steps 82-84 still
 opened the counters screen for commander damage. They have opened `LifeScreen` since `be32a0a`.
+
+## 2026-09-24: review of the two small debts - sixteen commanders, and a name check that checks a name
+
+Two independent reviewers read `0bf4600` against the batch's requirement. Five findings, all minor,
+all real once read against the code; all five are fixed here.
+
+**The tax heading and its tests stopped at eight commanders.** `CountersScreen.heading`'s javadoc said
+the heading reads "not shown" only on a window under about 320 units tall, and `CountersLayoutTest`'s
+`MOST_COMMANDERS` was 8, "a pod of four". A cluster seats eight (`TableCluster.MAX_TABLES` 4, two seats
+each), every one can field partners, and `CountersScreen.ownerOfCommander` counts whatever is in either
+command slot - so one selection ordinarily holds sixteen and nothing stops more. The layout was right at
+every count, because its loops never look at the count; what was wrong was the claim and the domain.
+Measured with a probe against the compiled class, every tax row shows from 146 units tall plus 22 per
+commander, the same with no counters or buttons as with a full panel of both: 256 for five, 322 for
+eight, 344 for nine, 410 for twelve, 498 for sixteen. The javadoc says that now, and names the test that
+holds it. `MOST_COMMANDERS` is 16, and every property that used it goes to sixteen. A new test,
+`everyTaxRowShowsFromAFixedHeight`, walks every height from 240 to 720 for one to sixteen commanders, at
+none and at a full panel of counters and buttons, and checks all the rows show exactly when the height
+reaches 146 + 22 per commander. `crowdedAndSmall`'s comment follows the wider domain: the give-way
+property now lands in that corner in 21,372 of its 106,301 cases (20.1%), by the same probe.
+
+*Shown failing:*
+
+    a tax grid that stops at eight (wantTax = min(taxed, 8)):
+        CountersLayoutTest.java:76  "[9 commanders, 0 counters, 0 buttons, 344 tall] expected: true
+            but was: false"
+        CountersLayoutTest.java:100 (clause 2) "expected: 0 but was: 1", shrunk to 344, 0, 9
+    the same, against the test file as 0bf4600 left it:  BUILD SUCCESSFUL, 6 tests, 0 failures -
+        the old domain let a layout drop every commander past the eighth
+    the tax grid needing one unit more ((taxRows + 1) * step() + 1):
+        CountersLayoutTest.java:76  "[5 commanders, 0 counters, 0 buttons, 256 tall] expected: true
+            but was: false" - the only failure: no property sees a one-unit shift
+    the three reorderings again, with the wider domain:
+        rest of the list before the buttons  :95  (clause 1) "expected: 0 but was: 3"
+        tax before the rest of the list      :101 (clause 2) "expected: 0 but was: 1", and :76
+        buttons before the tail of the list  :109 (clause 3) "Expecting actual ... to be less than or
+            equal to"
+
+`CountersLayout.java` was restored from a copy after each and `git diff --quiet HEAD` on it passed.
+
+**`DIALECT.md`'s name check could not check a name.** It said to run the `uniq -d` line "before naming
+a class", but that line lists only names already used twice among tracked files: it cannot say a
+proposed name is taken once, misses a new file until it is `git add`ed, and never shows a same-package
+overwrite, which leaves one file. The entry now gives `git ls-files '*/<Name>.java'` for before
+(`'*/TableReach.java'` finds `common/.../server/TableReach.java`) and keeps the `uniq -d` line for
+afterwards, saying what it cannot see.
+
+**The outstanding list said "Done" before the gate.** Both items now read "Done 2026-09-24, not yet
+through `tools/gate.sh`", which is what this record says further down.
+
+**Verified:** `./gradlew :core:test --tests` for `CountersLayoutTest` (7 tests), `LifeLayoutTest` (8)
+and `TablePoseTest` (3 + 5 + 5 + 3), `--rerun`, 0 failures. The whole of `./gradlew :core:test`: 331
+result files, 2064 tests, 0 failures, 5 skipped. `tools/coretestcheck.py`: "248 test classes, every one
+of them ran, 2064 tests in all". `./gradlew :common:compileJava :neoforge:compileGametestJava
+:fabric:compileJava` passed. All eighteen static checks exit 0.
+
+**Not verified:** `tools/gate.sh`, and any client.
+
+**Noticed and left:** `LifeLayoutTest`'s properties stop at ten commanders (`max = 10`); seven
+opponents fielding partners are fourteen. `LifeLayout`'s give-way loop does not look at the count
+either, so it is the same gap in a test domain rather than a layout defect, and outside this review.

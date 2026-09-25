@@ -649,9 +649,12 @@ public final class CountersScreen extends ChildScreen {
     /**
      * A grid's heading, which says so when the grid could not show every row.
      * <p>The tax grid has no wheel of its own and nowhere to put a line under it, so what is
-     * missing is said in the heading rather than not said. It takes five or more commanders in
-     * one selection, on a window under about 320 units tall, before this ever reads anything
-     * but the plain heading.
+     * missing is said in the heading rather than not said. Every row shows on a window 146 units
+     * tall plus 22 per commander, whatever else the panel holds, because the counters and the
+     * buttons give way first. That is under the shortest window until five commanders are in one
+     * selection, then 256 units for five, 322 for eight and 498 for sixteen - eight seats, all
+     * fielding partners. A command zone takes whatever is put in it, so sixteen is not a
+     * ceiling. {@code CountersLayoutTest.everyTaxRowShowsFromAFixedHeight} holds these numbers.
      */
     private Component heading(String key, int hidden) {
         return hidden <= 0
