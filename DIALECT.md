@@ -495,6 +495,14 @@ cannot be inferred from reading the code.
   is `HeldFan`, in card widths. Two fans, two frames of reference, and the obvious name belongs
   to the older one; a new class called `HandFan` overwrites a file that eleven screens' tests
   depend on, and the compiler is the first thing that says so.
+  It happened again in a different package, where the compiler says nothing: `server.TableReach`
+  is whether a player can reach a table, and a `core.ui.TableReach` beside it worked out where a
+  seated body's shoulder is - two classes of one name answering different questions. The core
+  one is `Shoulder` now, named for its frame of reference like `HeldFan`. Before naming a class,
+  `git ls-files 'core/*.java' 'common/*.java' | xargs -n1 basename | sort | uniq -d` lists the
+  names already used twice. `Facing` and `TableActions` are still on it. Only `core` and
+  `common` are listed because the two loaders' mixins and entry points are same-named twins by
+  design, and `docs/prompts/` holds copies.
 - **Read Minecraft's own source before reasoning about it.** The decompiled 1.21.1 + NeoForge
   sources are at `neoforge/build/moddev/artifacts/neoforge-21.1.248-sources.jar`. The flat board's
   lag took three wrong explanations, all from recall, before anybody opened `GuiGraphics.java`,

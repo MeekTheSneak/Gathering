@@ -18,29 +18,37 @@ class CountersLayoutTest {
     /** How many counter names a table can put on the button grid. */
     private static final int MOST_BUTTONS = 9;
 
+    /** How many commanders one selection can hold: a pod of four, every one fielding partners. */
+    private static final int MOST_COMMANDERS = 8;
+
     @Test
     @DisplayName("a roomy window shows the whole window of counters and every button")
     void roomy() {
-        CountersLayout layout = CountersLayout.of(640, 480, 8, MOST_BUTTONS, 0, 0);
+        CountersLayout layout = CountersLayout.of(640, 480, 8, MOST_BUTTONS, 0);
 
         assertThat(layout.counterRows()).isEqualTo(CountersLayout.MAX_ROWS);
         assertThat(layout.commonRows()).isEqualTo(3);
-        assertThat(layout.damage()).isEqualTo(Rect.NONE);
+        assertThat(layout.taxRows()).isZero();
+        assertThat(layout.tax()).isEqualTo(Rect.NONE);
     }
 
     @Test
     @DisplayName("a crowded Commander table on a small window still has its way out")
     void crowdedAndSmall() {
-        // Three opponents fielding partners: six commanders to record damage from, which is
-        // more than the panel has room for at this size. It used to lay them all out anyway
-        // and push the add-a-counter field and the Done button off the bottom of the screen.
-        CountersLayout layout = CountersLayout.of(NARROWEST, SHORTEST, 8, MOST_BUTTONS, 6, 0);
+        // Six commanders selected together - three players fielding partners - carrying a full
+        // window of counters, at the smallest size Minecraft allows. Laid out top down, that
+        // would push the add-a-counter field and the Done button off the bottom of the screen,
+        // as six commanders' damage rows once did. The tax grid has to give way here, or this
+        // case is not the one it says it is: the property below lands in that corner about one
+        // try in twenty.
+        CountersLayout layout = CountersLayout.of(NARROWEST, SHORTEST, 8, MOST_BUTTONS, 6);
 
         assertThat(layout.done().bottom()).isLessThanOrEqualTo(SHORTEST);
         assertThat(layout.custom().bottom()).isLessThanOrEqualTo(layout.done().y());
-        assertThat(layout.damageRow(layout.damageRows() - 1).bottom())
+        assertThat(layout.taxRow(layout.taxRows() - 1).bottom())
                 .isLessThanOrEqualTo(layout.custom().y());
-        assertThat(layout.damageRows()).isGreaterThanOrEqualTo(1);
+        assertThat(layout.taxRows()).isGreaterThanOrEqualTo(1);
+        assertThat(layout.taxRows()).isLessThan(6);
     }
 
     @Property
@@ -48,20 +56,28 @@ class CountersLayoutTest {
     void sectionsGiveWayInOrder(
             @ForAll @IntRange(min = SHORTEST, max = 720) int height,
             @ForAll @IntRange(min = 0, max = 12) int counters,
-            @ForAll @IntRange(min = 0, max = 8) int opponents) {
+            @ForAll @IntRange(min = 0, max = MOST_COMMANDERS) int taxed) {
         CountersLayout layout =
-                CountersLayout.of(NARROWEST, height, counters, MOST_BUTTONS, opponents, 0);
+                CountersLayout.of(NARROWEST, height, counters, MOST_BUTTONS, taxed);
 
         // The counter list keeps three rows while there is still a button row that could have
         // gone instead: every one of those buttons is a name the text field below still takes.
         if (layout.counterRows() < Math.min(counters, CountersLayout.KEEP_ROWS)) {
             assertThat(layout.commonRows()).isZero();
         }
-        // And the commander grid, which has neither a wheel nor a shortcut, only loses a row
-        // once there is nothing else left to lose.
-        if (layout.damageRows() < opponents) {
+        // The tax grid, which has neither a wheel nor a shortcut, only loses a row once there
+        // is nothing else left to lose.
+        if (layout.taxRows() < taxed) {
             assertThat(layout.commonRows()).isZero();
             assertThat(layout.counterRows()).isZero();
+        }
+        // And the buttons only start going once the counter list is down to its three: the
+        // tail of a list with a wheel is cheaper to lose than a shortcut.
+        int allButtons = (MOST_BUTTONS + CountersLayout.BUTTON_COLUMNS - 1)
+                / CountersLayout.BUTTON_COLUMNS;
+        if (layout.commonRows() < allButtons) {
+            assertThat(layout.counterRows())
+                    .isLessThanOrEqualTo(Math.min(counters, CountersLayout.KEEP_ROWS));
         }
     }
 
@@ -72,8 +88,8 @@ class CountersLayoutTest {
             @ForAll @IntRange(min = SHORTEST, max = 2160) int height,
             @ForAll @IntRange(min = 0, max = 24) int counters,
             @ForAll @IntRange(min = 0, max = MOST_BUTTONS) int buttons,
-            @ForAll @IntRange(min = 0, max = 8) int opponents) {
-        CountersLayout layout = CountersLayout.of(width, height, counters, buttons, opponents, 0);
+            @ForAll @IntRange(min = 0, max = MOST_COMMANDERS) int taxed) {
+        CountersLayout layout = CountersLayout.of(width, height, counters, buttons, taxed);
 
         assertThat(layout.done().bottom()).isLessThanOrEqualTo(height);
         assertThat(layout.done().y()).isGreaterThanOrEqualTo(0);
@@ -81,6 +97,7 @@ class CountersLayoutTest {
         assertThat(layout.custom().y()).isGreaterThanOrEqualTo(0);
         assertThat(layout.panel().bottom()).isLessThanOrEqualTo(height);
         assertThat(layout.panel().right()).isLessThanOrEqualTo(width);
+        assertThat(layout.panel().x()).isGreaterThanOrEqualTo(0);
     }
 
     @Property
@@ -89,18 +106,13 @@ class CountersLayoutTest {
             @ForAll @IntRange(min = SHORTEST, max = 2160) int height,
             @ForAll @IntRange(min = 0, max = 24) int counters,
             @ForAll @IntRange(min = 0, max = MOST_BUTTONS) int buttons,
-            @ForAll @IntRange(min = 0, max = 8) int grid,
-            @ForAll boolean asTax) {
-        CountersLayout layout = CountersLayout.of(NARROWEST, height, counters, buttons,
-                asTax ? 0 : grid, asTax ? grid : 0);
+            @ForAll @IntRange(min = 0, max = MOST_COMMANDERS) int taxed) {
+        CountersLayout layout = CountersLayout.of(NARROWEST, height, counters, buttons, taxed);
 
         int floor = layout.custom().y();
         assertThat(layout.counterFooter().bottom()).isLessThanOrEqualTo(floor);
         for (int index = 0; index < layout.commonRows() * CountersLayout.BUTTON_COLUMNS; index++) {
             assertThat(layout.commonButton(index).bottom()).isLessThanOrEqualTo(floor);
-        }
-        for (int index = 0; index < layout.damageRows(); index++) {
-            assertThat(layout.damageRow(index).bottom()).isLessThanOrEqualTo(floor);
         }
         for (int index = 0; index < layout.taxRows(); index++) {
             assertThat(layout.taxRow(index).bottom()).isLessThanOrEqualTo(floor);
@@ -112,12 +124,12 @@ class CountersLayoutTest {
     void neverInventsRows(
             @ForAll @IntRange(min = 0, max = 24) int counters,
             @ForAll @IntRange(min = 0, max = MOST_BUTTONS) int buttons,
-            @ForAll @IntRange(min = 0, max = 8) int opponents) {
-        CountersLayout layout = CountersLayout.of(640, 480, counters, buttons, opponents, 0);
+            @ForAll @IntRange(min = 0, max = MOST_COMMANDERS) int taxed) {
+        CountersLayout layout = CountersLayout.of(640, 480, counters, buttons, taxed);
 
         assertThat(layout.counterRows()).isLessThanOrEqualTo(counters);
         assertThat(layout.commonRows() * CountersLayout.BUTTON_COLUMNS)
                 .isLessThanOrEqualTo(buttons + CountersLayout.BUTTON_COLUMNS - 1);
-        assertThat(layout.damageRows()).isLessThanOrEqualTo(opponents);
+        assertThat(layout.taxRows()).isLessThanOrEqualTo(taxed);
     }
 }

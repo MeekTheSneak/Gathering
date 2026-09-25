@@ -57,8 +57,8 @@ public final class CountersScreen extends ChildScreen {
     /**
      * How many counter rows this window shows.
      * <p>Usually {@link CountersLayout#MAX_ROWS}. Less on a short window or a crowded table,
-     * because the rest of the panel - the commander damage grid, the tax grid, the way to add
-     * one, the way out - is not optional and a panel that did not shrink for them drew its own
+     * because the rest of the panel - the commander tax grid, the way to add one, the way
+     * out - is not optional and a panel that did not shrink for them drew its own
      * buttons off the bottom of the screen, where nothing could be pressed.
      */
     private int showing() {
@@ -69,8 +69,8 @@ public final class CountersScreen extends ChildScreen {
      * Where everything on this panel goes, worked out once per rebuild.
      * <p>Held rather than recomputed while drawing, because the buttons are built from it and
      * a panel whose drawing and buttons disagreed put one row's minus beside another row's
-     * name. Every input it reads - the counters, the named buttons, the opponents, the taxed
-     * commanders - is watched by {@link #tick()}, which rebuilds when any of them moves.
+     * name. Every input it reads - the counters, the named buttons, the taxed commanders - is
+     * watched by {@link #tick()}, which rebuilds when any of them moves.
      */
     private CountersLayout layout;
 
@@ -247,12 +247,8 @@ public final class CountersScreen extends ChildScreen {
         List<CardInstanceId> taxed = taxedCommanders();
         builtTaxed = taxed;
 
-        // Never any damage rows: commander damage is life, and it is recorded on the life
-        // panel now - see LifeScreen. The layout still has a damage grid and no longer has a
-        // caller that asks for one; taking it out means rewriting the property that checks the
-        // order sections give way in, which is worth doing on purpose rather than in passing.
         this.layout = CountersLayout.of(this.width, this.height,
-                present.size(), builtButtons.size(), 0, taxed.size());
+                present.size(), builtButtons.size(), taxed.size());
         // Clamped here rather than where the wheel turns, because the list also shortens
         // under it: taking the last counter off a scrolled list would otherwise leave the
         // panel looking at rows that are no longer there.
@@ -275,9 +271,9 @@ public final class CountersScreen extends ChildScreen {
                     Component.literal(CounterText.name(name)), () -> change(name, 1)));
         }
 
-        // Commander tax, one row per commander here, on a table that has commanders. The same
-        // shape as the damage grid above it and for the same reason: it is a number a player
-        // has to keep for an hour and cannot hold in their head.
+        // Commander tax, one row per commander here, on a table that has commanders. A minus
+        // and a plus like a counter row, because it is a number a player has to keep for an
+        // hour and cannot hold in their head.
         for (int index = 0; index < layout.taxRows(); index++) {
             CardInstanceId commander = taxed.get(index);
             steppers(layout.taxRow(index),
@@ -443,12 +439,6 @@ public final class CountersScreen extends ChildScreen {
             return;
         }
         ClientTableActions.send(table, new GameEvent.CommanderTaxChanged(me, owner, card, delta));
-    }
-
-    /** Whose damage it is, for a row that has to say who is killing you. */
-    private Component nameOf(SeatId seat) {
-        GameView board = ClientTableState.viewOf(table).orElse(null);
-        return board == null ? Component.empty() : titleForSeat(board, seat);
     }
 
     /**
@@ -658,10 +648,10 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * A grid's heading, which says so when the grid could not show every row.
-     * <p>The commander grids have no wheel of their own and nowhere to put a line under them,
-     * so what is missing is said in the heading rather than not said. It takes a window at the
-     * smallest size Minecraft allows and a table fielding five or more enemy commanders before
-     * this ever reads anything but the plain heading.
+     * <p>The tax grid has no wheel of its own and nowhere to put a line under it, so what is
+     * missing is said in the heading rather than not said. It takes five or more commanders in
+     * one selection, on a window under about 320 units tall, before this ever reads anything
+     * but the plain heading.
      */
     private Component heading(String key, int hidden) {
         return hidden <= 0

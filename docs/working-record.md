@@ -4403,13 +4403,14 @@ that the arm comes down.
   2026-09-24:** tour step 9 - see "the tour asserts the seated arm". The hop between two clients is
   still unverified, and wants two clients and a person.
 
-- **`TableReach` is two classes.** `dev.gathering.server.TableReach` is whether a player can reach a
-  table; `dev.gathering.core.ui.TableReach` is how far an arm reaches. The second one is mine and is
-  the one to rename - this is the `HandFan`/`HeldFan` trap again, which `DIALECT.md` already records.
+- ~~**`TableReach` is two classes.**~~ **Done 2026-09-24:** the core one is `Shoulder` - see "two
+  small debts". `dev.gathering.server.TableReach` is whether a player can reach a table; the core
+  class was where a seated body's shoulder is and which way it faces (not how far an arm reaches -
+  that is `TablePose.ARM_REACH`). The `HandFan`/`HeldFan` trap again, and `DIALECT.md` records both.
 
-- **`CountersLayout` still has its commander-damage grid**, reachable now only from its own test.
-  Taking the parameter out means rewriting five test methods, one of them a property about the order
-  sections give way in - real coverage, so it is worth doing deliberately rather than in passing.
+- ~~**`CountersLayout` still has its commander-damage grid**, reachable now only from its own test.~~
+  **Done 2026-09-24** - see "two small debts". The give-way property was rewritten around the tax
+  grid, with a clause added, and each clause was shown failing against a reordered loop.
 
 - **`PoseProbe` is still in**, behind `-Pposedebug` and off in every shipped jar. It found three
   defects in an hour and the next person to touch a seated body will want it. The owner was asked
@@ -4451,8 +4452,8 @@ up and down however far the cursor travelled. It is a pitch and a yaw now, and `
 first version never touched at all - does the sideways half.
 
 **What the first two taught.** The arithmetic lived in a class that needs a running game, so
-nothing could catch it but looking. It is `TableReach` in `:core` now, and the renderer calls it:
-the tested code is the shipped code. Four guards went with it, including a property that a body at
+nothing could catch it but looking. It is `TableReach` in `:core` now (renamed `Shoulder` since), and
+the renderer calls it: the tested code is the shipped code. Four guards went with it, including a property that a body at
 a table never looks *up* at it from anywhere on the felt, and a walk of a cursor across the near
 edge asserting the arm keeps turning. Restoring either old value fails them.
 
@@ -4896,3 +4897,73 @@ themselves have had only self-review.
 
 **Still unverified:** as for `cde2898`. The hop to a second client, Fabric's client, `tools/gate.sh`,
 and the tour past step 16.
+
+## 2026-09-24: two small debts - `Shoulder`, and a counters panel with no damage grid
+
+Both were on "Asked for, not yet done", and both are marked there. Neither changes what a player sees.
+
+**`core.ui.TableReach` is `Shoulder`.** It worked out where a seated body's shoulder is and turned a
+point on the felt into that shoulder's frame; `server.TableReach` is whether a player can reach a table
+at all. Moved with `git mv`, constants and methods unchanged. `TableBodyPose.aimOf`, the one production
+caller, imports it instead of spelling out the package, and its class javadoc no longer says the whole
+turn into the body's frame happens there. `TablePoseTest.ReachingATable` calls it. The class javadoc's
+"the test below" names that test now. DevScene step 9's javadoc named it too (`{@code TableReach}`) and
+follows. `DIALECT.md`'s `HandFan`/`HeldFan` entry records this second case, with
+`git ls-files 'core/*.java' 'common/*.java' | xargs -n1 basename | sort | uniq -d` to find the next
+one. Run over the whole repository, the same line also lists the loaders' same-named twins and the
+copies in `docs/prompts/`. After the rename it lists `Facing` and `TableActions`, both left alone:
+renaming the core `TableActions` breaks `langcheck.py`, which names its file.
+
+**`CountersLayout` has no commander-damage grid.** It is `of(width, height, counters, buttons, taxed)`.
+`damageRows`, `damage`, `damageRow`, the damage give-way loop and the damage term in `body` are gone,
+and `gridRow` is folded into `taxRow`. The tax grid starts where it did whenever the damage count was
+zero, and zero is all `CountersScreen` ever passed, so the panel is laid out exactly as before.
+`CountersScreen`: the call and the note beside it, the dead `nameOf(SeatId)` (its only caller was the
+damage grid), and four comments that described the damage grid or "enemy commanders". The tax heading's
+javadoc now says when it can read "not shown". Measured against the compiled class: five or more
+commanders in one selection, on a window under 256 units tall for five and under 322 for eight.
+
+**`CountersLayoutTest`, rewritten around the tax grid (`taxed` 0 to 8).** The give-way property keeps
+clause 1 (the counter list drops below three only once the buttons are gone). Clause 2 is now about tax:
+the tax grid loses a row only once the buttons and the counter list are both gone. A new clause 3 checks
+that the buttons start going only once the counter list is down to three. `crowdedAndSmall` is
+`of(320, 240, 8, 9, 6)` and asserts `taxRows < 6`, so the give-way branch runs. The property hits that
+corner in 2,548 of the 56,277 cases in its domain (4.5%), counted with a probe against the compiled
+class. `roomy`, `footerIsAlwaysReachable`, `bodyStaysAboveTheFooter` and `neverInventsRows` use `taxed`
+where they used `opponents`.
+
+*Each clause shown failing*, as a reordering of the loops in `CountersLayout.of`. The file was restored
+from a copy after each one and compared byte for byte with `cmp`:
+
+    rest of the list before the buttons:   CountersLayoutTest.java:66 (clause 1) "expected: 0 but was: 3",
+        shrunk to height 240, counters 1, taxed 1
+    tax before the rest of the list:       CountersLayoutTest.java:72 (clause 2) "expected: 0 but was: 1",
+        shrunk to height 240, counters 1, taxed 4
+    buttons before the tail of the list:   CountersLayoutTest.java:80 (clause 3) "Expecting actual: 4 to be
+        less than or equal to: 3", shrunk to height 240, counters 4, taxed 0
+    the same, with clause 3 taken out:     BUILD SUCCESSFUL, 6 tests, 0 failures - clause 1 alone does not
+        see it, so clause 3 is new coverage and not a restatement
+    the tax loop deleted:                  crowdedAndSmall :49 "206 ... to be less than or equal to: 180",
+        and bodyStaysAboveTheFooter :118 "184 ... 180", shrunk to height 240, 0, 0, taxed 5
+
+**`LifeLayoutTest`: two new properties, and both hold.** `neverInventsRows` (`damageRows <= commanders`)
+and `doneIsAlwaysReachable` (the Done button and the panel on screen, widths 320 to 3840 and heights 240
+to 2160). With the panel allowed the full height (`Math.min(natural, height)`, no margin), only
+`doneIsAlwaysReachable` fails: "246 to be less than or equal to 240", shrunk to 320 x 240, 6 commanders.
+`everythingFitsInside` compares Done with the panel, not with the screen, so it passed. With a damage row
+invented for no commanders (`Math.max(1, wantDamage)`), `neverInventsRows` fails, and so do `justLife`
+and `everythingFitsInside`. That makes it a second guard on a case the class already covered.
+
+**Verified:** `./gradlew :core:test --tests` for the three classes: CountersLayoutTest 6, LifeLayoutTest 8,
+TablePoseTest 16 (3 + 5 + 5 + 3), 0 failures, each property at 1000 tries. The full `./gradlew :core:test`:
+331 result files, 2063 tests, 0 failures, 5 skipped. `tools/coretestcheck.py`: "248 test classes, every
+one of them ran, 2063 tests in all". `./gradlew :common:compileJava :neoforge:compileGametestJava
+:fabric:compileJava` passed. All eighteen static checks exit 0.
+
+**Not verified:** no client ran. The counters panel should be identical to the pixel, because the
+geometry for zero damage rows did not change, but nobody has looked at it. `tools/gate.sh` has not run
+on this change.
+
+**Noticed and left:** `spellcheck.py` does not know "neighbour". About twenty files use it, including
+`CountersLayout`'s own javadoc and `CLAUDE.md`. The debt map for this batch said tour steps 82-84 still
+opened the counters screen for commander damage. They have opened `LifeScreen` since `be32a0a`.

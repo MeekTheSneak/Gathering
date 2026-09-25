@@ -125,14 +125,14 @@ class TablePoseTest {
             // The defect this whole class was pulled out of the renderer for: the shoulder was put
             // at hip height, the felt was above it, and every body at a table looked at the
             // ceiling. A player sits no lower than the block their table stands on.
-            assertThat(TableReach.belowTheShoulder(0, FELT_ABOVE_ITS_BLOCK)).isGreaterThan(0);
+            assertThat(Shoulder.belowTheShoulder(0, FELT_ABOVE_ITS_BLOCK)).isGreaterThan(0);
         }
 
         @Test
         @DisplayName("pointing at the table in front of you looks down at it")
         void theHeadLooksDownAtTheTable() {
             // Facing south, a table a block away, its felt below the shoulder.
-            TablePose.Aim aim = TableReach.toward(
+            TablePose.Aim aim = Shoulder.toward(
                     0, 0, 0, 0, true, 0, FELT_ABOVE_ITS_BLOCK, 1.0);
 
             assertThat(aim.headPitch()).isGreaterThan(0f);
@@ -142,9 +142,9 @@ class TablePoseTest {
         @Test
         @DisplayName("the arm swings the way the cursor went")
         void theArmFollowsAcross() {
-            TablePose.Aim left = TableReach.toward(
+            TablePose.Aim left = Shoulder.toward(
                     0, 0, 0, 0, true, 1.0, FELT_ABOVE_ITS_BLOCK, 1.0);
-            TablePose.Aim right = TableReach.toward(
+            TablePose.Aim right = Shoulder.toward(
                     0, 0, 0, 0, true, -1.0, FELT_ABOVE_ITS_BLOCK, 1.0);
 
             // Facing south (+z), the player's right hand is to the west (-x). So a target at -x is
@@ -162,7 +162,7 @@ class TablePoseTest {
             float[] yaws = new float[6];
             for (int step = 0; step < yaws.length; step++) {
                 double across = -0.9 + step * 0.36;
-                yaws[step] = TableReach.toward(
+                yaws[step] = Shoulder.toward(
                         0, 0, 0, 0, true, across, FELT_ABOVE_ITS_BLOCK, 0.9).armYaw();
             }
             for (int step = 1; step < yaws.length; step++) {
@@ -178,7 +178,7 @@ class TablePoseTest {
                 @ForAll @DoubleRange(min = -8, max = 8) double across,
                 @ForAll @DoubleRange(min = -8, max = 8) double along,
                 @ForAll @DoubleRange(min = 0, max = 360) double bodyYaw) {
-            TablePose.Aim aim = TableReach.toward(
+            TablePose.Aim aim = Shoulder.toward(
                     0, 0, 0, bodyYaw, true, across, FELT_ABOVE_ITS_BLOCK, along);
 
             assertThat(aim.headPitch()).isGreaterThanOrEqualTo(0f);

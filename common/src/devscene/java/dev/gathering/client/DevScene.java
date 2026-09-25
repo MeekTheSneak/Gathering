@@ -10385,7 +10385,7 @@ public final class DevScene {
      * listened to for exactly what it sends, and each of those is handed to {@link ClientTablePointing#accept}, the
      * method the network calls with what the server passes on to everybody else at the table. What that proves is
      * the board, the pose and the model; the hop between two clients is not in it and wants two clients.
-     * <p><b>Relations, not numbers.</b> Nothing here works an angle out again, which would be {@code TableReach}
+     * <p><b>Relations, not numbers.</b> Nothing here works an angle out again, which would be {@code Shoulder}
      * checking itself. The head looks down at the felt; the two ends of your own mat turn the head and the arm
      * opposite ways and swing the arm across; the far mat raises the arm and lifts the head. Two of those are
      * defects this body has had: the head looking up, from a shoulder put at the hip, and the arm moving only up

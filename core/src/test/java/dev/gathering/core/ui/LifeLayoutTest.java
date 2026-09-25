@@ -80,6 +80,31 @@ class LifeLayoutTest {
     }
 
     @Property
+    @Label("the way out is always on screen")
+    void doneIsAlwaysReachable(
+            @ForAll @IntRange(min = NARROWEST, max = 3840) int width,
+            @ForAll @IntRange(min = SHORTEST, max = 2160) int height,
+            @ForAll @IntRange(min = 0, max = 10) int commanders) {
+        LifeLayout layout = LifeLayout.of(width, height, commanders);
+
+        assertThat(layout.done().bottom()).isLessThanOrEqualTo(height);
+        assertThat(layout.done().y()).isGreaterThanOrEqualTo(0);
+        assertThat(layout.panel().bottom()).isLessThanOrEqualTo(height);
+        assertThat(layout.panel().right()).isLessThanOrEqualTo(width);
+        assertThat(layout.panel().x()).isGreaterThanOrEqualTo(0);
+    }
+
+    @Property
+    @Label("the panel never shows more commander rows than there are commanders")
+    void neverInventsRows(
+            @ForAll @IntRange(min = SHORTEST, max = 2160) int height,
+            @ForAll @IntRange(min = 0, max = 10) int commanders) {
+        LifeLayout layout = LifeLayout.of(NARROWEST, height, commanders);
+
+        assertThat(layout.damageRows()).isLessThanOrEqualTo(commanders);
+    }
+
+    @Property
     @Label("commander rows never overlap each other or the life total")
     void rowsStandApart(@ForAll @IntRange(min = 1, max = 8) int commanders) {
         LifeLayout layout = LifeLayout.of(640, 480, commanders);

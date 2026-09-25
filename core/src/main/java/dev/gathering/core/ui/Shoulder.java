@@ -11,10 +11,14 @@ package dev.gathering.core.ui;
  * 0.94 above its block, so the thing being pointed at was <em>above</em> the shoulder: the arm
  * reached upward and the head tipped up, and a player at a table appeared to be staring at the
  * ceiling. Nothing could have caught that except looking, because the arithmetic lived in a class
- * that needs a running game. It lives here now, and the test below is the one that would have.
+ * that needs a running game. It lives here now, and {@code TablePoseTest.ReachingATable} is the
+ * test that would have.
+ * <p>Named for the shoulder, the frame of reference it works in, and not for reach: how far an
+ * arm reaches is {@link TablePose#ARM_REACH}, and whether a player can reach a table at all is
+ * the server's {@code TableReach}.
  * <p>Pure, and no compass in it beyond the body's own yaw.
  */
-public final class TableReach {
+public final class Shoulder {
 
     /**
      * How far above a player's own position their shoulder is, in blocks.
@@ -30,7 +34,7 @@ public final class TableReach {
      */
     public static final double SHOULDER_OUT = 6.0 / 16.0 * 15.0 / 16.0;
 
-    private TableReach() {
+    private Shoulder() {
     }
 
     /**

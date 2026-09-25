@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.core.ui.Shoulder;
 import dev.gathering.core.ui.TablePose;
 import dev.gathering.core.ui.TableTop;
 import java.util.Optional;
@@ -16,7 +17,8 @@ import net.minecraft.world.phys.Vec3;
  * <p>This is also where the compass lives. {@link TablePose} works in the player's own frame -
  * across, forward, down - and knows nothing about north; the pointed-at place is a point on a
  * table's felt, which a turned cluster lays a quarter round and a moving structure carries
- * somewhere else entirely. Turning one into the other happens here, once.
+ * somewhere else entirely. The felt becomes a place in the world here, once, and
+ * {@link Shoulder} turns that place into the body's own frame.
  * <p>Client-only.
  */
 public final class TableBodyPose {
@@ -90,13 +92,13 @@ public final class TableBodyPose {
             return TablePose.Aim.AT_THE_TABLE;
         }
 
-        // The shoulder, the frame and the angles are all TableReach's, in :core, where they can
+        // The shoulder, the frame and the angles are all Shoulder's, in :core, where they can
         // be checked in milliseconds - which is where they belong, because getting the shoulder's
         // height wrong is precisely what made every body at a table look at the ceiling. The
         // body's yaw and not the head's: the head is one of the things being posed, and reading it
         // here would make the pose chase itself.
         Vec3 feet = player.getPosition(partialTick);
-        TablePose.Aim aim = dev.gathering.core.ui.TableReach.toward(
+        TablePose.Aim aim = Shoulder.toward(
                 feet.x, feet.y, feet.z, player.yBodyRot,
                 player.getMainArm() == HumanoidArm.RIGHT,
                 at.x, at.y, at.z);
