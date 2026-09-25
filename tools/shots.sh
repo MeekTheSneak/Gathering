@@ -83,10 +83,15 @@ ls -1 "$OUT"
 
 # The run says what it expected at each step. Anything it did not get is a flow that has
 # stopped working, and a script that only leaves a duller picture behind is one nobody reads.
-if scene | grep -q '\[devscene\] FAIL'; then
+# Read into a variable rather than asked with `grep -q`: under pipefail, grep -q stops reading at
+# the first match, the grep feeding it dies of SIGPIPE, and the pipeline's status is that 141 -
+# so the test came out false on a log long enough to still be streaming. Fabric's is, and four
+# runs in five with failures in them reported themselves clean.
+FAILS=$(scene | grep '\[devscene\] FAIL' || true)
+if [ -n "$FAILS" ]; then
     echo
     echo "the scripted run did not get what it expected:"
-    scene | grep '\[devscene\] FAIL' | sed 's/.*\[devscene\]/[devscene]/' | sort -u
+    printf '%s\n' "$FAILS" | sed 's/.*\[devscene\]/[devscene]/' | sort -u
     exit 1
 fi
 

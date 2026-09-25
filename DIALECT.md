@@ -528,3 +528,9 @@ cannot be inferred from reading the code.
   `TableCamera.furthestScale`, the same function. And "everything" means everything drawn: a hand is
   held partly past the table's edge, so both framings take in `TableSurface.handReach()` - the flat one
   in `BoardGeometry.showEverything`, the block's in `TableFraming.everythingDown(top, surface)`.
+- **Never ask a pipe with `grep -q` in a script that sets `pipefail`.** `grep -q` stops reading at
+  the first match, whatever is feeding it dies of SIGPIPE, and the pipeline's status is that 141 -
+  so `if producer | grep -q x` is false exactly when the log is long enough to still be streaming.
+  `tools/shots.sh` asked for `[devscene] FAIL` that way, and on Fabric's longer log four runs in
+  five with failures in them reported themselves clean. Capture into a variable
+  (`x=$(producer | grep pattern || true)`) and test that, or run `grep -q` on the file itself.
