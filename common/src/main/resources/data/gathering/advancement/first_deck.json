@@ -1,0 +1,12 @@
+{
+  "parent": "gathering:root",
+  "display": {
+    "icon": { "id": "gathering:deck" },
+    "title": { "translate": "advancements.gathering.first_deck.title" },
+    "description": { "translate": "advancements.gathering.first_deck.description" },
+    "frame": "task"
+  },
+  "criteria": {
+    "built": { "trigger": "minecraft:impossible" }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "parent": "gathering:first_deck",
+  "display": {
+    "icon": { "id": "minecraft:emerald" },
+    "title": { "translate": "advancements.gathering.first_trade.title" },
+    "description": { "translate": "advancements.gathering.first_trade.description" },
+    "frame": "task"
+  },
+  "criteria": {
+    "traded": { "trigger": "minecraft:impossible" }
+  }
+}

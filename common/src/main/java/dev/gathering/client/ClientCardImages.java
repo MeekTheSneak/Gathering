@@ -1,0 +1,579 @@
+package dev.gathering.client;
+
+import com.mojang.blaze3d.platform.NativeImage;
+import dev.gathering.Gathering;
+import dev.gathering.core.image.CardImageDecoder;
+import java.io.IOException;
+import dev.gathering.core.net.ArtHosts;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.ResourceLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Card art, fetched by this client from Scryfall and cached on this client's disk.
+ * <p>This is the architecture that removes the image-sync problem class entirely: the mod
+ * ships no card images, never relays image bytes over its own network, and never asks a
+ * server for art. A card summary carries a URL; every client goes and gets it.
+ * <p>Two rules, both load-bearing:
+ * <ul>
+ *   <li><b>Never fetch or register a texture on the render thread.</b> HTTP and disk reads
+ *       happen on a small daemon pool; only the GL upload comes back to the client thread.</li>
+ *   <li><b>Resident textures are capped.</b> A four-player Commander game touches roughly
+ *       450 distinct cards, so an unbounded cache is a VRAM leak with extra steps. The disk
+ *       cache keeps everything; VRAM keeps the most recently drawn, up to the budget's ceiling
+ *       in bytes - see {@link dev.gathering.core.card.TextureBudget}.</li>
+ * </ul>
+ * <p>Client-only. Nothing on a server may reference this class.
+ */
+public final class ClientCardImages {
+
+    /**
+     * How many card textures stay on the GPU before the least recently used is dropped, whatever their size.
+     * <p>The budget is in bytes, and the bytes are what decide: 256 normal-tier faces, 488x680 uploaded RGBA with no
+     * mipmaps at 1.27 MiB each, are the ceiling, and so are about 2,860 of the small faces the miniatures draw.
+     * This count is that ceiling filled with small faces, so it only bounds how many textures there are and never
+     * binds first. It was 256 for every tier, which a hall of tables filled with small faces at a ninth of the
+     * budget. See {@link dev.gathering.core.card.TextureBudget}, which does the arithmetic, and the game test that
+     * checks this is its number.
+     */
+    public static final int MAX_RESIDENT_TEXTURES = dev.gathering.core.card.TextureBudget.MOST_TEXTURES;
+
+    private static final String CACHE_DIRECTORY = "image-cache";
+    private static final Duration TIMEOUT = Duration.ofSeconds(20);
+    private static final int MAX_REMEMBERED_FAILURES = 512;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
+    private static final ClientCardImages INSTANCE = new ClientCardImages();
+
+    /**
+     * How many pictures download at once.
+     * <p>Six rather than two. The pictures come from Scryfall's image host, which is a CDN with no request
+     * limit, and a pack of fifteen fetched two at a time was seven round trips of waiting while the cards
+     * were already being turned over.
+     */
+    static final int FETCHERS = 6;
+
+    private final ExecutorService fetchers = Executors.newFixedThreadPool(FETCHERS, daemonThreads("gathering-card-art"));
+    // Redirects followed on purpose - a CDN that moves an image should not look like a missing
+    // card - but by hand, and only to allowed addresses: see AllowedFetch.
+    private final HttpClient http = AllowedFetch.client(TIMEOUT);
+
+    /**
+     * One texture that is on the card, and how much of the graphics card it is holding.
+     * <p>The size is kept because the budget is in bytes and the cache was counting textures:
+     * two hundred and fifty-six of them at the crisp tier is seven hundred and fifty
+     * megabytes, against a documented ceiling of three hundred and twenty-five. Reading a page
+     * of cards with the key held filled it with the large ones.
+     */
+    private record Held(ResourceLocation id, long bytes, boolean crisp) {
+    }
+
+    /** Access-ordered, so iteration order is least-recently-used first. Client thread only. */
+    private final LinkedHashMap<String, Held> resident = new LinkedHashMap<>(64, 0.75f, true);
+
+    /** What the resident textures add up to, kept as they come and go rather than summed. */
+    private long residentBytes;
+
+    /** And how many of them are of the crisp tier, for the same reason. */
+    private int residentCrisp;
+
+    private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Urls this session has given up on, oldest forgotten first.
+     * <p>Bounded, so a session spent looking at cards nobody has art for cannot grow forever.
+     * It used to be a plain set that stopped accepting anything once it was full, which meant
+     * the five-hundred-and-thirteenth dead link was neither remembered as failed nor put on a
+     * retry wait - so every frame that asked for it started another fetch, and a client left
+     * open on a set with no art fetched the same missing picture as fast as two threads could
+     * ask for it.
+     * <p>Forgetting the oldest is the right way round: the url that has not come up for
+     * longest is the one a later retry costs least, and something genuinely gone will simply
+     * fail again once and go back in.
+     */
+    private final Set<String> failed = java.util.Collections.newSetFromMap(
+            java.util.Collections.synchronizedMap(
+                    new LinkedHashMap<>(64, 0.75f, false) {
+                        @Override
+                        protected boolean removeEldestEntry(
+                                java.util.Map.Entry<String, Boolean> eldest) {
+                            return size() > MAX_REMEMBERED_FAILURES;
+                        }
+                    }));
+
+    /**
+     * Urls whose fetch went wrong in a way that might not go wrong next time, and when it is
+     * worth asking again - with how many goes each has had, so a dead one is eventually
+     * given up on for real.
+     */
+    private final java.util.Map<String, Long> waiting = new ConcurrentHashMap<>();
+    private final java.util.Map<String, Integer> attempts = new ConcurrentHashMap<>();
+
+    /** How long to wait before the first retry, doubling after that, and how many to allow. */
+    private static final long FIRST_RETRY_MILLIS = 2_000L;
+    private static final int MOST_ATTEMPTS = 5;
+    private final AtomicInteger textureCounter = new AtomicInteger();
+
+    private String userAgent = Gathering.MOD_NAME + " (Minecraft client)";
+
+    private ClientCardImages() {
+    }
+
+    public static ClientCardImages get() {
+        return INSTANCE;
+    }
+
+    /** Set once at client init so fetches identify themselves, as Scryfall's guidelines ask. */
+    public void identifyAs(String agent) {
+        this.userAgent = agent;
+    }
+
+    /**
+     * The texture for a card image URL, if it is ready.
+     * <p>Returns empty and starts fetching otherwise, so callers render a placeholder this
+     * frame and the real art a few frames later. Never blocks.
+     */
+    public Optional<ResourceLocation> texture(String url) {
+        if (url == null || url.isBlank() || failed.contains(url)) {
+            return Optional.empty();
+        }
+        // The picture first, when there is one. This is asked for every card drawn on every frame,
+        // and everything below it - a URI parsed, a host lowercased, a map of pending fetches - was
+        // being done before the answer was looked up, to re-decide something that cannot change for
+        // a given string. A board of sixty cards was thousands of URI parses a second on the render
+        // thread. Nothing about what may be fetched changes: a URL only reaches the cache below by
+        // passing the check first.
+        Held drawn = resident.get(url);
+        if (drawn != null) {
+            return Optional.of(drawn.id());
+        }
+        // Scryfall's, or not fetched. The URL is a string the server put in a card's summary,
+        // and this used to fetch whatever it said - which made every client at a table a way
+        // for the host to read addresses inside that client's own network. Refused once, and
+        // then drawn as a card whose art is missing, the same as a picture that is not there.
+        if (!ArtHosts.isAllowed(url)) {
+            if (failed.add(url)) {
+                LOGGER.warn("Card art is only fetched from Scryfall; not fetching {}", url);
+            }
+            return Optional.empty();
+        }
+        Long notBefore = waiting.get(url);
+        if (notBefore != null && System.currentTimeMillis() < notBefore) {
+            return Optional.empty();
+        }
+        if (inFlight.add(url)) {
+            RenderProbe.count("art.fetches", 1);
+            fetchers.execute(() -> fetch(url));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Starts fetching pictures that are about to be wanted, without waiting for anything to draw them.
+     * <p>For a pack: the server has said what is in it before the screen opens, and every card's art used
+     * to start downloading only at the moment it was turned over.
+     */
+    public void prefetch(java.util.Collection<String> urls) {
+        if (urls != null) {
+            urls.forEach(this::texture);
+        }
+    }
+
+    /**
+     * Whether this URL has been tried and will not be tried again this session.
+     * <p>Only for the failures that are really final - the picture is not there, or what came
+     * back is not an image. A fetch that timed out or came back 429 is waiting rather than
+     * failed, and the screen goes on saying it is still trying, because it is.
+     */
+    public boolean hasFailed(String url) {
+        return url != null && failed.contains(url);
+    }
+
+    public int residentCount() {
+        return resident.size();
+    }
+
+    /** What the resident textures come to, which is the budget the ceiling is written in. */
+    public long residentMebibytes() {
+        return residentBytes / (1024 * 1024);
+    }
+
+    public void shutdown() {
+        fetchers.shutdownNow();
+    }
+
+    private void fetch(String url) {
+        boolean handedOff = false;
+        try {
+            byte[] cached = readCached(url).orElse(null);
+            if (cached == null) {
+                Fetched came = download(url);
+                if (came.bytes() == null || came.bytes().length == 0) {
+                    if (came.worthRetrying()) {
+                        waitBeforeRetrying(url);
+                    } else {
+                        markFailed(url);
+                    }
+                    return;
+                }
+                cached = came.bytes();
+            }
+            final byte[] bytes = cached;
+            waiting.remove(url);
+            attempts.remove(url);
+            // Back to the client thread: NativeImage and the GL upload both belong there.
+            // The url stays in flight until upload() has published the texture. Releasing it
+            // here opened a gap - resident not yet filled, inFlight already empty - that the
+            // render loop fetched into on the very next frame, and the second upload then
+            // replaced the first texture in resident without releasing it: a leaked GL
+            // texture per fetched card, plus the double decode.
+            handedOff = true;
+            prepare(url, bytes);
+        } catch (RuntimeException e) {
+            LOGGER.warn("Could not load card art from {}: {}", url, e.toString());
+            markFailed(url);
+        } finally {
+            if (!handedOff) {
+                inFlight.remove(url);
+            }
+        }
+    }
+
+    /**
+     * Turns bytes into pixels, off the render thread.
+     * <p>Decoding a card scan, rounding its corners and copying it pixel by pixel is a real
+     * piece of work - at the crisp tier, three quarters of a million pixels - and it used to
+     * happen inside the job handed to the render thread. A screen full of cards arriving at
+     * once was that job several times over, between two frames. Only the upload has to be on
+     * the render thread, so only the upload is.
+     */
+    private void prepare(String url, byte[] bytes) {
+        try {
+            CardImageDecoder.DecodedImage decoded = CardImageDecoder.decode(bytes);
+            // Card art arrives as a rectangle with the corners printed on it. A card is not a
+            // rectangle.
+            dev.gathering.core.image.RoundedCorners.apply(decoded);
+            NativeImage image = toNativeImage(decoded);
+            long size = (long) decoded.width() * decoded.height() * 4L;
+            // Recognized by its size rather than by what was asked for: what comes back is
+            // what counts against the budget.
+            boolean crisp = decoded.height() >= dev.gathering.core.card.TextureBudget.Tier.CRISP.height();
+            Minecraft.getInstance().execute(() -> upload(url, image, size, crisp));
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warn("Could not decode card art from {}: {}", url, e.toString());
+            markFailed(url);
+            discardCached(url);
+            inFlight.remove(url);
+        }
+    }
+
+    private void upload(String url, NativeImage image, long size, boolean crisp) {
+        try {
+            ResourceLocation id = Gathering.id("card_art/" + textureCounter.incrementAndGet());
+            Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
+            resident.put(url, new Held(id, size, crisp));
+            residentBytes += size;
+            if (crisp) {
+                residentCrisp++;
+            }
+            RenderProbe.count("art.uploads", 1);
+            evictDownToCap();
+        } catch (RuntimeException e) {
+            // Loud rather than debug: a card that will not draw is the single most visible
+            // way this mod can look broken, and each url is only ever attempted once, so
+            // this is one line per card rather than a flood.
+            // Loud rather than debug: a card that will not draw is the single most visible
+            // way this mod can look broken.
+            LOGGER.warn("Could not upload card art from {}: {}", url, e.toString());
+            markFailed(url);
+            // What would not decode is thrown out of the disk cache too. The failed set only
+            // lasts the session, so a truncated file kept here came back every session and
+            // broke this card's art for good; gone, the next session downloads it fresh.
+            discardCached(url);
+            image.close();
+        } finally {
+            inFlight.remove(url);
+        }
+    }
+
+    /** Client thread or fetcher thread; only touches the disk. */
+    private void discardCached(String url) {
+        Path file = cacheFile(url);
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            LOGGER.debug("Could not discard cached card art for {}", url, e);
+        }
+    }
+
+    /**
+     * Copies decoded pixels into a texture.
+     * <p>Decoding happens in the pure core with ImageIO, because Minecraft's own
+     * {@code NativeImage.read} is stb_image and stb cannot read progressive JPEG - which is
+     * what Scryfall serves for every tier but png. All that is left here is the copy.
+     */
+    private static NativeImage toNativeImage(CardImageDecoder.DecodedImage decoded) {
+        NativeImage image = new NativeImage(NativeImage.Format.RGBA, decoded.width(), decoded.height(), false);
+        for (int y = 0; y < decoded.height(); y++) {
+            for (int x = 0; x < decoded.width(); x++) {
+                image.setPixelRGBA(x, y, decoded.pixelAt(x, y));
+            }
+        }
+        return image;
+    }
+
+    /**
+     * Client thread only, because releasing a texture touches GL.
+     * <p>What goes is decided by {@link dev.gathering.core.card.ResidentTextures}, which is
+     * pure and therefore checkable: this walks the map in access order, hands over the
+     * running totals, and releases whatever comes back.
+     */
+    private void evictDownToCap() {
+        // Nothing to decide while everything fits, which is almost always. The pass below lists every resident
+        // texture, and with the cap counted in the ceiling's worth of small faces that is thousands of them.
+        if (resident.size() <= MAX_RESIDENT_TEXTURES
+                && residentBytes <= dev.gathering.core.card.TextureBudget.CEILING_MEBIBYTES * 1024 * 1024
+                && residentCrisp <= dev.gathering.core.card.TextureBudget.CRISP_AT_ONCE) {
+            return;
+        }
+        List<dev.gathering.core.card.ResidentTextures.Held> oldestFirst =
+                new ArrayList<>(resident.size());
+        for (Map.Entry<String, Held> entry : resident.entrySet()) {
+            oldestFirst.add(new dev.gathering.core.card.ResidentTextures.Held(
+                    entry.getKey(), entry.getValue().bytes(), entry.getValue().crisp()));
+        }
+        for (String key : dev.gathering.core.card.ResidentTextures.toRelease(
+                oldestFirst,
+                MAX_RESIDENT_TEXTURES,
+                dev.gathering.core.card.TextureBudget.CEILING_MEBIBYTES * 1024 * 1024,
+                dev.gathering.core.card.TextureBudget.CRISP_AT_ONCE)) {
+            Held held = resident.remove(key);
+            if (held == null) {
+                continue;
+            }
+            Minecraft.getInstance().getTextureManager().release(held.id());
+            residentBytes -= held.bytes();
+            if (held.crisp()) {
+                residentCrisp--;
+            }
+            RenderProbe.count("art.released", 1);
+        }
+    }
+
+    private Optional<byte[]> readCached(String url) {
+        Path file = cacheFile(url);
+        if (file == null || !Files.isRegularFile(file)) {
+            return Optional.empty();
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(file);
+            try {
+                // When it was last wanted, which is what the trim goes by.
+                Files.setLastModifiedTime(file, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
+            } catch (IOException ignored) {
+                // A picture that cannot be touched is kept or trimmed a little early; it is still a picture.
+            }
+            return Optional.of(bytes);
+        } catch (IOException e) {
+            return Optional.empty();
+        }
+    }
+
+    /** Past this the picture cache is trimmed, down to {@link #TRIMMED_TO}. It used to grow for ever. */
+    static final long MOST_CACHED_BYTES = 1L << 30;
+    static final long TRIMMED_TO = 768L << 20;
+
+    /** Trims the picture cache on disk, least recently used first, off the render thread. Once a session. */
+    public void trimDiskCache() {
+        if (!trimmed.compareAndSet(false, true)) {
+            return;
+        }
+        // A thread of its own rather than one of the fetchers. Walking a cache that may be a gigabyte,
+        // asking every file its size and its age, holds whichever thread does it for as long as that
+        // takes - and this runs at client init, which is when the first pack is being downloaded.
+        Thread trim = new Thread(() -> {
+            Path root = Minecraft.getInstance().gameDirectory.toPath().resolve(Gathering.MOD_ID).resolve(CACHE_DIRECTORY);
+            if (!Files.isDirectory(root)) {
+                return;
+            }
+            java.util.List<dev.gathering.core.card.CacheTrim.Entry> entries = new java.util.ArrayList<>();
+            try (java.util.stream.Stream<Path> files = Files.walk(root, 2)) {
+                files.filter(Files::isRegularFile).forEach(file -> {
+                    try {
+                        entries.add(new dev.gathering.core.card.CacheTrim.Entry(root.relativize(file).toString(),
+                                Files.size(file), Files.getLastModifiedTime(file).toMillis()));
+                    } catch (IOException ignored) {
+                        // Gone between listing and reading: nothing to trim.
+                    }
+                });
+            } catch (IOException | RuntimeException couldNotList) {
+                LOGGER.debug("Could not look over the card art cache", couldNotList);
+                return;
+            }
+            var deleting = dev.gathering.core.card.CacheTrim.toDelete(entries, MOST_CACHED_BYTES, TRIMMED_TO);
+            for (var entry : deleting) {
+                try {
+                    Files.deleteIfExists(root.resolve(entry.name()));
+                } catch (IOException ignored) {
+                    // In use, or already gone.
+                }
+            }
+            if (!deleting.isEmpty()) {
+                LOGGER.info("Trimmed {} card picture(s) out of the art cache", deleting.size());
+            }
+        }, "Gathering card cache trim");
+        trim.setDaemon(true);
+        trim.start();
+    }
+
+    private final java.util.concurrent.atomic.AtomicBoolean trimmed = new java.util.concurrent.atomic.AtomicBoolean();
+
+    /**
+     * What came back, and whether asking again could ever give a different answer.
+     * <p>The difference is the whole point. A 404 means the picture is not there and never
+     * will be; a timeout, a 429 or a 503 mean the network was busy, which is a thing that
+     * stops being true.
+     */
+    private record Fetched(byte[] bytes, boolean worthRetrying) {
+
+        static final Fetched GONE = new Fetched(null, false);
+        static final Fetched LATER = new Fetched(null, true);
+    }
+
+    private Fetched download(String url) {
+        try {
+            HttpResponse<java.io.InputStream> response = AllowedFetch.get(http, url, userAgent, "image/*", TIMEOUT);
+            // The body is closed on every way out of here, not only the one that reads it. A
+            // missing or rate-limited picture used to return with its stream still open, and
+            // a wall of packs whose art is all 404 is a wall of connections nobody closed.
+            // And it gives up on a picture that stops arriving: the timeout above lasts until the
+            // reply starts, so a download that went quiet halfway held one of the fetchers, and its
+            // card's place in flight, for the rest of the session. Given up on, it is tried later.
+            try (java.io.InputStream in = dev.gathering.core.net.ReadDeadline.wrap(response.body(), TIMEOUT)) {
+                int status = response.statusCode();
+                if (status != 200) {
+                    LOGGER.warn("Card art fetch returned HTTP {} for {}", status, url);
+                    // Only "it is not there" is final. Everything else - a rate limit, a bad
+                    // gateway, a proxy having a moment - is worth asking again about.
+                    return status == 404 || status == 410 ? Fetched.GONE : Fetched.LATER;
+                }
+                // Read up to a picture's worth and not a byte more. A body with no end to it
+                // used to be read whole into one array; now it is a picture that is not there.
+                byte[] body = in.readNBytes(ArtHosts.MOST_BYTES + 1);
+                if (body.length > ArtHosts.MOST_BYTES) {
+                    LOGGER.warn("Card art at {} is larger than any picture; not keeping it", url);
+                    return Fetched.GONE;
+                }
+                writeCache(url, body);
+                return new Fetched(body, false);
+            }
+        } catch (IOException e) {
+            // A timeout or a dropped connection. This is the one that made whole cards look
+            // permanently broken: dozens of images are asked for at once when a collection
+            // opens, and whichever of them lost that race used to be given up on for the
+            // rest of the session while everything else about the card loaded fine.
+            LOGGER.warn("Card art fetch failed for {}: {}", url, e.toString());
+            return Fetched.LATER;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Fetched.LATER;
+        }
+    }
+
+    private void writeCache(String url, byte[] bytes) {
+        Path file = cacheFile(url);
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.createDirectories(file.getParent());
+            // Written beside and moved into place, like the set symbols. A client killed
+            // part way through a plain write left a truncated image that failed to decode
+            // on every later session.
+            Path beside = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.write(beside, bytes);
+            Files.move(beside, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            // A cache we cannot write is slower, not broken.
+            LOGGER.debug("Could not cache card art for {}", url, e);
+        }
+    }
+
+    private Path cacheFile(String url) {
+        String hash = sha1(url);
+        if (hash == null) {
+            return null;
+        }
+        return Minecraft.getInstance().gameDirectory.toPath()
+                .resolve(Gathering.MOD_ID)
+                .resolve(CACHE_DIRECTORY)
+                .resolve(hash.substring(0, 2))
+                .resolve(hash + ".png");
+    }
+
+    /**
+     * Puts a url aside for a while rather than giving up on it.
+     * <p>Backing off each time so a host that is genuinely down is not hammered, and giving
+     * up for real after a few goes so a dead link cannot be retried forever.
+     */
+    private void waitBeforeRetrying(String url) {
+        int gone = attempts.merge(url, 1, Integer::sum);
+        if (gone >= MOST_ATTEMPTS) {
+            LOGGER.warn("Giving up on card art at {} after {} tries", url, gone);
+            markFailed(url);
+            return;
+        }
+        waiting.put(url, System.currentTimeMillis() + FIRST_RETRY_MILLIS * (1L << (gone - 1)));
+    }
+
+    private void markFailed(String url) {
+        failed.add(url);
+        // The two maps that got it here are no use once it is in the failed set, and leaving
+        // them full would mean a url the set later forgets came back already out of tries.
+        waiting.remove(url);
+        attempts.remove(url);
+    }
+
+    private static String sha1(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
+    }
+
+    private static java.util.concurrent.ThreadFactory daemonThreads(String prefix) {
+        AtomicInteger counter = new AtomicInteger();
+        return runnable -> {
+            Thread thread = new Thread(runnable, prefix + "-" + counter.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        };
+    }
+}

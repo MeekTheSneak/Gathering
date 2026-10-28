@@ -1,0 +1,1243 @@
+package dev.gathering.neoforge.test;
+
+import dev.gathering.Gathering;
+import dev.gathering.block.TableBlock;
+import dev.gathering.block.TableSeats;
+import dev.gathering.block.TableSessions;
+import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.match.MatchRules;
+import dev.gathering.core.match.MatchState;
+import dev.gathering.core.format.FormatPresets;
+import dev.gathering.core.tournament.Entrant;
+import dev.gathering.core.tournament.EventSettings;
+import dev.gathering.core.tournament.MatchResult;
+import dev.gathering.core.tournament.Pairing;
+import dev.gathering.core.tournament.Round;
+import dev.gathering.core.tournament.Tournament;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.DeckComponent;
+import dev.gathering.network.EventActionPayload;
+import dev.gathering.network.TableActionPayload;
+import dev.gathering.network.UndoPayload;
+import dev.gathering.server.TableActions;
+import dev.gathering.server.TablesApart;
+import dev.gathering.server.events.EventRecords;
+import dev.gathering.server.events.EventState;
+import dev.gathering.server.events.EventViews;
+import dev.gathering.server.events.Events;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+/**
+ * Tournaments in a world: seating, the clock, decks, results, records and prizes.
+ * <p>The rules are played through at length in the pure module. What is checked here is the part
+ * with blocks and players in it - that a round seats the right people at the right numbered
+ * table and starts their match, that a locked deck is refused at the table, that the clock and
+ * extra turns end a match on games won, and that property put up as a prize reaches its winner.
+ */
+@GameTestHolder(Gathering.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class EventsGameTest {
+
+    private static final UUID CARD = UUID.fromString("5805f64c-dd88-4e94-8f0a-a01dae67e3ba");
+
+    /** A round of four players at a long table of two: each pair at its numbered table, playing. */
+    @GameTest(template = "tables")
+    public static void aroundSeatsEachPairAtItsNumberedTableAndStartsTheirMatch(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        Round round = fixture.state.tournament().currentRound().orElseThrow();
+        for (Pairing pairing : round.pairings()) {
+            BlockPos table = fixture.state.table(pairing.table()).orElseThrow();
+            var seats = TableSeats.seatOf(helper.getLevel(), table, pairing.a());
+            var other = TableSeats.seatOf(helper.getLevel(), table, pairing.b());
+            if (seats.isEmpty() || other.isEmpty()) {
+                helper.fail("table " + pairing.table() + " does not seat its pairing");
+                return;
+            }
+            var session = TableSessions.sessionAt(helper.getLevel(), table).orElse(null);
+            if (session == null || session.state().seats().size() != 2) {
+                helper.fail("no two-seat match was started at table " + pairing.table());
+                return;
+            }
+            if (!TableSessions.matchAt(helper.getLevel(), table).map(match -> match.rules().bestOf() == 3
+                    && match.rules().format().id().equals("modern")).orElse(false)) {
+                helper.fail("table " + pairing.table() + " is not playing the event's format and length");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * In the cut the higher Swiss seed plays first in the first game (MTR 2.2), even when an
+     * upset has put them in the second chair: the eighth seed beat the first, and the fourth seed
+     * they meet in the semifinal goes first.
+     */
+    @GameTest(template = "tables")
+    public static void theHigherSeedPlaysFirstInACutMatch(GameTestHelper helper) {
+        BlockPos first = place(helper, 1, 2, 1);
+        BlockPos second = place(helper, 4, 2, 1);
+        List<ServerPlayer> players = new ArrayList<>();
+        for (int index = 0; index < 9; index++) {
+            ServerPlayer player = helper.makeMockServerPlayerInLevel();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setPos(first.getX() + 1.0, first.getY(), first.getZ() + 1.0);
+            players.add(player);
+        }
+        EventSettings withCut = new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 0, 8,
+                EventSettings.DeckRegistration.OFF, false);
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Cut", players.get(0).getUUID(), withCut);
+        for (int index = 0; index < 9; index++) {
+            tournament = tournament.register(Entrant.registering(players.get(index).getUUID(), "P" + index, 1500 - index));
+        }
+        tournament = tournament.beginPreparing();
+        for (ServerPlayer player : players) {
+            tournament = tournament.markReady(player.getUUID());
+        }
+        tournament = tournament.startSwiss();
+        while (tournament.phase() == Tournament.Phase.SWISS) {
+            for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+                if (!pairing.isConfirmed()) {
+                    tournament = tournament.settle(pairing.table(), new MatchResult(2, 1, 0));
+                }
+            }
+            tournament = tournament.nextRound();
+        }
+        for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+            tournament = tournament.settle(pairing.table(), pairing.table() == 1 ? new MatchResult(0, 2, 0) : new MatchResult(2, 0, 0));
+        }
+        tournament = tournament.nextRound();
+        List<UUID> seeded = tournament.standings().stream().map(row -> row.player().id()).toList();
+        Pairing semifinal = tournament.currentRound().orElseThrow().atTable(1).orElseThrow();
+        if (seeded.indexOf(semifinal.b()) >= seeded.indexOf(semifinal.a())) {
+            helper.fail("the semifinal was meant to have the higher seed in the second chair: " + semifinal);
+            return;
+        }
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(first, second));
+        Events.putForTesting(state);
+        TablesApart.set(helper.getLevel(), first, true);
+        Events.seatRoundForTesting(helper.getLevel().getServer(), state);
+
+        var session = TableSessions.sessionAt(helper.getLevel(), state.table(1).orElseThrow()).orElse(null);
+        if (session == null) {
+            helper.fail("no match was started at the semifinal table");
+            return;
+        }
+        boolean higherSeedFirst = session.records().stream().anyMatch(record -> record instanceof dev.gathering.core.game.SessionRecord.EventRecord event
+                && event.event() instanceof dev.gathering.core.game.event.GameEvent.StartingPlayerChosen starting
+                && starting.why() == dev.gathering.core.game.event.GameEvent.StartingPlayerChosen.Why.HIGHER_SEED
+                && starting.actor().equals(new SeatId(1)));
+        if (!higherSeedFirst || !session.state().turn().activeSeat().equals(new SeatId(1))) {
+            helper.fail("the higher seed, in the second chair, is not first: " + session.state().turn().activeSeat());
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** Time and the extra turns end a match on games won, with the game in progress a draw. */
+    @GameTest(template = "tables")
+    public static void theClockAndExtraTurnsEndAMatchOnGamesWon(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        BlockPos table = fixture.state.table(1).orElseThrow();
+        // One game won by the first player before time.
+        TableBlock.entityAt(helper.getLevel(), table).orElseThrow().recordMatch(
+                MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3)).afterGameWonBy(new SeatId(0)));
+
+        Events.runClockForTesting(helper.getLevel().getServer(), fixture.state,
+                fixture.state.tournament().settings().roundMinutes() * 20L * 60L);
+        if (!fixture.state.tournament().currentRound().orElseThrow().timeCalled()) {
+            helper.fail("the round clock ran out and time was not called");
+            return;
+        }
+        for (int turn = 0; turn <= fixture.state.tournament().settings().extraTurns(); turn++) {
+            Events.turnPassed(helper.getLevel(), table);
+        }
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        if (!pairing.isConfirmed()) {
+            helper.fail("the extra turns ran out and the match was not recorded");
+            return;
+        }
+        if (!pairing.result().equals(new MatchResult(1, 0, 1))) {
+            helper.fail("a match up one game at time was recorded as " + pairing.result());
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Time called, each extra turn and the match recorded are shown at the board, and a match the
+     * event has decided is not spoken for again.
+     * <p>All three were chat lines only, and the board covers the chat window, so the two players
+     * at a table played on through a match the event had already recorded with nobody having told
+     * them time was called. And every pass after the recording told the table "Extra turn 6 of 5."
+     * A stand-in player cannot take the notice's payload, so this listens at {@code Notices}.
+     */
+    @GameTest(template = "tables")
+    public static void timeCalledAndExtraTurnsAreShownAtTheBoard(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        BlockPos table = fixture.state.table(1).orElseThrow();
+        TableBlock.entityAt(helper.getLevel(), table).orElseThrow().recordMatch(
+                MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3)).afterGameWonBy(new SeatId(0)));
+        Pairing paired = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        Set<UUID> atTheTable = Set.of(paired.a(), paired.b());
+        List<String> shown = java.util.Collections.synchronizedList(new ArrayList<>());
+        dev.gathering.server.Notices.watchForTesting((to, line) -> {
+            if (atTheTable.contains(to)) {
+                shown.add(to + " " + (line.getContents()
+                        instanceof net.minecraft.network.chat.contents.TranslatableContents said
+                        ? said.getKey() : line.getString()));
+            }
+        });
+
+        Events.runClockForTesting(helper.getLevel().getServer(), fixture.state,
+                fixture.state.tournament().settings().roundMinutes() * 20L * 60L);
+        for (UUID player : atTheTable) {
+            if (!shown.contains(player + " message.gathering.event.time")) {
+                helper.fail("time was called and a player at the table was not shown it at the board: " + shown);
+                return;
+            }
+        }
+
+        int allowed = fixture.state.tournament().settings().extraTurns();
+        shown.clear();
+        for (int turn = 0; turn < allowed; turn++) {
+            Events.turnPassed(helper.getLevel(), table);
+        }
+        long extraTurnsShown = shown.stream().filter(line -> line.endsWith(" message.gathering.event.extra_turn")).count();
+        if (extraTurnsShown != (long) allowed * atTheTable.size()) {
+            helper.fail(allowed + " extra turns were each shown at the board " + extraTurnsShown
+                    + " time(s) in all across the table's two players: " + shown);
+            return;
+        }
+        shown.clear();
+        Events.turnPassed(helper.getLevel(), table);
+        if (!fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow().isConfirmed()) {
+            helper.fail("the extra turns ran out and the match was not recorded, so this checks nothing");
+            return;
+        }
+        for (UUID player : atTheTable) {
+            if (!shown.contains(player + " message.gathering.event.match_over_at_time")) {
+                helper.fail("the match was recorded at time and a player at the table was not shown it: " + shown);
+                return;
+            }
+        }
+
+        // The players finish their game after the recording, and pass a turn in it.
+        shown.clear();
+        int countedBefore = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow().turnsAfterTime();
+        Events.turnPassed(helper.getLevel(), table);
+        int countedAfter = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow().turnsAfterTime();
+        if (!shown.isEmpty() || countedAfter != countedBefore) {
+            helper.fail("a pass after the match was recorded was spoken for again: " + shown
+                    + ", counted " + countedBefore + " then " + countedAfter);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A pass taken back at the table after time is called does not use up an extra turn.
+     * <p>The table counted every pass it was told about, and Undo took a pass back on the board and
+     * not in the count: five passes pressed and undone, then one real one, recorded a match a game
+     * up at time with no extra turn played. Through the real move and undo handlers.
+     */
+    @GameTest(template = "tables")
+    public static void aPassTakenBackDoesNotUseUpAnExtraTurn(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        BlockPos table = fixture.state.table(1).orElseThrow();
+        TableBlock.entityAt(helper.getLevel(), table).orElseThrow().recordMatch(
+                MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3)).afterGameWonBy(new SeatId(0)));
+        Events.runClockForTesting(helper.getLevel().getServer(), fixture.state,
+                fixture.state.tournament().settings().roundMinutes() * 20L * 60L);
+        if (!fixture.state.tournament().currentRound().orElseThrow().timeCalled()) {
+            helper.fail("the round clock ran out and time was not called");
+            return;
+        }
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), table).orElseThrow();
+        SeatId active = session.state().turn().activeSeat();
+        SeatId other = session.state().seats().stream()
+                .filter(seat -> !seat.equals(active) && session.state().seatState(seat).isOccupied())
+                .findFirst().orElse(null);
+        ServerPlayer passer = fixture.players.stream()
+                .filter(player -> TableSessions.seatIdOf(helper.getLevel(), table, player.getUUID())
+                        .filter(active::equals).isPresent())
+                .findFirst().orElse(null);
+        if (passer == null || other == null) {
+            helper.fail("table 1 has nobody in the seat whose turn it is, or nobody to pass to");
+            return;
+        }
+        byte[] pass = encoded(new GameEvent.TurnPassed(active, other));
+
+        int allowed = fixture.state.tournament().settings().extraTurns();
+        for (int press = 0; press < allowed; press++) {
+            TableActions.handle(passer, new TableActionPayload(table, pass));
+            TableActions.handleUndo(passer, new UndoPayload(table, 1));
+            if (!session.state().turn().activeSeat().equals(active)) {
+                helper.fail("Undo did not take the pass back on the board, so this checks nothing");
+                return;
+            }
+        }
+        TableActions.handle(passer, new TableActionPayload(table, pass));
+
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        if (pairing.isConfirmed()) {
+            helper.fail(allowed + " passes taken back used up the extra turns: the match was recorded "
+                    + pairing.result().label() + " after one pass that stood");
+            return;
+        }
+        if (pairing.turnsAfterTime() != 1) {
+            helper.fail("one pass standing counts as " + pairing.turnsAfterTime() + " turns after time");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A pass made just before time is called and taken back just after it does not make the turn in
+     * progress at the call an extra turn. The rewind leaves the table on the turn before turn 0, and the
+     * pass that reaches turn 0 again is turn 0. Through the real move and undo handlers.
+     */
+    @GameTest(template = "tables")
+    public static void aPassFromBeforeTimeTakenBackAfterItLeavesTurnZero(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        BlockPos table = fixture.state.table(1).orElseThrow();
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), table).orElseThrow();
+        SeatId active = session.state().turn().activeSeat();
+        SeatId other = session.state().seats().stream()
+                .filter(seat -> !seat.equals(active) && session.state().seatState(seat).isOccupied())
+                .findFirst().orElse(null);
+        ServerPlayer passer = fixture.players.stream()
+                .filter(player -> TableSessions.seatIdOf(helper.getLevel(), table, player.getUUID())
+                        .filter(active::equals).isPresent())
+                .findFirst().orElse(null);
+        if (passer == null || other == null) {
+            helper.fail("table 1 has nobody in the seat whose turn it is, or nobody to pass to");
+            return;
+        }
+        byte[] pass = encoded(new GameEvent.TurnPassed(active, other));
+
+        TableActions.handle(passer, new TableActionPayload(table, pass));
+        Events.runClockForTesting(helper.getLevel().getServer(), fixture.state,
+                fixture.state.tournament().settings().roundMinutes() * 20L * 60L);
+        if (!fixture.state.tournament().currentRound().orElseThrow().timeCalled()) {
+            helper.fail("the round clock ran out and time was not called");
+            return;
+        }
+        TableActions.handleUndo(passer, new UndoPayload(table, 1));
+        if (!session.state().turn().activeSeat().equals(active)) {
+            helper.fail("Undo did not take the pass back on the board, so this checks nothing");
+            return;
+        }
+        TableActions.handle(passer, new TableActionPayload(table, pass));
+
+        int taken = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow().turnsAfterTime();
+        if (taken != 0) {
+            helper.fail("the pass that reached the turn in progress at time again was counted as " + taken
+                    + " turns after it, not as turn 0");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A cut match decided as it is paired - its other player dropped after winning the last round -
+     * is not seated. Nobody sits down at a table for a match that is already over, and nobody is
+     * told they are paired against a player who has gone.
+     */
+    @GameTest(template = "tables")
+    public static void aCutMatchDecidedAsItIsPairedIsNotSeated(GameTestHelper helper) {
+        BlockPos only = place(helper, 1, 2, 1);
+        List<UUID> players = new ArrayList<>();
+        for (int index = 0; index < 9; index++) {
+            players.add(new UUID(0x39L, index));
+        }
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Cut", players.get(0),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        for (UUID player : players) {
+            tournament = tournament.register(Entrant.registering(player, "C" + player.getLeastSignificantBits(), 1500));
+        }
+        tournament = tournament.beginPreparing();
+        for (UUID player : players) {
+            tournament = tournament.markReady(player);
+        }
+        tournament = tournament.startSwiss();
+        while (tournament.phase() != Tournament.Phase.CUT || tournament.currentRound().orElseThrow().pairings().size() > 1) {
+            for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+                if (!pairing.isConfirmed()) {
+                    tournament = tournament.settle(pairing.table(), new MatchResult(2, 1, 0));
+                }
+            }
+            Round finished = tournament.currentRound().orElseThrow();
+            if (tournament.phase() == Tournament.Phase.CUT && finished.pairings().size() == 2) {
+                // The first semifinal's winner leaves in the pause before the final.
+                tournament = tournament.drop(finished.pairings().get(0).a());
+            }
+            tournament = tournament.nextRound();
+        }
+        Pairing finalMatch = tournament.currentRound().orElseThrow().pairings().get(0);
+        if (!finalMatch.isConfirmed()) {
+            helper.fail("the final against a player who dropped was paired to be played");
+            return;
+        }
+
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(only));
+        TablesApart.set(helper.getLevel(), only, true);
+        Events.seatRoundForTesting(helper.getLevel().getServer(), state);
+
+        if (TableSessions.sessionAt(helper.getLevel(), only).isPresent()) {
+            helper.fail("a match decided as it was paired was started at its table");
+            return;
+        }
+        for (UUID player : List.of(finalMatch.a(), finalMatch.b())) {
+            if (TableSeats.seatOf(helper.getLevel(), only, player).isPresent()) {
+                helper.fail("a finalist was sat down for a final that was already decided");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    private static byte[] encoded(GameEvent event) {
+        try {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.io.DataOutputStream out = new java.io.DataOutputStream(bytes)) {
+                dev.gathering.core.game.persistence.EventCodec.write(out, event);
+            }
+            return bytes.toByteArray();
+        } catch (java.io.IOException cannotDescribe) {
+            throw new IllegalStateException(cannotDescribe);
+        }
+    }
+
+    /** Gone for five minutes of a round: the match is conceded. */
+    @GameTest(template = "tables")
+    public static void aplayerGoneFiveMinutesConcedesTheirMatch(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        // Grace is measured in real time now, not server ticks: the same five minutes, from the wall clock.
+        long now = Events.wallClockForTesting();
+        Events.goneForTesting(pairing.b(), now - 5L * 60_000L - 1);
+        Events.runClockForTesting(helper.getLevel().getServer(), fixture.state, 1);
+        Pairing after = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        if (!after.isConfirmed() || !after.result().firstWon()) {
+            helper.fail("a player gone five minutes did not concede: " + after.result());
+            return;
+        }
+        Events.goneForTesting(pairing.a(), now);
+        helper.succeed();
+    }
+
+    /**
+     * The same in a best-of-one event, where a concession is one game to none. It was two to
+     * none, which is not a best-of-one result: settling it threw on the round clock, and the
+     * match stayed open with its player gone.
+     */
+    @GameTest(template = "tables")
+    public static void aplayerGoneFromABestOfOneConcedesOneGameToNone(GameTestHelper helper) {
+        EventSettings usual = EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern");
+        EventSettings bestOfOne = new EventSettings(usual.kind(), usual.formatId(), usual.pod(), 1, usual.roundMinutes(),
+                usual.buildMinutes(), usual.extraTurns(), usual.rounds(), usual.topCut(), usual.decks(), usual.largeEvent());
+        Fixture fixture = fourPlayersPlaying(helper, bestOfOne);
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        long now = Events.wallClockForTesting();
+        Events.goneForTesting(pairing.b(), now - 5L * 60_000L - 1);
+        Events.runClockForTesting(helper.getLevel().getServer(), fixture.state, 1);
+        Pairing after = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        Events.goneForTesting(pairing.a(), now);
+        if (!after.isConfirmed() || !new MatchResult(1, 0, 0).equals(after.result())) {
+            helper.fail("a player gone from a best-of-one did not concede it 1-0: " + after.result());
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A game ended at the table is what the result screen suggests. */
+    @GameTest(template = "tables")
+    public static void theTableSuggestsTheResultItSaw(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        BlockPos table = fixture.state.table(2).orElseThrow();
+        MatchState won = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
+                .afterGameWonBy(new SeatId(1)).afterGameWonBy(new SeatId(1));
+        Events.gameEnded(helper.getLevel(), table, won);
+        Optional<MatchResult> suggested = Events.suggested(fixture.state, 2);
+        if (suggested.isEmpty() || !suggested.get().equals(new MatchResult(0, 2, 0))) {
+            helper.fail("the table suggested " + suggested);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Players who swap chairs keep their own games: the result the table suggests follows the
+     * players, not the chairs a round put them in.
+     */
+    @GameTest(template = "tables")
+    public static void theSuggestedResultFollowsPlayersWhoSwapChairs(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        BlockPos table = fixture.state.table(2).orElseThrow();
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(2).orElseThrow();
+        var session = TableSessions.sessionAt(helper.getLevel(), table).orElseThrow();
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatReleased(new SeatId(0)));
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatReleased(new SeatId(1)));
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatTaken(new SeatId(0),
+                new dev.gathering.core.game.PlayerRef(pairing.b(), "B")));
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatTaken(new SeatId(1),
+                new dev.gathering.core.game.PlayerRef(pairing.a(), "A")));
+        // Chair 0 - the second player now - won both.
+        MatchState won = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
+                .afterGameWonBy(new SeatId(0)).afterGameWonBy(new SeatId(0));
+        Events.gameEnded(helper.getLevel(), table, won);
+        Optional<MatchResult> suggested = Events.suggested(fixture.state, 2);
+        if (suggested.isEmpty() || !suggested.get().equals(new MatchResult(0, 2, 0))) {
+            helper.fail("players who swapped chairs were suggested " + suggested + ", not 0-2 for the first player");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * One player stands up and the other moves into their chair: the one still sitting is found,
+     * and the one who stood up gets the chair left over rather than the same chair twice - which
+     * handed both players the same games and suggested a draw.
+     */
+    @GameTest(template = "tables")
+    public static void aPlayerWhoStoodUpKeepsTheOtherChair(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        BlockPos table = fixture.state.table(2).orElseThrow();
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(2).orElseThrow();
+        var session = TableSessions.sessionAt(helper.getLevel(), table).orElseThrow();
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatReleased(new SeatId(0)));
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatReleased(new SeatId(1)));
+        session.submit(new dev.gathering.core.game.event.GameEvent.SeatTaken(new SeatId(0),
+                new dev.gathering.core.game.PlayerRef(pairing.b(), "B")));
+        // Chair 0 - the second player, now - won both.
+        MatchState won = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3))
+                .afterGameWonBy(new SeatId(0)).afterGameWonBy(new SeatId(0));
+        Events.gameEnded(helper.getLevel(), table, won);
+        Optional<MatchResult> suggested = Events.suggested(fixture.state, 2);
+        if (suggested.isEmpty() || !suggested.get().equals(new MatchResult(0, 2, 0))) {
+            helper.fail("a player who stood up was suggested " + suggested + ", not 0-2 for the first player");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A locked registration: the registered deck is accepted, sideboarded or not, and no other. */
+    @GameTest(template = "tables")
+    public static void alockedDeckIsTheOnlyDeckAccepted(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        BlockPos table = fixture.state.table(1).orElseThrow();
+        DeckComponent registered = deck(List.of(card(0), card(1), card(2)), List.of(card(3)));
+        Events.registerDeckForTesting(fixture.state, pairing.a(), registered);
+
+        DeckComponent sideboarded = deck(List.of(card(0), card(1), card(3)), List.of(card(2)));
+        DeckComponent other = deck(List.of(card(0), card(1), card(4)), List.of(card(3)));
+        if (Events.refusesDeck(helper.getLevel(), table, pairing.a(), sideboarded, null).isPresent()) {
+            helper.fail("the registered deck was refused after sideboarding");
+            return;
+        }
+        if (Events.refusesDeck(helper.getLevel(), table, pairing.a(), other, null).isEmpty()) {
+            helper.fail("a different deck was accepted from a locked registration");
+            return;
+        }
+        if (Events.refusesDeck(helper.getLevel(), table, pairing.b(), other, null).isPresent()) {
+            helper.fail("a player with no registered deck was refused");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** An event survives its save: tournament, tables, clocks and registered decks. */
+    @GameTest(template = "tables")
+    public static void aneventSurvivesItsSave(GameTestHelper helper) throws Exception {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        Events.registerDeckForTesting(fixture.state, fixture.players.get(0).getUUID(), deck(List.of(card(0)), List.of()));
+        Events.runClockForTesting(helper.getLevel().getServer(), fixture.state, 40);
+        EventState back = Events.roundTripForTesting(fixture.state);
+        if (!back.tournament().equals(fixture.state.tournament()) || !back.tables().equals(fixture.state.tables())
+                || back.roundTicks() != fixture.state.roundTicks() || !back.decks().equals(fixture.state.decks())
+                || !back.registrationPoint().equals(fixture.state.registrationPoint())) {
+            helper.fail("the event did not come back as it was saved");
+            return;
+        }
+        Events.removeForTesting(fixture.state);
+        // A registration point is marked while players are signing up - the only time it is used, and
+        // the only time the host may mark one - so it is saved from an event that is still signing up.
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        Tournament signup = Tournament.create(UUID.randomUUID(), "Signing up", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        EventState signingUp = Events.stateForTesting(signup, helper.getLevel(), List.of(place(helper, 7, 2, 1)));
+        Events.putForTesting(signingUp);
+        Events.markRegistration(host, signup.id());
+        if (signingUp.registrationPoint().isEmpty()) {
+            Events.removeForTesting(signingUp);
+            helper.fail("the host marking a registration point during sign-up did not mark one");
+            return;
+        }
+        EventState pointBack = Events.roundTripForTesting(signingUp);
+        Events.removeForTesting(signingUp);
+        if (!pointBack.registrationPoint().equals(signingUp.registrationPoint())) {
+            helper.fail("the registration point did not come back as it was saved: " + pointBack.registrationPoint());
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Ratings: a big enough finished event moves them; the same pair's fourth meeting in a week
+     * does not; an excluded player's do not move; and voiding takes the event's changes back.
+     */
+    @GameTest(template = "tables")
+    public static void ratingsMoveOnlyWhereTheyShould(GameTestHelper helper) {
+        List<UUID> players = new ArrayList<>();
+        for (int index = 0; index < 6; index++) {
+            players.add(UUID.randomUUID());
+        }
+        Tournament finished = playedThrough(players);
+        UUID winner = finished.finalPlaces().get(0);
+        double before = EventRecords.seedOf(winner);
+        EventRecords.finished(finished, playedEverywhere(finished), System.currentTimeMillis());
+        double after = EventRecords.seedOf(winner);
+        if (after <= before) {
+            helper.fail("winning a six-player event did not raise a rating: " + before + " to " + after);
+            return;
+        }
+        if (EventRecords.recordOf(winner).map(record -> record.eventsWon()).orElse(0) != 1) {
+            helper.fail("the winner's record does not show the event won");
+            return;
+        }
+        if (!EventRecords.voidRatings(finished.id()) || Math.abs(EventRecords.seedOf(winner) - before) > 1e-9) {
+            helper.fail("voiding the event did not take its rating changes back");
+            return;
+        }
+
+        List<UUID> few = players.subList(0, 4);
+        Tournament small = playedThrough(few);
+        double smallBefore = EventRecords.seedOf(few.get(0));
+        EventRecords.finished(small, playedEverywhere(small), System.currentTimeMillis());
+        if (EventRecords.seedOf(few.get(0)) != smallBefore) {
+            helper.fail("a four-player event moved a rating");
+            return;
+        }
+
+        List<UUID> fresh = new ArrayList<>();
+        for (int index = 0; index < 6; index++) {
+            fresh.add(UUID.randomUUID());
+        }
+        EventRecords.setExcluded(fresh.get(0), "Excluded", true);
+        long now = System.currentTimeMillis();
+        for (int event = 0; event < 4; event++) {
+            Tournament again = playedThrough(fresh);
+            double[] ratings = fresh.stream().mapToDouble(EventRecords::seedOf).toArray();
+            EventRecords.finished(again, playedEverywhere(again), now + event);
+            if (EventRecords.seedOf(fresh.get(0)) != ratings[0]) {
+                helper.fail("an excluded player's rating moved");
+                return;
+            }
+            if (event == 3) {
+                // Every pair among five non-excluded players has met at least three times in the week by now.
+                boolean anyMoved = false;
+                for (int index = 1; index < fresh.size(); index++) {
+                    anyMoved |= EventRecords.seedOf(fresh.get(index)) != ratings[index];
+                }
+                if (anyMoved) {
+                    helper.fail("the same players' fourth meeting in a week moved ratings");
+                    return;
+                }
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The abuse rules that are not about who met whom: results nobody played a game for move no
+     * rating, an official event counts twice what a player's own does, and a host runs one event
+     * at a time with the server's cooldown between them.
+     */
+    @GameTest(template = "tables")
+    public static void ratingsNeedGamesAndHostsWaitTheirTurn(GameTestHelper helper) {
+        List<UUID> typed = sixPlayers();
+        Tournament unplayed = playedThrough(typed);
+        double[] before = typed.stream().mapToDouble(EventRecords::seedOf).toArray();
+        EventRecords.finished(unplayed, Set.of(), System.currentTimeMillis());
+        for (int index = 0; index < typed.size(); index++) {
+            if (EventRecords.seedOf(typed.get(index)) != before[index]) {
+                helper.fail("results with no game at a table moved a rating");
+                return;
+            }
+        }
+        if (EventRecords.recordOf(typed.get(0)).map(record -> record.eventsPlayed()).orElse(0) != 1) {
+            helper.fail("an unplayed event was left out of the record as well as the ratings");
+            return;
+        }
+
+        // One round, so every winner's change is one match from the starting rating and the
+        // weight is the only difference between the two events.
+        EventSettings oneRound = new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 1, 0,
+                EventSettings.DeckRegistration.OFF, false);
+        List<UUID> own = sixPlayers();
+        Tournament ownEvent = playedThrough(own, oneRound);
+        EventRecords.finished(ownEvent, playedEverywhere(ownEvent), System.currentTimeMillis());
+        List<UUID> officialPlayers = sixPlayers();
+        Tournament officialEvent = playedThrough(officialPlayers, oneRound);
+        EventRecords.setOfficial(officialEvent.id(), true);
+        EventRecords.finished(officialEvent, playedEverywhere(officialEvent), System.currentTimeMillis());
+        double ownChange = EventRecords.seedOf(ownEvent.finalPlaces().get(0)) - EventRecords.STARTING_RATING;
+        double officialChange = EventRecords.seedOf(officialEvent.finalPlaces().get(0)) - EventRecords.STARTING_RATING;
+        if (ownChange <= 0 || Math.abs(officialChange - 2 * ownChange) > 1e-6) {
+            helper.fail("an official event did not count twice a player's own: " + ownChange + " and " + officialChange);
+            return;
+        }
+
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        UUID host = fixture.players.get(0).getUUID();
+        // One person books the draft in one corner and the constructed event in the other. What a
+        // tournament is one of is a desk, not a host, so running one is not a reason to refuse.
+        if (EventRecords.whyNotHost(host).isPresent()) {
+            helper.fail("a host running an event was refused another");
+            return;
+        }
+        Events.removeForTesting(fixture.state);
+        long now = System.currentTimeMillis();
+        EventRecords.hostedAtForTesting(host, now);
+        if (EventRecords.whyNotHost(host, now + 1).isPresent()) {
+            helper.fail("the default cooldown of none kept a host waiting");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A prize put up leaves the host's hand and reaches the winner; one for somebody away is kept. */
+    @GameTest(template = "tables")
+    public static void aprizeReachesTheWinner(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        ServerPlayer host = fixture.players.get(0);
+        host.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND, 5));
+        Events.putPrizeForTesting(host, fixture.state.tournament().id(), 1);
+        if (!host.getMainHandItem().isEmpty()) {
+            helper.fail("a prize was put up and the host still holds it");
+            return;
+        }
+        Tournament tournament = fixture.state.tournament();
+        while (!tournament.isOver()) {
+            for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+                if (!pairing.isConfirmed()) {
+                    tournament = tournament.settle(pairing.table(), new MatchResult(2, 0, 0));
+                }
+            }
+            tournament = tournament.nextRound();
+        }
+        Events.setForTesting(fixture.state, tournament);
+        UUID winner = tournament.finalPlaces().get(0);
+        ServerPlayer winning = fixture.players.stream().filter(player -> player.getUUID().equals(winner)).findFirst().orElseThrow();
+        Events.finishForTesting(helper.getLevel().getServer(), fixture.state);
+        int diamonds = 0;
+        for (int slot = 0; slot < winning.getInventory().getContainerSize(); slot++) {
+            if (winning.getInventory().getItem(slot).is(Items.DIAMOND)) {
+                diamonds += winning.getInventory().getItem(slot).getCount();
+            }
+        }
+        if (diamonds != 5) {
+            helper.fail("the winner received " + diamonds + " of 5 diamonds");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A prize that only partly fits a creative winner's bag is not cut short: what fits goes in, and the
+     * rest is at their feet.
+     * <p>It was handed to {@code Inventory#add} whole whenever any one slot had room, and in creative that
+     * fills the room and empties the rest of the stack. A creative winner with no free slot and one stack of
+     * sixty diamonds kept four of a sixty-four diamond prize, and the sixty the host put up were gone.
+     */
+    @GameTest(template = "tables")
+    public static void aPrizeThatOnlyPartlyFitsIsNotCutShort(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        ServerPlayer host = fixture.players.get(0);
+        host.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND, 64));
+        Events.putPrizeForTesting(host, fixture.state.tournament().id(), 1);
+        if (!host.getMainHandItem().isEmpty()) {
+            helper.fail("a prize was put up and the host still holds it");
+            return;
+        }
+        Tournament tournament = fixture.state.tournament();
+        while (!tournament.isOver()) {
+            for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+                if (!pairing.isConfirmed()) {
+                    tournament = tournament.settle(pairing.table(), new MatchResult(2, 0, 0));
+                }
+            }
+            tournament = tournament.nextRound();
+        }
+        Events.setForTesting(fixture.state, tournament);
+        UUID winner = tournament.finalPlaces().get(0);
+        ServerPlayer winning = fixture.players.stream().filter(player -> player.getUUID().equals(winner)).findFirst().orElseThrow();
+        // Creative, no free slot anywhere, and one stack of the prize with room for four on it.
+        winning.setGameMode(GameType.CREATIVE);
+        for (int slot = 0; slot < winning.getInventory().items.size(); slot++) {
+            winning.getInventory().items.set(slot, new ItemStack(Items.BEDROCK, 64));
+        }
+        winning.getInventory().items.set(9, new ItemStack(Items.DIAMOND, 60));
+        winning.getInventory().offhand.set(0, new ItemStack(Items.BEDROCK, 64));
+        helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                winning.getBoundingBox().inflate(6.0)).forEach(net.minecraft.world.entity.item.ItemEntity::discard);
+
+        Events.finishForTesting(helper.getLevel().getServer(), fixture.state);
+
+        int held = 0;
+        for (int slot = 0; slot < winning.getInventory().getContainerSize(); slot++) {
+            if (winning.getInventory().getItem(slot).is(Items.DIAMOND)) {
+                held += winning.getInventory().getItem(slot).getCount();
+            }
+        }
+        int lying = 0;
+        for (var item : helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                winning.getBoundingBox().inflate(6.0))) {
+            if (item.getItem().is(Items.DIAMOND)) {
+                lying += item.getItem().getCount();
+            }
+        }
+        if (held + lying != 124) {
+            helper.fail("a creative winner with room for 4 of a 64-diamond prize, holding 60 already, ends with "
+                    + held + " held and " + lying + " on the floor: " + (124 - held - lying) + " of the prize is gone");
+            return;
+        }
+        if (held != 64) {
+            helper.fail("the room there was went unused: the winner holds " + held + " diamonds, not 64");
+            return;
+        }
+        helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                winning.getBoundingBox().inflate(6.0)).forEach(net.minecraft.world.entity.item.ItemEntity::discard);
+        helper.succeed();
+    }
+
+    /**
+     * A venue: sixteen players across eight separate numbered tables, each pair sat at its own
+     * table with its match started and the table's number over it, and nobody moved - they are
+     * shown the way, since none of them was sitting at that table already.
+     */
+    @GameTest(template = "tables")
+    public static void sixteenPlayersAreSeatedAcrossEightNumberedTables(GameTestHelper helper) {
+        // Written out rather than counted into: the plot check reads these coordinates, and a
+        // placement it cannot read is a table that may be standing in another test's plot.
+        List<BlockPos> tables = new ArrayList<>(List.of(
+                place(helper, 0, 2, 0), place(helper, 4, 2, 0),
+                place(helper, 8, 2, 0), place(helper, 12, 2, 0),
+                place(helper, 0, 3, 2), place(helper, 4, 3, 2),
+                place(helper, 8, 3, 2), place(helper, 12, 3, 2)));
+        List<ServerPlayer> players = new ArrayList<>();
+        BlockPos hall = helper.absolutePos(new BlockPos(6, 2, 3));
+        for (int index = 0; index < 16; index++) {
+            ServerPlayer player = helper.makeMockServerPlayerInLevel();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setPos(hall.getX() + 0.5, hall.getY(), hall.getZ() + 0.5);
+            players.add(player);
+        }
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Venue", players.get(0).getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        for (int index = 0; index < 16; index++) {
+            tournament = tournament.register(Entrant.registering(players.get(index).getUUID(), "V" + index, 1600 - index));
+        }
+        tournament = tournament.beginPreparing();
+        for (ServerPlayer player : players) {
+            tournament = tournament.markReady(player.getUUID());
+        }
+        tournament = tournament.startSwiss();
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), tables);
+        Events.putForTesting(state);
+        Events.seatRoundForTesting(helper.getLevel().getServer(), state);
+        Events.labelTablesForTesting(helper.getLevel().getServer(), state);
+        Round round = state.tournament().currentRound().orElseThrow();
+        if (round.pairings().size() != 8) {
+            helper.fail("sixteen players made " + round.pairings().size() + " pairings, not 8");
+            return;
+        }
+        Set<Integer> numbers = new java.util.HashSet<>();
+        for (Pairing pairing : round.pairings()) {
+            BlockPos table = state.table(pairing.table()).orElseThrow();
+            numbers.add(pairing.table());
+            if (TableSeats.seatOf(helper.getLevel(), table, pairing.a()).isEmpty()
+                    || TableSeats.seatOf(helper.getLevel(), table, pairing.b()).isEmpty()) {
+                helper.fail("table " + pairing.table() + " does not seat its pairing");
+                return;
+            }
+            if (TableSessions.sessionAt(helper.getLevel(), table).isEmpty()) {
+                helper.fail("no match was started at table " + pairing.table());
+                return;
+            }
+            int shown = TableBlock.entityAt(helper.getLevel(), table).map(entity -> entity.eventTable()).orElse(0);
+            if (shown != pairing.table()) {
+                helper.fail("table " + pairing.table() + " is labeled " + shown);
+                return;
+            }
+        }
+        if (numbers.size() != 8) {
+            helper.fail("the pairings did not use eight different tables: " + numbers);
+            return;
+        }
+        for (ServerPlayer player : players) {
+            if (player.blockPosition().distSqr(hall) > 2) {
+                helper.fail("a player who was not sitting at their table was moved to it rather than shown the way");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    /** With a registration point, signing up is only done standing at it. */
+    @GameTest(template = "tables")
+    public static void aregistrationPointIsWhereSigningUpHappens(GameTestHelper helper) {
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        BlockPos desk = helper.absolutePos(new BlockPos(1, 1, 1));
+        host.setPos(desk.getX() + 0.5, desk.getY(), desk.getZ() + 0.5);
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Desk", host.getUUID(),
+                new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 0, 0,
+                        EventSettings.DeckRegistration.OFF, true));
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(place(helper, 7, 2, 1)));
+        Events.putForTesting(state);
+        Events.markRegistration(host, tournament.id());
+        player.setPos(desk.getX() + 40.5, desk.getY(), desk.getZ() + 0.5);
+        Events.register(player, tournament.id());
+        if (state.tournament().entrant(player.getUUID()).isPresent()) {
+            helper.fail("a player far from the registration point was registered");
+            return;
+        }
+        player.setPos(desk.getX() + 2.5, desk.getY(), desk.getZ() + 0.5);
+        Events.register(player, tournament.id());
+        if (state.tournament().entrant(player.getUUID()).isEmpty()) {
+            helper.fail("a player at the registration point was not registered");
+            return;
+        }
+        Events.removeForTesting(state);
+        helper.succeed();
+    }
+
+    /**
+     * A host's controls are refused by the server when they do not apply, whatever the client sent.
+     * <p>The screen grays them, but a screen is a picture: a control pressed on a copy drawn before the
+     * phase changed, or sent by a client that never drew one, arrives all the same. Sent through the
+     * same entry point the screen's buttons use. During Swiss, beginning, opening check-in, starting
+     * now and moving the registration point all leave the event as it was; a player who is not the
+     * host cannot call it off; and it cannot be begun with fewer players than it needs.
+     */
+    @GameTest(template = "tables")
+    public static void ahostsStaleOrForgedControlsAreRefused(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        ServerPlayer host = fixture.players().get(0);
+        UUID id = fixture.state().tournament().id();
+        Tournament before = fixture.state().tournament();
+        Optional<BlockPos> pointBefore = fixture.state().registrationPoint();
+        host.setPos(host.getX() + 3.0, host.getY(), host.getZ());
+        for (EventActionPayload.Action action : List.of(EventActionPayload.Action.BEGIN,
+                EventActionPayload.Action.OPEN_CHECK_IN, EventActionPayload.Action.START_NOW,
+                EventActionPayload.Action.MARK_REGISTRATION)) {
+            EventViews.act(host, EventActionPayload.of(id, action));
+            if (fixture.state().tournament() != before) {
+                helper.fail(action + " sent during Swiss changed the event: now " + fixture.state().tournament().phase()
+                        + " round " + fixture.state().tournament().currentRound().map(Round::number).orElse(0));
+                return;
+            }
+            if (!fixture.state().registrationPoint().equals(pointBefore)) {
+                helper.fail(action + " sent during Swiss moved the registration point to " + fixture.state().registrationPoint());
+                return;
+            }
+        }
+        EventViews.act(fixture.players().get(1), EventActionPayload.of(id, EventActionPayload.Action.CANCEL));
+        if (fixture.state().tournament().isOver()) {
+            helper.fail("a player who is not the host called the event off");
+            return;
+        }
+        Events.removeForTesting(fixture.state());
+
+        ServerPlayer lonely = helper.makeMockServerPlayerInLevel();
+        Tournament signup = Tournament.create(UUID.randomUUID(), "Too few", lonely.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"))
+                .register(Entrant.registering(lonely.getUUID(), "Only", 1500));
+        EventState few = Events.stateForTesting(signup, helper.getLevel(), List.of(place(helper, 7, 2, 1)));
+        Events.putForTesting(few);
+        EventViews.act(lonely, EventActionPayload.of(signup.id(), EventActionPayload.Action.BEGIN));
+        if (few.tournament().phase() != Tournament.Phase.SIGNUP) {
+            helper.fail("an event of one player was begun: now " + few.tournament().phase());
+            return;
+        }
+        Events.removeForTesting(few);
+        helper.succeed();
+    }
+
+    // ------------------------------------------------------------------ fixtures
+
+    private record Fixture(EventState state, List<ServerPlayer> players) {
+    }
+
+    private static Fixture fourPlayersPlaying(GameTestHelper helper, EventSettings settings) {
+        BlockPos first = place(helper, 1, 2, 1);
+        BlockPos second = place(helper, 4, 2, 1);
+        List<ServerPlayer> players = new ArrayList<>();
+        for (int index = 0; index < 4; index++) {
+            ServerPlayer player = helper.makeMockServerPlayerInLevel();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setPos(first.getX() + 1.0, first.getY(), first.getZ() + 1.0);
+            players.add(player);
+        }
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Test", players.get(0).getUUID(), settings);
+        for (int index = 0; index < 4; index++) {
+            tournament = tournament.register(Entrant.registering(players.get(index).getUUID(), "P" + index, 1500 - index));
+        }
+        tournament = tournament.beginPreparing();
+        for (ServerPlayer player : players) {
+            tournament = tournament.markReady(player.getUUID());
+        }
+        tournament = tournament.startSwiss();
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(first, second));
+        Events.putForTesting(state);
+        TablesApart.set(helper.getLevel(), first, true);
+        Events.seatRoundForTesting(helper.getLevel().getServer(), state);
+        return new Fixture(state, players);
+    }
+
+    private static List<UUID> sixPlayers() {
+        List<UUID> players = new ArrayList<>();
+        for (int index = 0; index < 6; index++) {
+            players.add(UUID.randomUUID());
+        }
+        return players;
+    }
+
+    /** Every match in the event, as having had a game played at its table. */
+    private static Set<String> playedEverywhere(Tournament tournament) {
+        Set<String> played = new java.util.HashSet<>();
+        for (Round round : tournament.rounds()) {
+            for (Pairing pairing : round.pairings()) {
+                played.add(round.number() + ":" + pairing.table());
+            }
+        }
+        return played;
+    }
+
+    private static Tournament playedThrough(List<UUID> players) {
+        return playedThrough(players, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+    }
+
+    private static Tournament playedThrough(List<UUID> players, EventSettings settings) {
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Rated", players.get(0), settings);
+        for (int index = 0; index < players.size(); index++) {
+            tournament = tournament.register(Entrant.registering(players.get(index), "R" + index, 1500));
+        }
+        tournament = tournament.beginPreparing();
+        for (UUID player : players) {
+            tournament = tournament.markReady(player);
+        }
+        tournament = tournament.startSwiss();
+        while (!tournament.isOver()) {
+            for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+                if (!pairing.isConfirmed()) {
+                    tournament = tournament.settle(pairing.table(), new MatchResult(2, 1, 0));
+                }
+            }
+            tournament = tournament.nextRound();
+        }
+        return tournament;
+    }
+
+    private static DeckComponent deck(List<CardComponent> main, List<CardComponent> side) {
+        return new DeckComponent("Registered", "", Optional.empty(), main, List.of(), side);
+    }
+
+    private static CardComponent card(int index) {
+        return CardComponent.of(CardIdentity.ofPrinting(new UUID(CARD.getMostSignificantBits(), index)));
+    }
+
+    /**
+     * A desk does not claim a table with something standing on it.
+     * <p>"Free" meant two different things in two places. When a desk picked its tables it meant "no
+     * other event has claimed it"; when play started it meant "nothing is standing on it". So a desk
+     * would claim a table with a game, a pot or an unfinished draft on it, and then refuse to start
+     * the whole tournament because that table was in use - a tournament that could never begin, and
+     * a host told to clear a table that in the draft case was not theirs to clear, because a pod
+     * holds its pools until every drafter is back.
+     */
+    @GameTest(template = "tables")
+    public static void adeskDoesNotClaimATableWithSomethingOnIt(GameTestHelper helper) {
+        BlockPos busy = place(helper, 1, 2, 1);
+        BlockPos free = place(helper, 9, 2, 1);
+        BlockPos desk = helper.absolutePos(new BlockPos(5, 2, 1));
+
+        List<BlockPos> beforeAnything = Events.freeTablesNear(helper.getLevel(), desk);
+        if (!beforeAnything.contains(busy) || !beforeAnything.contains(free)) {
+            helper.fail("two empty tables beside a desk were not both offered: " + beforeAnything);
+            return;
+        }
+
+        // A game on one of them, which is one of the things that stops a table changing shape.
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        TableSeats.take(helper.getLevel(), busy,
+                dev.gathering.block.TableClusters.at(helper.getLevel(), busy).seats().get(0).cell(),
+                dev.gathering.block.TableClusters.at(helper.getLevel(), busy).seats().get(0).side(),
+                player.getUUID());
+        TableSessions.start(helper.getLevel(), busy, new MatchRules(FormatPresets.MODERN, 1));
+        if (!TableBlock.entityAt(helper.getLevel(), busy).map(TablesApart::inUse).orElse(false)) {
+            helper.fail("the table this test needs busy is not busy");
+            return;
+        }
+
+        List<BlockPos> offered = Events.freeTablesNear(helper.getLevel(), desk);
+        if (offered.contains(busy)) {
+            helper.fail("a desk claimed a table with a game on it: " + offered);
+            return;
+        }
+        if (!offered.contains(free)) {
+            helper.fail("a desk stopped offering the empty table beside the busy one: " + offered);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A tournament that cannot use any of its tables refuses without giving them up.
+     * <p>It used to hand every busy table back and then refuse, which left the event holding none of
+     * them and still preparing. The next press of Start found no tables to pull apart, skipped the
+     * whole check, paired a round and seated nobody anywhere - and the first thing to save the event
+     * wrote the empty list to disk. A refusal has to leave the event exactly as it found it.
+     */
+    @GameTest(template = "tables")
+    public static void arefusalToStartLeavesTheTablesAlone(GameTestHelper helper) {
+        // Two tables end to end, because a table on its own is never reported in use - a line of one
+        // has no shape to change. The event holds both, and both are unusable.
+        BlockPos busy = place(helper, 1, 2, 1);
+        BlockPos joined = place(helper, 4, 2, 1);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        ServerPlayer rival = helper.makeMockServerPlayerInLevel();
+
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Blocked", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        tournament = tournament.register(Entrant.registering(host.getUUID(), "Host", 1500))
+                .register(Entrant.registering(rival.getUUID(), "Rival", 1500));
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(busy, joined));
+        Events.putForTesting(state);
+        try {
+            // A pot on the line. A game would not do: the event owns these tables, so clearTables
+            // ends it and they come free - which is right. A pot is one of the things clearing a
+            // table does not touch, which is why the real case that found this was a finished draft.
+            dev.gathering.block.TableBlock.entityAt(helper.getLevel(), busy).orElseThrow()
+                    .stake(new SeatId(0), List.of(dev.gathering.core.card.CardIdentity.ofPrinting(
+                            UUID.randomUUID(), false)));
+
+            Events.begin(host, state.tournament().id());
+
+            if (state.tables().isEmpty()) {
+                helper.fail("a tournament that could not start gave up its tables anyway");
+                return;
+            }
+            if (state.tournament().phase() == Tournament.Phase.SWISS) {
+                helper.fail("a tournament with no usable table started a round regardless");
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
+    /** Adding a table asks the same question the desk asks, so a bystander's game is never claimed. */
+    @GameTest(template = "tables")
+    public static void addingATableDoesNotClaimSomebodyElsesGame(GameTestHelper helper) {
+        BlockPos busy = place(helper, 1, 2, 1);
+        BlockPos free = place(helper, 9, 2, 1);
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        ServerPlayer bystander = helper.makeMockServerPlayerInLevel();
+
+        TableSeats.take(helper.getLevel(), busy,
+                dev.gathering.block.TableClusters.at(helper.getLevel(), busy).seats().get(0).cell(),
+                dev.gathering.block.TableClusters.at(helper.getLevel(), busy).seats().get(0).side(), bystander.getUUID());
+        TableSessions.start(helper.getLevel(), busy, new MatchRules(FormatPresets.MODERN, 1));
+
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Greedy", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(free));
+        Events.putForTesting(state);
+        try {
+            Events.addTablesNear(host, state.tournament().id(), busy);
+
+            if (state.tables().contains(busy)) {
+                helper.fail("a host added a table with somebody else's game on it");
+                return;
+            }
+            if (TableSessions.sessionAt(helper.getLevel(), busy).isEmpty()) {
+                helper.fail("the bystanders' game was ended by a tournament that did not own it");
+                return;
+            }
+        } finally {
+            Events.removeForTesting(state);
+        }
+        helper.succeed();
+    }
+
+    private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
+        return TestTables.place(helper, x, y, z);
+    }
+
+    /**
+     * An operator naming an event gets that event or none.
+     * <p>It was the first event whose name began with what was typed, out of an unordered list, so
+     * with a "Friday" and a "Friday Finals" running, "fri" marked whichever came first - and any
+     * id at all was marked official, including one no event ever had.
+     */
+    @GameTest(template = "empty")
+    public static void anEventIsNamedExactlyOrNotAtAll(GameTestHelper helper) {
+        var host = helper.makeMockServerPlayerInLevel();
+        Tournament friday = Tournament.create(UUID.randomUUID(), "Friday", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        Tournament finals = Tournament.create(UUID.randomUUID(), "Friday Finals", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        EventState one = Events.stateForTesting(friday, helper.getLevel(), List.of());
+        EventState two = Events.stateForTesting(finals, helper.getLevel(), List.of());
+        Events.putForTesting(one);
+        Events.putForTesting(two);
+        UUID nobody = UUID.randomUUID();
+        try {
+            var source = helper.getLevel().getServer().createCommandSourceStack().withSuppressedOutput();
+            var commands = helper.getLevel().getServer().getCommands().getDispatcher();
+            commands.execute("gathering events official fri true", source);
+            if (EventRecords.isOfficial(friday.id()) || EventRecords.isOfficial(finals.id())) {
+                helper.fail("a name two events begin with marked one of them");
+                return;
+            }
+            commands.execute("gathering events official friday true", source);
+            if (!EventRecords.isOfficial(friday.id()) || EventRecords.isOfficial(finals.id())) {
+                helper.fail("the whole name of one event did not mark exactly that event");
+                return;
+            }
+            commands.execute("gathering events official " + nobody + " true", source);
+            if (EventRecords.isOfficial(nobody)) {
+                helper.fail("an id no event ever had was marked official");
+                return;
+            }
+            helper.succeed();
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException wrongShape) {
+            helper.fail("fixture: the command did not parse: " + wrongShape.getMessage());
+        } finally {
+            EventRecords.setOfficial(friday.id(), false);
+            EventRecords.setOfficial(nobody, false);
+            Events.removeForTesting(one);
+            Events.removeForTesting(two);
+        }
+    }
+}

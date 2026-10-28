@@ -1,0 +1,781 @@
+package dev.gathering.neoforge.test;
+
+import dev.gathering.Gathering;
+import dev.gathering.block.TableBlock;
+import dev.gathering.block.TableBlockEntity;
+import dev.gathering.block.TableClusters;
+import dev.gathering.block.TablePart;
+import dev.gathering.block.TableSeats;
+import dev.gathering.block.TableSessions;
+import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.table.SeatAnchor;
+import dev.gathering.core.table.Side;
+import dev.gathering.core.table.TableCell;
+import dev.gathering.core.table.TableCluster;
+import dev.gathering.item.GatheringContent;
+import java.util.List;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.PushReaction;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+/**
+ * Tables in an actual world.
+ * <p>Which tables join up and where the seats go is worked out in the pure core and checked
+ * there over every shape somebody can build. What these check is the part that only exists in
+ * a world: that four blocks go down and come up together, that the corner owning the table is
+ * the one carrying the block entity, and that the world coordinates handed to the pure
+ * arithmetic are the ones it was expecting.
+ */
+@GameTestHolder(Gathering.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class TableGameTest {
+
+    /**
+     * A table goes down around the block that was clicked, not off to one side of it. The owner asked for this
+     * (2026-09-16): the clicked block used to become the north-west corner, so a table aimed at one spot grew
+     * east and south out of it and into whatever was there.
+     */
+    @GameTest(template = "tables")
+    public static void aTableGoesDownAroundTheBlockYouClick(GameTestHelper helper) {
+        BlockPos clicked = placeATable(helper, new BlockPos(5, 2, 5), new BlockPos(10, 2, 10));
+
+        BlockState middle = helper.getBlockState(clicked);
+        if (!(middle.getBlock() instanceof TableBlock) || middle.getValue(TableBlock.PART) != TablePart.MIDDLE) {
+            helper.fail("the block clicked is " + middle + ", not the middle of the table");
+            return;
+        }
+        BlockPos origin = TablePart.MIDDLE.originFrom(clicked);
+        for (TablePart part : TablePart.values()) {
+            BlockState there = helper.getBlockState(part.offsetFrom(origin));
+            if (!(there.getBlock() instanceof TableBlock) || there.getValue(TableBlock.PART) != part) {
+                helper.fail("the " + part + " of the table is " + there);
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * And it refuses rather than going down through whatever is standing in it. Only one of the nine blocks
+     * goes through the check vanilla gives a block being placed; the other eight are the mod's to make.
+     */
+    @GameTest(template = "tables")
+    public static void aTableWillNotGoDownThroughSomethingStandingInIt(GameTestHelper helper) {
+        // In a corner of the table, which is not the block clicked, so only the mod's own check can see it.
+        BlockPos corner = new BlockPos(6, 2, 6);
+        net.minecraft.world.entity.decoration.ArmorStand stand =
+                new net.minecraft.world.entity.decoration.ArmorStand(helper.getLevel(), 0, 0, 0);
+        stand.moveTo(helper.absoluteVec(new net.minecraft.world.phys.Vec3(
+                corner.getX() + 0.5, corner.getY(), corner.getZ() + 0.5)));
+        helper.getLevel().addFreshEntity(stand);
+
+        BlockPos clicked = placeATable(helper, new BlockPos(5, 2, 5), new BlockPos(10, 2, 10));
+
+        if (helper.getBlockState(clicked).getBlock() instanceof TableBlock) {
+            helper.fail("a table went down through an armor stand standing in one of its corners");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** And not through the player placing it either, who is told to stand back rather than left inside it. */
+    @GameTest(template = "tables")
+    public static void aTableWillNotGoDownThroughThePlayerPlacingIt(GameTestHelper helper) {
+        // Standing on the edge of where the table would be, which is where somebody aiming at their own feet is.
+        BlockPos clicked = placeATable(helper, new BlockPos(5, 2, 5), new BlockPos(6, 2, 6));
+
+        if (helper.getBlockState(clicked).getBlock() instanceof TableBlock) {
+            helper.fail("a table went down through the player placing it");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Clicks the top of the block under {@code at} with a table in hand, from {@code from}, and says which
+     * block was clicked. The real path: the player's own game mode, the item's own placement.
+     */
+    private static BlockPos placeATable(GameTestHelper helper, BlockPos at, BlockPos from) {
+        helper.setBlock(at.below(), net.minecraft.world.level.block.Blocks.STONE);
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.moveTo(helper.absoluteVec(new net.minecraft.world.phys.Vec3(
+                from.getX() + 0.5, from.getY(), from.getZ() + 0.5)));
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new net.minecraft.world.item.ItemStack(GatheringContent.TABLE_ITEM.get()));
+        BlockPos under = helper.absolutePos(at.below());
+        player.gameMode.useItemOn(player, helper.getLevel(), player.getMainHandItem(),
+                net.minecraft.world.InteractionHand.MAIN_HAND,
+                new net.minecraft.world.phys.BlockHitResult(
+                        net.minecraft.world.phys.Vec3.atCenterOf(under).add(0, 0.5, 0),
+                        net.minecraft.core.Direction.UP, under, false));
+        return at;
+    }
+
+    /**
+     * A table is the table and not the air under it: what it is drawn as is what a player walks into and what the
+     * outline goes round. The owner asked to be able to get under one (2026-09-15); it used to be a square block
+     * down to the floor, so the space between the legs was solid.
+     */
+    @GameTest(template = "tables")
+    public static void aTableIsSolidOnlyWhereItIsDrawn(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        var level = helper.getLevel();
+        // Under the felt, in the middle of the table, where nothing is drawn.
+        BlockPos middle = TablePart.MIDDLE.offsetFrom(origin);
+        var under = net.minecraft.world.phys.shapes.Shapes.box(0.2, 0.1, 0.2, 0.8, 0.6, 0.8);
+        var collision = level.getBlockState(middle).getCollisionShape(level, middle);
+        if (net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(collision, under,
+                net.minecraft.world.phys.shapes.BooleanOp.AND)) {
+            helper.fail("the space under the middle of a table is solid, so nobody can get under it");
+            return;
+        }
+        // And the felt itself still holds somebody up.
+        var felt = net.minecraft.world.phys.shapes.Shapes.box(0.2, 0.75, 0.2, 0.8, 0.9, 0.8);
+        if (!net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(collision, felt,
+                net.minecraft.world.phys.shapes.BooleanOp.AND)) {
+            helper.fail("the felt of a table is not solid, so a player would fall through the top");
+            return;
+        }
+        // A corner has its leg, which is what somebody walking into a table bumps into.
+        BlockPos corner = TablePart.NORTH_WEST.offsetFrom(origin);
+        var leg = net.minecraft.world.phys.shapes.Shapes.box(0.1, 0.1, 0.1, 0.24, 0.6, 0.24);
+        if (!net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(
+                level.getBlockState(corner).getCollisionShape(level, corner), leg,
+                net.minecraft.world.phys.shapes.BooleanOp.AND)) {
+            helper.fail("a table's corner has no leg to walk into");
+            return;
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aTableIsFourBlocksWithOneOwner(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+
+        for (TablePart part : TablePart.values()) {
+            BlockPos pos = part.offsetFrom(origin);
+            BlockState state = helper.getLevel().getBlockState(pos);
+            if (!(state.getBlock() instanceof TableBlock)) {
+                helper.fail("The " + part + " quarter of the table is missing");
+                return;
+            }
+            if (state.getValue(TableBlock.PART) != part) {
+                helper.fail("The block at " + part + " thinks it is " + state.getValue(TableBlock.PART));
+            }
+
+            boolean hasEntity = helper.getLevel().getBlockEntity(pos) instanceof TableBlockEntity;
+            if (hasEntity != part.isOrigin()) {
+                helper.fail("Block entity in the wrong place: " + part + " has one? " + hasEntity);
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void breakingOneQuarterTakesTheWholeTable(GameTestHelper helper) {
+        // A table missing a corner is not a smaller table.
+        BlockPos origin = place(helper, 1, 2, 1);
+
+        helper.getLevel().destroyBlock(TablePart.SOUTH_EAST.offsetFrom(origin), false);
+
+        for (TablePart part : TablePart.values()) {
+            BlockPos pos = part.offsetFrom(origin);
+            if (helper.getLevel().getBlockState(pos).getBlock() instanceof TableBlock) {
+                helper.fail("The " + part + " quarter survived the table being broken");
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void oneTableIsOneClusterSeatingTwo(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+
+        TableCluster cluster = TableClusters.at(helper.getLevel(), origin);
+
+        if (cluster.tableCount() != 1 || cluster.capacity() != 2) {
+            helper.fail("One table should be one cluster seating two, got " + cluster.tableCount()
+                    + " tables and " + cluster.capacity() + " seats");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void tablesPushedTogetherBecomeOneCluster(GameTestHelper helper) {
+        // The gesture the whole design is built on.
+        BlockPos first = place(helper, 1, 2, 1);
+        place(helper, 4, 2, 1);
+
+        TableCluster cluster = TableClusters.at(helper.getLevel(), first);
+
+        if (cluster.tableCount() != 2 || cluster.capacity() != 4) {
+            helper.fail("Two tables pushed together should seat four, got " + cluster.capacity()
+                    + " across " + cluster.tableCount() + " tables");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void tablesWithAGapBetweenThemStaySeparate(GameTestHelper helper) {
+        BlockPos first = place(helper, 1, 2, 1);
+        place(helper, 7, 2, 1);
+
+        if (TableClusters.at(helper.getLevel(), first).tableCount() != 1) {
+            helper.fail("Tables with a gap between them merged");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aFifthTableWillNotJoinAFullCluster(GameTestHelper helper) {
+        // A cluster is capped, and the answer has to arrive when the table is placed rather
+        // than as a table that sits next to a cluster without being part of it.
+        BlockPos first = place(helper, 1, 2, 1);
+        place(helper, 4, 2, 1);
+        place(helper, 7, 2, 1);
+        place(helper, 10, 2, 1);
+
+        if (TableClusters.at(helper.getLevel(), first).tableCount() != 4) {
+            helper.fail("Four tables in a row did not make one cluster of four");
+        }
+        if (TableClusters.wouldFit(helper.getLevel(), helper.absolutePos(new BlockPos(13, 2, 1)))) {
+            helper.fail("A fifth table was allowed to join a full cluster");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void everySeatIsOnTheOutsideOfTheCluster(GameTestHelper helper) {
+        // The world coordinates, which the pure arithmetic cannot check on its own: a table
+        // is two blocks across, so its far edges are one further out than its corner.
+        BlockPos first = place(helper, 1, 2, 1);
+        place(helper, 4, 2, 1);
+
+        TableCluster cluster = TableClusters.at(helper.getLevel(), first);
+        for (SeatAnchor seat : cluster.seats()) {
+            BlockPos seatPos = TableClusters.seatPos(first, seat);
+            if (helper.getLevel().getBlockState(seatPos).getBlock() instanceof TableBlock) {
+                helper.fail("Seat " + seat + " is inside the table, at " + seatPos);
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aSeatIsTakenOnceAndSurvivesASaveAndLoad(GameTestHelper helper) {
+        // A seat is a registration, and the design says leaving does not drop it - so it has
+        // to be written with the table and come back with it.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        UUID other = UUID.fromString("00000000-0000-4000-8000-00000000face");
+        TableCell here = new TableCell(0, 0);
+
+        if (TableSeats.take(helper.getLevel(), origin, here, Side.NORTH, player) != TableSeats.Claim.TAKEN) {
+            helper.fail("Could not take a free seat");
+        }
+        if (TableSeats.take(helper.getLevel(), origin, here, Side.NORTH, other)
+                != TableSeats.Claim.OCCUPIED) {
+            helper.fail("Two people took the same seat");
+        }
+        if (TableSeats.take(helper.getLevel(), origin, here, Side.SOUTH, player)
+                != TableSeats.Claim.ALREADY_SEATED) {
+            helper.fail("One player took two seats at the same cluster");
+        }
+        if (TableSeats.take(helper.getLevel(), origin, here, Side.EAST, other)
+                != TableSeats.Claim.NOT_A_SEAT) {
+            helper.fail("Somebody sat on an edge that is not a seat");
+        }
+
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        CompoundTag saved = table.saveWithFullMetadata(helper.getLevel().registryAccess());
+
+        TableBlockEntity reloaded = new TableBlockEntity(origin, helper.getLevel().getBlockState(origin));
+        reloaded.loadWithComponents(saved, helper.getLevel().registryAccess());
+
+        if (!reloaded.occupantOf(Side.NORTH).equals(java.util.Optional.of(player))) {
+            helper.fail("A seat did not survive a save and load: " + reloaded.occupantOf(Side.NORTH));
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aTableInUseCannotBeBrokenOrExtended(GameTestHelper helper) {
+        // Adding or removing a table reshapes the perimeter, which moves the seats. Somebody
+        // registered at an edge should not find that edge is now the middle of the surface.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+
+        if (TableSeats.mayBreak(helper.getLevel(), origin)) {
+            helper.fail("A table with somebody seated at it could be broken");
+        }
+        if (!TableSeats.isShapeFrozen(helper.getLevel(), origin)) {
+            helper.fail("The cluster's shape is not frozen while somebody is seated");
+        }
+
+        TableSeats.leave(helper.getLevel(), origin, player);
+
+        if (!TableSeats.mayBreak(helper.getLevel(), origin)) {
+            helper.fail("An empty table still could not be broken");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aTableCannotBeBurntOrPushedApart(GameTestHelper helper) {
+        // Both of these break a table in a way nothing else can: lava takes it out from under
+        // a game nobody agreed to end, and a piston moves one quarter and leaves three.
+        //
+        // The lava half is here because the first version of this block called
+        // ignitedByLava(), which switches lava ignition *on*, under a comment saying the
+        // table was not flammable.
+        BlockState state = GatheringContent.TABLE.get().defaultBlockState();
+
+        if (state.ignitedByLava()) {
+            helper.fail("A table burns");
+        }
+        if (state.getPistonPushReaction() != PushReaction.BLOCK) {
+            helper.fail("A piston can move a table, which moves one quarter of it: "
+                    + state.getPistonPushReaction());
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void feltColorIsKeptAndIsToldToClients(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+
+        if (!table.dye(DyeColor.PURPLE)) {
+            helper.fail("Dyeing an undyed table changed nothing");
+        }
+        if (table.dye(DyeColor.PURPLE)) {
+            helper.fail("Dyeing a table the color it already is counted as a change");
+        }
+
+        // Saved with the world...
+        CompoundTag saved = table.saveWithFullMetadata(helper.getLevel().registryAccess());
+        TableBlockEntity reloaded = new TableBlockEntity(origin, helper.getLevel().getBlockState(origin));
+        reloaded.loadWithComponents(saved, helper.getLevel().registryAccess());
+        if (!reloaded.felt().equals(java.util.Optional.of(DyeColor.PURPLE))) {
+            helper.fail("The felt color did not survive a save and load: " + reloaded.felt());
+        }
+
+        // ...and told to a client that joins later, which is a separate tag and so a
+        // separate way to lose it.
+        CompoundTag update = table.getUpdateTag(helper.getLevel().registryAccess());
+        if (!DyeColor.PURPLE.getSerializedName().equals(update.getString("felt"))) {
+            helper.fail("A joining client is not told the felt color: " + update);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void whetherThereIsACommandZoneIsToldToClients(GameTestHelper helper) {
+        // A client never receives the match, so it cannot work out whether this game has a
+        // command zone - and it has to know, because it draws the box. An empty box labeled
+        // with a zone the format does not have is a question every player asks once.
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        if (table.hasCommandZone()) {
+            helper.fail("A table with no game on it claimed to have a command zone");
+        }
+
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH,
+                new UUID(0L, 91L));
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(
+                        dev.gathering.core.format.FormatPresets.COMMANDER));
+        if (!table.hasCommandZone()) {
+            helper.fail("A game of Commander did not have a command zone");
+        }
+        if (!table.getUpdateTag(helper.getLevel().registryAccess()).getBoolean("command_zone")) {
+            helper.fail("A joining client is not told the table has a command zone");
+        }
+
+        TableSessions.end(helper.getLevel(), origin, new SeatId(0), "test");
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(
+                        dev.gathering.core.format.FormatPresets.MODERN));
+        if (table.hasCommandZone()) {
+            helper.fail("A game of Modern was given a command zone");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Commander damage is Commander's rule and not Oathbreaker's, though both have a command zone:
+     * a joining client is told which, so the counters panel does not offer 21 damage from a
+     * signature spell.
+     */
+    @GameTest(template = "tables")
+    public static void onlyCommanderCountsCommanderDamage(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, new UUID(0L, 92L));
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.COMMANDER));
+        if (!table.getUpdateTag(helper.getLevel().registryAccess()).getBoolean("commander_damage")) {
+            helper.fail("A joining client is not told a game of Commander counts commander damage");
+            return;
+        }
+        TableSessions.end(helper.getLevel(), origin, new SeatId(0), "test");
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.OATHBREAKER));
+        CompoundTag update = table.getUpdateTag(helper.getLevel().registryAccess());
+        if (!update.getBoolean("command_zone") || update.getBoolean("commander_damage")) {
+            helper.fail("A game of Oathbreaker should have a command zone and no commander damage: " + update);
+            return;
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aGameNeedsSomebodySittingAtTheTable(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+
+        if (TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules()) != TableSessions.Outcome.NOBODY_SEATED) {
+            helper.fail("A game started at an empty table");
+        }
+        if (TableSessions.hasSession(helper.getLevel(), origin)) {
+            helper.fail("An empty table has a game on it");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aGameStartsWithASeatForEveryPlaceAtTheTable(GameTestHelper helper) {
+        // Every seat the cluster has becomes a seat in the game, occupied or not: the shape
+        // is frozen for the duration, so somebody arriving later should find a seat waiting
+        // rather than a game with no room in it.
+        BlockPos origin = place(helper, 1, 2, 1);
+        place(helper, 4, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+
+        if (TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules()) != TableSessions.Outcome.STARTED) {
+            helper.fail("A game would not start with somebody seated");
+        }
+
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElse(null);
+        if (session == null) {
+            helper.fail("The game did not land on the table");
+            return;
+        }
+        if (session.state().seats().size() != 4) {
+            helper.fail("Two tables seat four, so the game should have four seats, got "
+                    + session.state().seats().size());
+        }
+        if (TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules()) != TableSessions.Outcome.ALREADY_RUNNING) {
+            helper.fail("A second game started on top of the first");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aGameSurvivesTheWorldBeingSavedAndLoaded(GameTestHelper helper) {
+        // The whole reason a session lives on a block entity. State is the fold of the log,
+        // so a log that does not come back is a board that never existed.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
+
+        GameSession before = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        before.submit(new GameEvent.DeckLoaded(new SeatId(0), library(), List.of()));
+        before.submit(new GameEvent.LibraryShuffled(new SeatId(0), new SeatId(0)));
+        before.submit(new GameEvent.LifeChanged(new SeatId(0), new SeatId(0), -7));
+
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        CompoundTag saved = table.saveWithFullMetadata(helper.getLevel().registryAccess());
+
+        TableBlockEntity reloaded = new TableBlockEntity(origin, helper.getLevel().getBlockState(origin));
+        reloaded.loadWithComponents(saved, helper.getLevel().registryAccess());
+
+        GameSession after = reloaded.session().orElse(null);
+        if (after == null) {
+            helper.fail("The game did not come back after a save and load");
+            return;
+        }
+        if (!after.state().equals(before.state())) {
+            helper.fail("The game came back on a different board");
+        }
+        if (!after.records().equals(before.records())) {
+            helper.fail("The log came back different");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aSavedGameKeepsItsLibraryOutOfTheReadableHalf(GameTestHelper helper) {
+        // The security property, checked where it actually lands: in the block entity's NBT,
+        // which is what ends up in a world folder somebody could copy.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
+
+        UUID printing = UUID.fromString("5805f64c-dd88-4e94-8f0a-a01dae67e3ba");
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        session.submit(new GameEvent.DeckLoaded(new SeatId(0),
+                List.of(dev.gathering.core.card.CardIdentity.ofPrinting(printing, false)), List.of()));
+
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        CompoundTag saved = table.saveWithFullMetadata(helper.getLevel().registryAccess());
+
+        byte[] readable = saved.getByteArray("session_open");
+        byte[] needle = new byte[16];
+        java.nio.ByteBuffer.wrap(needle)
+                .putLong(printing.getMostSignificantBits())
+                .putLong(printing.getLeastSignificantBits());
+        if (indexOf(readable, needle) >= 0) {
+            helper.fail("A card from a library is sitting in the readable half of the save");
+        }
+        if (saved.getByteArray("session_sealed").length == 0) {
+            helper.fail("Nothing was sealed, so nothing was protected");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void aTableWithAGameOnItCannotBeBroken(GameTestHelper helper) {
+        // Not only because the seats would move. The game lives on one of these tables, so
+        // breaking that one takes the game with it.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
+        TableSeats.leave(helper.getLevel(), origin, player);
+
+        if (TableSeats.occupiedSeats(helper.getLevel(), origin) != 0) {
+            helper.fail("The seat was not given up");
+        }
+        if (TableSeats.mayBreak(helper.getLevel(), origin)) {
+            helper.fail("A table with a game running on it could be broken");
+        }
+
+        TableSessions.end(helper.getLevel(), origin, new SeatId(0), "test");
+
+        if (!TableSeats.mayBreak(helper.getLevel(), origin)) {
+            helper.fail("The table was still locked after the game ended");
+        }
+        if (TableSessions.hasSession(helper.getLevel(), origin)) {
+            helper.fail("The game outlived being ended");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void oneplayerCanGoldfishAlone(GameTestHelper helper) {
+        // Sandbox mode, which the design says ships in the first playable phase: all the same
+        // verbs, no other humans required. It is not a separate mode - it is one person at a
+        // table, and it has to work without anything special being asked for.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID solo = new UUID(0L, 77L);
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, solo);
+
+        if (TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules()) != TableSessions.Outcome.STARTED) {
+            helper.fail("One player alone could not start a game");
+        }
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        session.submit(new GameEvent.DeckLoaded(new SeatId(0), library(), List.of()));
+        session.submit(new GameEvent.LibraryShuffled(new SeatId(0), new SeatId(0)));
+        session.submit(new GameEvent.CardsDrawn(new SeatId(0), new SeatId(0), 7));
+
+        if (session.state().contents(new SeatId(0), dev.gathering.core.game.Zone.HAND).size() != 7) {
+            helper.fail("A solo player could not draw an opening hand");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void twoPlayersGetOppositeEdgesAndCannotReadEachOther(GameTestHelper helper) {
+        // The game this mod is for. One person at a table is the easy case and the one every
+        // other test here happens to exercise; two people facing each other is where the seats
+        // have to end up on opposite edges, where the boards have to face each other, and
+        // where hidden information has to actually be hidden.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID north = new UUID(0L, 11L);
+        UUID south = new UUID(0L, 22L);
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, north);
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.SOUTH, south);
+
+        SeatAnchor mine = TableSeats.seatOf(helper.getLevel(), origin, north).orElse(null);
+        SeatAnchor theirs = TableSeats.seatOf(helper.getLevel(), origin, south).orElse(null);
+        if (mine == null || theirs == null) {
+            helper.fail("Two players could not both sit at one table");
+            return;
+        }
+        if (mine.side() == theirs.side()) {
+            helper.fail("Both players ended up at the same edge: " + mine.side());
+            return;
+        }
+
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        SeatId first = new SeatId(0);
+        SeatId second = new SeatId(1);
+        for (SeatId seat : List.of(first, second)) {
+            session.submit(new GameEvent.DeckLoaded(seat, library(), List.of()));
+            session.submit(new GameEvent.LibraryShuffled(seat, seat));
+            session.submit(new GameEvent.CardsDrawn(seat, seat, 7));
+        }
+
+        // Each of them holds seven cards and can read their own; neither can read the other's.
+        dev.gathering.core.game.visibility.GameView asFirst =
+                dev.gathering.core.game.visibility.VisibilityRules.viewFor(
+                        session.state(),
+                        dev.gathering.core.game.visibility.Viewer.seat(first),
+                        session.log());
+        long readable = asFirst.seat(first).zone(dev.gathering.core.game.Zone.HAND).cards().stream()
+                .filter(card -> card instanceof dev.gathering.core.game.visibility.CardView.Visible)
+                .count();
+        long theirsReadable = asFirst.seat(second).zone(dev.gathering.core.game.Zone.HAND).cards().stream()
+                .filter(card -> card instanceof dev.gathering.core.game.visibility.CardView.Visible)
+                .count();
+        if (readable != 7) {
+            helper.fail("A player could read " + readable + " of their own seven cards");
+            return;
+        }
+        if (theirsReadable != 0) {
+            helper.fail("A player could read " + theirsReadable + " cards in the other hand");
+            return;
+        }
+        if (asFirst.seat(second).zone(dev.gathering.core.game.Zone.HAND).count() != 7) {
+            helper.fail("A player could not see how many cards the other one was holding");
+            return;
+        }
+
+        // And the two mats face each other rather than both facing the same way, which is what
+        // makes the near edge of the board the near edge for both of them.
+        dev.gathering.core.ui.TableSurface surface =
+                dev.gathering.core.ui.TableSurface.forSeatCount(session.state().seats().size());
+        if (surface.isTurned(0) == surface.isTurned(1)) {
+            helper.fail("Both boards were laid out the same way up");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static List<dev.gathering.core.card.CardIdentity> library() {
+        List<dev.gathering.core.card.CardIdentity> cards = new java.util.ArrayList<>();
+        for (int index = 0; index < 20; index++) {
+            cards.add(dev.gathering.core.card.CardIdentity.ofPrinting(new UUID(0, index), false));
+        }
+        return cards;
+    }
+
+    private static int indexOf(byte[] haystack, byte[] needle) {
+        outer:
+        for (int start = 0; start + needle.length <= haystack.length; start++) {
+            for (int offset = 0; offset < needle.length; offset++) {
+                if (haystack[start + offset] != needle[offset]) {
+                    continue outer;
+                }
+            }
+            return start;
+        }
+        return -1;
+    }
+
+    /** Places a whole table with its corner at these relative coordinates. */
+    @GameTest(template = "tables")
+    public static void everyMaterialOfTableIsStillATable(GameTestHelper helper) {
+        // The block entity type names the blocks it will attach to, and a table missing from
+        // that list is not an error - it is a table that silently has no block entity, and so
+        // no session, no seats and no game. Nothing says why. So every material gets asked.
+        // One at a time, in the same corner, taken up again before the next goes down. A row of
+        // fifteen materials four blocks apart is sixty blocks wide and this plot is seventeen, so
+        // it was writing into whichever test the server happened to pack next to it - which is why
+        // it started failing the day an unrelated test was added somewhere else in the suite.
+        for (var material : GatheringContent.tables()) {
+            BlockPos origin = placeOf(helper, material.get(), 1, 2, 1);
+            boolean holdsAGame = helper.getLevel().getBlockEntity(origin) instanceof TableBlockEntity;
+            for (TablePart part : TablePart.values()) {
+                helper.getLevel().setBlock(part.offsetFrom(origin),
+                        net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            }
+            if (!holdsAGame) {
+                helper.fail("A " + material.entryName() + " has no block entity, so it can "
+                        + "never hold a game");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "tables")
+    public static void tablesOfDifferentMaterialsShareOneCluster(GameTestHelper helper) {
+        // The brief's promise, and the reason none of the mod's rules ask what a table is
+        // made of: push a stone table against a wooden one and it is one table for four.
+        BlockPos wooden = placeOf(helper, GatheringContent.TABLE.get(), 1, 2, 1);
+        placeOf(helper, GatheringContent.CRYING_OBSIDIAN_TABLE.get(), 4, 2, 1);
+
+        TableCluster cluster = TableClusters.at(helper.getLevel(), wooden);
+
+        if (cluster.tableCount() != 2 || cluster.capacity() != 4) {
+            helper.fail("A wooden table and a stone one should seat four across two tables, got "
+                    + cluster.capacity() + " across " + cluster.tableCount());
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A table whose anchor is replaced outright still ends the game that was on it.
+     * <p>Not broken - replaced, which is what a command, a piston-shaped mod or anything
+     * calling {@code setBlock} does. The removal hook ended the session by looking the table
+     * up again through the cluster, and by the time it runs the cell already holds whatever
+     * replaced it: the lookup answered "no table" and the code fell through to handing the
+     * decks and the pot back around a game it never ended. No {@code SessionEnded}, no
+     * replay kept, and everybody watching left holding a board that still looked live.
+     */
+    @GameTest(template = "tables")
+    public static void replacingTheAnchorStillEndsTheGame(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableCluster cluster = TableClusters.at(helper.getLevel(), origin);
+        for (int seat = 0; seat < 2; seat++) {
+            SeatAnchor anchor = cluster.seats().get(seat);
+            TableSeats.take(helper.getLevel(), origin, anchor.cell(), anchor.side(), UUID.randomUUID());
+        }
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(
+                        dev.gathering.core.format.FormatPresets.COMMANDER));
+        GameSession game = TableSessions.sessionAt(helper.getLevel(), origin).orElse(null);
+        if (game == null) {
+            helper.fail("No game started, so there is nothing to fail to end");
+            return;
+        }
+        if (game.state().ended()) {
+            helper.fail("The game was over before the table was touched");
+            return;
+        }
+
+        helper.getLevel().setBlock(origin,
+                net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+
+        if (!game.state().ended()) {
+            helper.fail("The anchor was replaced and the game on it was never ended");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
+        return placeOf(helper, GatheringContent.TABLE.get(), x, y, z);
+    }
+
+    private static BlockPos placeOf(
+            GameTestHelper helper, net.minecraft.world.level.block.Block block,
+            int x, int y, int z) {
+        return TestTables.place(helper, block, x, y, z);
+    }
+}

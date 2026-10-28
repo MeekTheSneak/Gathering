@@ -1,0 +1,263 @@
+package dev.gathering.core.game;
+
+import dev.gathering.core.game.event.GameEvent;
+import java.util.Optional;
+
+/**
+ * The only thing the mod ever says no to.
+ * <p>There is no rules enforcement here and there never will be. If the group misplays, the
+ * group misplays: a player may tap an already-tapped creature, set their life to minus
+ * eleven, move an opponent's commander to their own side of the table, or draw six cards on
+ * turn one. Every one of those is attributed by name in the event log, and that attribution
+ * is the mechanism - not a permission check.
+ * <p>What is checked is information. The single security property of the mod is that no
+ * hidden card identity ever reaches a client the visibility rules do not entitle, and an
+ * action that would <em>let the actor see</em> a card they are not entitled to is the one
+ * way a player could subvert that from inside. So the rule is exactly this narrow:
+ *
+ * <blockquote>An action is owner-locked if performing it would reveal hidden information to
+ * the actor.</blockquote>
+ * <p>That is a smaller set than "anything touching a hidden zone", and deliberately so.
+ * Making an opponent draw is legal Magic and reveals nothing to the person doing it - the
+ * card lands in a hand only its owner can read. Shuffling an opponent's library is legal
+ * Magic and reveals nothing either. Both are allowed. Searching that library is not, because
+ * searching means looking.
+ */
+public final class Authorization {
+
+    /**
+     * The one answer to a move naming a card the actor may not lay a hand on, wherever it is.
+     * <p>One sentence whatever the reason, on purpose. A refusal goes back to the client that
+     * asked, and refusals that said where - "in their hand", "in their library" - or had words
+     * of their own for a face-down card answered a question about a card that client cannot
+     * see. Instance ids are consecutive, so a modified client walked them, and the answers
+     * sorted every card it could not read into hand, library and face down, with nothing
+     * written in the log for anybody else to notice. Which ids exist at all is not a secret -
+     * every count on the table is public - so a card the session does not have keeps its own
+     * reply.
+     */
+    public static final String NOT_YOURS = "That card is not yours to touch.";
+
+    private Authorization() {
+    }
+
+    /**
+     * @return empty when the action may proceed, or the reason it may not
+     */
+    public static Optional<String> denialFor(GameState state, GameEvent event) {
+        if (state.ended()) {
+            return Optional.of("This session has ended.");
+        }
+        if (!state.hasSeat(event.actor())) {
+            // Spectators receive the public payload set and submit nothing. A spectating
+            // client is incapable of acting even if modified, because there is no seat to act as.
+            return Optional.of("Only seated players can act at this table.");
+        }
+
+        // Nobody touches a card sitting in somebody else's hand or library, or somebody else's
+        // face-down card on the table. Read off the event's own components rather than case by
+        // case, because the rule is about every event that names a card - the ones written and
+        // the ones not written yet. An audit reproduced the cost of asking case by case: an
+        // opponent wrote a note on a card guessed by number inside another player's library,
+        // and the note came back out on that card's anonymous face-down view, turning a guess
+        // into a marker that followed the card around the table.
+        Optional<String> unreadable = touchingSomethingUnread(state, event);
+        if (unreadable.isPresent()) {
+            return unreadable;
+        }
+
+        return switch (event) {
+            // Looking is the whole of the restriction, and these five are looking.
+            case GameEvent.LibrarySearched searched -> ownerOnly(event.actor(), searched.seat(), "search a library");
+            case GameEvent.LibraryLooked looked -> ownerOnly(event.actor(), looked.seat(), "look at a library");
+            case GameEvent.LibraryReordered reordered ->
+                    ownerOnly(event.actor(), reordered.seat(), "reorder a library");
+            case GameEvent.Surveiled surveiled -> ownerOnly(event.actor(), surveiled.seat(), "surveil");
+            // And a fifth. Revealing turns the top of a library face up to the whole room,
+            // the actor included - so a client that could reveal an opponent's library would
+            // read it by another name, five cards at a time, and every spectator with it. The
+            // honest client only ever names its own seat; this is for the one that does not.
+            case GameEvent.LibraryRevealed revealed ->
+                    ownerOnly(event.actor(), revealed.seat(), "reveal a library");
+
+            // Naming a specific card inside a hidden zone means having seen it.
+            case GameEvent.CardMoved moved -> movingOutOfHiddenZone(state, moved);
+
+            // Turning somebody else's card face up reveals it to the whole table, which is
+            // reading it by another name. Turning a face-up one face down is not restricted: it
+            // shows nobody anything, and this mod does not referee rudeness. One that is already
+            // face down is a card the actor cannot read, and was refused above.
+            case GameEvent.CardFacingSet facing -> turningSomebodyElsesCardUp(state, facing);
+
+            // A copy carries the original's identity, so making one is a way of reading the
+            // original - and the copy lands face up on the copier's own battlefield, where
+            // they can simply look at it. Card instance ids are consecutive, so without this
+            // a modified client walks the numbers and prints an opponent's hand, library and
+            // face-down permanents onto its own side of the table, one token at a time.
+            case GameEvent.TokenCopyCreated copy -> copyingSomethingUnread(state, copy);
+
+            // Emptying a hidden zone into the open shows the actor everything in it, which is
+            // the same looking the four above are about - so only its owner may ask for it.
+            case GameEvent.ZoneMoved moved -> !moved.fromRef().isHidden()
+                    ? Optional.<String>empty()
+                    : ownerOnly(event.actor(), moved.seat(), "empty their "
+                            + moved.from().name().toLowerCase(java.util.Locale.ROOT));
+
+            // Sorting a hand is arranging it, and a hand is its owner's to arrange. The log
+            // says "sorted their hand", so a client that could sort somebody else's wrote a
+            // line about an act that never happened to the player it names.
+            case GameEvent.HandSorted sorted -> ownerOnly(event.actor(), sorted.seat(), "sort that hand");
+
+            // A commander tax or a commander's damage is charged against a commander, and a
+            // commander is a card some seat put in its command zone when the deck went down.
+            // An instance nobody ever played is not one: charging it made a map entry keyed
+            // by a number that means nothing, which nothing at the table could ever clear.
+            case GameEvent.CommanderTaxChanged taxed -> aCommanderOfThisTable(state, taxed.commander());
+            case GameEvent.CommanderDamageChanged hit -> aCommanderOfThisTable(state, hit.commander());
+
+            // Your own hand and nobody else's. "Target player reveals their hand" is
+            // resolved by that player turning it round, exactly as it is on a real table -
+            // and an event that let one client open another player's hand would be the whole
+            // security property of the mod handed over in a single packet.
+            // And to somebody: a hand turned toward an empty chair was shown to whoever sat
+            // down in it next. The chooser lists only the people sitting there, so this is the
+            // one picked a moment after they got up.
+            case GameEvent.HandShown shown -> shown.showing() && !shown.everybody()
+                    && state.hasSeat(shown.to()) && !state.seatState(shown.to()).isOccupied()
+                    ? Optional.of("Nobody is sitting there.")
+                    : Optional.empty();
+
+            // Your own seat, and nobody else's, for the things that are simply about you.
+            case GameEvent.SeatTaken ignored -> Optional.empty();
+            case GameEvent.SeatReleased ignored -> Optional.empty();
+            case GameEvent.Conceded ignored -> Optional.empty();
+            case GameEvent.DeckLoaded ignored -> Optional.empty();
+
+            // Everything else is open to any seated player, on purpose.
+            default -> Optional.empty();
+        };
+    }
+
+    /**
+     * Whether every card this event names is one the actor is allowed to lay a hand on.
+     * <p>Both halves of the question the visibility rules ask, asked once for every event. A
+     * card in another seat's hand or library is that seat's, and a face-down card out on the
+     * table is its owner's, and naming either is something only its owner can honestly do:
+     * neither ever reaches anybody else's client with an id on it. A modified client only has
+     * to count, though, and a ping or a tap it sent at somebody's face-down card was accepted -
+     * so the public log wrote that card's marker against the number that had been guessed,
+     * which undid the fresh marker a card is given every time it goes face down.
+     * <p>The actor's own hand and library are theirs, except for a face-down card of somebody
+     * else's, which can end up there face down - a stolen morph returned to hand with the rest of
+     * a battlefield - and is as unreadable there as anywhere. The one thing its holder may do with
+     * it is put it down in the open: playing somebody else's card face down from your hand turns
+     * it down there first and moves it second, and the second move names a face-down card that is
+     * not yours. Anything quieter - a note on it, a counter, a move within the hand - would answer
+     * a guessed id in the holder's own view.
+     * <p>A commander's tally is not touching the commander. It is a number on a seat, kept
+     * against an id every seat is shown, and a table writes it down wherever the card has got
+     * to - so it is let through here wherever the card is, and its line in the log never says
+     * more about where than the board does. Whether it is a commander at all is asked below.
+     * <p>A card the session does not have is left alone here - a click that raced a card
+     * being scooped should do nothing rather than end the session, and the fold already
+     * treats a stale id that way.
+     */
+    private static Optional<String> touchingSomethingUnread(GameState state, GameEvent event) {
+        if (event instanceof GameEvent.CommanderDamageChanged || event instanceof GameEvent.CommanderTaxChanged) {
+            return Optional.empty();
+        }
+        for (CardInstanceId named : EventTargets.cardsNamedBy(event)) {
+            ZoneRef where = state.locationOf(named).orElse(null);
+            if (where == null) {
+                continue;
+            }
+            if (where.isHidden() && !where.seat().equals(event.actor())) {
+                return Optional.of(NOT_YOURS);
+            }
+            CardInstance card = state.card(named).orElse(null);
+            if (card == null || !card.isFaceDown() || card.owner().equals(event.actor())) {
+                continue;
+            }
+            boolean puttingItDownInTheOpen = where.isHidden()
+                    && event instanceof GameEvent.CardMoved moved && !moved.to().isHidden();
+            if (!puttingItDownInTheOpen) {
+                return Optional.of(NOT_YOURS);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Whether this card is a commander somebody at this table actually put down. */
+    private static Optional<String> aCommanderOfThisTable(GameState state, CardInstanceId commander) {
+        return state.isACommander(commander)
+                ? Optional.empty()
+                : Optional.of("That card is not a commander at this table.");
+    }
+
+    private static Optional<String> ownerOnly(SeatId actor, SeatId owner, String what) {
+        return actor.equals(owner)
+                ? Optional.empty()
+                : Optional.of("Only the owner of that library can " + what + ".");
+    }
+
+    /**
+     * Only a card's owner turns it face up.
+     * <p>A face-down permanent is the one thing on an open board that nobody else can read,
+     * and turning it over publishes it to everybody at the table. An honest client cannot
+     * even ask - a face-down card arrives at it with no instance id to name - but instance
+     * ids are consecutive integers, so a modified one only has to count. On a real table you
+     * do not turn over somebody else's morph, and this is that.
+     * <p>Face down is left alone. It reveals nothing, and refusing it would referee
+     * behavior rather than protect information, which is not this mod's job.
+     */
+    private static Optional<String> turningSomebodyElsesCardUp(
+            GameState state, GameEvent.CardFacingSet event) {
+        if (event.facing() != Facing.FACE_UP) {
+            return Optional.empty();
+        }
+        CardInstance card = state.card(event.card()).orElse(null);
+        if (card == null) {
+            return Optional.of("That card is not in this session.");
+        }
+        return card.owner().equals(event.actor()) || !card.isFaceDown()
+                ? Optional.empty()
+                : Optional.of(NOT_YOURS);
+    }
+
+    /**
+     * Whether the actor may copy this card, which is whether they may read it.
+     * <p>The same two questions the visibility rules ask, in the same order: a card in
+     * somebody else's hand or library is theirs to see, and a face-down card is its owner's
+     * whatever zone it is in. Everything else on the table is public and copying it is an
+     * ordinary thing to do at an ordinary game.
+     */
+    private static Optional<String> copyingSomethingUnread(
+            GameState state, GameEvent.TokenCopyCreated copy) {
+        CardInstance source = state.card(copy.source()).orElse(null);
+        if (source == null) {
+            return Optional.of("That card is not in this session.");
+        }
+        ZoneRef where = state.locationOf(copy.source()).orElse(null);
+        if (where != null && where.isHidden() && !where.seat().equals(copy.actor())) {
+            return Optional.of(NOT_YOURS);
+        }
+        if (source.isFaceDown() && !source.owner().equals(copy.actor())) {
+            return Optional.of(NOT_YOURS);
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<String> movingOutOfHiddenZone(GameState state, GameEvent.CardMoved moved) {
+        Optional<ZoneRef> from = state.locationOf(moved.card());
+        if (from.isEmpty()) {
+            return Optional.of("That card is not in this session.");
+        }
+        ZoneRef source = from.get();
+        if (!source.isHidden() || source.seat().equals(moved.actor())) {
+            return Optional.empty();
+        }
+        // Moving a card *into* somebody's hand or library is fine - the actor already knew
+        // what it was. It is taking one out that requires having read it.
+        return Optional.of(NOT_YOURS);
+    }
+}

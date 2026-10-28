@@ -1,0 +1,288 @@
+package dev.gathering.client;
+
+import dev.gathering.core.game.visibility.GameView;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.core.BlockPos;
+
+/**
+ * The boards this client has been told about, by table.
+ * <p>More than one, because a player sits at one table and can see several: the table you are
+ * playing at sends you your own view, and every table in sight sends you the public one for
+ * the miniature on its surface. Keyed by table so those cannot be confused for each other -
+ * the seated view and the spectator view of the same game are different objects and only one
+ * of them has your hand in it.
+ * <p>Each is replaced wholesale rather than patched. The server decides what this client may
+ * know; a client that merged updates into a board it was keeping would eventually hold
+ * something it was told once and is no longer entitled to.
+ * <p>Client-only.
+ */
+public final class ClientTableState {
+
+    /**
+     * How many tables a client remembers at once.
+     * <p>A shop full of tables is the case this is for, and forgetting the oldest is the right
+     * failure: a miniature that stops updating is a table you walked away from. The number is the
+     * board presentations' own, so the miniature keeps a presentation for every board held here.
+     */
+    private static final int MAX_TABLES = dev.gathering.core.ui.BoardPresentation.MOST_BOARDS_KEPT;
+
+    private static final Map<BlockPos, GameView> BOARDS = new ConcurrentHashMap<>();
+
+    /**
+     * What is in each table's pot.
+     * <p>Beside the board rather than inside it, exactly as it is on the server: the board is
+     * a view built for one pair of eyes and the pot is face up to the room, so it is not
+     * something the visibility rules have an opinion about.
+     */
+    private static final Map<BlockPos, java.util.List<dev.gathering.item.CardComponent>> POTS =
+            new ConcurrentHashMap<>();
+
+    /** What each table is playing, as its server last said. See {@link dev.gathering.core.match.TableTerms}. */
+    private static final Map<BlockPos, dev.gathering.core.match.TableTerms> TERMS = new ConcurrentHashMap<>();
+
+    /** The table this player is seated at, whose view is theirs rather than the public one. */
+    private static volatile BlockPos seatedAt;
+
+    private ClientTableState() {
+    }
+
+    /**
+     * Takes a board off the wire and, if asked, sits the player down at it.
+     * <p>Here rather than in each loader's network glue, where it lived twice: eighteen
+     * identical lines, comments included, that would have drifted the first time only one
+     * copy learned something.
+     */
+    public static void acceptPayload(dev.gathering.network.TableViewPayload payload) {
+        try {
+            GameView board = dev.gathering.core.game.persistence.ViewCodec.read(payload.view());
+            // A seated view is this player's own board; a spectator view is the public one
+            // that feeds the miniature on the table. Only the first belongs to a seat.
+            boolean seated = board.viewer()
+                    instanceof dev.gathering.core.game.visibility.Viewer.Seated;
+            accept(payload.table(), board, seated);
+        } catch (java.io.IOException e) {
+            // A board this client cannot read is one it must not draw a guess at.
+            forget(payload.table());
+            return;
+        }
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+        if (payload.open() && !(client.screen instanceof TableScreen)) {
+            // The first sit-down of this client's life opens the lesson instead, with the
+            // real board waiting behind it. Everyone else's game carries on: the board that
+            // just arrived is filed above whatever happens next, and walking out of the
+            // demonstration walks into it. Once per client profile - see
+            // Tutorial.worthOffering - so this is the ordinary path by the second table.
+            client.setScreen(Tutorial.worthOffering()
+                    ? TableScreen.learning(payload.table())
+                    : new TableScreen(payload.table()));
+        }
+    }
+
+    public static void accept(BlockPos table, GameView board, boolean seated) {
+        if (BOARDS.size() >= MAX_TABLES && !BOARDS.containsKey(table)) {
+            // The oldest, and never the one this player is sitting at. A map's first key is whichever
+            // bin it happens to land in, so this threw away an arbitrary table - and when that was
+            // yours, your own game screen closed itself mid-turn and did it again on the next board
+            // to arrive. Forgetting a table you walked away from is the right failure; forgetting the
+            // one you are playing at is not a failure mode anybody chose.
+            oldestFirst.stream()
+                    .filter(forgotten -> !forgotten.equals(seatedAt))
+                    .findFirst()
+                    .ifPresent(ClientTableState::forget);
+            // Through forget, so the pot, the terms and the away seats go with the board. Only
+            // BOARDS was bounded, and those three are filled by payloads the server sends about any
+            // position it likes - so walking past a row of tables grew them for the rest of the
+            // connection, and a server could drive that growth on purpose.
+        }
+        oldestFirst.remove(table.immutable());
+        oldestFirst.add(table.immutable());
+        // Before the board is put down, because what is wanted is the difference between the
+        // one that was here and the one that has arrived - which is every card that moved.
+        long now = ClientCardFlights.now();
+        ClientCardFlights.arrived(table, board, now);
+        // And the one move that leaves no trace on the board at all: a shuffle changes no
+        // zone and no count, so it has to be read off the log or it is not seen.
+        ClientTableNews.arrived(table, board, now);
+        BOARDS.put(table.immutable(), board);
+        if (seated) {
+            seatedAt = table.immutable();
+        }
+        // The guided first game watches confirmed boards rather than presses. This is where a
+        // confirmed board arrives, so it is the only place that could tell it.
+        Tutorial.sawBoard(table, board);
+    }
+
+    /** The pot at this table, which is empty at almost every table there will ever be. */
+    public static java.util.List<dev.gathering.item.CardComponent> potOf(BlockPos table) {
+        return table == null ? java.util.List.of() : POTS.getOrDefault(table, java.util.List.of());
+    }
+
+    /** What this table is playing, when its server has said. */
+    public static Optional<dev.gathering.core.match.TableTerms> termsOf(BlockPos table) {
+        return table == null ? Optional.empty() : Optional.ofNullable(TERMS.get(table));
+    }
+
+    /** What the server says this table is playing. */
+    public static void acceptTerms(BlockPos table, dev.gathering.core.match.TableTerms terms) {
+        if (table != null && terms != null) {
+            TERMS.put(table.immutable(), terms);
+        }
+    }
+
+    /** Seats kept for players away from the board, by table, with when this client was told. */
+    private static final Map<BlockPos, AwaySeats> AWAY = new ConcurrentHashMap<>();
+
+    /** The seats kept at a table, as the server last said, and the moment it said so. */
+    public record AwaySeats(java.util.List<dev.gathering.network.TableAwayPayload.Away> seats, long toldAtMillis) {
+
+        /** The kept seat at this index, if it is one. */
+        public Optional<dev.gathering.network.TableAwayPayload.Away> seat(int index) {
+            return seats.stream().filter(away -> away.seat() == index).findFirst();
+        }
+
+        /** How many seconds are left on a kept seat now, counting down from when the server said. */
+        public int secondsLeft(dev.gathering.network.TableAwayPayload.Away away, long nowMillis) {
+            return (int) Math.max(0, away.secondsLeft() - (nowMillis - toldAtMillis) / 1000);
+        }
+    }
+
+    public static Optional<AwaySeats> awayAt(BlockPos table) {
+        return table == null ? Optional.empty() : Optional.ofNullable(AWAY.get(table));
+    }
+
+    /** Which seats the server says are kept for players away from the board here. */
+    public static void acceptAway(BlockPos table, java.util.List<dev.gathering.network.TableAwayPayload.Away> seats) {
+        if (table == null) {
+            return;
+        }
+        if (seats.isEmpty()) {
+            AWAY.remove(table);
+        } else {
+            AWAY.put(table.immutable(), new AwaySeats(java.util.List.copyOf(seats), System.currentTimeMillis()));
+        }
+    }
+
+    /** What the server says is in the pot here. */
+    public static void acceptPot(BlockPos table, java.util.List<dev.gathering.item.CardComponent> cards) {
+        if (table == null) {
+            return;
+        }
+        if (cards == null || cards.isEmpty()) {
+            POTS.remove(table);
+        } else {
+            // Immutable like every sibling: a caller handing in a MutableBlockPos would otherwise
+            // file the pot under a key that changes out from under the map.
+            POTS.put(table.immutable(), java.util.List.copyOf(cards));
+        }
+    }
+
+    /**
+     * Every table this client is holding a board for, in no order.
+     * <p>A copy, because {@code BOARDS} is written from the network hand-off and this is walked
+     * from the render thread. Small by construction - the map is bounded - and walked once per
+     * drawn player per frame by {@link SeatedPlayers}, which is why it hands back the keys rather
+     * than the boards.
+     */
+    public static java.util.List<BlockPos> tablesInSight() {
+        return java.util.List.copyOf(BOARDS.keySet());
+    }
+
+    /**
+     * The board at this position, whoever is keeping it.
+     * <p>The guided first game's board is built in this client rather than sent by a server,
+     * and it is filed at a position no table can occupy - so a lookup by position is exactly
+     * the question whose answer it is, and this is where that has to be answered. Answering it
+     * only in the table screen meant every other screen opened from the table asked the real
+     * map, got nothing, and quietly did nothing: the counters editor closed itself on the next
+     * tick and refused to send a counter, so the lesson's own counter step could not be
+     * completed through the menu. An audit reproduced it in a real client.
+     * <p>Nothing is stored under that position, so nothing that walks the tables sees the
+     * demonstration. Only a lookup that names it does, which is what asking for it means.
+     */
+    public static Optional<GameView> viewOf(BlockPos table) {
+        if (TutorialDemo.at(table)) {
+            return TutorialDemo.board();
+        }
+        return Optional.ofNullable(BOARDS.get(table));
+    }
+
+    /**
+     * The seat this client holds at a table, if any.
+     * <p>Comes from the view the server sent, not from anything the client decided: the
+     * viewer stamped on a {@code GameView} is the only account of who this client is that
+     * the server would agree with.
+     */
+    public static Optional<dev.gathering.core.game.SeatId> seatAt(BlockPos table) {
+        return viewOf(table)
+                .map(dev.gathering.core.game.visibility.GameView::viewer)
+                .filter(dev.gathering.core.game.visibility.Viewer.Seated.class::isInstance)
+                .map(dev.gathering.core.game.visibility.Viewer.Seated.class::cast)
+                .map(dev.gathering.core.game.visibility.Viewer.Seated::seat);
+    }
+
+    /** The board of the table this player is seated at, which is the one the screen draws. */
+    public static Optional<GameView> view() {
+        return Optional.ofNullable(seatedAt).flatMap(ClientTableState::viewOf);
+    }
+
+    public static Optional<BlockPos> table() {
+        return Optional.ofNullable(seatedAt);
+    }
+
+    /**
+     * One table's game has ended: forget that board, and close it if it is what is open.
+     * <p>That table and no other. This used to forget every board this client knew and close
+     * whatever table screen was up, so a game ending at one table of a pod blanked the board
+     * at the other - and a watcher standing between two tables lost both.
+     */
+    public static void closed(BlockPos table) {
+        if (table == null) {
+            return;
+        }
+        forget(table);
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+        if (client.screen instanceof TableScreen board && board.isAbout(table)) {
+            client.setScreen(null);
+        }
+    }
+
+    /**
+     * The order boards arrived in, so the one given up when there are too many is the oldest.
+     * <p>Beside the map rather than in it: {@code BOARDS} is read from the render thread and written
+     * from the network thread, and a map that keeps order is not one of the concurrent ones.
+     */
+    private static final java.util.Deque<BlockPos> oldestFirst = new java.util.concurrent.ConcurrentLinkedDeque<>();
+
+    /** Stops watching one table, without forgetting the rest of the room. */
+    public static void forget(BlockPos table) {
+        oldestFirst.remove(table);
+        POTS.remove(table);
+        TERMS.remove(table);
+        AWAY.remove(table);
+        BOARDS.remove(table);
+        ClientCardFlights.forget(table);
+        ClientTableNews.forget(table);
+        if (table.equals(seatedAt)) {
+            seatedAt = null;
+        }
+    }
+
+    /** The seat is given up, but the tables in sight are still in sight. */
+    public static void leaveSeat() {
+        seatedAt = null;
+    }
+
+    /** On disconnect: what one server's tables showed is not true of the next. */
+    public static void clear() {
+        oldestFirst.clear();
+        POTS.clear();
+        TERMS.clear();
+        AWAY.clear();
+        BOARDS.clear();
+        ClientCardFlights.clear();
+        ClientTableNews.clear();
+        seatedAt = null;
+    }
+}

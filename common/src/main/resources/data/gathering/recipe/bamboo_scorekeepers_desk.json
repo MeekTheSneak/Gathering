@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PBP",
+    "LLL",
+    "L L"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:paper"
+    },
+    "B": {
+      "item": "minecraft:book"
+    },
+    "L": {
+      "item": "minecraft:bamboo_planks"
+    }
+  },
+  "result": {
+    "id": "gathering:bamboo_scorekeepers_desk",
+    "count": 1
+  }
+}

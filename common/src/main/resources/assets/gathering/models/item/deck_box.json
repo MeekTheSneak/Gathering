@@ -1,0 +1,692 @@
+{
+  "credit": "Gathering furniture design",
+  "parent": "minecraft:block/block",
+  "ambientocclusion": true,
+  "textures": {
+    "shell": "minecraft:block/white_concrete",
+    "lining": "minecraft:block/gray_concrete",
+    "particle": "minecraft:block/white_concrete"
+  },
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.7,
+        0.7,
+        0.7
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.45
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "scale": [
+        0.45,
+        0.45,
+        0.45
+      ]
+    }
+  },
+  "elements": [
+    {
+      "name": "Case body",
+      "from": [
+        3,
+        1,
+        4
+      ],
+      "to": [
+        13,
+        11,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            10
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            8,
+            10
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            8,
+            10
+          ],
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            8
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            8
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Recessed lid seam",
+      "from": [
+        3,
+        11,
+        4
+      ],
+      "to": [
+        13,
+        11.5,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            10,
+            0.5
+          ]
+        },
+        "south": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            10,
+            0.5
+          ]
+        },
+        "east": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            8,
+            0.5
+          ]
+        },
+        "west": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            8,
+            0.5
+          ]
+        },
+        "up": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            10,
+            8
+          ]
+        },
+        "down": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            10,
+            8
+          ]
+        }
+      }
+    },
+    {
+      "name": "Flush flip top",
+      "from": [
+        3,
+        11.5,
+        3.5
+      ],
+      "to": [
+        13,
+        14,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            2.5
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            2.5
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            8.5,
+            2.5
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            8.5,
+            2.5
+          ],
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            8.5
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            8.5
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Broad folding flap",
+      "from": [
+        3,
+        8.5,
+        3.5
+      ],
+      "to": [
+        13,
+        11.5,
+        4
+      ],
+      "faces": {
+        "north": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            3.0
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            3.0
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            0.5,
+            3.0
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            0.5,
+            3.0
+          ],
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            0.5
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            10,
+            0.5
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Tapered closure tab",
+      "from": [
+        4,
+        7.5,
+        3.5
+      ],
+      "to": [
+        12,
+        8.5,
+        4
+      ],
+      "faces": {
+        "north": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            8,
+            1.0
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            8,
+            1.0
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            0.5,
+            1.0
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            0.5,
+            1.0
+          ],
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            8,
+            0.5
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#shell",
+          "uv": [
+            0,
+            0,
+            8,
+            0.5
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Closure seam bottom",
+      "from": [
+        4,
+        7.25,
+        3.75
+      ],
+      "to": [
+        12,
+        7.5,
+        4
+      ],
+      "faces": {
+        "north": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            8,
+            0.25
+          ]
+        },
+        "south": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            8,
+            0.25
+          ]
+        },
+        "east": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            0.25
+          ]
+        },
+        "west": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            0.25
+          ]
+        },
+        "up": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            8,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            8,
+            0.25
+          ]
+        }
+      }
+    },
+    {
+      "name": "Closure seam left",
+      "from": [
+        3.75,
+        7.5,
+        3.75
+      ],
+      "to": [
+        4,
+        8.5,
+        4
+      ],
+      "faces": {
+        "north": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            1.0
+          ]
+        },
+        "south": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            1.0
+          ]
+        },
+        "east": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            1.0
+          ]
+        },
+        "west": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            1.0
+          ]
+        },
+        "up": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            0.25
+          ]
+        }
+      }
+    },
+    {
+      "name": "Closure seam right",
+      "from": [
+        12,
+        7.5,
+        3.75
+      ],
+      "to": [
+        12.25,
+        8.5,
+        4
+      ],
+      "faces": {
+        "north": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            1.0
+          ]
+        },
+        "south": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            1.0
+          ]
+        },
+        "east": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            1.0
+          ]
+        },
+        "west": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            1.0
+          ]
+        },
+        "up": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            0.25
+          ]
+        },
+        "down": {
+          "texture": "#lining",
+          "uv": [
+            0,
+            0,
+            0.25,
+            0.25
+          ]
+        }
+      }
+    }
+  ]
+}

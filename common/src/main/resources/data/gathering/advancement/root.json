@@ -1,0 +1,19 @@
+{
+  "display": {
+    "icon": { "id": "gathering:card" },
+    "title": { "translate": "advancements.gathering.root.title" },
+    "description": { "translate": "advancements.gathering.root.description" },
+    "background": "gathering:textures/block/table_felt.png",
+    "frame": "task",
+    "show_toast": false,
+    "announce_to_chat": false
+  },
+  "criteria": {
+    "holding_cardboard": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [ { "items": "#gathering:cardboard" } ]
+      }
+    }
+  }
+}

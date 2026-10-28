@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PBP",
+    "LLL",
+    "L L"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:paper"
+    },
+    "B": {
+      "item": "minecraft:book"
+    },
+    "L": {
+      "item": "minecraft:birch_planks"
+    }
+  },
+  "result": {
+    "id": "gathering:birch_scorekeepers_desk",
+    "count": 1
+  }
+}

@@ -1,0 +1,50 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+
+# ModDevGradle / Loom
+run/
+runs/
+run-data/
+.neoforge/
+remappedSrc/
+
+# Generated resources are committed on purpose (runData checks for drift),
+# so nothing under src/generated is ignored.
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local caches produced at runtime by the Scryfall pipeline
+/cache/
+
+# Data generation hash cache - build state, not a shipped asset
+common/src/generated/resources/.cache/
+
+# Python's own build cache from the tools. One of these was committed once.
+__pycache__/
+*.pyc
+
+# jqwik's run database, which records which properties failed so it can try them first.
+# Build state that changes on every test run, not something to carry in the history.
+.jqwik-database
+
+# The layout preview writes here.
+build/preview/
+neoforge/run/screenshots/
+.qa/
+.claude/worktrees/

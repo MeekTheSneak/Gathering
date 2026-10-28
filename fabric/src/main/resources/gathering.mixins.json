@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.gathering.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CreativeSlotMixin",
+    "ExplosionMixin"
+  ],
+  "client": [
+    "BoardKeysFirstMixin",
+    "CameraMixin",
+    "ContainerSweepMixin",
+    "CreativeDeckClickMixin",
+    "EntityRenderMixin",
+    "ItemInHandLayerMixin",
+    "PlayerModelMixin",
+    "WorldBehindTheBoardMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

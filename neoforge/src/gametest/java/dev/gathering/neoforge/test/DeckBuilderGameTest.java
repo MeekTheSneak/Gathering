@@ -1,0 +1,342 @@
+package dev.gathering.neoforge.test;
+
+import dev.gathering.Gathering;
+import dev.gathering.block.CollectionBlockEntity;
+import dev.gathering.core.card.CardIdentity;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DeckItem;
+import dev.gathering.item.GatheringContent;
+import dev.gathering.network.BuildDeckPayload;
+import dev.gathering.server.CollectionView;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+/**
+ * Finishing a deck in the builder.
+ * <p>The client says which printings it wants and the server is the one that decides whether
+ * the box had them. These check that: a deck comes out holding what was really there, the box
+ * is that many cards lighter, and a client asking for cards nobody owns gets a deck without
+ * them rather than a deck the collection never had.
+ */
+@GameTestHolder(Gathering.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class DeckBuilderGameTest {
+
+    private static final UUID SOL_RING = UUID.fromString("5805f64c-dd88-4e94-8f0a-a01dae67e3ba");
+    private static final UUID BOLT = UUID.fromString("11bf83bb-c95b-4b4f-9a56-ce7a1816307a");
+    private static final UUID NEVER_OWNED = UUID.fromString("00000000-0000-4000-8000-000000000123");
+
+    @GameTest(template = "empty")
+    public static void aBuiltDeckComesOutOfTheBox(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        CollectionBlockEntity box = boxAt(helper, where);
+        // Claimed, the way placing one claims it. A collection nobody owns lets nobody take
+        // anything out of it, which is the right default and not the case being tested here.
+        box.claimFor(player.getUUID());
+        box.put(CardIdentity.ofPrinting(SOL_RING, false), 2);
+        box.put(CardIdentity.ofPrinting(BOLT, false), 1);
+
+        CollectionView.build(player, new BuildDeckPayload(where, "Test Deck", "",
+                List.of(card(SOL_RING), card(SOL_RING)),
+                Optional.of(card(BOLT)), dev.gathering.core.card.Sleeve.RED));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null) {
+            helper.fail("finishing a build handed over no deck");
+            return;
+        }
+        if (deck.entries().size() != 2 || deck.commanders().size() != 1) {
+            helper.fail("the deck came out with " + deck.entries().size()
+                    + " cards and " + deck.commanders().size() + " commanders");
+            return;
+        }
+        if (!"Test Deck".equals(deck.name())) {
+            helper.fail("the deck was not named what the builder called it");
+            return;
+        }
+        // And the box is exactly that many cards lighter.
+        if (box.cards().of(CardIdentity.ofPrinting(SOL_RING, false)) != 0
+                || box.cards().of(CardIdentity.ofPrinting(BOLT, false)) != 0) {
+            helper.fail("the collection still holds cards the deck took out of it");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A client asking for what the box does not have gets a deck without it.
+     * <p>The whole reason the server takes the cards itself rather than believing a list. A
+     * deck built out of cards nobody owns is a deck conjured from a packet.
+     */
+    @GameTest(template = "empty")
+    public static void cardsTheBoxDoesNotHaveAreNotConjured(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        CollectionBlockEntity box = boxAt(helper, where);
+        box.claimFor(player.getUUID());
+        box.put(CardIdentity.ofPrinting(SOL_RING, false), 1);
+
+        CollectionView.build(player, new BuildDeckPayload(where, "Wishful", "",
+                List.of(card(SOL_RING), card(NEVER_OWNED), card(NEVER_OWNED)),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null) {
+            helper.fail("finishing a build handed over no deck at all");
+            return;
+        }
+        if (deck.entries().size() != 1) {
+            helper.fail("a deck asked for three cards out of a box holding one came out with "
+                    + deck.entries().size());
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A card loose in the player's own pockets counts as one they own.
+     * <p>The box and the inventory are one pool to a builder, because they are one pool to
+     * the person: putting a card you just opened into the box only to take it straight back
+     * out is two errands for a card that never moved. What matters is that it is really
+     * taken - a deck built out of a card still sitting in the inventory would be a way to
+     * duplicate every card in the game.
+     */
+    @GameTest(template = "empty")
+    public static void cardsInYourPocketsCountTowardsTheDeck(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        CollectionBlockEntity box = boxAt(helper, where);
+        box.claimFor(player.getUUID());
+        box.put(CardIdentity.ofPrinting(SOL_RING, false), 1);
+        player.getInventory().add(
+                dev.gathering.item.CardItem.of(card(BOLT)).copyWithCount(2));
+
+        CollectionView.build(player, new BuildDeckPayload(where, "Pocket Deck", "",
+                List.of(card(SOL_RING), card(BOLT), card(BOLT)),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null) {
+            helper.fail("finishing a build handed over no deck");
+            return;
+        }
+        if (deck.entries().size() != 3) {
+            helper.fail("a deck built from one boxed card and two carried ones came out with "
+                    + deck.entries().size());
+            return;
+        }
+        if (looseCards(player) != 0) {
+            helper.fail("the carried cards were counted into the deck and kept: "
+                    + looseCards(player) + " left over");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Somebody who may not take from the box can still build out of their own pockets.
+     * <p>It used to refuse the whole press, which refused cards the box had no claim on.
+     */
+    @GameTest(template = "empty")
+    public static void aBoxYouMayNotTakeFromDoesNotStopYourOwnCards(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        CollectionBlockEntity box = boxAt(helper, where);
+        box.claimFor(UUID.fromString("00000000-0000-4000-8000-00000000dead"));
+        box.put(CardIdentity.ofPrinting(SOL_RING, false), 4);
+        player.getInventory().add(
+                dev.gathering.item.CardItem.of(card(BOLT)).copyWithCount(1));
+
+        CollectionView.build(player, new BuildDeckPayload(where, "Mine Only", "",
+                List.of(card(SOL_RING), card(BOLT)),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null) {
+            helper.fail("a build using only carried cards handed over no deck");
+            return;
+        }
+        if (deck.entries().size() != 1) {
+            helper.fail("a deck built beside somebody else's box came out with "
+                    + deck.entries().size() + " cards rather than the one that was carried");
+            return;
+        }
+        if (box.cards().of(CardIdentity.ofPrinting(SOL_RING, false)) != 4) {
+            helper.fail("cards were taken out of a box this player may not take from");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A deck finished with a sideboard arrives holding both halves, and the box is lighter by
+     * both.
+     * <p>The half nobody was watching. A sideboard is real cards out of the same collection -
+     * it is not a note about which cards a player might have picked - so every one of them has
+     * to leave the box exactly as a deck card does, and land in the deck's own sideboard rather
+     * than in the ninety-nine. Cards in two places at once is the one failure collection mode
+     * must not have, and a pile the taking code skipped is the shape that failure takes.
+     */
+    @GameTest(template = "empty")
+    public static void aSideboardComesOutOfTheBoxToo(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        CollectionBlockEntity box = boxAt(helper, where);
+        box.claimFor(player.getUUID());
+        box.put(CardIdentity.ofPrinting(SOL_RING, false), 1);
+        box.put(CardIdentity.ofPrinting(BOLT, false), 3);
+
+        // One in the command zone, one in the deck, two beside it - and one asked for that
+        // nobody owns, which must come back short rather than conjured into the sideboard.
+        CollectionView.build(player, new BuildDeckPayload(where, "Boarded", "",
+                List.of(card(BOLT)),
+                List.of(card(BOLT), card(BOLT), card(NEVER_OWNED)),
+                Optional.of(card(SOL_RING)), dev.gathering.core.card.Sleeve.BLUE));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null) {
+            helper.fail("finishing a build with a sideboard handed over no deck");
+            return;
+        }
+        if (deck.sideboard().size() != 2) {
+            helper.fail("the deck came out with " + deck.sideboard().size()
+                    + " cards in its sideboard rather than the two the box could fill");
+            return;
+        }
+        if (deck.entries().size() != 1 || deck.commanders().size() != 1) {
+            helper.fail("the sideboard cards landed in the deck: " + deck.entries().size()
+                    + " cards and " + deck.commanders().size() + " commanders");
+            return;
+        }
+        if (deck.totalCards() != 4) {
+            helper.fail("a deck of one, one and two weighs " + deck.totalCards());
+            return;
+        }
+        // And every one of the four really left the box, the sideboard's two included.
+        if (box.cards().of(CardIdentity.ofPrinting(BOLT, false)) != 0
+                || box.cards().of(CardIdentity.ofPrinting(SOL_RING, false)) != 0) {
+            helper.fail("the collection still holds cards the deck and its sideboard took out:"
+                    + " " + box.cards().total() + " left");
+            return;
+        }
+        if (looseCards(player) != 0) {
+            helper.fail("a card the box could not fill was handed over anyway");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Every copy with a history keeps its own in the deck the builder makes - out of the box and out of
+     * the pockets alike.
+     * <p>The builder gathered the histories by card, so two storied copies of one printing kept one story
+     * between them: the second wrote over the first, which had already left the box and existed nowhere
+     * else. A deck keeps one history per copy - that is the shape it has - and the box hands one back per
+     * copy; the step between them was the only place that could not count past one.
+     */
+    @GameTest(template = "empty")
+    public static void everyStoriedCopyKeepsItsOwnStoryInTheDeck(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        player.getInventory().clearContent();
+        CollectionBlockEntity box = boxAt(helper, where);
+        box.claimFor(player.getUUID());
+        dev.gathering.core.story.CardStory ana = storied("Ana");
+        dev.gathering.core.story.CardStory ben = storied("Ben");
+        dev.gathering.core.story.CardStory cy = storied("Cy");
+        dev.gathering.core.story.CardStory dee = storied("Dee");
+        box.putStoried(CardIdentity.ofPrinting(BOLT, false), ana);
+        box.putStoried(CardIdentity.ofPrinting(BOLT, false), ben);
+        // And two loose ones of another printing, each with its own history, in the player's pockets.
+        for (dev.gathering.core.story.CardStory story : List.of(cy, dee)) {
+            ItemStack loose = dev.gathering.item.CardItem.of(card(SOL_RING));
+            loose.set(dev.gathering.registry.GatheringComponents.STORY.get(), dev.gathering.item.StoryComponent.of(story));
+            player.getInventory().add(loose);
+        }
+        if (looseCards(player) != 2) {
+            helper.fail("the player is carrying " + looseCards(player) + " loose cards, not two, so this checks nothing");
+            return;
+        }
+
+        CollectionView.build(player, new BuildDeckPayload(where, "Storied", "",
+                List.of(card(BOLT), card(BOLT), card(SOL_RING), card(SOL_RING)),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null || deck.entries().size() != 4) {
+            helper.fail("a build of four handed over " + (deck == null ? "no deck" : deck.entries().size() + " cards"));
+            return;
+        }
+        List<dev.gathering.core.story.CardStory> kept = deck.stories().stream().map(DeckComponent.Kept::story).toList();
+        for (dev.gathering.core.story.CardStory story : List.of(ana, ben, cy, dee)) {
+            if (!kept.contains(story)) {
+                helper.fail("four storied copies, two of each of two printings, went into a deck keeping " + kept.size()
+                        + " histories: " + kept);
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    /** A history with one chapter naming who pulled it, so no two are equal. */
+    private static dev.gathering.core.story.CardStory storied(String who) {
+        return dev.gathering.core.story.CardStory.begunWith(new dev.gathering.core.story.CardStory.Chapter(
+                dev.gathering.core.story.HowItCame.PULLED, who, "", "DMU", "2026-09-09"));
+    }
+
+    /** How many loose cards the player is still carrying. */
+    private static int looseCards(ServerPlayer player) {
+        int loose = 0;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack.getItem() instanceof dev.gathering.item.CardItem) {
+                loose += stack.getCount();
+            }
+        }
+        return loose;
+    }
+
+    private static CardComponent card(UUID printing) {
+        return CardComponent.of(CardIdentity.ofPrinting(printing, false));
+    }
+
+    private static DeckComponent deckInInventory(ServerPlayer player) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            DeckComponent deck = DeckItem.deckOf(stack).orElse(null);
+            if (deck != null) {
+                return deck;
+            }
+        }
+        return null;
+    }
+
+    private static CollectionBlockEntity boxAt(GameTestHelper helper, BlockPos where) {
+        return (CollectionBlockEntity) helper.getLevel().getBlockEntity(where);
+    }
+
+    private static BlockPos collection(GameTestHelper helper) {
+        BlockPos where = helper.absolutePos(new BlockPos(1, 2, 1));
+        helper.getLevel().setBlock(
+                where, GatheringContent.COLLECTION.get().defaultBlockState(), 3);
+        return where;
+    }
+
+    /** Standing at it, because reading a collection needs the player to be in front of one. */
+    private static ServerPlayer standing(GameTestHelper helper, BlockPos where) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setPos(Vec3.atCenterOf(where));
+        return player;
+    }
+}

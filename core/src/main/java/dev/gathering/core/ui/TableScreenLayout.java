@@ -1,0 +1,142 @@
+package dev.gathering.core.ui;
+
+/**
+ * The two things on screen that are not the table.
+ * <p>This used to describe four bands with a play surface panelled into the middle of them,
+ * which is a menu with a game in it. The table is the screen now - or the table in the world
+ * is - and the camera decides which part of it you are looking at, so all that is left here is
+ * the furniture that cannot live on the felt.
+ * <p>Your hand is the only real piece of it. It is private, it is fanned rather than laid out,
+ * and it belongs to you rather than to a place on the table, so it sits along the bottom edge
+ * where every digital card game and Tabletop Simulator itself put it.
+ * <p>There is no bar of key hints any more. It cost a strip of screen on every frame of every
+ * game to tell people something they learn in the first minute and then read past for ever;
+ * the full list is a key away, which is where a list you want twice belongs.
+ */
+public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
+
+    /**
+     * The strip along the top carrying names, life, and whose turn it is.
+     * <p>Not a bar any more. It was a panel, and a bar across the top of the table is a bar
+     * across the top of the table: it took a band of the felt on every frame of every game to
+     * hold four short lines, and because it wore each look's heaviest frame it also had to be
+     * tall enough for that frame to be a frame. The writing sits on the board now, with a
+     * shadow under it, and this is only how much room it is given and how far down the board
+     * begins - which is the writing's own height and a little air, and nothing else's.
+     */
+    private static final int STATUS_HEIGHT = 16;
+
+    /**
+     * How much of the screen the hand gets.
+     * <p>Enough for a card and the room it needs to rise into when the cursor is on it - the
+     * fan reserves part of its own strip for exactly that, so this is deeper than a card.
+     */
+    private static final int HAND_HEIGHT_MIN = 76;
+    private static final int HAND_HEIGHT_MAX = 168;
+    private static final float HAND_HEIGHT_FRACTION = 0.28f;
+
+    /** The layout for somebody with a hand to hold, which is anybody in a chair. */
+    public static TableScreenLayout of(int screenWidth, int screenHeight) {
+        return of(screenWidth, screenHeight, true);
+    }
+
+    /**
+     * The layout, with or without a strip along the bottom for a hand.
+     * <p>A spectator has no hand and never will while they are watching, and a strip reserved
+     * for one costs them twice: the board is fitted into a shorter window and pushed up into
+     * the status row, and the fifth of the felt under the strip stops answering the mouse -
+     * so a graveyard that happens to lie there cannot be opened by the one person at the
+     * table whose whole job is reading it.
+     * <p>Asked of the seat rather than of the cards in it. Somebody who has played their last
+     * card still has a hand; it is empty, and the strip is where the next one arrives.
+     */
+    public static TableScreenLayout of(int screenWidth, int screenHeight, boolean holdingAHand) {
+        return of(screenWidth, screenHeight, holdingAHand, 1);
+    }
+
+    /**
+     * The same, with the strip along the top given this many rows - two when there are too many
+     * seats for one. See {@link SeatStrip}.
+     */
+    public static TableScreenLayout of(int screenWidth, int screenHeight, boolean holdingAHand, int statusRows) {
+        int height = Math.max(1, screenHeight);
+        int handHeight = holdingAHand
+                ? Math.min(clamp(Math.round(height * HAND_HEIGHT_FRACTION),
+                        HAND_HEIGHT_MIN, HAND_HEIGHT_MAX), height / 2)
+                : 0;
+        return withStrip(screenWidth, screenHeight, handHeight, statusRows);
+    }
+
+    /**
+     * How deep the strip along the bottom of a replay is.
+     * <p>A row of three buttons and a bar. Deliberately nothing like a hand: somebody watching
+     * a game back has no cards, and giving the scrubber a hand's worth of screen would take a
+     * fifth of the table away to hold four controls.
+     */
+    public static final int SCRUBBER_HEIGHT = 26;
+
+    /**
+     * The layout for somebody watching a finished game: no hand, but a scrubber.
+     * <p>The strip goes in the same slot the hand would, so everything already fitted around
+     * a hand - the camera, the chat lines, the felt's hit-testing - fits around this without
+     * knowing what is in it.
+     */
+    public static TableScreenLayout watching(int screenWidth, int screenHeight) {
+        return watching(screenWidth, screenHeight, 1);
+    }
+
+    /** The same, with the strip along the top given this many rows. */
+    public static TableScreenLayout watching(int screenWidth, int screenHeight, int statusRows) {
+        return withStrip(screenWidth, screenHeight,
+                Math.min(SCRUBBER_HEIGHT, Math.max(1, screenHeight) / 2), statusRows);
+    }
+
+    private static TableScreenLayout withStrip(int screenWidth, int screenHeight, int stripHeight, int statusRows) {
+        int width = Math.max(1, screenWidth);
+        int height = Math.max(1, screenHeight);
+
+        // The felt goes under the strip rather than stopping at it. A table that ended where
+        // your cards begin would have a strip you could see across but never put anything on,
+        // and panning would keep sliding cards under a lip.
+        return new TableScreenLayout(
+                new Rect(0, 0, width, height),
+                stripHeight <= 0 ? Rect.NONE : new Rect(0, height - stripHeight, width, stripHeight),
+                new Rect(0, 0, width, Math.min(STATUS_HEIGHT * Math.max(1, Math.min(SeatStrip.MOST_ROWS, statusRows)),
+                        height / 4)));
+    }
+
+    /**
+     * The band of the window where the table can be seen: under the strip along the top, and
+     * over the hand along the bottom when there is one.
+     * <p>Said once, because the one thing that differs between a player and somebody watching
+     * is exactly the part a caller gets wrong. Somebody watching has no hand, and the top of a
+     * hand that is not there reads as zero - so a band from the strip "down to the hand" came
+     * out with no height, and everything clipped to it, every other player's hand and the pot,
+     * was drawn for players and silently not for anybody watching.
+     */
+    public Rect tableArea() {
+        int top = status.bottom();
+        int bottom = hand.isEmpty() ? felt.bottom() : hand.y();
+        return new Rect(felt.x(), top, felt.width(), Math.max(0, bottom - top));
+    }
+
+    /**
+     * Whether a point is on the table rather than on the hand.
+     * <p>The strip along the top counts as table. It did not while it was a panel, because a
+     * panel is something in the way and a click on it is a click on it - but there is no
+     * panel there now, only writing with the felt behind it, and a band of the window that
+     * looks like table and does not answer the mouse is worse than a bar was: at least a bar
+     * said why. The board is laid out to start below the writing, so in the ordinary case
+     * there is nothing up there to click; it is where a card panned or dragged that far up
+     * ends, and on the block, which draws the table under the writing, that card is reachable.
+     * The flat board clips its felt at the strip, so it refuses a press there itself: what it
+     * does not draw it does not answer for. See {@code TableScreen#coveredByTheStrip}.
+     */
+    public boolean isOnFelt(int x, int y) {
+        return felt.contains(x, y) && !hand.contains(x, y);
+    }
+
+    private static int clamp(int value, int minimum, int maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+}

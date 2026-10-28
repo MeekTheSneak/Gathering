@@ -1,0 +1,454 @@
+package dev.gathering.client;
+
+import dev.gathering.network.ImportDecklistPayload;
+import dev.gathering.network.ImportResultPayload;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.MultiLineEditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+
+/**
+ * Paste a decklist or a link to one, name it, and get a deck.
+ * <p>The front door of the mod. Deliberately dull, and deliberately honest: a list that half
+ * worked shows which lines to fix at their line numbers and still hands over the deck.
+ * <p>Client-only.
+ */
+public final class DecklistImportScreen extends Screen {
+
+    private static final int MARGIN = 16;
+    private static final int PADDING = 8;
+    private static final int GAP = 6;
+    private static final int FIELD_HEIGHT = 20;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int BUTTON_WIDTH = 110;
+    private static final int PANEL_WIDTH = 340;
+
+    /** The decklist box never gets smaller than this: below it, paste is unreadable. */
+    private static final int MIN_LIST_HEIGHT = 40;
+    private static final int PROBLEM_COLOR = 0xFFE08A5A;
+    private static final int STATUS_COLOR = 0xFFB8B4AC;
+    private static final int LABEL_COLOR = 0xFF9A9690;
+    private static final int MAX_VISIBLE_PROBLEMS = 6;
+
+    private EditBox nameField;
+    private EditBox descriptionField;
+    private MultiLineEditBox decklistField;
+    private Button importButton;
+
+    private Component status = Component.empty();
+    private List<Component> problems = List.of();
+    private boolean waiting;
+
+    /** Where the cards come from, or empty to conjure them out of nothing. */
+    private final java.util.Optional<net.minecraft.core.BlockPos> from;
+
+    public DecklistImportScreen() {
+        super(Component.translatable("screen.gathering.import"));
+        this.from = java.util.Optional.empty();
+    }
+
+    /**
+     * The same screen, building out of a collection.
+     * <p>A different title and the same everything else, because it is the same thing: a list
+     * goes in and a deck comes out. What differs is where the cards were, and that is worth
+     * one line at the top rather than a second screen to learn.
+     */
+    public DecklistImportScreen(net.minecraft.core.BlockPos collection) {
+        super(Component.translatable("screen.gathering.import.from_collection"));
+        this.from = java.util.Optional.ofNullable(collection);
+    }
+
+    /** Whether this screen is building out of a collection rather than out of nothing. */
+    private boolean fromCollection() {
+        return this.from.isPresent();
+    }
+
+    private int panelLeft() {
+        return (this.width - Math.min(PANEL_WIDTH, this.width - MARGIN * 2)) / 2;
+    }
+
+    private int panelWidth() {
+        return Math.min(PANEL_WIDTH, this.width - MARGIN * 2);
+    }
+
+    @Override
+    protected void init() {
+        String previousList = this.decklistField == null ? "" : this.decklistField.getValue();
+        String previousName = this.nameField == null ? "" : this.nameField.getValue();
+        String previousNote = this.descriptionField == null ? "" : this.descriptionField.getValue();
+
+        int left = panelLeft() + PADDING;
+        int inner = panelWidth() - PADDING * 2;
+        int top = MARGIN + PADDING + this.font.lineHeight + GAP;
+
+        this.nameField = new EditBox(this.font, left, top, inner, FIELD_HEIGHT,
+                Component.translatable("screen.gathering.import.name"));
+        this.nameField.setMaxLength(ImportDecklistPayload.MAX_NAME_LENGTH);
+        this.nameField.setHint(Component.translatable("screen.gathering.import.name_hint"));
+        this.nameField.setValue(previousName);
+        this.addRenderableWidget(this.nameField);
+
+        top += FIELD_HEIGHT + GAP + this.font.lineHeight;
+        this.descriptionField = new EditBox(this.font, left, top, inner, FIELD_HEIGHT,
+                Component.translatable("screen.gathering.import.description"));
+        this.descriptionField.setMaxLength(ImportDecklistPayload.MAX_DESCRIPTION_LENGTH);
+        this.descriptionField.setHint(Component.translatable("screen.gathering.import.description_hint"));
+        this.descriptionField.setValue(previousNote);
+        this.addRenderableWidget(this.descriptionField);
+
+        top += FIELD_HEIGHT + GAP + this.font.lineHeight;
+        int listBottom = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP - problemAreaHeight() - GAP;
+        // Sized to whole lines. A box whose height is not a multiple of the line height cuts
+        // its last line through the middle of the letters, which reads as the panel being
+        // broken rather than as the box being full - and the placeholder in it is seven lines
+        // of instructions, so it is the first thing anybody sees.
+        int listHeight = wholeLines(Math.max(MIN_LIST_HEIGHT, listBottom - top));
+        this.decklistField = new MultiLineEditBox(this.font, left, top, inner, listHeight,
+                Component.translatable("screen.gathering.import.placeholder"),
+                Component.translatable("screen.gathering.import"));
+        this.decklistField.setValue(previousList);
+        this.addRenderableWidget(this.decklistField);
+
+        int buttonTop = this.height - MARGIN - PADDING - BUTTON_HEIGHT;
+        // Two buttons side by side, narrowed rather than overlapped on a narrow panel.
+        int buttonWidth = Math.max(40, Math.min(BUTTON_WIDTH, (inner - GAP) / 2));
+        this.importButton = Button.builder(
+                        Component.translatable(fromCollection()
+                                ? "screen.gathering.import.build"
+                                : "screen.gathering.import.confirm"), button -> submit())
+                .bounds(left + inner - buttonWidth, buttonTop, buttonWidth, BUTTON_HEIGHT)
+                .build();
+        // A fresh button comes up enabled, and init runs again on every resize - so dragging
+        // the window while an import was in flight handed back a live Import button and a
+        // second press sent the same list twice, for two decks off one paste. The waiting
+        // flag outlives the widgets; the widget's state is put back in step with it.
+        this.importButton.active = !this.waiting;
+        this.addRenderableWidget(this.importButton);
+
+        this.addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> this.onClose())
+                .bounds(left, buttonTop, buttonWidth, BUTTON_HEIGHT)
+                .build());
+    }
+
+    private void submit() {
+        if (this.waiting) {
+            // The button is disabled while an import is in flight, and this is the belt to
+            // that brace: whether the widget is in the right state is a question about the
+            // screen, and whether a second list is sent is a question about somebody's cards.
+            return;
+        }
+        String decklist = this.decklistField.getValue();
+        if (decklist.isBlank()) {
+            this.status = Component.translatable(fromCollection()
+                    ? "screen.gathering.import.empty_build"
+                    : "screen.gathering.import.empty");
+            return;
+        }
+        if (decklist.length() > ImportDecklistPayload.MAX_LENGTH) {
+            this.status = Component.translatable(
+                    "screen.gathering.import.too_long", ImportDecklistPayload.MAX_LENGTH);
+            return;
+        }
+
+        this.waiting = true;
+        this.problems = List.of();
+        this.status = Component.translatable("screen.gathering.import.working");
+        this.importButton.active = false;
+
+        // Minted by PendingWork rather than here, which is what makes the wait something
+        // the client actually knows about rather than a boolean on one screen. It is the
+        // same id the server echoes back, so the answer resolves the very entry the waiting
+        // note is drawn from.
+        this.pressed = PendingWork.sent();
+        this.unanswered.add(this.pressed);
+        ClientNetworking.send(new ImportDecklistPayload(
+                decklist, this.nameField.getValue(), this.descriptionField.getValue(), this.from,
+                this.pressed));
+    }
+
+    /** Which press this screen is waiting on, or null if it is not waiting on one. */
+    private java.util.UUID pressed;
+
+    /**
+     * Every press this screen has sent and not yet heard back about, oldest first.
+     * <p>More than one, because the button comes back once an answer is late and a second press is
+     * harmless here. Keeping only the newest lost the first: the server refused the second press as
+     * already running, the screen took that refusal as the whole answer and drew "Imported 0
+     * cards", and when the first import's deck arrived its answer named a press the screen had
+     * forgotten - so the deck went into the bag behind a screen still saying none had been made.
+     */
+    private final java.util.LinkedHashSet<java.util.UUID> unanswered = new java.util.LinkedHashSet<>();
+
+    /**
+     * Presses that were still out when a deck arrived for an earlier one.
+     * <p>Their refusals come after the deck, so they are not allowed to take its place: a second
+     * press that reached the server after the first one's deck was refused as too soon, and the
+     * screen went from "Imported 60 cards" to the refusal with the deck already in the bag. Said
+     * over the screen instead, so neither is lost.
+     */
+    private final java.util.Set<java.util.UUID> outrunByADeck = new java.util.HashSet<>();
+
+    /**
+     * Says so when an answer is taking long enough that silence is its own message.
+     * <p>This screen used to wait for ever. The button went inactive on the press and came
+     * back only when the server answered, so a reply that never arrived - a disconnect, a path
+     * that returned without sending - left somebody looking at "Working" with nothing to press
+     * and no reason given.
+     * <p>What it does about that depends on what pressing again would cost. A decklist becomes
+     * a deck out of nothing, so trying once more is harmless and the button comes back. A deck
+     * built out of a collection takes real cards off somebody's shelves, and a second press
+     * that turned out to be a second build would be the mod taking them twice - so that one
+     * says what it knows and waits, and the player can close the screen.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        if (!this.waiting || this.pressed == null) {
+            return;
+        }
+        Component note = PendingWork.noteFor(this.pressed).orElse(null);
+        if (note == null) {
+            return;
+        }
+        this.status = note;
+        if (fromCollection()) {
+            return;
+        }
+        this.waiting = false;
+        this.importButton.active = true;
+    }
+
+    /**
+     * Drops this screen's outstanding request, which is not the same as canceling it.
+     * <p>The server goes on doing whatever it was asked; there is simply nowhere left to show
+     * the answer, and an entry nobody will ever read is only a map that grows.
+     */
+    @Override
+    public void removed() {
+        PendingWork.forget(this.pressed);
+        for (java.util.UUID press : this.unanswered) {
+            PendingWork.forget(press);
+        }
+        this.unanswered.clear();
+        this.outrunByADeck.clear();
+        super.removed();
+    }
+
+    /**
+     * Called from the payload handler when the server reports back.
+     * <p>Only for this screen's own press. Both loaders hand an import result to whichever
+     * import screen is open, and a result can arrive for a press made on a screen since
+     * closed and reopened - so "an answer arrived and I am waiting" is not enough to act on.
+     * An answer with no press named is somebody else's too: a command or the scripted run
+     * imports without a screen, and nobody is waiting for that.
+     */
+    public void onResult(ImportResultPayload result) {
+        java.util.UUID answered = result.forRequest().filter(this.unanswered::contains).orElse(null);
+        if (answered == null) {
+            return;
+        }
+        // A refusal is a blank name and no cards: every way the server says no sends exactly that,
+        // and a deck it hands over always has a name, even one made of nothing. Said as the refusal
+        // itself - "Imported 0 cards - 1 lines need a look" was a cooldown or a busy server dressed
+        // up as something wrong with the list - and only for this press: an earlier one may still be
+        // working, and its answer is still wanted.
+        if (result.cardCount() == 0 && result.deckName().isBlank() && !result.problems().isEmpty()) {
+            Component why = Component.literal(result.problems().getFirst());
+            PendingWork.refused(answered, why);
+            PendingWork.forget(answered);
+            this.unanswered.remove(answered);
+            if (answered.equals(this.pressed)) {
+                this.pressed = null;
+            }
+            if (this.outrunByADeck.remove(answered)) {
+                // A deck came back after this press was made, and the screen goes on saying so.
+                ScreenNotice.tell(why);
+                return;
+            }
+            this.waiting = false;
+            this.importButton.active = true;
+            this.status = why;
+            this.problems = List.of();
+            this.rebuildWidgets();
+            return;
+        }
+        // A deck was handed over, problems and all - an import that half worked still makes a
+        // deck, and telling somebody it failed would be wrong in the useful half. This press and
+        // every one before it are settled: an earlier press still out was asking for this same
+        // list, and a later one is left to say what happened to it.
+        PendingWork.confirmed(answered);
+        java.util.Iterator<java.util.UUID> presses = this.unanswered.iterator();
+        while (presses.hasNext()) {
+            java.util.UUID press = presses.next();
+            PendingWork.forget(press);
+            presses.remove();
+            this.outrunByADeck.remove(press);
+            if (press.equals(answered)) {
+                break;
+            }
+        }
+        // Every press still out was made before this deck arrived.
+        this.outrunByADeck.addAll(this.unanswered);
+        if (this.pressed != null && !this.unanswered.contains(this.pressed)) {
+            this.pressed = null;
+        }
+        this.waiting = false;
+        this.importButton.active = true;
+
+        // The same screen says two different things, because it did two different things: a
+        // deck out of nothing was imported, and a deck out of a collection was built from
+        // cards somebody already had.
+        this.status = result.isClean()
+                ? Component.translatable(fromCollection()
+                        ? "screen.gathering.import.built"
+                        : "screen.gathering.import.done", result.cardCount())
+                : Component.translatable(fromCollection()
+                        ? "screen.gathering.import.built_with_problems"
+                        : "screen.gathering.import.done_with_problems",
+                        result.cardCount(), result.problems().size());
+
+        List<Component> lines = new ArrayList<>();
+        for (String problem : result.problems().stream().limit(MAX_VISIBLE_PROBLEMS).toList()) {
+            lines.add(Component.literal(problem));
+        }
+        if (result.problems().size() > MAX_VISIBLE_PROBLEMS) {
+            lines.add(Component.translatable(
+                    "screen.gathering.import.more_problems", result.problems().size() - MAX_VISIBLE_PROBLEMS));
+        }
+        this.problems = List.copyOf(lines);
+        // The problem list is only given room when there is one, so the decklist box has to
+        // be laid out again now that there is.
+        this.rebuildWidgets();
+    }
+
+    /** Types a name and a list into this screen, for the scripted run. */
+    public void typeForTesting(String name, String decklist) {
+        this.nameField.setValue(name);
+        this.decklistField.setValue(decklist);
+    }
+
+    /** Presses Import, for the scripted run. */
+    public void importForTesting() {
+        if (this.importButton.active) {
+            this.importButton.onPress();
+        }
+    }
+
+    /** What this screen says happened, for the scripted run. Empty until an answer arrives. */
+    public String saidForTesting() {
+        return this.status.getString();
+    }
+
+    /** The named problems this screen is showing, for the scripted run. */
+    public List<String> problemsForTesting() {
+        return this.problems.stream().map(Component::getString).toList();
+    }
+
+    /**
+     * The panel goes here, not in {@link #render}.
+     * <p>{@code Screen#render} calls this itself and it applies a full-screen blur, so
+     * anything drawn before {@code super.render} gets blurred along with the world behind it.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, panelLeft(), MARGIN, panelWidth(), this.height - MARGIN * 2);
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+
+        int left = panelLeft();
+        int width = panelWidth();
+
+        int inner = width - PADDING * 2;
+        GuiText.drawCentered(graphics, this.font, this.title, left + width / 2, MARGIN + PADDING - 1, inner, 0xFFFFFF);
+
+        // Field labels, drawn against the panel rather than as widgets, so the layout above
+        // stays a simple stack of boxes.
+        int labelLeft = left + PADDING;
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.name"),
+                labelLeft, this.nameField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOR);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.description"),
+                labelLeft, this.descriptionField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOR);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.decklist"),
+                labelLeft, this.decklistField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOR);
+
+        renderStatus(graphics, labelLeft, inner);
+    }
+
+    private void renderStatus(GuiGraphics graphics, int left, int width) {
+        if (problemAreaHeight() == 0) {
+            return;
+        }
+        int top = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP - problemAreaHeight();
+
+        // Twenty-four, which is what an inset painted thirty-two square with an eight pixel
+        // border wants before it can keep its corners.
+        GatheringSprites.inset(graphics, left - 2, top - 3, width + 4,
+                Math.max(24, problemAreaHeight() + 4));
+
+        int line = top;
+        if (!this.status.getString().isEmpty()) {
+            GuiText.draw(graphics, this.font, this.status, left, line, width, STATUS_COLOR);
+            line += this.font.lineHeight + 1;
+        }
+        for (Component problem : this.problems) {
+            for (FormattedCharSequence wrapped : this.font.split(problem, width)) {
+                if (line + this.font.lineHeight > top + problemAreaHeight()) {
+                    return;
+                }
+                graphics.drawString(this.font, wrapped, left, line, PROBLEM_COLOR, false);
+                line += this.font.lineHeight;
+            }
+        }
+    }
+
+    /**
+     * The largest whole number of lines that fits in this much room.
+     * <p>Vanilla's multi-line box has a two-pixel inset at each end, which is where the odd
+     * few pixels go; anything left over after that is what shows of a line nobody can read.
+     */
+    private int wholeLines(int room) {
+        int inset = 4;
+        int line = this.font.lineHeight;
+        int lines = Math.max(1, (room - inset) / line);
+        return lines * line + inset;
+    }
+
+    /**
+     * How much room the status and problem list need, which is none until there is one.
+     * <p>Reserving the full eight lines unconditionally is what pushed the decklist box down
+     * into the buttons on a short window - the paste area, which is the reason the screen
+     * exists, was giving most of its height to a list that was usually empty.
+     */
+    private int problemAreaHeight() {
+        if (this.status.getString().isEmpty() && this.problems.isEmpty()) {
+            return 0;
+        }
+        int lineHeight = this.font == null ? 9 : this.font.lineHeight;
+        int wanted = (1 + Math.min(MAX_VISIBLE_PROBLEMS + 1, this.problems.size())) * lineHeight;
+
+        // Never more than the screen can spare while the decklist box keeps its minimum.
+        int spare = this.height - MARGIN * 2 - PADDING * 2 - BUTTON_HEIGHT - GAP * 2
+                - this.font.lineHeight * 4 - FIELD_HEIGHT * 2 - GAP * 2 - MIN_LIST_HEIGHT;
+        return Math.max(0, Math.min(wanted, spare));
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    @Override
+    public boolean shouldCloseOnEsc() {
+        // Losing a pasted hundred-line decklist to a stray Escape would be miserable.
+        return !this.waiting;
+    }
+}

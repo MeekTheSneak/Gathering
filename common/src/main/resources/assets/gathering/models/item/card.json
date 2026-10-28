@@ -1,0 +1,156 @@
+{
+  "_comment": [
+    "builtin/entity hands rendering to CardItemRenderer, which draws the real card art.",
+    "The display transforms below are ordinary model data - edit them and press F3+T in game",
+    "to see the change without restarting.",
+    "",
+    "These follow vanilla's item/generated, which is what every flat item in the game uses.",
+    "Note the third-person rotation is [0,0,0]: item/handheld's [0,-90,55] is a fist grip on a",
+    "tool, and applying it to a flat card is what makes one look skewed and edge-on.",
+    "",
+    "Ground is -90 about X, not +90. The renderer draws the printed side facing +Z and the",
+    "sleeve facing -Z, and rotating +90 about X sends +Z to -Y - so a card thrown on the",
+    "floor landed with its face in the dirt and its sleeve up. -90 sends +Z to +Y and it",
+    "lands face up, which is what dropping a card on a table does."
+  ],
+  "parent": "builtin/entity",
+  "gui_light": "front",
+  "display": {
+    "gui": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "ground": {
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "head": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        13,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        3.5,
+        1
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        3.5,
+        1
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -90,
+        25
+      ],
+      "translation": [
+        1.13,
+        3.2,
+        1.13
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        90,
+        -25
+      ],
+      "translation": [
+        1.13,
+        3.2,
+        1.13
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    }
+  }
+}

@@ -1,0 +1,286 @@
+package dev.gathering.block;
+
+import com.mojang.serialization.MapCodec;
+import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.collection.CardTally;
+import dev.gathering.item.CardItem;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+
+/**
+ * The block a collection lives in.
+ * <p>Right-click with a card and it goes in. Right-click with an empty hand and the
+ * collection opens. Nothing else: a collection block is a container, and a container that
+ * needs a manual is a container nobody uses.
+ * <p>Looking is public and touching is not. Anybody may open one and read every card in it,
+ * because a collection is a thing you show off and browsing the playgroup's pool without
+ * asking is most of what one is for. Putting cards in and taking them out are rights the
+ * owner grants, and breaking it needs the right to take - a collection you cannot take from
+ * is not one you can walk off with either.
+ */
+public class CollectionBlock extends BaseEntityBlock {
+
+    public static final MapCodec<CollectionBlock> CODEC = simpleCodec(CollectionBlock::new);
+
+    /**
+     * Which way its drawers face, set to face whoever puts it down.
+     * <p>The block has a front - three drawers down one side - so it has to know which way it is turned, the way
+     * a chair or a desk does. A collection placed before it had one keeps its default and faces north until it is
+     * broken and put down again.
+     */
+    public static final net.minecraft.world.level.block.state.properties.DirectionProperty FACING =
+            net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING;
+
+    public CollectionBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(stateDefinition.any().setValue(FurnitureDye.FELT, net.minecraft.world.item.DyeColor.WHITE).setValue(FACING, net.minecraft.core.Direction.NORTH));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(
+            net.minecraft.world.level.block.state.StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+        builder.add(FACING, FurnitureDye.FELT);
+    }
+
+    /** Drawers towards whoever placed it: what a player looking at the front of a cabinet expects to have put down. */
+    @Override
+    public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, net.minecraft.world.level.block.Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, net.minecraft.world.level.block.Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
+    }
+
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new CollectionBlockEntity(pos, state);
+    }
+
+    @Override
+    protected RenderShape getRenderShape(BlockState state) {
+        return RenderShape.MODEL;
+    }
+
+    /**
+     * The cabinet and its three drawer fronts, turned the way it is: what is drawn round it is what is there.
+     * <p>Its body stops a pixel short of the back of the block and the drawers stand two pixels proud of the
+     * front, so the full cube it used to claim was wrong at both ends.
+     */
+    @Override
+    protected net.minecraft.world.phys.shapes.VoxelShape getShape(BlockState state,
+            net.minecraft.world.level.BlockGetter level, BlockPos pos,
+            net.minecraft.world.phys.shapes.CollisionContext context) {
+        return SHAPES.get(state.getValue(FACING));
+    }
+
+    /** The body, back a pixel, with the three drawers standing out in front of it. Drawn facing north. */
+    private static final net.minecraft.world.phys.shapes.VoxelShape FACING_NORTH =
+            net.minecraft.world.phys.shapes.Shapes.or(
+                    net.minecraft.world.level.block.Block.box(0, 0, 1, 16, 16, 16),
+                    net.minecraft.world.level.block.Block.box(1, 1, 0, 15, 5, 2),
+                    net.minecraft.world.level.block.Block.box(1, 6, 0, 15, 10, 2),
+                    net.minecraft.world.level.block.Block.box(1, 11, 0, 15, 15, 2));
+
+    private static final java.util.Map<net.minecraft.core.Direction, net.minecraft.world.phys.shapes.VoxelShape>
+            SHAPES = turnedEveryWay();
+
+    /** The same shape facing each way, worked out once rather than per look. */
+    private static java.util.Map<net.minecraft.core.Direction, net.minecraft.world.phys.shapes.VoxelShape> turnedEveryWay() {
+        java.util.EnumMap<net.minecraft.core.Direction, net.minecraft.world.phys.shapes.VoxelShape> shapes =
+                new java.util.EnumMap<>(net.minecraft.core.Direction.class);
+        shapes.put(net.minecraft.core.Direction.NORTH, FACING_NORTH);
+        shapes.put(net.minecraft.core.Direction.EAST, turned(FACING_NORTH));
+        shapes.put(net.minecraft.core.Direction.SOUTH, turned(turned(FACING_NORTH)));
+        shapes.put(net.minecraft.core.Direction.WEST, turned(turned(turned(FACING_NORTH))));
+        return shapes;
+    }
+
+    /** A quarter turn clockwise, seen from above: (x, z) becomes (16 - z, x). */
+    private static net.minecraft.world.phys.shapes.VoxelShape turned(net.minecraft.world.phys.shapes.VoxelShape shape) {
+        net.minecraft.world.phys.shapes.VoxelShape[] turned = {net.minecraft.world.phys.shapes.Shapes.empty()};
+        shape.forAllBoxes((x0, y0, z0, x1, y1, z1) -> turned[0] = net.minecraft.world.phys.shapes.Shapes.or(turned[0],
+                net.minecraft.world.phys.shapes.Shapes.box(1 - z1, y0, x0, 1 - z0, y1, x1)));
+        return turned[0];
+    }
+
+    /**
+     * Whoever places it owns it, and nobody else may touch what is inside.
+     * <p>A collection placed from an item that already held one keeps its owner: it was
+     * somebody's before it was picked up, and the person carrying it home is usually them.
+     */
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state,
+            net.minecraft.world.entity.LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (level.isClientSide() || !(placer instanceof Player player)) {
+            return;
+        }
+        if (level.getBlockEntity(pos) instanceof CollectionBlockEntity collection) {
+            collection.claimFor(player.getUUID());
+        }
+    }
+
+    /**
+     * A card in hand goes in.
+     * <p>The whole stack, because cards do not stack, and because a player holding a card
+     * over a collection block means to put that card in it. A deck is left alone: sleeving
+     * and unsleeving are the deck screen's, and a deck dropped in here by accident would be
+     * forty cards dissolved by a misclick.
+     */
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
+            BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (stack.getItem() instanceof net.minecraft.world.item.DyeItem) {
+            return FurnitureDye.use(stack, state, level, pos, player);
+        }
+        if (!(level.getBlockEntity(pos) instanceof CollectionBlockEntity collection)) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        CardIdentity card = CardItem.cardOf(stack)
+                .map(component -> component.faceUp().toIdentity())
+                .orElse(null);
+        if (card == null) {
+            // Not a card. Falls through to the empty-handed path, which opens it - so
+            // right-clicking with a pickaxe in hand reads a collection rather than doing
+            // nothing at all.
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (level.isClientSide()) {
+            return ItemInteractionResult.SUCCESS;
+        }
+        if (!collection.rights().mayAdd(player.getUUID())) {
+            // Over the hotbar rather than in the chat, like the rest of what a click on a block in the
+            // world says back: a player putting cards in one after another is answered each time, and
+            // thirty answers in the chat bury whatever was said there.
+            dev.gathering.server.Notices.tell(player, net.minecraft.network.chat.Component.translatable(
+                    "message.gathering.collection_may_not_add"));
+            return ItemInteractionResult.SUCCESS;
+        }
+        int howMany = stack.getCount();
+        // A card with a history keeps it. A stack is only ever more than one card when none
+        // of them has one - a story is part of what an item is, so two cards with different
+        // histories never stacked in the first place.
+        dev.gathering.core.story.CardStory story =
+                dev.gathering.server.CardStories.storyOf(stack);
+        if (story.isEmpty()) {
+            collection.put(card, howMany);
+        } else {
+            for (int one = 0; one < howMany; one++) {
+                collection.putStoried(card, story);
+            }
+        }
+        stack.setCount(0);
+        dev.gathering.server.Notices.tell(player, net.minecraft.network.chat.Component.translatable(
+                "message.gathering.collection_added", howMany, collection.cards().total()));
+        return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * An empty hand opens it, for anybody. Crouching, it puts everything loose away instead.
+     * <p>Shift for "all of it", which is what shift means everywhere else in this game and
+     * in Minecraft. It is the same errand the deck builder's shift-click is: a booster box is
+     * thirty-six stacks, and putting them away one right-click at a time is an evening.
+     * <p><b>Both hands have to be empty for the crouching half to happen at all</b>, and that
+     * is vanilla's rule rather than this block's: {@code ServerPlayerGameMode#useItemOn}
+     * skips block interaction entirely when the player is crouching and holding anything in
+     * either hand, unless that item bypasses the sneak, so a collection cannot see the click.
+     * Nothing here can widen that without a mixin, and a mixin for a convenience is not a
+     * trade this mod makes. An empty hand is what the gesture is called anyway.
+     */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+            Player player, BlockHitResult hit) {
+        if (!(level.getBlockEntity(pos) instanceof CollectionBlockEntity collection)) {
+            return InteractionResult.PASS;
+        }
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (player instanceof ServerPlayer opener) {
+            if (opener.isSecondaryUseActive()) {
+                dev.gathering.server.CollectionView.sweepPockets(opener, collection);
+            } else {
+                dev.gathering.server.CollectionView.open(opener, pos, collection);
+            }
+        }
+        return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * What one drops: itself, holding its contents.
+     * <p>Every card inside travels in the item's own data, so a collection moved across a
+     * base is the same collection when it is put down. Ten thousand cards is a few hundred
+     * entries, which is a size an item can carry.
+     * <p>Itself in its own wood. Every wood is this block, and this named the plain dark oak item
+     * whichever one was broken, so a bamboo collection carried across a base went down again as
+     * dark oak - the display case and the trophy already dropped their own item.
+     */
+    @Override
+    protected java.util.List<ItemStack> getDrops(
+            BlockState state, net.minecraft.world.level.storage.loot.LootParams.Builder params) {
+        BlockEntity entity = params.getOptionalParameter(
+                net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY);
+        return java.util.List.of(dropped(state,
+                entity instanceof CollectionBlockEntity collection ? collection : null,
+                params.getLevel().registryAccess()));
+    }
+
+    /**
+     * Broken in creative, it still comes up holding its cards - see {@link BreakRules#skipsTheDrops}.
+     * <p>Only when there is something in it, as a shulker box: an empty collection broken in creative
+     * is gone, like anything else broken in creative.
+     */
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide() && BreakRules.skipsTheDrops(player)
+                && level.getBlockEntity(pos) instanceof CollectionBlockEntity collection
+                && !collection.cards().isEmpty()) {
+            net.minecraft.world.level.block.Block.popResource(level, pos,
+                    dropped(state, collection, level.registryAccess()));
+        }
+        return super.playerWillDestroy(level, pos, state, player);
+    }
+
+    /** The one rule for what a broken collection comes up as, whichever way it was broken. */
+    private static ItemStack dropped(BlockState state, CollectionBlockEntity collection,
+            net.minecraft.core.HolderLookup.Provider fallback) {
+        ItemStack stack = new ItemStack(state.getBlock().asItem());
+        if (collection != null) {
+            collection.saveToItem(stack, collection.getLevel() == null
+                    ? fallback
+                    : collection.getLevel().registryAccess());
+        }
+        return stack;
+    }
+
+    /** For a game test and for anything that wants to know without opening a screen. */
+    public static CardTally cardsAt(Level level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof CollectionBlockEntity collection
+                ? collection.cards()
+                : CardTally.EMPTY;
+    }
+
+}

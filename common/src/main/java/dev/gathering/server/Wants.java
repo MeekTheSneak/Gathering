@@ -1,0 +1,191 @@
+package dev.gathering.server;
+
+import dev.gathering.core.collection.WantsList;
+import dev.gathering.network.Sending;
+import dev.gathering.network.WantsPayload;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * The cards each player is chasing, on this server.
+ * <p>Per player rather than per collection, because a collection is shared - a playgroup pools
+ * one - and what somebody is looking for is theirs. Two people at one binder are after
+ * different cards, and a wants list attached to the box would be one of them writing on the
+ * other's.
+ * <p>On the server rather than the client for the reason everything else about a collection
+ * is: it has to survive changing machines, and it has to be readable by the things that will
+ * want to read it - a pack being opened, a trade being offered - which run here.
+ * <p>One small file per player under the mod's data directory, which is how this mod keeps
+ * everything that is not block state. Read when a player joins and written when their list
+ * changes; a list that could not be read is an empty list and a line in the log, never a
+ * refusal to let somebody play.
+ * <p>The map is concurrent because a save can be asked for off the server thread when the
+ * world does; everything else here is server thread only.
+ * <p>The file is written off the server thread. Marking a card is one click, and one click
+ * used to be a disk write inside the tick that handled it - which on a busy server with a
+ * slow disk is the whole server waiting on somebody's want list. What the rest of the mod
+ * reads is the map, which is already up to date by then, so the write has nothing waiting on
+ * it. A player leaving flushes theirs first, so a list changed and then disconnected on is
+ * still on disk.
+ */
+public final class Wants {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
+
+    /** Where the lists live, under the mod's own data directory. */
+    private static final String FOLDER = "wants";
+
+    private static final String SUFFIX = ".txt";
+
+    /** What goes at the top of a fresh file, since somebody may well open it. */
+    private static final String HEADING =
+            "# Cards this player is chasing, one printing to a line.";
+
+    // statecheck: per player, dropped by left() through PlayerGone
+    private static final Map<UUID, WantsList> HELD = new ConcurrentHashMap<>();
+
+    /** Lists changed but not yet on disk, newest wins - one write per player, not per click. */
+    // statecheck: writes queued for the save, drained by the writer
+    private static final Map<UUID, WantsList> PENDING = new ConcurrentHashMap<>();
+
+    private static final java.util.concurrent.ExecutorService WRITER =
+            java.util.concurrent.Executors.newSingleThreadExecutor(
+                    dev.gathering.service.ServiceThreads.named("gathering-wants"));
+
+    private Wants() {
+    }
+
+    /** What this player is chasing. Never null. */
+    public static WantsList of(UUID player) {
+        return player == null ? WantsList.EMPTY : HELD.getOrDefault(player, WantsList.EMPTY);
+    }
+
+    /**
+     * Reads a player's list and tells them what is on it.
+     * <p>On joining, so a client knows from its first frame which cards to mark - a list that
+     * arrived when the first pack was opened would have marked nothing on the screen before
+     * it.
+     */
+    public static void joined(ServerPlayer player) {
+        UUID who = player.getUUID();
+        WantsList wants = read(who);
+        HELD.put(who, wants);
+        Sending.to(player, WantsPayload.of(wants));
+    }
+
+    /** Forgets a player who has gone, so a long-running server does not hold every list ever. */
+    public static void left(ServerPlayer player) {
+        UUID who = player.getUUID();
+        HELD.remove(who);
+        // Here rather than on the writer thread: a disconnect is the last moment this list is
+        // certainly still wanted, and one small file is nothing beside the player data the
+        // server is already writing at exactly this point.
+        flush(who);
+    }
+
+    /**
+     * Puts a card on this player's list, or takes it off, and tells them.
+     * <p>Told rather than assumed. The client asked for a change and the server decides
+     * whether it happened - a full list takes nothing more - so the answer comes back and the
+     * screen draws what is true rather than what it hoped.
+     */
+    public static void mark(ServerPlayer player, UUID printing, boolean wanted) {
+        if (printing == null) {
+            return;
+        }
+        UUID who = player.getUUID();
+        WantsList before = of(who);
+        WantsList after = before.toggled(printing, wanted);
+        if (after.equals(before)) {
+            if (wanted && before.isFull()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.gathering.wants_full", dev.gathering.core.collection.WantsList.MOST));
+            }
+            return;
+        }
+        HELD.put(who, after);
+        save(who, after);
+        Sending.to(player, WantsPayload.of(after));
+    }
+
+    /**
+     * Where this save keeps one player's want list.
+     * <p>Inside the save: a want list is about the cards in this world's collections, and a
+     * list built while playing one world meant nothing in another. Throws when no server is
+     * running, which the callers already handle as "there is nowhere to read from".
+     */
+    private static Path fileFor(UUID player) {
+        return ServerRun.inSave(FOLDER)
+                .orElseThrow(() -> new IllegalStateException("No server is running"))
+                .resolve(player.toString() + SUFFIX);
+    }
+
+    private static WantsList read(UUID player) {
+        Path where;
+        try {
+            where = fileFor(player);
+        } catch (RuntimeException noPlatform) {
+            return WantsList.EMPTY;
+        }
+        if (!Files.isRegularFile(where)) {
+            return WantsList.EMPTY;
+        }
+        try {
+            return WantsList.read(Files.readAllLines(where, StandardCharsets.UTF_8));
+        } catch (IOException couldNotRead) {
+            LOGGER.warn("Could not read the wants list at {}: {}", where, couldNotRead.getMessage());
+            return WantsList.EMPTY;
+        }
+    }
+
+    /** Queues the write. The list itself is already live in {@link #HELD}. */
+    private static void save(UUID player, WantsList wants) {
+        PENDING.put(player, wants);
+        WRITER.execute(() -> flush(player));
+    }
+
+    /** Writes whatever this player's latest queued list is, if it has not been written yet. */
+    private static void flush(UUID player) {
+        WantsList wants = PENDING.remove(player);
+        if (wants != null) {
+            write(player, wants);
+        }
+    }
+
+    private static void write(UUID player, WantsList wants) {
+        Path where;
+        try {
+            where = fileFor(player);
+        } catch (RuntimeException noPlatform) {
+            return;
+        }
+        try {
+            Files.createDirectories(where.getParent());
+            List<String> lines = new java.util.ArrayList<>();
+            lines.add(HEADING);
+            lines.addAll(wants.lines());
+            // Written whole and moved into place, the way what a server owes is written. In place, a
+            // crash or a full disk between the truncate and the flush left a list cut in half - and
+            // the reader parses whatever survived and hands back the prefix, saying nothing.
+            Path partly = where.resolveSibling(where.getFileName() + ".writing");
+            Files.write(partly, lines, StandardCharsets.UTF_8);
+            try {
+                Files.move(partly, where, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException notHere) {
+                Files.move(partly, where, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException couldNotWrite) {
+            LOGGER.warn("Could not save the wants list to {}: {}", where, couldNotWrite.getMessage());
+        }
+    }
+}

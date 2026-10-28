@@ -1,0 +1,38 @@
+{
+  "variants": {
+    "part=north_west": {
+      "model": "gathering:block/warped_table_corner",
+      "y": 0
+    },
+    "part=north": {
+      "model": "gathering:block/warped_table_top"
+    },
+    "part=north_east": {
+      "model": "gathering:block/warped_table_corner",
+      "y": 90,
+      "uvlock": true
+    },
+    "part=west": {
+      "model": "gathering:block/warped_table_top"
+    },
+    "part=middle": {
+      "model": "gathering:block/warped_table_top"
+    },
+    "part=east": {
+      "model": "gathering:block/warped_table_top"
+    },
+    "part=south_west": {
+      "model": "gathering:block/warped_table_corner",
+      "y": 270,
+      "uvlock": true
+    },
+    "part=south": {
+      "model": "gathering:block/warped_table_top"
+    },
+    "part=south_east": {
+      "model": "gathering:block/warped_table_corner",
+      "y": 180,
+      "uvlock": true
+    }
+  }
+}

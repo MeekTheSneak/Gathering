@@ -1,0 +1,107 @@
+package dev.gathering.server;
+
+import net.minecraft.server.level.ServerPlayer;
+
+/**
+ * Everything the server forgets when somebody leaves, in one place.
+ * <p>Both loaders have a disconnect hook, and each was a list of calls somebody had to
+ * remember to add to twice. An audit found what that costs: the trade cleanup existed, was
+ * correct, and was wired into neither loader - so a player who logged out mid-trade left the
+ * person across the table holding a trade that would not close, against somebody who was not
+ * coming back.
+ * <p>One method both loaders call, so a cleanup added here is a cleanup that runs. Anything
+ * this server remembers about a particular player belongs in it.
+ */
+public final class PlayerGone {
+
+    private PlayerGone() {
+    }
+
+    /**
+     * Called from both loaders' join hooks and nowhere else.
+     * <p>The other half of the same list. What a player is owed is handed over here because
+     * this is the first moment there is somebody to hand it to.
+     */
+    public static void arrived(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        Wants.joined(player);
+        Owed.deliver(player);
+        dev.gathering.server.events.Events.arrived(player);
+    }
+
+    /**
+     * Called from both loaders' respawn hooks and nowhere else, with the new player.
+     * <p>A player on the death screen is handed nothing, because respawning leaves the bag of the
+     * player they died as behind; what came for them meanwhile was written down instead, and this
+     * is the first moment there is somebody to hand it to. The end portal home is a respawn too,
+     * and anything owed then is simply handed over a little early.
+     */
+    public static void respawned(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        Owed.deliver(player);
+    }
+
+    /** Called from both loaders' disconnect hooks and nowhere else. */
+    public static void left(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        Wants.left(player);
+        // An arm left pointing at a table by somebody who went home is the kind of thing nobody
+        // reports and everybody sees.
+        TablePointing.stopped(player);
+        dev.gathering.server.events.Events.left(player);
+        CollectionKeys.forget(player.getUUID());
+        // Held an ItemStack per player and was swept only by a wholesale clear at 512.
+        TableJoining.forget(player.getUUID());
+        ReplayWatch.forget(player.getUUID());
+        // Wrappers they had not torn: their cards are on disk and come on the next join.
+        PackWrappers.forget(player.getUUID());
+        // The trade goes with them, and whoever is across the table is told rather than left
+        // agreeing with an empty chair.
+        TradeSessions.leave(player);
+        // What this client has been told about is what this client knows. A reconnecting
+        // player has an empty cache, and a server that still believes it sent the pictures
+        // sends nothing for the rest of the session.
+        CardArtPush.forget(player.getUUID());
+        // And the throttle that decides how often they may ask about a set, which is counted
+        // in this server's ticks and means nothing in the next one.
+        CollectionSets.forget(player.getUUID());
+        // And any search of theirs still waiting on that throttle, along with the same
+        // tick count for the collection screen.
+        CollectionView.forget(player.getUUID());
+        // And what they had a card lookup out for, which is what bounds the shared worker.
+        CardMetadataRequests.forget(player.getUUID());
+        // And which deck they were last told about, so the one in their hand is sent again
+        // the moment they are back holding it.
+        dev.gathering.item.DeckItem.forget(player.getUUID());
+        // And whatever refusal was still folding, which is counted in this server's ticks and
+        // means nothing in the next one.
+        Refusals.forget(player.getUUID());
+        // And a lesson they had begun: finishing it after coming back is a new lesson.
+        LessonRecords.forget(player.getUUID());
+        CreativeDecks.forget(player);
+        // And the decks the creative cursor was carrying, which are back in their slots now. Up to
+        // 256 decks of a thousand cards were kept for every player who had ever logged in.
+        DeckVault.forget(player.getUUID());
+        // NOT what the world has given them lately. Finds is deliberately kept across a logout: it
+        // drains over time, and throwing it away is an instant drain, so forgetting it here let
+        // anybody reset the limit by relogging. See Finds.
+        // And the budgets that limit how fast they may ask for things.
+        TableActions.forget(player.getUUID());
+        ActionBudget.forgetShared(player.getUUID());
+
+        // AwayFromBoard is deliberately NOT forgotten here either: a seat kept for somebody away from the
+        // board goes on being kept while they are off the server, and its clock goes on running.
+
+        // StarterBoosters is deliberately NOT forgotten here, and this comment is what says
+        // so - the check next door looks for the name rather than the call. Everything else
+        // on this list is a cache about a player who has gone; that one is a record that they
+        // have already been given something, and forgetting it on disconnect would make
+        // logging out and back in a way to be given it again.
+    }
+}

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GGG",
+    "GWG",
+    "PPP"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:glass"
+    },
+    "W": {
+      "tag": "minecraft:wool"
+    },
+    "P": {
+      "item": "minecraft:birch_planks"
+    }
+  },
+  "result": {
+    "id": "gathering:birch_display_case",
+    "count": 1
+  }
+}

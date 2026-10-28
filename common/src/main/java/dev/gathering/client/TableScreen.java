@@ -1,0 +1,7682 @@
+package dev.gathering.client;
+
+import dev.gathering.SeatNames;
+import dev.gathering.block.TableBlockEntity;
+import dev.gathering.client.GatheringSprites.Element;
+import dev.gathering.core.card.PaperStock;
+import dev.gathering.core.game.CardInstance;
+import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.CommandSlots;
+import dev.gathering.core.game.Facing;
+import dev.gathering.core.game.Placement;
+import dev.gathering.core.game.PlayerRef;
+import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.TablePosition;
+import dev.gathering.core.game.Zone;
+import dev.gathering.core.game.ZoneRef;
+import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.game.event.LogEntry;
+import dev.gathering.core.game.visibility.CardView;
+import dev.gathering.core.game.visibility.GameView;
+import dev.gathering.core.game.visibility.SeatView;
+import dev.gathering.core.game.visibility.Viewer;
+import dev.gathering.core.game.visibility.ZoneView;
+import dev.gathering.core.table.SeatAnchor;
+import dev.gathering.core.table.TableCluster;
+import dev.gathering.core.ui.BoardGeometry;
+import dev.gathering.core.ui.BulkLimit;
+import dev.gathering.core.ui.BoardPlacement;
+import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.Corners;
+import dev.gathering.core.ui.HandFan;
+import dev.gathering.core.ui.TableGesture;
+import dev.gathering.core.ui.Legibility;
+import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.ReplayStrip;
+import dev.gathering.core.ui.SeatColor;
+import dev.gathering.core.ui.SeatMark;
+import dev.gathering.core.ui.Shaking;
+import dev.gathering.core.ui.SurfaceBoard;
+import dev.gathering.core.ui.TableAttachments;
+import dev.gathering.core.ui.TableDrag;
+import dev.gathering.core.ui.TableScreenLayout;
+import dev.gathering.core.ui.BoardPresentation;
+import dev.gathering.core.ui.PileThickness;
+import dev.gathering.core.ui.TableStacking;
+import dev.gathering.core.ui.TableSurface;
+import dev.gathering.core.ui.TableTop;
+import dev.gathering.core.ui.TableVerb;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.CardItem;
+import dev.gathering.network.CardSummary;
+import dev.gathering.network.CreateTokenPayload;
+import dev.gathering.network.DiscardAtRandomPayload;
+import dev.gathering.network.FetchBasicPayload;
+import dev.gathering.network.RevealUntilPayload;
+import dev.gathering.network.ToBottomAtRandomPayload;
+import dev.gathering.network.UndoPayload;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+
+/**
+ * The table, seen from above.
+ * <p>The whole screen is the felt: every seat has a mat, every board is visible at once, and
+ * a camera says which part you are looking at - scroll to zoom, middle-drag to pan, the way
+ * every table simulator works.
+ * <p><b>No grid and no focused seat.</b> A card goes exactly where you dropped it, at the
+ * angle you left it, on whosever mat you dropped it on, so stealing a creature is dragging it
+ * to your side of the table and the move event falls out of where it landed rather than out
+ * of a mode somebody set first.
+ * <p>The screen draws only what it was sent and never asks the game anything: it has been
+ * told a {@code GameView}, the board with everything this player is not entitled to already
+ * removed. An opponent's hand is a number here because a number is all that arrived.
+ * <p>Client-only.
+ */
+public final class TableScreen extends Screen {
+
+    private final TableCardRenderer cardRenderer = new TableCardRenderer();
+    private final TableReplayControls replayControls = new TableReplayControls();
+
+    /**
+     * What each board this screen draws looks like before it is put anywhere: piles,
+     * attachments and cards by id, worked out once per view rather than per frame. Two, for a
+     * live board and the frame a replay is showing.
+     */
+    private final BoardPresentation.Memo presentations = new BoardPresentation.Memo(2);
+
+    private static final int LABEL = 0xFFE8E4DC;
+    private static final int DIM = 0xFF9A9690;
+    private static final int ACCENT = 0xFF6FD3E8;
+
+    /** A life total the rules count a loss at. The same red the counters screen uses. */
+    private static final int LIFE_AT_A_LOSS = 0xFFE06C6C;
+
+    /**
+     * The same quiet gray as {@link #DIM}, lifted for writing that sits on the board.
+     * <p>A mid gray reads as quiet on a painted panel and reads as barely there on felt with
+     * card art behind it. This is the off-turn label's color now that the strip along the
+     * top has no panel: still plainly the quieter of the two, still not competing with the
+     * seat colors, and light enough that its shadow does the work.
+     */
+    private static final int QUIET = 0xFFC9C4B8;
+
+    /**
+     * How far in from the edge the writing along the top sits.
+     * <p>A plain margin. It used to be the thickness of the panel's own border, because the
+     * writing was inside a frame and the four heaviest looks drew the first letter on top of
+     * their corner ornament. There is no frame now, so there is no number to ask anybody for.
+     */
+    private static final int PAD = 6;
+
+    /** The pot's own color: the stakes gold the consent screen uses, not a board accent. */
+    private static final int POT_LABEL = 0xFFE0B15A;
+
+    /** What the hand strip wrote in itself last frame, when it wrote instead of dealing. */
+    private String handSaid = "";
+
+    /** The bands drawn over the hand on the last frame, top first: for the scripted client. */
+    final List<String> handBands = new ArrayList<>();
+
+    /** How many seats had a zone column drawn for them last frame. */
+    private int boardsDrawn;
+
+    /** What the log panel wrote the last time it drew, so a check can read it back. */
+    private String logSaid = "";
+
+    /** Zone names printed on the felt: quieter than a card, loud enough to read. */
+    private static final int ZONE_LABEL = 0xFFB9C4C0;
+
+    /** How solid a free chair's outline is: there, and clearly not a board in play. */
+    private static final int FREE_SEAT_EDGE = 0x44;
+
+    private static final int EXPOSED_TEXT = 0xFFFFD98A;
+
+    private static final int TALK_TEXT = 0xFFE8E4DC;
+    private static final int TALK_TYPING_TEXT = 0xFF8FE3C8;
+
+    private static final int PILE_TEXT = 0xFFF2EEE6;
+
+    /** How far a card is turned by one nudge. Small enough to be a gesture, not a mode. */
+    private static final int NUDGE_DEGREES = 15;
+
+    /** An opening hand, for the mulligan the library menu offers. */
+    private static final int MULLIGAN_HAND = 7;
+
+    /**
+     * The smallest a life counter is drawn at, and the smallest box worth drawing one in.
+     * <p>Six-tenths is where the font stops being letters, which is the floor everything else
+     * that shrinks in this mod uses. Four pixels is where the box itself stops being a box.
+     */
+    private static final float SMALLEST_LIFE_SCALE = 0.6f;
+
+    private static final int SMALLEST_LIFE_BOX = 4;
+
+    /** Where the dragged card is drawn relative to the cursor while it is in the air. */
+    private static final float LIFT = 300f;
+
+    /**
+     * The key list, in the order it reads best rather than the order the switch handles them.
+     * <p>Translation keys only - the strings themselves live in the language file, because a
+     * control list is exactly the thing somebody translating the mod has to be able to reword.
+     */
+    private static final List<String[]> KEY_HELP = List.of(
+            new String[] {
+                "screen.gathering.table.keys_camera",
+                "screen.gathering.table.key_zoom",
+                "screen.gathering.table.key_pan",
+                "screen.gathering.table.key_frame",
+                "screen.gathering.table.key_view",
+            },
+            new String[] {
+                "screen.gathering.table.keys_cards",
+                "screen.gathering.table.key_pick",
+                "screen.gathering.table.key_zones",
+                "screen.gathering.table.key_whole_pile",
+                "screen.gathering.table.key_menu",
+                "screen.gathering.table.key_flip",
+                "screen.gathering.table.key_turn",
+                "screen.gathering.table.key_select",
+                "screen.gathering.table.key_group",
+                "screen.gathering.table.key_delete",
+                "screen.gathering.table.key_read",
+            },
+            new String[] {
+                "screen.gathering.table.keys_game",
+                "screen.gathering.table.key_untap",
+                "screen.gathering.table.key_draw",
+                "screen.gathering.table.key_scry",
+                "screen.gathering.table.key_mill",
+                "screen.gathering.table.key_reveal",
+                "screen.gathering.table.key_surveil",
+                "screen.gathering.table.key_to_zones",
+                "screen.gathering.table.key_pass",
+                "screen.gathering.table.key_shuffle",
+                "screen.gathering.table.key_life",
+                "screen.gathering.table.key_log",
+                // The way to every verb that has no key of its own, which is most of them.
+                // On this list because this list is where somebody looks when they cannot
+                // find a thing, and "there is a box you can type the name into" is the one
+                // answer that covers whatever they were looking for.
+                "screen.gathering.table.key_palette",
+                // Last, because it is the one that takes you out. Escape closing a screen is
+                // the convention and this screen is the table, so escape leaves the table -
+                // which is only a surprise if nothing ever said so, and nothing did.
+                "screen.gathering.table.key_leave",
+            });
+
+    /**
+     * The same list for somebody watching a game back, which is a much shorter one.
+     * <p>Its own list rather than the game's with the verbs grayed out. A watcher cannot draw
+     * a card or pass a turn, and a help panel that lists what you may not do is a panel that
+     * has to be read twice before it says anything.
+     */
+    private static final List<String[]> KEY_HELP_REPLAY = List.of(
+            new String[] {
+                "screen.gathering.table.keys_camera",
+                "screen.gathering.table.key_zoom",
+                // Not the table's pan line and not its framing line. A watcher's arrow keys
+                // step the recording and its Home goes to the beginning - which the watching
+                // section below says - so a panel promising that the arrows move the view and
+                // Home shows the whole table was describing a screen this is not. Dragging
+                // with the middle button does still pan, and is all that is left that does.
+                "screen.gathering.replay.key_pan",
+            },
+            new String[] {
+                "screen.gathering.replay.keys_watching",
+                "screen.gathering.replay.key_play",
+                "screen.gathering.replay.key_step",
+                "screen.gathering.replay.key_ends",
+                "screen.gathering.replay.key_drag",
+                "screen.gathering.table.key_log",
+                "screen.gathering.table.key_leave",
+            });
+
+    /**
+     * The list for somebody watching a game that is still being played: from a chair that watches,
+     * after answering Watch, or after standing up.
+     * <p>Its own list for the reason the replay's is. Such a watcher has no seat, so the draw, untap
+     * and turn lines - and about fifteen more - were all keys that did nothing for them. What they
+     * can do is look: move the view, switch the board, read a card, open the log.
+     */
+    private static final List<String[]> KEY_HELP_WATCHING = List.of(
+            new String[] {
+                "screen.gathering.table.keys_camera",
+                "screen.gathering.table.key_zoom",
+                "screen.gathering.table.key_pan",
+                "screen.gathering.table.key_frame",
+                "screen.gathering.table.key_view",
+            },
+            new String[] {
+                "screen.gathering.replay.keys_watching",
+                "screen.gathering.table.key_read",
+                "screen.gathering.table.key_log",
+                "screen.gathering.table.key_palette",
+                "screen.gathering.table.key_leave",
+            });
+
+    /** The line of the key list that offers the board on the block, which only a table with a block has. */
+    private static final String KEY_VIEW = "screen.gathering.table.key_view";
+
+    /**
+     * The game's list without V, for the lesson. Its table has no block for V to go to, so the
+     * key does nothing there, and a list that offered it would be a promise the board broke.
+     */
+    private static final List<String[]> KEY_HELP_WITHOUT_A_BLOCK = KEY_HELP.stream()
+            .map(section -> java.util.Arrays.stream(section)
+                    .filter(line -> !KEY_VIEW.equals(line))
+                    .toArray(String[]::new))
+            .toList();
+
+    /** How much one wheel notch zooms. A shallow step, because zoom is used constantly. */
+    private static final double ZOOM_STEP = 1.18;
+
+    /** How far one press of a pan key slides the table. */
+    private static final int PAN_STEP = 60;
+
+    /** The table in the world, or {@link #NOT_A_TABLE} when this is a replay. */
+    private final BlockPos table;
+
+    /**
+     * A game at a table, the lesson, or a replay. Set once at construction; nothing switches
+     * it. See {@link TableMode} for what each decides - and, for the lesson, that
+     * {@link #table} is then {@link TutorialDemo#table()}, which is where every move goes.
+     */
+    private final TableMode mode;
+
+    /**
+     * The table in the world to show once the demonstration is over, if there still is one.
+     * <p>The demonstration is not at a table, so the screen it hands back to has to be
+     * remembered rather than derived. Null for every other mode.
+     */
+    private final BlockPos afterwards;
+
+    private TableScreenLayout layout;
+
+    /**
+     * The two ways of looking at this board, and which one is being used.
+     * <p>Both on purpose: the seated screen is a felt drawn on the window, and the block is
+     * the same game through the game's own camera. Which is nicer to play cannot be decided by
+     * reading it, so a key swaps them and the answer comes from playing both.
+     * <p>They cost almost nothing side by side, because the only thing they disagree about is
+     * what a point means - see {@link BoardPlacement}. Everything from finding the card under
+     * the cursor onwards is the same code.
+     */
+    private BoardGeometry geometry;
+
+    private SurfaceBoard onBlock;
+
+    /** Whether the board being played is the one on the table in the world. */
+    private boolean playingOnTheBlock;
+
+    /**
+     * Whether the flat board is the screen and covers the whole window, so the world behind it need not be drawn.
+     * <p>Its felt is laid edge to edge before anything else on every frame, and every look paints it solid, so
+     * nothing of the world ever showed - and the world was drawn under it anyway, every table's miniature
+     * included: two thirds of the frame at a four-seat game, measured. The game's renderer asks this as each frame
+     * begins, and draws the frame as it would with no level loaded (see the loaders' {@code WorldBehindTheBoardMixin}).
+     * <p>Only while this screen is the one up and no overlay is: a pile or a panel opened over the board draws
+     * the board under itself and is not this screen, and the world goes on being drawn behind them as it always
+     * was. Not on the block, where the world is the board. And not over a felt somebody's resource pack has made
+     * see-through.
+     * <p>Nothing on the flat board is read off the world's drawing: what the cursor is over is pixels on this
+     * board, and the projection the block's picker needs is taken again on the first frame back on the block.
+     */
+    public static boolean coversTheWorld() {
+        Minecraft client = Minecraft.getInstance();
+        return client.screen instanceof TableScreen open && !open.playingOnTheBlock && client.getOverlay() == null
+                && GatheringSprites.isOpaque(Element.TABLE_FELT);
+    }
+
+    /**
+     * Gives the board the first look at a key press: asked by each loader's {@code BoardKeysFirstMixin} as the game
+     * begins to handle one, before anything else has seen it.
+     * <p>At the board a key bound to a table verb is that verb, whatever else is bound to it - the owner's rule
+     * (2026-10-27; see {@link #keyPressed}). Most of what else a key can be bound to never reaches a key pressed
+     * over a screen, and the chat key and F1 are this screen's own to ask after the verbs. But the game reads its
+     * screenshot and full-screen keys before any screen is told, and other mods read theirs for screens before this
+     * one is: a verb put on one of those keys never fired here. So such a press is handed straight to the board and
+     * goes nowhere else. Only that: a press that is not a verb's key at this board, a key released, Escape, and any
+     * key while a line is being typed, go the way they always went.
+     * <p>Handed over the way the game hands a screen its key - the narration it schedules after a key, and a failure
+     * reported with the screen named - less the asking first. Once handed over the press is the board's whatever it
+     * answers, so it can never be handed to the screen a second time.
+     * <p>One instanceof when no board is open, which is every key press anywhere else in the game.
+     *
+     * @return whether the board was handed the press
+     */
+    public static boolean takesAVerbsKeyFirst(int key, int scanCode, int action, int modifiers) {
+        if (action == org.lwjgl.glfw.GLFW.GLFW_RELEASE
+                || !(Minecraft.getInstance().screen instanceof TableScreen board)
+                || !board.isAVerbsKeyHere(key, scanCode)) {
+            return false;
+        }
+        board.afterKeyboardAction();
+        Screen.wrapScreenError(() -> board.keyPressed(key, scanCode, modifiers),
+                "keyPressed event handler", board.getClass().getCanonicalName());
+        return true;
+    }
+
+    /**
+     * Whether this press is a table verb's key that this board answers before anything else: never Escape, nothing
+     * while the verb search or a line to the table is being typed, and in a replay only the log's, the one verb a
+     * replay has. Asked the way {@link #keyPressed} and {@link #watcherPressed} answer, so the two cannot disagree.
+     */
+    private boolean isAVerbsKeyHere(int key, int scanCode) {
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE || palette != null || saying != null) {
+            return false;
+        }
+        return mode.isWatching()
+                ? TableShortcuts.matches("show_log", key, scanCode)
+                : TableShortcuts.actionFor(key, scanCode) != null;
+    }
+
+    /**
+     * Whether this frame leaves the world undrawn behind the flat board, asked by each loader's
+     * {@code WorldBehindTheBoardMixin} as a frame that would draw the world begins - and if it does, what drawing the
+     * world does that is not drawing, done here instead.
+     * <p>Drawing the level is also where the client works its light out and puts the camera where the player is, and
+     * neither can wait for the board to close. Left to the drawing, a block's light waits until the world is next
+     * drawn, and what the server sends about light waits in a queue and is then run all at once - a furnace going on
+     * and off beside the table would fill it for as long as the game went on. And the camera is where every sound is
+     * heard from, which for a table carried by a moving structure is somewhere else every frame.
+     * <p>And it is where the projection the board on the block frames itself by is captured, so with no frame drawn
+     * nothing is: what was captured is forgotten, and V frames the block from the window and the field of view as
+     * they are, rather than from a frame drawn for a window that has since changed shape.
+     */
+    public static boolean leavesTheWorldUndrawn() {
+        if (!coversTheWorld()) {
+            return false;
+        }
+        RenderProbe.count("world.skipped", 1);
+        TablePointer.forget();
+        Minecraft client = Minecraft.getInstance();
+        net.minecraft.client.multiplayer.ClientLevel level = client.level;
+        if (level == null) {
+            return true;
+        }
+        // As the level's own drawing does it, every frame.
+        level.pollLightUpdates();
+        level.getChunkSource().getLightEngine().runLightUpdates();
+        net.minecraft.world.entity.Entity seen =
+                client.getCameraEntity() == null ? client.player : client.getCameraEntity();
+        if (seen != null) {
+            float partialTick = level.tickRateManager().isEntityFrozen(seen)
+                    ? 1.0F
+                    : client.getTimer().getGameTimeDeltaPartialTick(true);
+            client.gameRenderer.getMainCamera().setup(level, seen,
+                    !client.options.getCameraType().isFirstPerson(), client.options.getCameraType().isMirrored(),
+                    partialTick);
+        }
+        return true;
+    }
+
+    /**
+     * What the pointer is in the middle of: a card carried, a box dragged out, a pan.
+     * <p>Every change to it is one of {@link TableGesture}'s transitions; this screen reads
+     * it and decides what a gesture means for the board.
+     */
+    private final TableGesture gesture = new TableGesture();
+
+    /**
+     * The cards a player has picked out to act on together.
+     * <p>Purely this client's idea. Nothing about a selection reaches the server: what gets
+     * sent is the same events one card at a time would have sent, so a selection cannot do
+     * anything a sequence of ordinary moves could not, and the log reads the same either way.
+     */
+    private final Set<CardInstanceId> selected = new LinkedHashSet<>();
+
+    /**
+     * Where the chosen cards would go if the tidy were applied, or empty while none is offered.
+     * <p>A promise rather than an act. Nothing has moved, nothing has been sent, and pressing
+     * Escape leaves the board exactly as it was - which is the whole reason this is a preview
+     * and not a verb that simply tidies: a board that rearranged itself on a keypress is a
+     * board nobody trusts to leave a card where they put it.
+     */
+    private List<dev.gathering.core.ui.ArrangeSelection.Spot> arranging = List.of();
+
+    /**
+     * The cards waiting to be put onto something, once their host has been picked.
+     * <p>A mode rather than a gesture, because dragging already means "put this here" and a
+     * drop that sometimes attached and sometimes stacked would be a coin flip.
+     */
+    private List<CardInstanceId> attaching = List.of();
+
+    private ContextMenu menu;
+
+    /**
+     * The card a card menu was opened for, and the menu that was opened for it.
+     * <p>So the read key reads the card the menu is about, not whatever happens to be on top
+     * where the cursor is. The two are the same card for an ordinary right click, and
+     * different in exactly the case that matters: a card picked out of the list of what is
+     * under a pile, whose menu opens over the pile's top card. Reading that card was
+     * impossible - the key showed the top one every time.
+     * <p>Kept against the menu object rather than cleared at every place a menu closes or
+     * another opens, of which there are several: once {@link #menu} is anything else, this
+     * says nothing.
+     */
+    private ContextMenu subjectMenu;
+    private CardInstanceId menuSubject;
+
+    /**
+     * The search box for verbs, when it is open.
+     * <p>Built out of the menus at the moment it opens, so the rows in it are the rows a
+     * right-click would have offered - see {@link ActionPalette}. Held here rather than opened
+     * as a screen of its own because every verb on it is about what the cursor and the
+     * selection are on, and a screen over the board would hide both.
+     */
+    private ActionPalette palette;
+
+    /** How many zones the column holds, refreshed each tick - see pileCount. */
+    private int piles = Zone.PILES.size();
+
+    /** Whether the last frame had a card under the cursor. Read by the scripted harness. */
+    private boolean hoveringSomething;
+
+    /** Whether the log panel is open. Off by default: the table is the thing you came for. */
+    private boolean showingLog;
+
+    /** Whether the key list is open. */
+    private boolean showingKeys;
+
+    /**
+     * Where the cursor was last frame.
+     * <p>Key handlers are not given a mouse position, and every TTS object key acts on
+     * whatever is under the cursor - so the screen has to remember where that was.
+     */
+    private int cursorX;
+    private int cursorY;
+
+    public TableScreen(BlockPos table) {
+        this(java.util.Objects.requireNonNull(table, "table"), TableMode.PLAYING, null);
+    }
+
+    private TableScreen(BlockPos table, TableMode mode, BlockPos afterwards) {
+        super(Component.translatable(mode.isWatching()
+                ? "screen.gathering.replay" : "screen.gathering.table"));
+        this.table = table;
+        this.mode = mode;
+        this.afterwards = afterwards;
+    }
+
+    /**
+     * A practice board with the deck in this player's hand, for building at a tournament.
+     * <p>The lesson's board without the lesson: local, sent nowhere, and closed back to wherever
+     * the player was.
+     */
+    public static TableScreen practicing(BlockPos afterwards, java.util.List<dev.gathering.core.card.CardIdentity> deck,
+            java.util.List<dev.gathering.core.card.CardIdentity> commanders) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        TutorialDemo.practice(player == null ? null : new dev.gathering.core.game.PlayerRef(
+                player.getUUID(), player.getGameProfile().getName()), deck, commanders);
+        return new TableScreen(TutorialDemo.table(), TableMode.LEARNING, afterwards);
+    }
+
+    /**
+     * The same screen, teaching the controls on a board nobody else can see.
+     * <p>The same screen deliberately, for the reason a replay is: a demonstration drawn by a
+     * second renderer would be a second copy of every layout rule on the table, free to drift
+     * from the one people play on - and a tutorial that teaches a board you will never see
+     * again teaches nothing. What changes is that the board is local and that no move made on
+     * it leaves this client.
+     * <p>{@code afterwards} is the table to hand back to when it ends. It may be gone by then;
+     * {@link #leaveTheTutorial()} deals with that rather than assuming it is still there.
+     */
+    public static TableScreen learning(BlockPos afterwards) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        TutorialDemo.begin(player == null ? null : new dev.gathering.core.game.PlayerRef(
+                player.getUUID(), player.getGameProfile().getName()));
+        return new TableScreen(TutorialDemo.table(), TableMode.LEARNING, afterwards);
+    }
+
+    /**
+     * Where a replay's board is filed in the client's per-table maps.
+     * <p>The flights, the chat lines and the roll announcements are all kept by table, and a
+     * replay has no table. Rather than teach four of them what a null means, it is given a
+     * place no table can be - the world does not go down that far, so nothing a player builds
+     * can ever share a drawer with a game that is over.
+     */
+    private static final BlockPos NOT_A_TABLE = new BlockPos(0, Integer.MIN_VALUE, 0);
+
+    /**
+     * The same screen, showing a finished game instead of a live one.
+     * <p>The same screen deliberately. A replay drawn by a second renderer would be a second
+     * copy of every layout rule on the table, free to drift from the one people play on - and
+     * the whole point of watching a game back is that it looks like the game did. What
+     * changes is where the board comes from and that nothing can be done to it: see
+     * {@link #view()} and {@link #send}.
+     */
+    public static TableScreen watching() {
+        return new TableScreen(NOT_A_TABLE, TableMode.WATCHING, null);
+    }
+
+    /** Where a replay files its flights and its news. See {@link #NOT_A_TABLE}. */
+    static BlockPos replayTable() {
+        return NOT_A_TABLE;
+    }
+
+    /**
+     * Whether this screen is showing a finished game rather than a table in the world.
+     * <p>Every guard in the screen that stops a watcher touching the board reads this, and so
+     * does the frame handler, which must not open a second screen over the first.
+     */
+    public boolean isReplay() {
+        return mode.isWatching();
+    }
+
+    /** Whether this screen is showing that table, for anything deciding where to go back to. */
+    public boolean isAbout(BlockPos which) {
+        return !mode.isWatching() && table.equals(which);
+    }
+
+    /** The seat the camera is currently framed for, or null for the whole table. */
+    private SeatId framedFor;
+
+    /**
+     * What the cursor is resting on, if it is something that can say what it is.
+     * <p>Collected while the felt is drawn and written out at the very end, because a
+     * tooltip drawn where it is discovered would be painted over by the cards on top of it.
+     */
+    private List<Component> tooltip = List.of();
+
+    /** Whether the last frame drew {@link #tooltip}, rather than only working it out. */
+    private boolean tooltipDrawn;
+
+    /** Measured once per screen: how much room the longest zone name needs. Nought is unasked. */
+    private int longestZoneNameWidth;
+
+    /**
+     * Where the leftmost mat starts on the screen, for anything that must not cover a mat.
+     * <p>Only in the lesson, where the panel beside the board would otherwise lie over the
+     * learner's own buttons; everywhere else the answer is "nowhere to keep off".
+     */
+    private int leftEdgeOfTheMats() {
+        if (!mode.isLearning() || geometry == null) {
+            return Integer.MAX_VALUE;
+        }
+        int left = Integer.MAX_VALUE;
+        for (SeatView seat : view().map(GameView::seats).orElse(List.of())) {
+            if (seat.hasABoard()) {
+                left = Math.min(left, geometry.matRect(seat.seat()).x());
+            }
+        }
+        return left;
+    }
+
+    /**
+     * Frames the board on this seat's own mat, or on the whole table when there is no seat.
+     * <p>Both boards, whichever one is being played. The camera over the block used to be framed by
+     * V alone, so a chair that changed while the board was on the block - somebody sitting down with
+     * it open, a seat freed from under them, another player joining - reframed the flat board nobody
+     * was looking at and left the camera over whatever it had been over.
+     */
+    private void frameTheBoard(SeatId seat) {
+        if (seat == null) {
+            geometry.showEverything(potTray());
+        } else {
+            geometry.focusOn(seat);
+        }
+        if (playingOnTheBlock) {
+            frameTheBlock();
+        }
+    }
+
+    /**
+     * Puts the camera over this player's own mat on the block, as V does.
+     * <p>The camera keeps its height and its pan from one table to the next, so a board that
+     * arrived on the block and only resumed opened the first table of a session over its middle
+     * at the starting height, and every table after it wherever the last one was left - somebody
+     * else's mat, or no mat at all. Somebody with no seat has no mat, and gets the middle of the
+     * table at the starting height.
+     */
+    private void frameTheBlock() {
+        TableCameraView.focusOn(table, myMatIsOnTheSouthHalf(), myMatOnTheBlock(),
+                coveredByTheStatus(), coveredByTheHand());
+    }
+
+    /**
+     * What the hand strip wrote in itself last frame, or empty when it drew cards.
+     * <p>For the scripted harness, and recorded rather than worked out again: a strip with
+     * nothing drawn in it and a strip with a line in it are the same to anything counting
+     * cards, which is exactly why nobody noticed there was no line. Asked of the board state
+     * this would answer "the hand is empty" whether or not a word had been drawn.
+     */
+    String handStripSaid() {
+        return handSaid;
+    }
+
+    /**
+     * How many seats this screen drew a zone column for last frame. For the harness.
+     * <p>Counted while drawing rather than worked out from the board, which is what makes it
+     * worth asking at all: the run's first attempt at this asked the board how many seats had
+     * a board, which is the same question the screen asks, so putting the old condition back
+     * left it green while the boards it had stopped drawing sat there missing their zones.
+     */
+    int boardsDrawn() {
+        return boardsDrawn;
+    }
+
+    /** Whether the felt reaches this far down the window. For the harness, as below. */
+    boolean feltReachesDownTo(int y) {
+        return layout().isOnFelt(this.width / 2, y);
+    }
+
+    /** Whether a context menu is up. For the scripted harness, which cannot see one. */
+    boolean menuIsOpen() {
+        return menu != null;
+    }
+
+    /** What the last frame's cursor position had to say for itself. For the harness. */
+    List<Component> tooltipShowing() {
+        return tooltip;
+    }
+
+    /**
+     * Whether the last frame actually drew a tooltip. For the harness.
+     * <p>Not the same question as {@link #tooltipShowing()}: that is what the frame worked out
+     * to say, and between working it out and drawing it stand the log, the key list, a card
+     * in the air and the read overlay, any of which suppress it. A check on the worked-out
+     * answer alone passes for a button that lights and says nothing.
+     */
+    boolean tooltipDrawn() {
+        return tooltipDrawn;
+    }
+
+    /** What resting on this mat button says, as the board would say it now. For the harness. */
+    List<Component> verbTipForTesting(TableVerb verb) {
+        return verbTip(java.util.Arrays.asList(TableVerb.values()).indexOf(verb));
+    }
+
+    /**
+     * What the last frame made of the card in the air. For the harness, as above.
+     * <p>Written from inside the frame because that is the only place the answer exists: the
+     * aim is computed while drawing, from the cursor the game passed in, and a harness asking
+     * afterwards can only see whether it agreed - not which of the three steps said no.
+     */
+    String aimReport() {
+        return aimReport;
+    }
+
+    /**
+     * Which zone slot the last frame aimed a held card at, and which one lit up, or -1.
+     * <p>Two numbers rather than one because they are worked out in two places that cannot
+     * see each other - the aim while the held card is drawn, the light while the column is -
+     * and the whole question is whether they agree. For the scripted harness.
+     */
+    int aimedSlot() {
+        return aimedSlotLastFrame;
+    }
+
+    int litSlot() {
+        return litPile;
+    }
+
+    private String aimReport = "no frame drawn yet";
+
+    /**
+     * Which zone slot actually lit up as the target, last frame, or -1.
+     * <p>Recorded where the ring is drawn rather than where the aim is worked out, because
+     * those are two different places and the whole point is to find out whether they agree.
+     * The aim is computed in {@link #renderHeldCard} and read back in {@link #drawPile}, and
+     * a run that printed only the first of them could say a card was aimed at the graveyard
+     * while nothing on the felt lit up.
+     */
+    private SeatId litSeat;
+    private int litPile = -1;
+
+    /** And the slot the aim arrived at, kept for the same comparison. */
+    private int aimedSlotLastFrame = -1;
+
+    /** How many zones this board is drawing per seat. For the harness, as above. */
+    int pilesShowing() {
+        return pileCount();
+    }
+
+    /**
+     * Which key the menu says does the same as this row, for the scripted run to check.
+     * <p>Exists because the labels went wrong once and nothing noticed: the number row was
+     * corrected against the reference table and the menu went on printing the old keys, so
+     * the interface was teaching a player the wrong thing in the one place they were looking
+     * straight at it.
+     */
+    static String keyShownFor(String verb) {
+        Component key = TableShortcuts.label(verb);
+        return key == null ? null : key.getString();
+    }
+
+    /** Whether a menu is up offering this entry. For the harness, as above. */
+    boolean hasMenuEntry(String label) {
+        return menu != null && menu.has(label);
+    }
+
+    /**
+     * Takes the menu entry with this label, if a menu is up and has one. As above.
+     * <p>The menu goes away first, exactly as it does when a real click takes an entry - the
+     * click path clears it before dispatching so an entry that opens a screen does not leave
+     * a menu behind on the board underneath.
+     */
+    boolean pressMenuEntry(String label) {
+        ContextMenu open = menu;
+        if (open == null || !open.has(label)) {
+            return false;
+        }
+        menu = null;
+        return open.press(label);
+    }
+
+    /** Whether a context menu is open at all. For the harness, as above. */
+    boolean hasAMenuOpen() {
+        return menu != null;
+    }
+
+    /** Whether the last frame drawn had a card under the cursor. For the harness, as above. */
+    boolean isHoveringSomething() {
+        return hoveringSomething;
+    }
+
+    /**
+     * One card as it is currently drawn: whose it is, where on screen, and which way round.
+     * <p>Built once a frame and used by both the drawing and the hit-testing, which is what
+     * stops them disagreeing about where anything is. In back-to-front order, so drawing walks
+     * it forwards and picking walks it backwards.
+     */
+    private record Placed(SeatId seat, CardView card, Rect where, int angle) {
+    }
+
+    @Override
+    protected void init() {
+        layout = freshLayout();
+        // Nothing half-done survives a re-init. A screen opened over this one mid-gesture
+        // - a prompt, a pile - came back to a card still held, a box still being drawn or an
+        // attach still waiting, and the next unrelated release dropped or consumed it.
+        gesture.cancel();
+        attaching = List.of();
+        swallowingTheChatKey = false;
+        boolean arriving = geometry == null;
+        if (arriving) {
+            geometry = new BoardGeometry(anchors(), this.width, this.height,
+                    layout.status().height(), layout.hand().height());
+            onBlock = new SurfaceBoard(anchors());
+            // On the real board, unless this player has said otherwise. It is the table they
+            // built, with cards lying on it, and it is what the mod is - worth seeing before a
+            // flat diagram of it. The flat one is still a key away and is remembered once chosen,
+            // which is what makes it the competitive player's board rather than a hidden mode.
+            //
+            // Only where there is a block. The lesson drives the flat board's own rectangles
+            // and reads them back, so a lesson that opened on the block would be pointing at
+            // places the learner is not looking. And a replay's game has left its table: on
+            // the block, a replay put the camera over a place no table can be and showed
+            // empty space, with no key to get back from it.
+            playingOnTheBlock = mode.hasABlock() && ClientSettings.playOnTheBlock();
+            // Opened on your own board rather than on the whole table: see focusOn. Somebody
+            // with no seat has no own board to open on, and used to get whatever the camera
+            // happened to be constructed with - which put the far player's zones off the top
+            // of the window. Watching a game you are not in shows the whole table.
+            framedFor = mySeat().orElse(null);
+            // The lesson shows the whole table. One of its steps is reading the card the other
+            // seat has face up, and framed on the learner's own mat that card was off the top of
+            // the window - the step asked for something nobody could see, and only a script
+            // that reads the card without pointing at it could do it.
+            if (mode.isLearning() && framedFor != null) {
+                // Turned for the learner first, so the whole table is shown from their chair:
+                // their mat nearest, the card they are asked to read across from them. Shown
+                // unturned, the scripted client photographed the learner's own mat at the top
+                // and "the card opposite" below it.
+                geometry.focusOn(framedFor);
+                geometry.showEverything(potTray());
+            } else {
+                // Arriving on the block is framed here too, on your own mat as V frames it.
+                frameTheBoard(framedFor);
+            }
+        } else {
+            geometry.reshape(anchors(), this.width, this.height,
+                    layout.status().height(), layout.hand().height());
+            onBlock.reshape(anchors());
+        }
+        // Coming back is not arriving. A screen this one opened - a graveyard, a counters panel
+        // - took the camera back to the player on its way in, and returning to the same
+        // instance has to take it over the table again where the player had left it, or they
+        // are left holding a board they cannot see.
+        if (playingOnTheBlock && !arriving) {
+            TableCameraView.resume(table, myMatIsOnTheSouthHalf(),
+                    coveredByTheStatus(), coveredByTheHand());
+        }
+        addTutorialButtons();
+        addTheGuideButton();
+    }
+
+    /** The size of the "?" at the end of the top row, and the room kept for it. */
+    private static final class SeatStripGuide {
+        static final int SIZE = dev.gathering.core.ui.SeatStrip.ROW - 2;
+        static final int ROOM = SIZE + 4;
+    }
+
+    /** The "?" at the end of the top row, which opens how to play. Null where there is no top row. */
+    private net.minecraft.client.gui.components.Button guideButton;
+
+    /**
+     * A "?" at the right-hand end of the top row, for how to play.
+     * <p>The key list is behind F1, and nothing on the board says so; the lesson is offered once. So
+     * the one control every board carries is a question mark in the corner where a player looks for
+     * one. It opens the guide over the table, and closing it comes back to the table as it was.
+     */
+    private void addTheGuideButton() {
+        guideButton = null;
+        Rect area = layout.status();
+        if (area.isEmpty() || mode.isLearning()) {
+            // The lesson has its own buttons and its own words; a second way out of it would be one
+            // too many.
+            return;
+        }
+        int size = SeatStripGuide.SIZE;
+        guideButton = this.addRenderableWidget(GatheringButtons.glyph(
+                area.right() - PAD - size, area.y() + (Math.min(area.height(), dev.gathering.core.ui.SeatStrip.ROW) - size) / 2,
+                size, size, "?",
+                Component.translatable("screen.gathering.table.guide"),
+                () -> Minecraft.getInstance().setScreen(new GuideScreen(this))));
+    }
+
+    /**
+     * The guided first game's own controls, when it is running or worth offering.
+     * <p>Real buttons rather than a key each: they take keyboard focus in order, they read
+     * their own labels out to a narrator, and a player who has never pressed Tab in a game can
+     * click them. A tutorial reachable only by a shortcut would be teaching the shortcut it
+     * exists to teach.
+     */
+    private void addTutorialButtons() {
+        tutorialButtons = List.of();
+        if (!Tutorial.runningAt(table)) {
+            // The offer is not here. A table with no game on it has no board - this screen
+            // closes itself the moment its view goes away - so the one place somebody who has
+            // never done this before can be asked is the setup screen. See TableSetupScreen.
+            return;
+        }
+        List<net.minecraft.client.gui.components.AbstractWidget> made = new ArrayList<>();
+        made.add(this.addRenderableWidget(GatheringButtons.of(0, 0, 1, 1,
+                Component.translatable("tutorial.gathering.back"), Tutorial::back)));
+        made.add(this.addRenderableWidget(GatheringButtons.of(0, 0, 1, 1,
+                Component.translatable("tutorial.gathering.next"), Tutorial::forward)));
+        made.add(this.addRenderableWidget(GatheringButtons.of(0, 0, 1, 1,
+                Component.translatable("tutorial.gathering.restart"),
+                // A new game rather than a rewound one, which is what makes it work once the
+                // library has been drawn empty.
+                TutorialDemo::restart)));
+        made.add(this.addRenderableWidget(GatheringButtons.of(0, 0, 1, 1,
+                Component.translatable("tutorial.gathering.exit"), this::leaveTheTutorial)));
+        tutorialButtons = List.copyOf(made);
+        placeTheTutorialButtons();
+    }
+
+    /** The lesson's four buttons, in the order they are laid out: two rows of two. */
+    private List<net.minecraft.client.gui.components.AbstractWidget> tutorialButtons = List.of();
+
+    /**
+     * Puts the lesson's buttons under the panel as it is now.
+     * <p>Every frame, not once. The panel is as tall as the step on it, and the later steps say
+     * more: laid out once under the first step's panel, the buttons were drawn over by the
+     * fifth step's, and the scripted client photographed Back and Skip gone under a paragraph.
+     */
+    private void placeTheTutorialButtons() {
+        if (tutorialButtons.isEmpty()) {
+            return;
+        }
+        Rect panel = TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom(),
+                leftEdgeOfTheMats());
+        int wide = (panel.width() - 8) / 2;
+        int high = 14;
+        int left = panel.x() + 2;
+        int top = panel.bottom() + 2;
+        for (int index = 0; index < tutorialButtons.size(); index++) {
+            var button = tutorialButtons.get(index);
+            button.setX(left + (index % 2) * (wide + 4));
+            button.setY(top + (index / 2) * (high + 2));
+            button.setWidth(wide);
+            button.setHeight(high);
+        }
+    }
+
+    /**
+     * Lets the last panel stand for a moment, then ends the guided first game by itself.
+     * <p>On the tick rather than in the render, and against the clock rather than a count of
+     * frames. Both for the same reason: drawing a frame is not an event in the game, and a
+     * lifecycle decision taken while drawing happens at a rate that depends on the window.
+     * <p>Left standing, a finished tutorial is a board somebody has to work out how to leave,
+     * which is a poor last impression for the thing whose whole job was making the first one
+     * good.
+     *
+     * @return whether it ended the lesson and put another screen up, so the caller stops
+     */
+    private boolean tickTheTutorial() {
+        if (!Tutorial.runningAt(table)) {
+            tutorialFinishedAt = 0;
+            return false;
+        }
+        boolean finished = Tutorial.progress()
+                .map(dev.gathering.core.tutorial.TutorialProgress::isFinished)
+                .orElse(false);
+        if (!finished) {
+            // Not done, or gone backwards through Back into a step that is not the last one.
+            tutorialFinishedAt = 0;
+            return false;
+        }
+        long now = ClientCardFlights.now();
+        if (tutorialFinishedAt == 0) {
+            tutorialFinishedAt = now;
+            return false;
+        }
+        if (now - tutorialFinishedAt < LINGER_AFTER_FINISHING_MS) {
+            return false;
+        }
+        tutorialFinishedAt = 0;
+        // The whole of arriving, in one line: the lesson ends, two colors are picked, and that
+        // screen puts them at the table. No stop at the world in between - a player who has
+        // just learned the controls should be looking at the table they learned them for.
+        Tutorial.stop();
+        TutorialDemo.clear();
+        // Picking the colors is not what earns the packs. StarterBoosters decides that on the
+        // server from its own once-per-player list, the server's own settings, and whether the
+        // server has this player down as having finished the lesson (LessonRecords, told as the
+        // lesson stopped, just above) - so this screen grants nothing, and a second time through
+        // is told "already" by the same list that answered the first.
+        this.minecraft.setScreen(new StarterColorsScreen(afterwards));
+        return true;
+    }
+
+    /**
+     * Leaves the guided first game, however it ended, and hands the player back the world.
+     * <p>{@link Tutorial#stop()} records which of the two things happened - finished, or left
+     * partway through - before anything else, because that is the fact that decides whether
+     * this is ever offered again, and an interrupted walkthrough must never be written down as
+     * a completed one.
+     * <p>Where it hands back to is decided by what is actually there, not by what was there
+     * when the demonstration started. A player can spend a minute learning the controls while
+     * somebody breaks the table they were sitting at.
+     */
+    private void leaveTheTutorial() {
+        Tutorial.stop();
+        TutorialDemo.clear();
+        this.minecraft.setScreen(whatToShowAfterwards());
+    }
+
+    /**
+     * The screen the demonstration hands back to: the real game, the table, or the world.
+     * <p>In that order, and each step is a thing that may not be true any more. A board this
+     * client is entitled to means a game to walk into. No board but a table still standing
+     * means the screen that starts one, which is where they were going when they were offered
+     * the lesson. Neither means the table has gone, and the honest answer is the world - not a
+     * screen about a table that is not there, and never a request to recreate the game that
+     * was.
+     */
+    private net.minecraft.client.gui.screens.Screen whatToShowAfterwards() {
+        return afterTheLesson(afterwards);
+    }
+
+    /**
+     * The screen to land on once the arrival is over: the real game, the table, or the world.
+     * <p>Static and shared, because the lesson does not hand straight back any more. Finishing
+     * it leads to picking two colors, and it is <em>that</em> screen the player leaves to reach
+     * the table - so both of them have to make the same decision, and it has to be made when
+     * they leave rather than when they arrived. A table can be broken while somebody is
+     * choosing.
+     */
+    static net.minecraft.client.gui.screens.Screen afterTheLesson(BlockPos where) {
+        if (where == null) {
+            return null;
+        }
+        if (ClientTableState.viewOf(where).isPresent()) {
+            return new TableScreen(where);
+        }
+        net.minecraft.client.multiplayer.ClientLevel level =
+                net.minecraft.client.Minecraft.getInstance().level;
+        if (level != null && level.getBlockEntity(where) instanceof TableBlockEntity) {
+            return new TableSetupScreen(where);
+        }
+        return null;
+    }
+
+    /**
+     * When the "you have the controls" panel went up, or nought while it has not.
+     * <p>A clock reading rather than a count of frames. It used to count rendered frames to
+     * 240, described as "about four seconds at sixty frames a second" - which it is, at sixty
+     * frames a second. At fifteen it is sixteen seconds, and on a paused or minimized window
+     * it never arrives at all, so the last thing the guided first game did was take a
+     * different length of time for everybody depending on their hardware.
+     */
+    private long tutorialFinishedAt;
+
+    /** Long enough to read the last panel, in milliseconds this time. */
+    private static final long LINGER_AFTER_FINISHING_MS = 4_000L;
+
+    /** This player's own mat on the real table, in surface units, for the camera to frame. */
+    private Rect myMatOnTheBlock() {
+        // The mat and the life total printed off its far edge. Framed on the mat alone, the
+        // counter came out under the status row - the same fault the seated view had, from
+        // the same cause, so both ask the surface the same question.
+        return mySeat().map(seat -> onBlock.surface().ownBoard(seat.index())).orElse(Rect.NONE);
+    }
+
+    /** How much of the bottom of the window the hand is sitting over. */
+    private double coveredByTheHand() {
+        return this.height <= 0 ? 0 : layout.hand().height() / (double) this.height;
+    }
+
+    /** And how much of the top the life totals are. */
+    private double coveredByTheStatus() {
+        return this.height <= 0 ? 0 : layout.status().height() / (double) this.height;
+    }
+
+    /**
+     * Whether this player's own mat is the far half of the table from the block's corner.
+     * <p>Asked of the mats rather than of the seat's side, because the mats are what is drawn
+     * and a seat that ended up on a different half than its side suggested would turn the
+     * camera the wrong way round without anything else noticing.
+     */
+    private boolean myMatIsOnTheSouthHalf() {
+        return mySeat()
+                .map(seat -> onBlock.matRect(seat).centerY() > onBlock.surface().height() / 2.0)
+                .orElse(false);
+    }
+
+    /** Whichever board is being played, which is the only thing the two views differ on. */
+    // Package-private rather than private so the scripted client harness can aim at the same
+    // rectangles the screen draws. Replicating the geometry in the harness instead would be a
+    // second copy of the layout rules, free to drift from this one - which is the failure this
+    // whole project keeps having.
+    BoardPlacement board() {
+        return playingOnTheBlock ? onBlock : geometry;
+    }
+
+    /**
+     * What the seated view is framing, for the scripted run to write down beside the block's.
+     * <p>The two views are supposed to differ only in whether a point is a pixel or a place
+     * on the felt, and the only way to know whether they do is to read the same numbers off
+     * both of them at the same moment.
+     */
+    String framingReport() {
+        Rect mine = mySeat().map(seat -> geometry.matRect(seat)).orElse(Rect.NONE);
+        return "window=" + this.width + "x" + this.height
+                + " status=" + layout.status().height()
+                + " hand=" + layout.hand().height()
+                + " mat=" + mine
+                + " || " + geometry.report();
+    }
+
+    /**
+     * The table's surface in the world, for turning a cursor into a place on the felt.
+     * <p>The whole cluster's surface, not one table's. A pod is a row of tables sharing one
+     * board, and a hit test measured against the first of them answered "not on the table"
+     * for every point past its edge - which is where the second table's mats are drawn.
+     */
+    private TableTop tableTop() {
+        return TableTop.forCluster(table.getX(), table.getY(), table.getZ(), tablesInTheRow(), 1,
+                TableCameraView.isTurned(table));
+    }
+
+    /** How many tables this cluster is, worked out the way the seating is. */
+    private int tablesInTheRow() {
+        return Math.max(1, (anchors().size() + TableCluster.SEATS_PER_TABLE - 1)
+                / TableCluster.SEATS_PER_TABLE);
+    }
+
+    /**
+     * Where the cursor is, in whatever space the board being played is measured in.
+     * <p>Pixels on the seated screen. On the block it is a ray cast against the table, so it
+     * is empty whenever the pointer is not over the felt at all - which is a real answer and
+     * the reason a card let go over the floor goes back where it came from.
+     */
+    private double[] pointer(double mouseX, double mouseY) {
+        if (!playingOnTheBlock) {
+            // Over the strip along the top is nobody's table here: the flat board covers its felt
+            // with the names, and answers nothing under them. So the arm comes down, as it does over
+            // the hand, rather than pointing at felt nobody can see - or, with the board zoomed out
+            // too far to draw its buttons, staying wherever it last pointed.
+            if (coveredByTheStrip((int) mouseY)) {
+                tellTheTableWhereIAmPointing(null);
+                return null;
+            }
+            // The body follows the cursor from this view too. It is the view most games are
+            // actually played in, and a pointer that only worked on the block was a pointer
+            // nobody ever saw - the arm sat still through a whole game.
+            tellTheTableWhereIAmPointing(geometry.feltPointAt(mouseX, mouseY));
+            return new double[] {mouseX, mouseY};
+        }
+        if (mouseX == askedX && mouseY == askedY) {
+            return answered;
+        }
+        askedX = mouseX;
+        askedY = mouseY;
+        answered = onTopOfAPile(mouseX, mouseY)
+                .or(() -> TablePointer.at(tableTop(), mouseX, mouseY))
+                .map(spot -> new double[] {spot.x(), spot.y()})
+                .orElse(null);
+        // What the body follows, taken from the point the screen has already worked out rather
+        // than picked again from a tick: the picker answers from matrices captured while the
+        // world was drawn and is only true inside a frame.
+        tellTheTableWhereIAmPointing(answered);
+        return answered;
+    }
+
+    /**
+     * Hands the point the cursor is over to the thing that tells the table about it.
+     * <p>Off the felt is a real answer and the one that puts the arm down: the cursor over a
+     * menu, off the edge of the table, or on the floor beyond it.
+     */
+    private void tellTheTableWhereIAmPointing(double[] onTheFelt) {
+        if (onTheFelt == null || !board().surface().holds(onTheFelt[0], onTheFelt[1])) {
+            TablePointSender.notHovering();
+            return;
+        }
+        TablePointSender.hovering(table, onTheFelt[0], onTheFelt[1]);
+    }
+
+    /**
+     * Where the cursor meets the top of a pile, if it is over one.
+     * <p>A pile on the block stands as tall as its cards, and seen from a chair its top is nearer
+     * the eye than the felt under it: a ray cast at the felt went past the top of a deck and
+     * picked whatever lay behind it. So each pile's own top is tried first, and the answer kept
+     * only when it lands inside that pile - the tallest first, where two could both claim it.
+     */
+    private Optional<TableTop.Spot> onTopOfAPile(double mouseX, double mouseY) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return Optional.empty();
+        }
+        TableTop top = tableTop();
+        TableTop.Spot best = null;
+        double tallest = 0;
+        for (SeatView seat : board.seats()) {
+            if (!seat.hasABoard()) {
+                continue;
+            }
+            // And the stacks on its felt, which stand as tall as their cards as well.
+            for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+                if (!mat.seat().equals(seat.seat())) {
+                    continue;
+                }
+                for (int card = 0; card < mat.cards().size(); card++) {
+                    int size = mat.piles().pileSize(card);
+                    if (size < 2 || mat.piles().isBuried(card) || mat.cards().get(card).placedAt().isEmpty()) {
+                        continue;
+                    }
+                    Rect spot = onBlock.rectOf(seat.seat(), mat.cards().get(card).placedAt().get());
+                    double height = PileThickness.of(size, spot.width());
+                    if (height <= tallest || spot.isEmpty()) {
+                        continue;
+                    }
+                    Optional<TableTop.Spot> hit = TablePointer.at(top.raisedBy(height), mouseX, mouseY);
+                    if (hit.isPresent() && spot.contains((int) Math.floor(hit.get().x()), (int) Math.floor(hit.get().y()))) {
+                        best = hit.get();
+                        tallest = height;
+                    }
+                }
+            }
+            for (int index = 0; index < pileCount(); index++) {
+                Rect slot = onBlock.pileRect(seat.seat(), index, pileCount());
+                double height = TableMiniatureRenderer.pileHeight(table, seat.zones().get(Zone.PILES.get(index)), slot);
+                if (height <= tallest || slot.isEmpty()) {
+                    continue;
+                }
+                Optional<TableTop.Spot> spot = TablePointer.at(top.raisedBy(height), mouseX, mouseY);
+                if (spot.isPresent() && slot.contains((int) Math.floor(spot.get().x()), (int) Math.floor(spot.get().y()))) {
+                    best = spot.get();
+                    tallest = height;
+                }
+            }
+        }
+        return Optional.ofNullable(best);
+    }
+
+    /**
+     * The last question put to the pointer and the answer it gave.
+     * <p>Casting a ray means building a view-projection, inverting it and intersecting a
+     * plane, and one frame on the block asks it of the same pixel three times - what card,
+     * what button, what pile. The answer cannot change between them, so it is worked out once.
+     * <p>Thrown away at the top of every frame and whenever the view changes, so it serves
+     * only the frame that asked or a click arriving before the next one.
+     */
+    private double askedX = Double.NaN;
+    private double askedY = Double.NaN;
+    private double[] answered;
+
+    private void forgetThePointer() {
+        askedX = Double.NaN;
+        askedY = Double.NaN;
+        answered = null;
+    }
+
+    /**
+     * Swaps which board is being played.
+     * <p>The camera goes over the table on the way in and back to the player on the way out.
+     * Nothing about the game moves: both views are showing the same board, so the swap is
+     * only ever a change of where it is being looked at from.
+     * <p>Only where there is a block, the rule {@link #init} opens by. The lesson has none: its
+     * table is a place no table can be, so V there put the camera over empty space below the
+     * world, pointed the lesson's rectangles at nothing the learner could see, and saved the
+     * press as this player's board for every table after it.
+     */
+    private void useTheBlock(boolean wanted) {
+        if (wanted && !mode.hasABlock()) {
+            return;
+        }
+        playingOnTheBlock = wanted;
+        // Remembered, because which board you play on is a preference and not a mode: a player
+        // who prefers the flat one should not have to say so at every table, and a player who
+        // has never said anything gets the real one. See ClientSettings#playOnTheBlock.
+        ClientSettings.playOnTheBlock(wanted);
+        forgetThePointer();
+        gesture.cancel();
+        if (wanted) {
+            frameTheBlock();
+        } else {
+            TableCameraView.release();
+            ClientTableHighlight.clear();
+        }
+    }
+
+    @Override
+    public void removed() {
+        // Both doors out. onClose is the polite one and removed is the one that catches
+        // everything else - the screen being replaced, the world going away - and the camera
+        // has to go back to the player through either. A view left looking at a table after
+        // its screen has gone is a player who cannot see where they are.
+        TableCameraView.release();
+        TablePointer.forget();
+        TablePointSender.notHovering();
+        ClientTableHighlight.clear();
+        ClientTableRolls.forget();
+        // A frame that arrives after the screen has gone must not put it back up.
+        ClientReplay.stop();
+        super.removed();
+    }
+
+    // ------------------------------------------------------------- the board
+
+    private Optional<GameView> view() {
+        // ClientTableState answers for the demonstration too - its board is filed at a
+        // position no table can occupy, so asking by position is the whole question. A real
+        // table's boards go on arriving the whole time this is open and are still this
+        // player's to see the moment they leave; they simply are not filed here.
+        return mode.view(table);
+    }
+
+    private Optional<SeatId> mySeat() {
+        return view().map(GameView::viewer)
+                .filter(Viewer.Seated.class::isInstance)
+                .map(Viewer.Seated.class::cast)
+                .map(Viewer.Seated::seat);
+    }
+
+    /**
+     * Whether the game on this board was played with a command zone.
+     * <p>For a replay, where there is no block left to ask. A seat that named a commander or
+     * has one in its command zone played Commander; nothing else in a view says so, and a
+     * board drawn with the wrong number of piles puts every pile in the wrong place.
+     */
+    private static boolean hadACommandZone(GameView board) {
+        for (SeatView seat : board.seats()) {
+            if (!seat.commanders().isEmpty()) {
+                return true;
+            }
+            for (Zone slot : Zone.COMMAND_SLOTS) {
+                ZoneView command = seat.zones().get(slot);
+                if (command != null && command.count() > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The shape of the table, as the mat layout needs it.
+     * <p>Derived from how many seats the session has rather than from the blocks in the world:
+     * the client is told a board, not a building, and the session froze the cluster's shape
+     * when it started. Seats come in facing pairs, which is what {@code SEATS_PER_TABLE} means,
+     * so the cells fall out of the count.
+     */
+    private List<SeatAnchor> anchors() {
+        return TableCluster.assumedSeating(view().map(board -> board.seats().size()).orElse(2));
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (mode.isWatching()) {
+            ClientReplay.tick();
+        }
+        dropAStaleArrangement();
+        if (tickTheTutorial()) {
+            // The lesson ended and has already put the next screen up. This one is not the
+            // screen any more, and the rest of this method is about a board it no longer has:
+            // reading on reaches the empty-view branch below and closes what was just opened,
+            // which puts the player in the world instead of at the table they were handed.
+            return;
+        }
+        // Which piles a mat has. A live table asks the block, because the block is what a
+        // format was chosen on; a finished game has no block left to ask, so it is read off
+        // the board itself - a seat that named commanders played with a command zone.
+        piles = Zone.pilesFor(!mode.hasABlock()
+                // A demonstration has no block to ask either, and is dealt as Commander is
+                // because Commander is what walking up to a table already starts.
+                ? mode.isLearning() || view().map(TableScreen::hadACommandZone).orElse(false)
+                : net.minecraft.client.Minecraft.getInstance().level != null
+                        && net.minecraft.client.Minecraft.getInstance().level
+                                .getBlockEntity(table) instanceof TableBlockEntity entity
+                        && entity.hasCommandZone());
+        // The game ended, or this client stopped being told about it.
+        if (view().isEmpty()) {
+            this.onClose();
+            return;
+        }
+        if (geometry.surface().seatCount() != view().get().seats().size()) {
+            geometry.reshape(anchors(), this.width, this.height,
+                    layout().status().height(), layout().hand().height());
+            onBlock.reshape(anchors());
+            // Framed the same way opening it frames it: on your own mat if you have one. It
+            // used to show the whole table, so somebody else sitting down pulled your camera
+            // off your own board and out to a view of everybody's - in the middle of your
+            // turn, without you touching anything.
+            frameTheBoard(mySeat().orElse(null));
+        }
+        // The board can arrive before this client knows which chair it is in - a spectator who
+        // sits down gets the seat a moment after the view - and a player can stop having a
+        // chair while still looking at the board. Either way the camera has to follow, and it
+        // used to follow in one direction only: framing on your own mat when a seat appeared,
+        // and then staying framed on a mat that was no longer yours when it went away, with
+        // the far player's zones off the top of the window and no way back but Home.
+        SeatId sitting = mySeat().orElse(null);
+        if (!java.util.Objects.equals(sitting, framedFor)) {
+            framedFor = sitting;
+            // The strip along the bottom belongs to a hand, and somebody who has just stood
+            // up no longer has one. Laid out again before the camera is framed, because the
+            // camera is fitted to what is left of the window after the strip is taken out.
+            layout = freshLayout();
+            geometry.reshape(anchors(), this.width, this.height,
+                    layout.status().height(), layout.hand().height());
+            frameTheBoard(sitting);
+        }
+    }
+
+    // ------------------------------------------------------------- rendering
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Deliberately empty, and it has to stay that way. Screen.render draws the background
+        // first and the widgets after it, so anything painted here lands on top of the mats,
+        // piles and cards that render() has already drawn - the felt would swallow the whole
+        // board. The felt is laid down by render() itself instead, before anything sits on it.
+        // (No vanilla dim either: the table is the screen, and a darkened world behind a
+        // full-screen table is a smear nobody can see.)
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        long started = RenderProbe.start();
+        drawTheScreen(graphics, mouseX, mouseY, partialTick);
+        if (coversTheWorld()) {
+            // The game draws the sign that it is saving after the screen, with the world; this frame drew no world,
+            // so the sign is drawn here, over the board, where it always was.
+            Minecraft client = Minecraft.getInstance();
+            client.gui.renderSavingIndicator(graphics, client.getTimer());
+        }
+        RenderProbe.lap("screen", started);
+        RenderProbe.screenDrawn();
+    }
+
+    private void drawTheScreen(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // The felt, edge to edge, under everything including the buttons - unless the felt
+        // being played is the real one, in which case the world shows through and the only
+        // things drawn here are the ones that were never on the table anyway.
+        if (!playingOnTheBlock) {
+            GatheringSprites.draw(graphics, Element.TABLE_FELT,
+                    0, 0, this.width, this.height);
+        }
+
+        GameView board = view().orElse(null);
+        if (board == null) {
+            super.render(graphics, mouseX, mouseY, partialTick);
+            return;
+        }
+        cursorX = mouseX;
+        cursorY = mouseY;
+        ClientHoverState.clear();
+        tooltip = List.of();
+        tooltipDrawn = false;
+        handSaid = "";
+        // Emptied every frame and filled by the flat board alone, so on the block it says none.
+        feltHandCards.clear();
+        feltHandFaces.clear();
+        potCardsDrawn = 0;
+        ownerMarksDrawn = 0;
+        cardsDrawnBySeat.clear();
+        yourTurnDrawnAt = Rect.NONE;
+        forgetThePointer();
+
+        Placed hovered = null;
+        if (playingOnTheBlock) {
+            // The block draws its own board. What it needs from here is what the cursor is on,
+            // because the world renderer has no idea where anybody's mouse is.
+            hovered = frontMostAt(board, everythingOnTheTable(board), mouseX, mouseY);
+            ClientTableHighlight.set(table, idOf(hovered), List.copyOf(selected),
+                    gesture.held() == null ? null : gesture.held().card());
+            // The mats on the block carry the same buttons and the same piles as the seated
+            // board, and until the cursor could light them and name them they were boxes
+            // painted on a table - pressable, but only by somebody who already knew.
+            SeatId mine = mySeat().orElse(null);
+            int verb = hovered == null ? verbSlotAt(mine, mouseX, mouseY) : -1;
+            ClientTableHighlight.pointAtVerb(table, mine, verb);
+            if (verb >= 0) {
+                tooltip = verbTip(verb);
+            } else if (hovered == null) {
+                List<Component> life = tipForLife(board, mouseX, mouseY);
+                if (life != null) {
+                    tooltip = life;
+                }
+                int pile = pileSlotAt(board, mouseX, mouseY);
+                if (pile >= 0) {
+                    SeatId owner = board.seats().get(pile / pileCount()).seat();
+                    Zone zone = Zone.PILES.get(pile % pileCount());
+                    List<Component> tax = tipForTax(board, owner, zone, mouseX, mouseY);
+                    tooltip = tax == null ? tipForPile(owner, zone) : tax;
+                }
+            }
+            // The pot, which the block draws beside the table: the card the cursor is on is ringed there and is
+            // the one the read key reads, as on the flat board.
+            int staked = hovered == null && verb < 0 ? potCardAt(mouseX, mouseY) : -1;
+            ClientTableHighlight.pointAtPot(table, staked);
+            if (staked >= 0) {
+                ClientHoverState.setHovered(CardItem.of(ClientTableState.potOf(this.table).get(staked)));
+            }
+        } else {
+            // The felt and everything fixed to it, clipped at the strip along the top. Nothing
+            // on the table follows the camera any more - hands, life counters and the pot all
+            // sit where they are on the felt and move with it - so the camera can carry any of
+            // them up under the strip, and the strip is the one thing here that belongs to the
+            // screen rather than to the table. Card art is drawn above plain text, so without
+            // this a mat, a counter or a card slid under the strip would cover what it says.
+            graphics.enableScissor(0, layout().status().bottom(), this.width, this.height);
+            long phase = RenderProbe.start();
+            renderMats(graphics, board);
+            phase = RenderProbe.lap("mats", phase);
+            renderVerbs(graphics, mouseX, mouseY);
+            phase = RenderProbe.lap("verbs", phase);
+            renderPiles(graphics, board, mouseX, mouseY);
+            phase = RenderProbe.lap("piles", phase);
+            // Under the cards in play. The pot is beside the table rather than in the game, and
+            // a card dragged off the east edge should pass over it rather than under.
+            // Kept between the strip along the top and the hand: panned or zoomed, the column
+            // can be carried under either, and card art is drawn above plain text, so the
+            // scripted client once photographed staked cards over whose turn it is.
+            graphics.enableScissor(tableArea().x(), tableArea().y(),
+                    tableArea().right(), tableArea().bottom());
+            renderPot(graphics, mouseX, mouseY);
+            phase = RenderProbe.lap("pot", phase);
+            graphics.disableScissor();
+
+            List<Placed> onTable = everythingOnTheTable(board);
+            phase = RenderProbe.lap("walk", phase);
+            hovered = frontMostAt(board, onTable, mouseX, mouseY);
+            int drawn = 0;
+            int skipped = 0;
+
+            long flying = ClientCardFlights.now();
+        // Asked once for the frame rather than once per card: see ClientCardFlights#flyingAt.
+        java.util.Set<CardInstanceId> inTheAir = ClientCardFlights.flyingAt(table, flying);
+            for (Placed placed : onTable) {
+                // Not while it is still crossing. The board that started the flight already
+                // has the card at its destination, so drawing it here as well put a copy at
+                // the end of the journey the instant it began - the card appearing to
+                // teleport, with a ghost of itself trailing behind to where it had already
+                // arrived.
+                CardInstanceId here = idOf(placed);
+                if (here != null && inTheAir.contains(here)) {
+                    continue;
+                }
+                if (isOffScreen(placed.where())) {
+                    skipped++;
+                    // Reported as "GUI Table gets laggy when zooming in", and this is where
+                    // the cost is: zooming in does not draw fewer cards, it draws the same
+                    // cards bigger, and the ones that have gone off the edges were still
+                    // costing a texture bind, a shadow, a ring and two or three fitted lines
+                    // of text each. The further in a player zooms the larger that wasted
+                    // share gets, which is exactly the shape of the complaint.
+                    continue;
+                }
+                drawn++;
+                cardsDrawnBySeat.merge(placed.seat().index(), 1, Integer::sum);
+                drawCard(graphics, placed.card(), CardSleeves.of(board, placed.seat()),
+                        placed.where(), placed.angle(),
+                        placed == hovered || isSelected(placed.card()), true);
+            }
+            phase = RenderProbe.lap("cards", phase);
+            renderPileBadges(graphics, board, onTable);
+            renderOwnerBadges(graphics, onTable);
+            phase = RenderProbe.lap("badges", phase);
+            // Over the cards lying on the table, because a hand is held above it - the same order
+            // the board on the block draws them in. Kept between the strip along the top and your
+            // own hand, for the reason the pot is: a fan on the felt can be carried under either
+            // by the camera, and card art is drawn over plain text.
+            graphics.enableScissor(tableArea().x(), tableArea().y(),
+                    tableArea().right(), tableArea().bottom());
+            renderOtherHands(graphics, board);
+            graphics.disableScissor();
+            phase = RenderProbe.lap("hands", phase);
+            renderFlights(graphics, board);
+            RenderProbe.lap("flights", phase);
+            graphics.disableScissor();
+            RenderProbe.cards(drawn, skipped);
+            if (hovered == null && tooltip.isEmpty()) {
+                List<Component> life = tipForLife(board, mouseX, mouseY);
+                if (life != null) {
+                    tooltip = life;
+                }
+            }
+        }
+        hoveringSomething = hovered != null;
+        Optional<CardView> menuCard = theCardTheMenuIsAbout(board);
+        if (menuCard.isPresent()) {
+            offerToInspector(menuCard.get());
+        } else if (hovered != null) {
+            offerToInspector(hovered.card());
+        }
+        if (hovered != null) {
+            // A note is longer than a card is wide, so the card carries the beginning of it
+            // and resting on the card reads the rest. Both views: the board on the block has
+            // no room to write on a card at all, and the seated one trims a long note to a
+            // word and a half.
+            //
+            // It takes the tooltip rather than waiting for it. The zone slots claim one from
+            // whatever the cursor is inside, before anything knows which card is under it, so
+            // a permanent lying across a graveyard was describing the graveyard - and the
+            // card is the thing in front.
+            hovered.card().writtenOn().ifPresent(written ->
+                    tooltip = List.of(Component.literal(written).withStyle(
+                            net.minecraft.ChatFormatting.ITALIC)));
+        }
+
+        placeTheTutorialButtons();
+        super.render(graphics, mouseX, mouseY, partialTick);
+
+        renderStatus(graphics, board, mouseX, mouseY);
+        renderHand(graphics, board, mouseX, mouseY);
+        renderHeldCard(graphics, board, mouseX, mouseY);
+
+        if (!attaching.isEmpty()) {
+            GuiText.drawCentered(graphics, this.font,
+                    Component.translatable("screen.gathering.table.attaching", attaching.size()),
+                    this.width / 2, 6, this.width - 16, ACCENT);
+        }
+        TableGesture.Start boxFrom = gesture.boxStart();
+        if (boxFrom != null) {
+            Rect box = boxBetween(boxFrom.x(), boxFrom.y(), mouseX, mouseY);
+            GatheringSprites.draw(graphics, Element.SELECT_BOX,
+                    box.x(), box.y(), box.width(), box.height());
+        }
+        // Over the felt and under the panels, because it is a conversation happening beside
+        // the game rather than a thing to read instead of it.
+        renderTalk(graphics);
+        renderRoll(graphics, board);
+        if (showingLog) {
+            renderLog(graphics, board);
+        }
+        if (showingKeys) {
+            renderKeys(graphics);
+        }
+        if (palette != null) {
+            Rect where = palette.at(this.font, this.width, this.height, layout().status().bottom());
+            palette.mouseMoved(this.font, where, mouseX, mouseY);
+            palette.render(graphics, this.font, where);
+            return;
+        }
+        if (menu != null) {
+            menu.render(graphics, this.font, mouseX, mouseY);
+            return;
+        }
+        // Nothing is described while something is in the air. A tooltip saying what a click
+        // on a library does is an answer to a question nobody is asking any more once the
+        // library is being carried - and it is drawn right where the thing being carried is.
+        //
+        // Nor while the read key is down: that draws the card full size at the cursor, and a
+        // tooltip under it is a second answer to a question already being answered better.
+        if (mode.isWatching()) {
+            renderScrubber(graphics);
+        }
+
+        // The guided first game: one instruction, over the corner with nothing in it. Drawn
+        // before the tooltip so a tooltip is never underneath it, and after everything else
+        // so the board it is teaching about stays visible behind it.
+        // The turn coming round, said in words for the moment after it does. The status row
+        // has always carried whose turn it is; this is the part that gets somebody's attention
+        // when it changes, for the three boards out of four that are not where they are
+        // looking. Still rather than flashing, and gone by itself - a notice that has to be
+        // dismissed is a notice in the way.
+        if (!mode.isWatching()) {
+            long sinceMyTurn = ClientTableNews.yourTurnSince(table, ClientCardFlights.now());
+            if (sinceMyTurn >= 0) {
+                Component said = Component.translatable("screen.gathering.table.your_turn");
+                yourTurnDrawnAt = yourTurnLine(board, said);
+                GuiText.drawCentered(graphics, this.font, said,
+                        this.width / 2, yourTurnDrawnAt.y(), this.width / 2, ACCENT);
+            }
+        }
+        view().ifPresent(shown -> renderArrangement(graphics, shown));
+        if (Tutorial.runningAt(table)) {
+            TutorialPanel.render(graphics, this.font,
+                    TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom(),
+                    leftEdgeOfTheMats()));
+        }
+
+        if (!tooltip.isEmpty() && !showingLog && !showingKeys && gesture.held() == null
+                && !CardZoomOverlay.isActive()) {
+            // Pushed down far enough that it cannot land on the status bar. Vanilla clamps a
+            // tooltip to the window and knows nothing about the one row of this screen that
+            // is always there, so a card near the top had its tooltip drawn over the life
+            // totals and the turn.
+            int tall = tooltip.size() * (this.font.lineHeight + 1) + 8;
+            int lowest = layout().status().bottom() + tall + 12;
+            tooltipDrawn = true;
+            graphics.renderComponentTooltip(
+                    this.font, tooltip, mouseX, Math.max(mouseY, lowest));
+        }
+    }
+
+    /**
+     * What has just been said at this table, and what is being typed to it.
+     * <p>Drawn on the board rather than left to the chat window, because the board is a screen
+     * and a screen covers the chat window. A player who has to close the game to hear the
+     * person across the table from them will stop using either.
+     * <p>Above the hand and along the left, where the felt is emptiest and where nothing else
+     * claims a row. It fades out on its own - see {@link ClientTableChat} - so a table that
+     * has gone quiet goes back to being a table.
+     */
+    private void renderTalk(GuiGraphics graphics) {
+        long now = System.currentTimeMillis();
+        List<ClientTableChat.Said> recent = ClientTableChat.recentAt(table, now);
+        if (recent.isEmpty() && saying == null) {
+            return;
+        }
+        // Stepped by the size the lines are drawn at. They grow with the text size asked for, and
+        // stepped by the font's own height, at 200% each line of talk was printed through the next
+        // and stood out past both ends of the backing measured for it at full size.
+        dev.gathering.core.ui.TextLines lines =
+                new dev.gathering.core.ui.TextLines(this.font.lineHeight, GuiText.askedScale(), 2);
+        int line = lines.pitch();
+        int left = tableArea().x() + 2;
+        int room = Math.max(40, tableArea().width() - 4);
+        // Stacked upwards from just above the hand, so the newest line is always in the same
+        // place and the older ones climb away from it. A list that grew downwards would move
+        // the line somebody is reading every time somebody else spoke.
+        // Above the hand, or the foot of the window for somebody watching, who has none: from
+        // the top of a hand that is not there, every line started above the window and nothing
+        // anybody said at the table was shown to them.
+        int bottom = tableArea().bottom() - 2 - (saying == null ? 0 : line + 2);
+        for (int index = recent.size() - 1; index >= 0; index--) {
+            ClientTableChat.Said said = recent.get(index);
+            int top = bottom - line * (recent.size() - index);
+            if (top < layout().status().bottom()) {
+                break;
+            }
+            Component text = Component.translatable(
+                    "chat.gathering.table", said.who(), said.text());
+            // Measured at the size it is drawn at, which is the size asked for wherever it fits.
+            int wide = Math.min(room, GuiText.width(this.font, text, room - 6) + 6);
+            // The same floor, for the same reason. A line of table talk is about eleven pixels
+            // and its backdrop is painted with a four pixel border.
+            GatheringSprites.draw(graphics, Element.TALK_BACKDROP,
+                    left - 2, top - 1, wide, Math.max(12, line));
+            GuiText.draw(graphics, this.font, text, left, lines.drawY(top), room - 6, TALK_TEXT);
+        }
+        if (saying != null) {
+            int top = bottom + 2;
+            GatheringSprites.draw(graphics, Element.TALK_TYPING,
+                    left - 2, top - 1, room, line);
+            // The caret blinks, which is the only thing on the bar that says it is live -
+            // an empty box with a prompt in it looks the same as a box nobody is typing in.
+            String caret = (now / 500L) % 2 == 0 ? "_" : "";
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("chat.gathering.saying", saying.toString() + caret),
+                    left, lines.drawY(top), room - 6, TALK_TYPING_TEXT);
+        }
+    }
+
+    /**
+     * The last die or coin, announced across the middle of the felt.
+     * <p>The server rolls because a player rolling their own die is making a claim - and a
+     * result nobody at the table saw is exactly as good as a claim, so it cannot live only in
+     * a panel players keep closed.
+     * <p>Across the middle and large, so everybody catches it at once without being told to
+     * look. It fades on its own and the log keeps the line for anybody who missed it.
+     * <p>The same sentence the log draws, through {@link GameLogText}, so the flourish and the
+     * record cannot say different things about one roll.
+     */
+    private void renderRoll(GuiGraphics graphics, GameView board) {
+        long now = System.currentTimeMillis();
+        ClientTableRolls.seen(table, board, now);
+        ClientTableRolls.Shown shown = ClientTableRolls.showingAt(table, now).orElse(null);
+        if (shown == null) {
+            return;
+        }
+        Component text = GameLogText.render(board, shown.entry());
+        // Fading out over the last of its moment, so it leaves rather than blinking off.
+        float gone = ClientTableRolls.progress(shown, now);
+        int alpha = (int) (0xFF * (1f - Math.max(0f, (gone - ROLL_HOLDS) / (1f - ROLL_HOLDS))));
+        if (alpha <= 0) {
+            return;
+        }
+        int room = Math.max(60, this.width - 40);
+        // One size, decided here and used for both the words and their backing: ROLL_SIZE, or as
+        // much of it as fits across. It was drawn inside a pose already scaled to ROLL_SIZE by a
+        // call that then applied the asked text size on top - four times the font at 200%, past
+        // the largest anything is drawn at, over a backing measured at two.
+        int width = Math.max(1, this.font.width(text));
+        float scale = Math.max(dev.gathering.core.ui.TextScale.SMALLEST,
+                Math.min(ROLL_SIZE, (room - 24) / (float) width));
+        dev.gathering.core.ui.TextLines lines = new dev.gathering.core.ui.TextLines(this.font.lineHeight, scale, 0);
+        int wide = Math.min(room, Math.round(width * scale) + 24);
+        int middle = layout().status().bottom()
+                + (floorOfTheFelt() - layout().status().bottom()) / 3;
+        GatheringSprites.draw(graphics, Element.TALK_BACKDROP,
+                (this.width - wide) / 2, middle - 6, wide, lines.drawnHeight() + 12,
+                (alpha << 24) | 0xFFFFFF);
+        GuiText.drawCenteredAt(graphics, this.font, text, this.width / 2, lines.drawY(middle),
+                scale, (alpha << 24) | (ACCENT & 0xFFFFFF));
+    }
+
+    /** How much of its moment the announcement holds full strength before fading. */
+    private static final float ROLL_HOLDS = 0.6f;
+
+    /** How much larger than the log's own text the announcement is drawn: the largest anything is. */
+    private static final float ROLL_SIZE = dev.gathering.core.ui.TextScale.LARGEST;
+
+    private static CardInstanceId idOf(Placed placed) {
+        return placed != null && placed.card() instanceof CardView.Visible visible ? visible.id() : null;
+    }
+
+    /** The rectangle between two corners, whichever way round they were dragged. */
+    private static Rect boxBetween(int fromX, int fromY, int toX, int toY) {
+        return new Rect(
+                Math.min(fromX, toX), Math.min(fromY, toY),
+                Math.abs(toX - fromX), Math.abs(toY - fromY));
+    }
+
+    /**
+     * Everybody else's hand, held where they are sitting.
+     * <p>A hand not drawn at all reads as a player holding nothing, which left three of four
+     * boards looking empty. A real table shows a fan across from you: how many, held where
+     * their player is sitting.
+     * <p>Backs or faces is not this method's decision - what arrives in the view is what is
+     * drawn. So a hand turned face up toward you is face up here, and a replay shows all of
+     * them, without either case being special: the fence is the view and was passed already.
+     * <p>Where and how is {@link BoardPlacement#handsOnTheFelt}, which the board on the block and
+     * the picker ask as well: a fan of backs at the near edge of that player's mat, turned with
+     * the seat, or a row of faces there turned to you. A card drawn flies into it. Not your own -
+     * yours runs along the bottom of the screen face up, in both views.
+     */
+    private void renderOtherHands(GuiGraphics graphics, GameView board) {
+        for (BoardPlacement.HandOnTheFelt hand : board().handsOnTheFelt(board)) {
+            SeatView seat = hand.seat();
+            List<CardView> faces = hand.faces();
+            int drawn = 0;
+            int shown = 0;
+            for (int index = 0; index < hand.cards().size(); index++) {
+                BoardPlacement.HandCard card = hand.cards().get(index);
+                // Where the player is sitting, and nowhere else: it moves with the felt, passes
+                // under the strip the way a card does, and goes off the edge when the view does.
+                // It was once held down out of the status bar, which slid a hand along the top of
+                // the window as the camera moved - a hand chasing the camera rather than sitting
+                // in front of its player.
+                Rect at = card.where();
+                if (at.isEmpty() || isOffScreen(at)) {
+                    continue;
+                }
+                boolean face = index < faces.size();
+                drawCard(graphics, face ? faces.get(index) : A_SLEEVE, seat.sleeve(),
+                        at, card.angle(), false, false);
+                drawn++;
+                if (face) {
+                    shown++;
+                }
+            }
+            feltHandCards.put(seat.seat().index(), drawn);
+            feltHandFaces.put(seat.seat().index(), shown);
+        }
+    }
+
+    /**
+     * Whether the cursor is on a card of somebody else's hand on the felt.
+     * <p>Those are drawn over everything lying on the table, in both views, so a card they cover
+     * cannot be hovered, read or picked up through them: what is on top is what the pointer is
+     * on. On the flat board that is the point in the board's own space, the one {@link #pointer}
+     * answers in. On the block it is the cursor itself, against each card where it is drawn: held
+     * above the tallest pile, a card is seen to one side of the felt under it, and tested at the felt
+     * the picker read a hand where only the card under it showed and none where the hand did.
+     */
+    private boolean aHandIsOver(GameView board, int mouseX, int mouseY, int pointX, int pointY) {
+        if (playingOnTheBlock) {
+            for (double[][] card : handCardsOnTheWindow(board)) {
+                if (Corners.inside(card, mouseX, mouseY)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        for (BoardPlacement.HandOnTheFelt hand : board().handsOnTheFelt(board)) {
+            for (BoardPlacement.HandCard card : hand.cards()) {
+                if (card.where().containsTurned(card.angle(), pointX, pointY)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Each card of everybody else's hand on the felt, where this frame draws it on the window: its four corners, in
+     * the interface's units. The flat board's are the turned rectangle its painter draws. The block's are run
+     * through the game's camera at the height the block drew each card at - above the tallest pile, a card's step
+     * over the one before - so they are where the cards are seen, not where the felt under them is.
+     * <p>The one answer to "where is a hand on the window", for the picker and for what the screen writes over the
+     * board, so neither picks through a card it can see nor writes across one.
+     */
+    List<double[][]> handCardsOnTheWindow(GameView board) {
+        List<double[][]> drawn = new ArrayList<>();
+        for (BoardPlacement.HandOnTheFelt hand : board().handsOnTheFelt(board)) {
+            for (int index = 0; index < hand.cards().size(); index++) {
+                BoardPlacement.HandCard card = hand.cards().get(index);
+                double above = 0;
+                if (playingOnTheBlock) {
+                    double lift = TableMiniatureRenderer.handLiftAbove(table, index);
+                    above = Double.isNaN(lift) ? 0 : lift / TableTop.SPAN_BLOCKS * TableSurface.SPAN;
+                }
+                double[][] corners = onTheWindow(Corners.of(card.where(), card.angle()), above);
+                if (corners != null) {
+                    drawn.add(corners);
+                }
+            }
+        }
+        return drawn;
+    }
+
+    /**
+     * Where the line saying the turn has come round goes this frame: just under the strip along the top, or, where a
+     * hand on the felt is drawn there, under that hand - neither covers the other.
+     * <p>Framed whole, the far seat's hand is held just under the strip, the same place the line had always gone,
+     * and the fan was drawn across the words on both boards. The hand stays where its player is sitting; the line
+     * moves.
+     */
+    private Rect yourTurnLine(GameView board, Component said) {
+        int room = this.width / 2;
+        int wide = GuiText.width(this.font, said, room);
+        int tall = Math.max(1, Math.round(this.font.lineHeight * GuiText.fittedScale(this.font, said, room)));
+        Rect wanted = new Rect(this.width / 2 - wide / 2, layout().status().bottom() + 6, wide, tall);
+        List<Rect> hands = new ArrayList<>();
+        for (double[][] card : handCardsOnTheWindow(board)) {
+            hands.add(Corners.around(card));
+        }
+        return dev.gathering.core.ui.NoticeLine.clearOf(wanted, hands, tableArea().bottom(), 2);
+    }
+
+    /** Where the line saying the turn has come round was drawn in the last frame, or nothing. For the scripted run. */
+    Rect yourTurnDrawnAt = Rect.NONE;
+
+    /**
+     * How many cards each seat's hand was drawn with on the felt in the last frame of the flat
+     * board, by seat. For the scripted run, which asks both boards the same question.
+     */
+    final java.util.Map<Integer, Integer> feltHandCards = new java.util.HashMap<>();
+
+    /** And how many of those were faces, by seat, for the same run. */
+    final java.util.Map<Integer, Integer> feltHandFaces = new java.util.HashMap<>();
+
+    /**
+     * Everybody's mat, with their name and life on it.
+     * <p>On the mat rather than in a list across the top, because that is where the
+     * information belongs: you look at somebody's board and their life total is right there
+     * with it, the way a life pad sits beside a real one.
+     */
+    private void renderMats(GuiGraphics graphics, GameView board) {
+        SeatId me = mySeat().orElse(null);
+        for (SeatView seat : board.seats()) {
+            Rect mat = board().matRect(seat.seat());
+            if (mat.isEmpty()) {
+                continue;
+            }
+            // A chair nobody has sat in keeps its outline and loses everything else. Drawing
+            // nothing at all for it leaves a hole in the felt that reads as a fault; drawing
+            // it as though somebody were there says a game is going on that is not. An
+            // outline says what is true: a board goes here, and nobody has put one down yet.
+            //
+            // A board, not an occupant. Somebody who walks away mid-game leaves their cards
+            // where they were, and a mat still carrying a library and a graveyard is a board
+            // - it was drawn as a bare chair with its own battlefield cards floating on it.
+            boolean taken = seat.hasABoard();
+            if (taken) {
+                boolean mine = me != null && me.equals(seat.seat());
+                GatheringSprites.draw(graphics, mine ? Element.SEAT_MAT_MINE : Element.SEAT_MAT,
+                        mat.x(), mat.y(), mat.width(), mat.height());
+            }
+            // The seat's own color, which is how four identical rectangles become four
+            // boards. Brighter for whoever's turn it is, faint for a chair nobody is in.
+            GatheringSprites.draw(graphics, Element.SEAT_RING,
+                    mat.x(), mat.y(), mat.width(), mat.height(),
+                    SeatColor.at(seat.seat().index(), !taken ? FREE_SEAT_EDGE
+                            : seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
+            if (!taken) {
+                continue;
+            }
+
+            // And the line marking off the row nearest its player, which is where lands go.
+            Rect divider = board().matDividerRect(seat.seat(), pileCount());
+            if (!divider.isEmpty()) {
+                GatheringSprites.draw(graphics, Element.SEAT_DIVIDER,
+                        divider.x(), divider.y(), divider.width(), divider.height());
+            }
+            drawLife(graphics, seat);
+            drawCountersOnTheMat(graphics, seat);
+        }
+    }
+
+    /**
+     * A seat's counters, written on the table past its life total.
+     * <p>They used to live in the strip along the top of the window, and only when that strip
+     * had room for them - so on a four-seat table they were visible by hovering a seat and in no
+     * other way. The owner's point (2026-09-22): a poison count is something you glance at while
+     * deciding what to do, and a number you have to go and ask for is one nobody looks at.
+     * <p>Nothing is drawn for a seat with none, which is almost every seat of almost every game.
+     * An empty strip of felt says "no counters" exactly as well as the words would, and without
+     * putting a label on every mat at a table where nobody has any.
+     */
+    private void drawCountersOnTheMat(GuiGraphics graphics, SeatView seat) {
+        if (seat.counters().isEmpty()) {
+            return;
+        }
+        Rect box = board().countersRect(seat.seat());
+        if (box.isEmpty() || box.height() < SMALLEST_LIFE_BOX) {
+            return;
+        }
+        float scale = Math.max(SMALLEST_LIFE_SCALE,
+                Math.min(1f, (box.height() - 2f) / this.font.lineHeight));
+        GuiText.drawCenteredAt(graphics, this.font,
+                Component.literal(describeCounters(seat)),
+                (int) box.centerX(), (int) box.centerY() - this.font.lineHeight / 2,
+                scale, SeatColor.at(seat.seat().index(), 0xFF));
+    }
+
+    /**
+     * A seat's life total, on the table just past the far edge of its own board.
+     * <p>The number a game of Magic is played to, and until now it was a word in a strip
+     * along the top of the window - the one place on the screen that is not the table. Here
+     * it is on the table, where a player looks to read somebody else's, and it is a pair of
+     * buttons: press the left of it to take one off and the right of it to put one on.
+     * <p>The two halves are marked, faintly until the cursor is on one and brightly when it
+     * is, because a number nobody has told you is a button is a number.
+     */
+    private void drawLife(GuiGraphics graphics, SeatView seat) {
+        Rect box = lifeBoxOf(seat.seat());
+        // Drawn at whatever size there is, down to a hard floor where the box is a smear.
+        // It used to stop at a full line of text, so framing the whole table - which is one
+        // key - took every life total off the felt and left two mats with no numbers on them
+        // anywhere. Everything else printed on a mat is a label and the shapes still read
+        // without it; this is the number the game is played to, and there is nothing else on
+        // the table that says whose forty is whose.
+        if (box.isEmpty() || box.height() < SMALLEST_LIFE_BOX) {
+            return;
+        }
+        float scale = Math.max(SMALLEST_LIFE_SCALE,
+                Math.min(1f, (box.height() - 2f) / this.font.lineHeight));
+        int way = mySeat().isEmpty() ? 0 : lifeWayUnder(seat.seat(), cursorX, cursorY);
+        GatheringSprites.draw(graphics, Element.LIFE_BACKING,
+                box.x(), box.y(), box.width(), box.height());
+        // In its own seat's color, the same way the mat is - and brighter under the cursor,
+        // the same way everything pressable here is. Two boards facing each other put their
+        // counters in the same strip of table between them, back to back, and in one gray
+        // the pair read as a single control with neither saying which board it was for.
+        GatheringSprites.draw(graphics, Element.SEAT_RING,
+                box.x(), box.y(), box.width(), box.height(),
+                SeatColor.at(seat.seat().index(), way == 0 ? 0xAA : 0xFF));
+        // In what the two ends leave, not in half the box: half the box plus two ends better
+        // than a quarter each comes to more than there is, and two figures filling it ran
+        // into both signs.
+        Rect middle = TableSurface.lifeMiddle(box);
+        Component total = Component.literal(Integer.toString(seat.life()));
+        // Red at zero and below, the way a life pad would be: a reminder, never a loss.
+        GuiText.drawCenteredAt(graphics, this.font, total, (int) middle.centerX(),
+                (int) box.centerY() - this.font.lineHeight / 2, scale,
+                dev.gathering.core.game.LossReminders.lifeIsAtALoss(seat.life()) ? LIFE_AT_A_LOSS : LABEL);
+        // A minus over the end that takes one off and a plus over the end that puts one on,
+        // asked of the same function the press is, so the two cannot end up disagreeing.
+        drawLifeEnd(graphics, seat.seat(), box, -1, way, scale);
+        drawLifeEnd(graphics, seat.seat(), box, 1, way, scale);
+    }
+
+    private void drawLifeEnd(GuiGraphics graphics, SeatId seat, Rect box, int way, int lit,
+            float scale) {
+        Rect end = TableSurface.lifeEnd(box, lifeIsTurned(seat), way);
+        // A sign narrower than the mark itself is a smudge beside a number, so at that size
+        // the counter is the number alone. It is still pressable at both ends - the halves
+        // are worked out from the box and not from what is written on it.
+        if (end.isEmpty() || end.width() < this.font.width("+") * scale) {
+            return;
+        }
+        GuiText.drawCenteredAt(graphics, this.font, Component.literal(way < 0 ? "-" : "+"),
+                (int) end.centerX(), (int) box.centerY() - this.font.lineHeight / 2,
+                scale, lit == way ? ACCENT : ZONE_LABEL);
+    }
+
+    /**
+     * Whether this seat's counter is drawn turned about in the view being played.
+     * <p>Asked of the surface rather than worked out here, because the board drawn in the
+     * world asks the same question before it writes the signs on the ends - and the two
+     * asking separately is how the end marked plus came to take a life off.
+     */
+    private boolean lifeIsTurned(SeatId seat) {
+        return board().surface().lifeIsTurned(seat.index(), !playingOnTheBlock);
+    }
+
+    /**
+     * A seat's life counter, where it sits on the table.
+     * <p>Just past the far edge of its own board, and nowhere else. It used to be held down
+     * out of the strip along the top whenever the camera carried it up there, which kept the
+     * far player's total readable and made it slide along the top of the window as the view
+     * zoomed and panned - a counter chasing the camera instead of lying on the table in front
+     * of its player. It moves with the felt now, and goes under the strip, and off the screen,
+     * when the view does; the felt is clipped at the strip so it is covered rather than drawn
+     * over the writing.
+     * <p>This rectangle is also what says whether a click landed on the plus or the minus, so
+     * the drawing and the hit test cannot come apart. A press on the strip itself never reaches
+     * a counter lying under it - see {@link #lifeWayUnder}.
+     * <p>Package-private for the scripted harness, which has to check the rectangle this
+     * screen really draws and reads rather than the one it guesses.
+     */
+    Rect lifeBoxOf(SeatId seat) {
+        return board().lifeRect(seat);
+    }
+
+    /**
+     * Whether a point is under the strip along the top of the flat board, where the felt is clipped.
+     * <p>Nothing on the table is drawn there, so nothing on the table may be pressed, hovered or
+     * read there either: a control that can be pressed where it cannot be seen is two controls.
+     * The counters kept to that from the start and nothing else did - a card the camera had carried
+     * under the names could be hovered through them, read, picked up and moved, a public move of a
+     * card nobody could see. The board on the block draws under its strip, so there it is felt.
+     */
+    private boolean coveredByTheStrip(int y) {
+        return !playingOnTheBlock && y < layout().status().bottom();
+    }
+
+    /**
+     * Whether a mat button is drawn at this size, which is also whether it may be pressed.
+     * <p>One rule for the painter and the picker, as {@link #taxIsWritten} is for the tax: at a
+     * small enough board the flat painter leaves the buttons out and draws only the empty outline,
+     * and a click inside that outline used to draw, shuffle or mulligan with nothing drawn and
+     * nothing said. The board on the block draws them at every size.
+     */
+    private boolean verbIsDrawn(Rect group, Rect slot) {
+        return !slot.isEmpty() && (playingOnTheBlock || (group.width() >= 6 && slot.width() >= 8));
+    }
+
+    /** The same rule for a seat's piles, which the flat painter leaves out below four pixels wide. */
+    private boolean pileIsDrawn(Rect slot) {
+        return !slot.isEmpty() && (playingOnTheBlock || slot.width() >= 4);
+    }
+
+    /** Which way a press at this screen point on a seat's counter would go: -1, 1, or 0. */
+    private int lifeWayUnder(SeatId seat, int x, int y) {
+        // Not through the strip along the top. A counter the camera has carried under it is
+        // covered there.
+        if (coveredByTheStrip(y)) {
+            return 0;
+        }
+        double[] at = pointer(x, y);
+        // The board's own rectangle and the board's own pointer, so the answer is in one
+        // space. Asked of absolute surface units it would name the wrong end of the counter
+        // on the seated board, whose camera turns the felt round on its way to the screen.
+        return at == null ? 0
+                : TableSurface.lifeWayAt(
+                        lifeBoxOf(seat), lifeIsTurned(seat), at[0], at[1]);
+    }
+
+    /**
+     * Where the end of a seat's counter meaning this way is, in the view being played.
+     * <p>Package-private for the scripted harness, which has to aim at the end this screen
+     * would actually read that way rather than at whichever end of the rectangle it guesses.
+     */
+    Rect lifeEndFor(SeatId seat, int way) {
+        return TableSurface.lifeEnd(lifeBoxOf(seat), lifeIsTurned(seat), way);
+    }
+
+    /**
+     * Everybody's zones, in a column down the outer edge of their own mat.
+     * <p>Two boxes rather than four loose slots: the three a hand is in and out of all game
+     * grouped together, and the command zone on its own past a gap. That is how the tables
+     * people already play on are marked out, and it is what makes a glance at somebody's
+     * board answer "where is their graveyard" without counting.
+     */
+    private void renderPiles(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
+        // Forgotten before the column is walked, so what it holds is this frame's answer.
+        litSeat = null;
+        litPile = -1;
+        int count = pileCount();
+        boardsDrawn = 0;
+        for (SeatView seat : board.seats()) {
+            // A board rather than an occupant: somebody who walks away mid-game leaves their
+            // cards where they were, and their graveyard and exile pile are public and are
+            // what anybody watching is there to read.
+            if (!seat.hasABoard()) {
+                continue;
+            }
+            boardsDrawn++;
+            drawPileGroup(graphics, board().pileGroupRect(seat.seat(), 0, IN_HAND_REACH, count));
+            if (count > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
+                drawPileGroup(graphics, board().pileGroupRect(
+                        seat.seat(), Zone.PILES_WITHOUT_A_COMMAND_ZONE, count - 1, count));
+            }
+            for (int index = 0; index < count; index++) {
+                Rect where = board().pileRect(seat.seat(), index, count);
+                if (!pileIsDrawn(where)) {
+                    continue;
+                }
+                Zone zone = Zone.PILES.get(index);
+                boolean over = where.contains(mouseX, mouseY) && !coveredByTheStrip(mouseY);
+                if (over) {
+                    List<Component> tax = tipForTax(board, seat.seat(), zone, mouseX, mouseY);
+                    tooltip = tax == null ? tipForPile(seat.seat(), zone) : tax;
+                }
+                drawPile(graphics, seat, zone, where, over, mouseX, mouseY);
+            }
+        }
+    }
+
+    /**
+     * What resting on a pile says: its name, and what a press on it would do.
+     * <p>Worked out from the same two facts the press itself is - whose pile it is and which
+     * one - so that the tooltip cannot promise a draw where a press would open a screen. Your
+     * own library draws; every other pile opens; somebody else's library does nothing at all
+     * and says nothing rather than offering a click that would be ignored.
+     */
+    private List<Component> tipForPile(SeatId owner, Zone zone) {
+        Component name = ZoneText.name(zone);
+        SeatId me = mySeat().orElse(null);
+        boolean mine = owner.equals(me);
+        String hint;
+        if (zone != Zone.LIBRARY) {
+            hint = "screen.gathering.table.pile.hint_look";
+        } else if (mine) {
+            hint = "screen.gathering.table.pile.hint_draw";
+        } else {
+            return List.of(name);
+        }
+        Component said = Component.translatable(hint).withStyle(ChatFormatting.DARK_GRAY);
+        return mine
+                ? List.of(name, said, Component.translatable("screen.gathering.table.pile.hint_more")
+                        .withStyle(ChatFormatting.DARK_GRAY))
+                : List.of(name, said);
+    }
+
+    /**
+     * What resting on the tax under a commander says, or null when that is not where the
+     * cursor is.
+     * <p>One place asks the question for both views, so the board on the block and the board
+     * on the screen cannot end up offering different presses on the same box.
+     */
+    private List<Component> tipForTax(GameView board, SeatId owner, Zone zone, int x, int y) {
+        CardInstanceId commander = taxUnderThePointer(board, owner, zone, x, y);
+        if (commander == null) {
+            return null;
+        }
+        int casts = board.seat(owner).commanderTax().getOrDefault(commander, 0);
+        return List.of(
+                Component.translatable("screen.gathering.table.tax", CommandSlots.taxFor(casts)),
+                Component.translatable("screen.gathering.table.tax.casts", casts)
+                        .withStyle(ChatFormatting.DARK_GRAY),
+                Component.translatable("screen.gathering.table.tax.hint")
+                        .withStyle(ChatFormatting.DARK_GRAY));
+    }
+
+    /** The last zone in the group a hand actually reaches for: exile. */
+    private static final int IN_HAND_REACH = Zone.PILES_WITHOUT_A_COMMAND_ZONE - 1;
+
+    /**
+     * The buttons printed on each seated player's own mat.
+     * <p>Only on their own mat: pressing somebody else's untap button is not a thing anybody
+     * does at a table, and drawing four boxes on every mat that only work on one of them
+     * would be four lies per opponent.
+     */
+    private void renderVerbs(GuiGraphics graphics, int mouseX, int mouseY) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return;
+        }
+        int count = TableVerb.count();
+        Rect group = board().verbGroupRect(me, count);
+        if (group.isEmpty() || group.width() < 6) {
+            return;
+        }
+        GatheringSprites.draw(graphics, Element.ZONE_BORDER,
+                group.x(), group.y(), group.width(), group.height());
+        int pointed = verbSlotAt(me, mouseX, mouseY);
+        for (int index = 0; index < count; index++) {
+            Rect where = board().verbRect(me, index, count);
+            if (!verbIsDrawn(group, where)) {
+                continue;
+            }
+            TableVerb verb = TableVerb.values()[index];
+            boolean hovered = index == pointed;
+            GatheringSprites.inset(graphics, where.x(), where.y(), where.width(), where.height());
+            if (hovered) {
+                GatheringSprites.highlight(
+                        graphics, where.x(), where.y(), where.width(), where.height());
+                GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                        where.x(), where.y(), where.width(), where.height());
+            }
+            if (hovered) {
+                tooltip = verbTip(index);
+            }
+            // Inside the button's frame, not merely inside the button. Fitted to the width less
+            // a pixel a side, the longest name ran to the very edge and the frame drawn round
+            // it took the last letter: the scripted client photographed "Mulliga" and "Shuffl".
+            int writable = where.width() - VERB_LABEL_INSET * 2;
+            // Whatever size the board is drawn at, the word goes on the button. They were left blank
+            // below the size a word stays crisp at, and the owner, zoomed out, found a column of empty
+            // boxes: a small word on a button says more than no word. One size for the set, fitted
+            // to the longest.
+            int longest = this.font.width(longestOf(VERB_NAMES));
+            if (writable > 0 && longest > 0) {
+                float scale = Math.min(1f, writable / (float) longest);
+                GuiText.drawCenteredAt(graphics, this.font, VERB_NAMES[index],
+                        (int) where.centerX(), (int) where.centerY() - this.font.lineHeight / 2,
+                        scale, hovered ? LABEL : ZONE_LABEL);
+            }
+        }
+    }
+
+    /** What a card nobody may name looks like on its way across: the back of one. */
+    private static final CardView A_SLEEVE = new CardView.Anonymous(
+            null, false, java.util.Map.of(), null, null, null, null, false);
+
+    /**
+     * The cards currently crossing the felt on their way somewhere.
+     * <p>Drawn over the board and under everything that is not the board, because a card in
+     * the air is above the table and below the hand holding the mouse. Face down unless this
+     * client was already entitled to know what it is - a card crossing to somebody's hand is
+     * a card leaving, and the fact that it left is public while the card is not.
+     */
+    private void renderFlights(GuiGraphics graphics, GameView board) {
+        long now = ClientCardFlights.now();
+        for (ClientCardFlights.Flight flight : ClientCardFlights.at(table, now)) {
+            Rect where = FlightPath.at(board(), pileCount(), flight, now);
+            if (where.isEmpty()) {
+                continue;
+            }
+            // A sleeve unless this client was already entitled to the name. A card on its
+            // way into somebody's hand has left the table, so it is drawn leaving as what
+            // anybody watching would see leaving: the back of a card.
+            CardView card = flight.move().card()
+                    .flatMap(id -> findCard(board, id))
+                    .orElse(A_SLEEVE);
+            // Whoever the card is on its way to or from, which is the seat whose sleeves it
+            // is wearing while it crosses the felt.
+            drawCard(graphics, card, CardSleeves.of(board, flight.move().to().seat()),
+                    where, 0, false, true);
+        }
+    }
+
+    /**
+     * Which of this seat's mat buttons a point is on, or -1.
+     * <p>Asked through the pointer rather than of the raw cursor, so it answers in whichever
+     * space the board being played is measured in - pixels on the seated screen and units on
+     * the felt when the board is the real one. The buttons are drawn on the block as well as
+     * on the screen, and for a while only the screen's could be pressed: four boxes printed
+     * on the table that did nothing when clicked, in the one view meant for playing in.
+     */
+    private int verbSlotAt(SeatId me, int x, int y) {
+        if (me == null) {
+            return -1;
+        }
+        double[] at = pointer(x, y);
+        if (at == null || !layout().isOnFelt(x, y) || coveredByTheStrip(y)) {
+            return -1;
+        }
+        int count = TableVerb.count();
+        Rect group = board().verbGroupRect(me, count);
+        for (int index = 0; index < count; index++) {
+            Rect where = board().verbRect(me, index, count);
+            if (verbIsDrawn(group, where)
+                    && where.contains((int) Math.round(at[0]), (int) Math.round(at[1]))) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /** Runs the verb whose button is under this point, if one is. */
+    private boolean pressVerb(SeatId me, int x, int y) {
+        int index = verbSlotAt(me, x, y);
+        if (index < 0) {
+            return false;
+        }
+        GatheringButtons.clickSound();
+        doVerb(me, TableVerb.values()[index]);
+        return true;
+    }
+
+    /**
+     * A pile somebody has just shuffled, rattling where it stands.
+     * <p>A shuffle changes nothing anybody may look at - not a count, not a zone, and the
+     * order it changes is the order nobody is entitled to know - so it is the one thing a
+     * player can do that the board cannot show. A stack of cards briefly rattling is what it
+     * looks like at a real table, and it is enough.
+     * <p>The seat and the zone are the seed, so two libraries shuffled at once are two hands
+     * shuffling rather than one board vibrating.
+     */
+    private Rect shakenIfStirred(SeatId seat, Zone zone, Rect slot) {
+        return Shaking.shaken(slot, seat, zone,
+                ClientTableNews.shakingFor(table, seat, zone, ClientCardFlights.now()));
+    }
+
+    /** The line round a group of zones. Nothing inside it - the slots draw themselves. */
+    private void drawPileGroup(GuiGraphics graphics, Rect group) {
+        if (group.isEmpty() || group.width() < 6) {
+            return;
+        }
+        GatheringSprites.draw(graphics, Element.ZONE_BORDER,
+                group.x(), group.y(), group.width(), group.height());
+    }
+
+    /**
+     * How many zones this table's column holds.
+     * <p>Three, or four where the format has a command zone. Read once a tick rather than per
+     * call: it comes off the block entity, every loop over the column asks, and the answer
+     * changes twice a match.
+     */
+    int pileCount() {
+        return piles;
+    }
+
+    /**
+     * One pile: the top card if anyone may see it, the sleeve if not, and the count.
+     * <p>Showing the graveyard's top card rather than a generic stack is what makes a board
+     * readable from across the table - "he has a Bolt on top of his yard" is information the
+     * rules already give everyone, and hiding it behind a number just makes people click.
+     */
+    private void drawPile(GuiGraphics graphics, SeatView view, Zone zone, Rect pile,
+            boolean hovered, int mouseX, int mouseY) {
+        pile = shakenIfStirred(view.seat(), zone, pile);
+        ZoneView contents = view.zones().get(zone);
+        int count = contents == null ? 0 : contents.count();
+        TableGesture.Held held = gesture.held();
+        if (held != null && held.fromPile() == zone && held.from().equals(view.seat())) {
+            // Whatever is in the air is out of the pile as far as anybody looking is
+            // concerned - the top card, or on a long hold the whole thing.
+            count = held.whole() ? 0 : Math.max(0, count - (held.card() == null ? 0 : 1));
+        }
+
+        // Lit when the card in the air would land in this one. The board has always worked
+        // out which slot a drag is aimed at - the board on the block has drawn it since it
+        // had one - and the seated board computed the same answer every frame and then never
+        // looked at it. So a player dragging toward a column of four or five slots had the
+        // whole mat outlined and nothing saying which of them they were about to hit, which
+        // is a question you could only answer by letting go and reading the log.
+        if (ClientTableHighlight.isAimedAt(table, view.seat(), Zone.PILES.indexOf(zone))) {
+            litSeat = view.seat();
+            litPile = Zone.PILES.indexOf(zone);
+            // Two rings and a wash rather than one thin outline. This is answering "which of
+            // five", and the slots are a stack of boxes that already have borders - a single
+            // line one shade brighter than the ones above and below it is a difference you
+            // have to go looking for, which is the opposite of what a player mid-drag needs.
+            GatheringSprites.draw(graphics, Element.AIMED_PILE,
+                    pile.x() - 2, pile.y() - 2, pile.width() + 4, pile.height() + 4);
+        }
+
+        // The slot itself, and then whatever is sitting in it. No frame round the card: an
+        // empty zone is a recess and a full one is the card, the same as everywhere else.
+        Rect art = pile;
+        Optional<CardView> top = topOf(contents);
+
+        if (count == 0) {
+            GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height());
+        } else if (top.isPresent() && !top.get().isFaceDown()) {
+            summaryOf(top.get()).ifPresentOrElse(
+                    summary -> CardInspectPanel.renderArt(
+                            graphics, summary, art.x(), art.y(), art.width(), art.height()),
+                    () -> PaperFace.drawOrInset(graphics, this.font, top.get(), art));
+        } else {
+            CardSleeves.draw(graphics, view.sleeve(),
+                    art.x(), art.y(), art.width(), art.height());
+        }
+
+        // Lit in its seat's color for a moment after cards land in it, so a move made while you
+        // were looking at another board still leaves a mark. See Arrival.
+        float arrived = dev.gathering.core.ui.Arrival.strength(
+                ClientCardFlights.arrivedSince(table, view.seat(), zone, ClientCardFlights.now()),
+                ClientSettings.reducedMotion());
+        if (arrived > 0f) {
+            GuiGlow.around(graphics, art.x(), art.y(), art.width(), art.height(),
+                    Math.max(3, Math.min(art.width(), art.height()) / 4),
+                    (dev.gathering.core.ui.Arrival.alpha(arrived) << 24)
+                            | (SeatColor.at(view.seat().index(), 0xFF) & 0x00FFFFFF));
+        }
+
+        // Name on the felt beside the slot, count in the slot's own corner. Four unlabeled
+        // boxes stacked in a column are only readable by somebody who already knows the order
+        // they come in, and the order is the one thing a player coming from a physical table
+        // has no reason to know.
+        Rect named = board().pileLabelRect(view.seat(), Zone.PILES.indexOf(zone), pileCount());
+        if (!named.isEmpty() && everyZoneNameFits(named.width())) {
+            // Flush against the slot column rather than centered in its own box, so the
+            // names line up with each other and with the boxes they name. Which side the
+            // column is on is read off the two rectangles: a mat is mirrored for the player
+            // opposite, and asking the mat again here would be a second copy of that rule.
+            float scale = GuiText.scaleForTheSet(
+                    this.font, longestOf(ZONE_NAMES), named.width());
+            int baseline = (int) named.centerY() - this.font.lineHeight / 2;
+            if (named.x() < art.x()) {
+                GuiText.drawFlushRight(graphics, this.font, ZoneText.name(zone),
+                        named.right(), baseline, scale, ZONE_LABEL);
+            } else {
+                GuiText.drawFlushLeft(graphics, this.font, ZoneText.name(zone),
+                        named.x(), baseline, scale, ZONE_LABEL);
+            }
+        }
+        // A command slot holds one commander, so a number counting cards there says "1" all
+        // game. It says what that commander's next cast costs instead, which is the number a
+        // Commander deck actually reads off that box. Asked once, here, rather than by each
+        // of the two things that want to know - whether there is a band and what goes in it -
+        // because those are one question with one answer.
+        //
+        // Measured off the rectangle this pile is actually being drawn in, so a slot mid-shake
+        // carries its number along instead of leaving it behind on the felt - and so the band
+        // is the foot of the box as the player sees it rather than the foot of a rectangle in
+        // surface units, which the seated camera turns upside down on its way to the screen.
+        CardInstanceId commander = CommandSlots.commanderIn(view, zone);
+        Rect taxBand = commander == null || !taxIsWritten(art)
+                ? Rect.NONE
+                : TableSurface.taxBand(art);
+        if (taxBand.isEmpty()) {
+            drawCountInTheCorner(graphics, art, count);
+        } else {
+            drawTaxBand(graphics, taxBand,
+                    CommandSlots.taxFor(view.commanderTax().getOrDefault(commander, 0)),
+                    taxBand.contains(mouseX, mouseY));
+        }
+        if (hovered) {
+            GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                    pile.x(), pile.y(), pile.width(), pile.height());
+            top.filter(card -> !card.isFaceDown()).ifPresent(this::offerToInspector);
+        }
+    }
+
+    /**
+     * What resting on a life total says: whose it is, what it is, and that it is a button.
+     * <p>Named, because a number floating between two boards belongs to one of them and which
+     * one is the question a four-seat table asks. Named for a watcher above all: somebody
+     * seated has their own board under their own number to work from, and somebody standing
+     * behind the table has no such anchor.
+     * <p>A watcher does not get the two lines about pressing it - they have no seat to press
+     * from, and an offer nobody can take is worse than no offer.
+     */
+    private List<Component> tipForLife(GameView board, int x, int y) {
+        for (SeatView seat : board.seats()) {
+            if (!seat.hasABoard() || lifeWayUnder(seat.seat(), x, y) == 0) {
+                continue;
+            }
+            Component whose = Component.translatable("screen.gathering.table.life",
+                    CountersScreen.titleForSeat(board, seat.seat()), seat.life());
+            if (mySeat().isEmpty()) {
+                return List.of(whose);
+            }
+            return List.of(
+                    whose,
+                    Component.translatable("screen.gathering.table.life.hint")
+                            .withStyle(ChatFormatting.DARK_GRAY),
+                    Component.translatable("screen.gathering.table.life.hint_more")
+                            .withStyle(ChatFormatting.DARK_GRAY),
+                    // The only sign that commander damage is here rather than under counters,
+                    // where it used to be and where people will look for it first.
+                    Component.translatable("screen.gathering.table.life.hint_damage")
+                            .withStyle(ChatFormatting.DARK_GRAY));
+        }
+        return null;
+    }
+
+    /**
+     * A press on somebody's life total: one off the left half, one on the right, or a typed
+     * amount on a right-click.
+     * <p>Anybody seated may change anybody's, like everything else public at this table. Who
+     * did it is in the log, which is how the mod answers that question everywhere rather than
+     * by refusing.
+     */
+    private boolean pressLife(GameView board, int x, int y, int button) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null || (button != 0 && button != 1)) {
+            return false;
+        }
+        for (SeatView seat : board.seats()) {
+            if (!seat.hasABoard()) {
+                continue;
+            }
+            int way = lifeWayUnder(seat.seat(), x, y);
+            if (way == 0) {
+                continue;
+            }
+            SeatId whose = seat.seat();
+            if (button == 0 && hasShiftDown()) {
+                // The whole box, not a band carved out of its middle. The two halves are the
+                // plus and the minus and they keep exactly the rectangles they have: moving a
+                // hit area on this board is how a life counter came to take life off the seat
+                // facing the other way, and the crouch costs nobody a pixel.
+                openLife(whose);
+                GatheringButtons.clickSound();
+                return true;
+            }
+            if (button == 1) {
+                // Typed rather than clicked eleven times. A Commander game that opens on
+                // forty life and takes eleven off in one swing is the case a counter you can
+                // only tick has no answer to. Which half was right-clicked says which way,
+                // so the amount asked for is a plain number and the two halves mean the same
+                // thing under either button - rather than a typed minus sign, which is a
+                // second way to say something the button already said.
+                int chosen = way;
+                ask(way < 0 ? "life_lose" : "life_gain", 1,
+                        amount -> send(new GameEvent.LifeChanged(me, whose, chosen * amount)));
+            } else {
+                send(new GameEvent.LifeChanged(me, whose, way));
+            }
+            GatheringButtons.clickSound();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * The commander whose tax the cursor is resting on, or null.
+     * <p>One question asked once, because a press and the tooltip that promised it have to
+     * agree exactly. Written out twice they agreed on the day they were written and would
+     * have parted company the first time either grew a condition - which is a tooltip
+     * offering a button that does nothing, or a button nothing told anybody about.
+     */
+    private CardInstanceId taxUnderThePointer(
+            GameView board, SeatId owner, Zone zone, int x, int y) {
+        if (!zone.isCommandSlot() || mySeat().isEmpty()) {
+            return null;
+        }
+        CardInstanceId commander = CommandSlots.commanderIn(board.seat(owner), zone);
+        if (commander == null) {
+            return null;
+        }
+        Rect band = taxBandFor(owner, zone);
+        double[] at = pointer(x, y);
+        return !band.isEmpty() && at != null && !coveredByTheStrip(y)
+                && band.contains((int) Math.round(at[0]), (int) Math.round(at[1]))
+                ? commander
+                : null;
+    }
+
+    /**
+     * The band a press would land on for this seat's slot, or empty when there is none.
+     * <p>Package-private for the scripted harness, which has to aim at the box this screen
+     * would actually accept a press on rather than at one worked out a second time - a run
+     * that owns its own copy of a rule is a run that goes on passing after the rule moves.
+     */
+    Rect taxBandFor(SeatId owner, Zone zone) {
+        Rect slot = pileSlotOf(owner, zone);
+        return taxIsWritten(slot) ? TableSurface.taxBand(slot) : Rect.NONE;
+    }
+
+    /**
+     * Whether a slot this size has its tax written on it, which is also whether it may be
+     * pressed.
+     * <p>One rule for both, because a button nobody can see is worse than no button: a board
+     * zoomed out far enough that the number will not fit is a board where clicking a command
+     * slot should pick the commander up, the same as clicking anywhere else on it.
+     * <p>The board on the block writes its numbers at whatever size the slot is, scaling the
+     * letters down with it, so there the answer is always yes.
+     */
+    private boolean taxIsWritten(Rect slot) {
+        return !slot.isEmpty() && (playingOnTheBlock || roomForANumber(slot));
+    }
+
+    /**
+     * How many cards are in this slot, written in its own corner.
+     * <p>Shrunk rather than dropped on a board drawn small. A number is not a word: "24" at
+     * six-tenths is still twenty-four, and how many cards are left in a library is something
+     * a player reads constantly and cannot get at any other way once the board is framed
+     * whole. The zone's *name* still crosses out at that size, because the shape of a column
+     * of boxes carries the order and a five-pixel word carries nothing.
+     */
+    private void drawCountInTheCorner(GuiGraphics graphics, Rect art, int count) {
+        if (!roomForANumber(art)) {
+            return;
+        }
+        float scale = numberScale(art);
+        Component label = Component.literal(Integer.toString(count));
+        int width = Math.round(this.font.width(label) * scale) + 4;
+        // GuiText keeps a shrunken line on the baseline a full-size one would have used, so
+        // the backing has to be measured the same way or a shrunk number sits with its head
+        // out over the card art it is supposed to be legible against.
+        int top = Math.round(art.bottom() - this.font.lineHeight * (1 + scale) / 2f) - 1;
+        GatheringSprites.draw(graphics, Element.GHOST_TINT,
+                art.right() - width, top, width, art.bottom() - top);
+        GuiText.drawFlushLeft(graphics, this.font, label, art.right() - width + 2,
+                art.bottom() - this.font.lineHeight, scale, LABEL);
+    }
+
+    /**
+     * Whether a box this tall has room for a number at all.
+     * <p>The same question for a pile's count and for a commander's tax, so the two numbers
+     * on the board appear and disappear together rather than one of them outlasting the
+     * other on a board being zoomed out. The floor is where the box stops being a box rather
+     * than where a full-size line stops fitting: below that the number is shrunk to suit.
+     */
+    private boolean roomForANumber(Rect slot) {
+        return slot.height() > Math.round(this.font.lineHeight * SMALLEST_LIFE_SCALE) + 2;
+    }
+
+    /** How far a number in a box that size has to shrink, down to the usual floor. */
+    private float numberScale(Rect slot) {
+        return Math.max(SMALLEST_LIFE_SCALE,
+                Math.min(1f, (slot.height() - 2f) / this.font.lineHeight));
+    }
+
+    /**
+     * The tax written across the foot of a command slot.
+     * <p>On a backing rather than straight onto the art, the same as a pile's count: a pale
+     * commander with a white number over it is a number nobody can read. Lit when the cursor
+     * is on it, because it is a button and a button that looks like a label is a button
+     * nobody presses.
+     */
+    private void drawTaxBand(GuiGraphics graphics, Rect band, int tax, boolean lit) {
+        // Darker than a pile's count sits on, because this one is written over card art
+        // rather than over an empty slot, and a commander with a pale text box under a white
+        // number is a number nobody can read.
+        GatheringSprites.draw(graphics, lit ? Element.TAX_LIT : Element.TAX_BACKING,
+                band.x(), band.y(), band.width(), band.height());
+        Component label = Component.literal("+" + tax);
+        int baseline = (int) band.centerY() - this.font.lineHeight / 2;
+        GuiText.drawCenteredAt(graphics, this.font, label, (int) band.centerX(), baseline,
+                numberScale(band), lit ? ACCENT : LABEL);
+    }
+
+    /**
+     * Whether there is room for the name of every zone in the column, not just this one.
+     * <p>Asked of the whole column because the answer is about the column. "Exile" is four
+     * letters shorter than "Graveyard", so asking each name for itself named exactly one zone
+     * in four on a board drawn small - which reads as that zone being special rather than as
+     * a board too small to write on.
+     */
+    private boolean everyZoneNameFits(int room) {
+        if (longestZoneNameWidth == 0) {
+            longestZoneNameWidth = this.font.width(longestOf(ZONE_NAMES));
+        }
+        return room >= Legibility.roomToWrite(longestZoneNameWidth, guiScale());
+    }
+
+    /**
+     * Screen pixels per interface pixel, which decides how far a label may be shrunk before
+     * it stops being a word. Asked of the window each time rather than kept, because the
+     * player can change it from the options screen without this screen being built again.
+     */
+    private double guiScale() {
+        Minecraft client = this.minecraft;
+        return client == null ? 1.0 : client.getWindow().getGuiScale();
+    }
+
+    /**
+     * A mat button's tooltip: its name and its key, and nothing the rules say about it.
+     * <p>Two buttons used to carry a reminder under the key - Draw's "Going first: no draw this turn"
+     * (103.8a) and Mulligan's count of cards owed to the bottom (103.5) - and the owner had both taken
+     * out (2026-09-19, 2026-10-27). The mod cannot know what this table has agreed or what is on the
+     * board, and a line printed under a button reads as an instruction rather than as a note.
+     */
+    private List<Component> verbTip(int index) {
+        return tipFor(VERB_NAMES[index], verbKeyName(index));
+    }
+
+    /**
+     * A name, and under it in gray the key that does the same thing.
+     * <p>The key is on the tooltip rather than only in the key list because the moment a
+     * player wants to know it is the moment they are already pointing at the button, and a
+     * list they have to open and read is a step this saves them for good: they press the
+     * button twice more and then stop needing it.
+     */
+    private static List<Component> tipFor(Component name, Component key) {
+        return key == null
+                ? List.of(name)
+                : List.of(name, key.copy().withStyle(ChatFormatting.DARK_GRAY));
+    }
+
+    /** The longest of a set of names, so the whole set can be drawn at one size. */
+    private Component longestOf(Component[] names) {
+        Component longest = names[0];
+        for (Component name : names) {
+            if (this.font.width(name) > this.font.width(longest)) {
+                longest = name;
+            }
+        }
+        return longest;
+    }
+
+    private static final Component[] ZONE_NAMES =
+            Zone.PILES.stream().map(ZoneText::name).toArray(Component[]::new);
+
+    /**
+     * Which catalogue verb each mat button is, in the order of the buttons.
+     * <p>The button, the key and the menu row are one verb with one name, and the key it sits
+     * on is whatever the player has bound - asked of {@link TableShortcuts} when the tooltip
+     * is drawn rather than written down here. This used to be an array of GLFW constants, and
+     * the tooltip beside a button was the second place the key was written.
+     */
+    private static final String[] VERB_ACTIONS = {
+        "untap_all", "draw", "shuffle", "mulligan",
+    };
+
+    /**
+     * What key each mat button is on right now, or null for a button with none.
+     * <p>Read fresh rather than cached: the whole point of a binding is that it changes, and
+     * a tooltip built once at class-load would go on naming the old key for the rest of the
+     * session.
+     */
+    private static Component verbKeyName(int index) {
+        return index < 0 || index >= VERB_ACTIONS.length
+                ? null
+                : TableShortcuts.label(VERB_ACTIONS[index]);
+    }
+
+    /**
+     * What a mat button does, wherever it was asked for.
+     * <p>One body for the button and for the key, because they are the same verb: pressing
+     * Draw and pressing 2 have to reach the same event or one of them is a second, quieter
+     * implementation of drawing a card.
+     */
+    private void doVerb(SeatId me, TableVerb verb) {
+        switch (verb) {
+            case UNTAP -> send(new GameEvent.SeatUntappedAll(me, me));
+            case DRAW -> send(new GameEvent.CardsDrawn(me, me, 1));
+            case SHUFFLE -> send(new GameEvent.LibraryShuffled(me, me));
+            case MULLIGAN -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND));
+        }
+    }
+
+    /** Clear space between a verb button's frame and its name, on each side. */
+    private static final int VERB_LABEL_INSET = 3;
+
+    private static final Component[] VERB_NAMES =
+            java.util.Arrays.stream(TableVerb.values())
+                    .map(verb -> (Component) Component.translatable(verb.key()))
+                    .toArray(Component[]::new);
+
+    /**
+     * The card showing on top of a pile, which is not the one currently in the air.
+     * <p>A card lifted off a graveyard has not moved yet - the server has not been told, and
+     * will not be until it lands - so the pile still lists it. Drawing it anyway leaves a copy
+     * of the card sitting in the zone while its twin follows the cursor, which reads as the
+     * drag having failed.
+     */
+    private Optional<CardView> topOf(ZoneView zone) {
+        if (zone == null) {
+            return Optional.empty();
+        }
+        for (CardView card : zone.cards()) {
+            if (!isHeld(card)) {
+                return Optional.of(card);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Every card on every mat, back to front, ready to draw or to click.
+     * <p>Built once a frame and handed to both, which is what stops them disagreeing about
+     * where anything is. Attachments come immediately after the card they are on, so they draw
+     * over their host and are found before it - otherwise the creature underneath swallows
+     * every click meant for its equipment.
+     */
+    private List<Placed> everythingOnTheTable(GameView board) {
+        List<Placed> placed = new ArrayList<>();
+        for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+            SeatId seat = mat.seat();
+            List<CardView> cards = mat.cards();
+            Map<CardInstanceId, List<CardView>> attachments = mat.attachments();
+
+            for (int index = 0; index < cards.size(); index++) {
+                CardView card = cards.get(index);
+                if (isHeld(card) || card.host().isPresent()) {
+                    continue;
+                }
+                Rect where = spotOf(seat, card, mat.piles().depth(index));
+                placed.add(new Placed(seat, card, where, angleOf(seat, card)));
+
+                List<CardView> attached = TableAttachments.on(attachments, card);
+                if (attached.isEmpty()) {
+                    continue;
+                }
+                boolean left = TableAttachments.fansLeft(where, new Rect(0, 0, this.width, this.height));
+                for (int slot = 0; slot < attached.size(); slot++) {
+                    if (isHeld(attached.get(slot))) {
+                        continue;
+                    }
+                    Rect at = left
+                            ? TableAttachments.slot(where, slot)
+                            : TableAttachments.slotOnTheRight(where, slot);
+                    placed.add(new Placed(seat, attached.get(slot), at,
+                            angleOf(seat, attached.get(slot))));
+                }
+            }
+        }
+        return placed;
+    }
+
+    /**
+     * Whether this card has gone off the edges of the window entirely.
+     * <p>Generous by a whole card on every side, because a rectangle is not the whole of what
+     * is drawn for one: a tapped card turns about its middle and reaches further than its
+     * upright rectangle does, a highlight ring sits outside its edge, and a shadow is cast
+     * past it. Culling on the rectangle alone popped the ring off a card whose corner was
+     * still visible.
+     */
+    private boolean isOffScreen(Rect where) {
+        int margin = Math.max(where.width(), where.height());
+        return where.right() < -margin
+                || where.x() > this.width + margin
+                || where.bottom() < -margin
+                || where.y() > this.height + margin;
+    }
+
+    private static List<TablePosition> spotsIn(List<CardView> cards) {
+        List<TablePosition> spots = new ArrayList<>(cards.size());
+        for (CardView card : cards) {
+            // An attached card is drawn beside its host, wherever its own spot says it is;
+            // counted at that spot it made a pile of one card read "x2".
+            spots.add(card.host().isPresent() ? null : card.placedAt().orElse(null));
+        }
+        return spots;
+    }
+
+    /**
+     * Where a card on a mat is drawn.
+     * <p>Its own place, leaned up and to the left by however many cards are under it. The card
+     * has not moved - that is state - but a pile that draws every card in exactly the same
+     * pixels is a pile that looks like one card.
+     */
+    private Rect spotOf(SeatId seat, CardView card, int depth) {
+        Rect where = board().rectOf(seat, card.placedAt().orElse(TablePosition.ORIGIN));
+        // Not on the block, where a stack stands squared up and as tall as its cards instead.
+        int lean = playingOnTheBlock ? 0 : TableStacking.offsetFor(depth, board().cardWidth(seat));
+        return lean == 0
+                ? where
+                : new Rect(where.x() + lean, where.y() + lean, where.width(), where.height());
+    }
+
+    /**
+     * Says whose a card really is, when that is not whose board it is on.
+     * <p>Control and ownership come apart the moment anybody steals a creature, and until now
+     * nothing on the table said so: the card simply sat on the thief's mat looking like theirs.
+     * Everybody at a paper table knows whose card it is because they watched it happen and
+     * because it is in somebody else's sleeves; on a screen an hour later, nobody does - and
+     * it matters, because it goes home at the end and because "whose is that" is a question
+     * with a rules answer.
+     * <p>Only when they differ. A badge on every card would be forty badges, which is a board
+     * nobody can read for the sake of the two cards it is about.
+     * <p>The owner's color <em>and</em> the owner's mark, not one or the other. A color alone
+     * is unreadable to somebody who cannot tell those two colors apart - see {@link SeatMark} -
+     * and a mark alone throws away the cue everybody else picks up without reading anything.
+     */
+    private void renderOwnerBadges(GuiGraphics graphics, List<Placed> onTable) {
+        for (Placed placed : onTable) {
+            if (!(placed.card() instanceof CardView.Visible visible)) {
+                // A face-down card carries no owner to name, which is the point of it.
+                continue;
+            }
+            SeatId owner = visible.owner();
+            if (owner == null || owner.equals(placed.seat())) {
+                continue;
+            }
+            Rect where = placed.where();
+            if (where.isEmpty()) {
+                continue;
+            }
+            GuiText.drawOverTheBoard(graphics, this.font,
+                    Component.translatable("screen.gathering.table.owned_by",
+                            SeatMark.of(owner.index())),
+                    where.x() + 2, where.y() + 2, where.width() - 4,
+                    SeatColor.at(owner.index(), 0xFF));
+            ownerMarksDrawn++;
+        }
+    }
+
+    /**
+     * How many cards of the pot, and how many owners' marks, the flat board drew in its last frame: emptied every
+     * frame and filled by the flat painter alone, so on the block they say none. For the scripted run, which asks
+     * the board on the block the same questions.
+     */
+    int potCardsDrawn;
+    int ownerMarksDrawn;
+
+    /** How many cards of each seat's mat the flat board drew in its last frame, by seat. For the scripted run. */
+    final java.util.Map<Integer, Integer> cardsDrawnBySeat = new java.util.HashMap<>();
+
+    /**
+     * How many cards of this seat's mat the picker can reach on this board: every card it would hover, click or
+     * drag, which every board has to draw. For the scripted run.
+     */
+    int reachableOn(int seat) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return 0;
+        }
+        int reachable = 0;
+        for (Placed placed : everythingOnTheTable(board)) {
+            if (placed.seat().index() == seat) {
+                reachable++;
+            }
+        }
+        return reachable;
+    }
+
+    /** The pile counts, drawn last so a stack of four says four over whatever is on top of it. */
+    private void renderPileBadges(GuiGraphics graphics, GameView board, List<Placed> onTable) {
+        // Found by the card object itself, as the walk over every placed card for every pile
+        // found it - once, rather than once per pile.
+        Map<CardView, Placed> placedFor = null;
+        for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+            List<CardView> cards = mat.cards();
+            for (int index = 0; index < cards.size(); index++) {
+                if (mat.piles().isBuried(index)) {
+                    continue;
+                }
+                int pile = mat.piles().pileSize(index);
+                if (pile <= 1) {
+                    continue;
+                }
+                if (placedFor == null) {
+                    placedFor = new java.util.IdentityHashMap<>();
+                    for (Placed placed : onTable) {
+                        placedFor.putIfAbsent(placed.card(), placed);
+                    }
+                }
+                Placed placed = placedFor.get(cards.get(index));
+                if (placed != null) {
+                    drawPileBadge(graphics, placed.where(), pile);
+                }
+            }
+        }
+    }
+
+    /**
+     * The pile count, on the corner nearest the top of the stack.
+     * <p>Measured against the card rather than the font, and shrinking with it to the smallest
+     * size text is drawn at anywhere here. At the font's own size "x2" is as wide as the card
+     * a two-player board draws, covering its name and a third of its art - a count that hides
+     * what it counts is a sticker. Below the floor the check at the top drops it entirely.
+     */
+    private void drawPileBadge(GuiGraphics graphics, Rect where, int size) {
+        if (where.height() < this.font.lineHeight + 3) {
+            return;
+        }
+        Component label = Component.literal("x" + size);
+        int room = Math.max(MIN_BADGE, where.width() / BADGE_SHARE);
+        float scale = GuiText.scaleForTheSet(this.font, label, room - 4);
+        int width = Math.min(room, Math.max(12, Math.round(this.font.width(label) * scale) + 4));
+        // Never shorter than its plate needs: sixteen square with a four pixel border wants
+        // twelve, and below that the whole picture is squashed into the badge. Nothing is clicked
+        // here - the pile under it is what takes a click - so the drawn box is the only box.
+        int high = Math.max(12, Math.round(this.font.lineHeight * scale) + 2);
+        int left = where.right() - width - 1;
+        int top = where.y() + 1;
+        GatheringSprites.draw(graphics, Element.PILE_BADGE, left, top, width, high);
+        GuiText.drawCenteredAt(
+                graphics, this.font, label, left + width / 2, top + 1, scale, PILE_TEXT);
+    }
+
+    /**
+     * How much of a card's width the pile count may take, and the least it is ever drawn in.
+     * <p>A third, because a badge is a corner mark and a corner is about a third of an edge.
+     * The floor stops the arithmetic collapsing to nothing on a card drawn very small - at
+     * which point the badge is dropped rather than drawn as a smudge.
+     */
+    private static final int BADGE_SHARE = 3;
+
+    private static final int MIN_BADGE = 10;
+
+    /**
+     * The angle a card is drawn at: the angle it was left at, plus a quarter turn if tapped.
+     * <p>Tapping being a quarter turn on top of whatever angle the card already has is what
+     * makes the two independent - a card you angled thirty degrees taps to a hundred and
+     * twenty and untaps back to thirty, rather than forgetting you ever touched it.
+     */
+    private int angleOf(SeatId seat, CardView card) {
+        int resting = card.placedAt().map(TablePosition::rotation).orElse(0);
+        int tapped = card.tapped() ? resting + TablePosition.QUARTER_TURN : resting;
+        // Turned with the board, exactly as the table in the world turns it: a card lying in
+        // front of its owner reads the right way up to them and upside down from the chair
+        // opposite, which is what a card on a table between two people does. The view itself
+        // is turned for the player at the far edge, so their own cards come back upright.
+        return tapped + board().facingDegrees(seat);
+    }
+
+    /**
+     * Your hand, fanned along the bottom, with the card under the cursor risen out of it.
+     * <p>No panel behind it and no frame around each card. Both were clutter over the only
+     * part of the screen that is nothing but pictures: a hand is read by looking at the art,
+     * and a border on every card in a fan is a row of borders.
+     */
+    private void renderHand(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
+        Rect area = layout().hand();
+        handBands.clear();
+        SeatId seat = mySeat().orElse(null);
+        if (seat == null) {
+            handSaid = Component.translatable("screen.gathering.table.spectating").getString();
+            GuiText.drawCentered(graphics, this.font,
+                    Component.translatable("screen.gathering.table.spectating"),
+                    area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
+            return;
+        }
+
+        List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
+        if (hand.isEmpty()) {
+            handSaid = Component.translatable("screen.gathering.table.hand_empty").getString();
+            // A hand with nothing in it said nothing at all, which reads as a strip of the
+            // window that has failed rather than as a hand you have played out. A spectator
+            // has been told why their strip is empty since the day they had one; a player who
+            // has just emptied theirs deserves the same sentence.
+            GuiText.drawCentered(graphics, this.font,
+                    Component.translatable("screen.gathering.table.hand_empty"),
+                    area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
+            drawHandBands(graphics, board, seat, area);
+            return;
+        }
+        // Carrying one of these cards: nothing rises, and the rest part where it would land.
+        boolean reordering = heldHandIndex(hand) >= 0;
+        int lifted = reordering ? -1 : handIndexAt(board, mouseX, mouseY);
+        liftedNow = lifted;
+        List<CardView> shown = handAsItWouldLand(hand, mouseX, mouseY);
+
+        // The lifted one last, so it is drawn over the cards it has risen in front of.
+        for (int pass = 0; pass < 2; pass++) {
+            for (int index = 0; index < shown.size(); index++) {
+                if (isHeld(shown.get(index)) || (index == lifted) != (pass == 1)) {
+                    continue;
+                }
+                HandFan.Slot slot = HandFan.slot(area, shown.size(), index, lifted);
+                drawCard(graphics, shown.get(index), CardSleeves.of(board, seat),
+                        slot.where(), slot.angle(), false, false);
+            }
+        }
+        // Over the cards, last, because it is the one thing here that has to be seen. Drawn
+        // under them it was a band of color behind a row of cards - which is exactly the way
+        // a warning fails: it was there, and nobody could read it.
+        drawHandBands(graphics, board, seat, area);
+        if (lifted >= 0 && lifted < hand.size()) {
+            offerToInspector(hand.get(lifted));
+        }
+    }
+
+    /**
+     * Says so, across the top of your own hand, while your hand is face up to somebody.
+     * <p>The whole feature turns on this line existing. Showing a hand is a state rather than
+     * a moment - it stays until it is taken back - so the one way it goes wrong is a player
+     * who showed it during somebody's turn and has forgotten by their own. A log line
+     * scrolled past three minutes ago is not a reminder; a band over the cards themselves is.
+     * <p>Warm, like the numbers somebody typed on a card, because it is the same kind of
+     * fact: a thing a person did on purpose rather than something the game worked out.
+     * <p>Nothing else goes over the hand. The draw going first skips and the London mulligan's
+     * cards owed to the bottom were each a band here once, and the owner had both taken out
+     * (2026-09-19, 2026-10-27): the mod cannot know what this table has agreed or what is on the
+     * board, and a line over the hand reads as an instruction.
+     */
+    private void drawHandBands(GuiGraphics graphics, GameView board, SeatId me, Rect area) {
+        SeatView mine = board.seat(me);
+        if (!mine.handIsShown() || area.height() < bandRow() + 2) {
+            return;
+        }
+        List<Component> names = new ArrayList<>();
+        for (SeatView seat : board.seats()) {
+            if (mine.handShownTo().contains(seat.seat())) {
+                names.add(SeatNames.of(seat));
+            }
+        }
+        // "the table" when it is everyone else, and the names when it is not. Counting the
+        // occupied seats rather than every seat: a four-seat table with two players is a
+        // two-player game, and a hand shown to both of them is a hand shown to the table.
+        long playing = board.seats().stream()
+                .filter(seat -> !seat.seat().equals(me) && seat.occupant().isPresent())
+                .count();
+        Component said = names.size() >= playing && playing > 0
+                ? Component.translatable("screen.gathering.hand.open_to_table")
+                : Component.translatable("screen.gathering.hand.open_to",
+                        net.minecraft.network.chat.ComponentUtils.formatList(names, Component.literal(", ")));
+        drawHandBand(graphics, area, 0, said);
+    }
+
+    /** One band of words across the top of the hand, the {@code row}th down. */
+    private void drawHandBand(GuiGraphics graphics, Rect area, int row, Component said) {
+        // A label the size of what it says, centered over the hand: one piece of art round one line.
+        // It was a strip the width of the hand, drawn shorter than its art is painted - so the art was
+        // squashed whole rather than framed, and read as three bars stacked behind a line of writing.
+        int tall = bandHeight();
+        int wide = Math.min(area.width(), this.font.width(said) + BAND_PADDING * 2);
+        int left = area.x() + (area.width() - wide) / 2;
+        int top = area.y() + row * bandRow();
+        GatheringSprites.draw(graphics, Element.EXPOSED_BAND, left, top, wide, tall);
+        GuiText.drawCentered(graphics, this.font, said,
+                left + wide / 2, top + (tall - this.font.lineHeight) / 2 + 1, wide - BAND_PADDING, EXPOSED_TEXT);
+        handBands.add(said.getString());
+    }
+
+    /** Room either side of a band's writing, inside its frame. */
+    private static final int BAND_PADDING = 6;
+
+    /** How tall a band is: a line and its frame, and never shorter than its art is painted. */
+    private int bandHeight() {
+        return Math.max(16, this.font.lineHeight + 7);
+    }
+
+    /** One band and the gap under it. */
+    private int bandRow() {
+        return bandHeight() + 2;
+    }
+
+    /**
+     * The hand as it will be if the card being carried is let go of here.
+     * <p>What the strip draws while a card from it is dragged along it, so the gap opens where
+     * the card will land rather than the player having to guess from where they let go. The
+     * hand as it is anywhere else - carried over the table, a card is leaving the hand, not
+     * moving within it.
+     */
+    private List<CardView> handAsItWouldLand(List<CardView> hand, int mouseX, int mouseY) {
+        int from = heldHandIndex(hand);
+        if (from < 0 || !gesture.held().hasMoved(mouseX, mouseY)
+                || !layout().hand().contains(mouseX, mouseY)) {
+            return hand;
+        }
+        return HandFan.moved(hand, from, HandFan.placeAt(layout().hand(), hand.size(), mouseX));
+    }
+
+    /** Where in the hand the card being carried came from, or -1 if it is not from the hand. */
+    private int heldHandIndex(List<CardView> hand) {
+        TableGesture.Held held = gesture.held();
+        if (held == null || !held.fromHand() || held.card() == null) {
+            return -1;
+        }
+        for (int index = 0; index < hand.size(); index++) {
+            if (isHeld(hand.get(index))) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Puts a card from your hand in the place in it where it was let go of.
+     * <p>The same event sorting the hand sends, with the order worked out from the drop, so
+     * the fan everybody's own client draws and the order the server keeps cannot disagree - a
+     * hand rearranged only on screen would snap back the first time a card was drawn. Nothing
+     * is sent when the card lands back in its own place.
+     */
+    private void reorderMyHand(GameView board, SeatId me, CardInstanceId card, int x) {
+        if (card == null) {
+            return;
+        }
+        List<CardView> hand = board.seat(me).zone(Zone.HAND).cards();
+        List<CardInstanceId> ids = new ArrayList<>(hand.size());
+        for (CardView each : hand) {
+            if (!(each instanceof CardView.Visible visible)) {
+                return;
+            }
+            ids.add(visible.id());
+        }
+        int from = ids.indexOf(card);
+        int to = HandFan.placeAt(layout().hand(), ids.size(), x);
+        if (from < 0 || from == to) {
+            return;
+        }
+        send(new GameEvent.HandSorted(me, me, HandFan.moved(ids, from, to)));
+    }
+
+    /** The card drawn risen this frame, which is the only one whose top half is a card. */
+    private int liftedNow = -1;
+
+    /**
+     * What is being typed to the table, or null when nobody is typing.
+     * <p>Typed here rather than on a screen of its own. Saying something at a table is done in
+     * the middle of somebody else's turn while you are looking at the board, and a screen that
+     * took the board away to ask for a sentence would be a conversation that costs you the
+     * game state you were talking about.
+     */
+    private StringBuilder saying;
+
+    /** Whether the next typed character is the echo of the key that opened the line. */
+    private boolean swallowingTheChatKey;
+
+    /** Which card of the hand the cursor is on, or -1. The risen card's top half counts. */
+    private int handIndexAt(GameView board, int x, int y) {
+        SeatId seat = mySeat().orElse(null);
+        if (seat == null) {
+            return -1;
+        }
+        int count = board.seat(seat).zone(Zone.HAND).cards().size();
+        if (!layout().hand().contains(x, y)) {
+            // Above the strip, where the hovered card rises. Its upper half is a card the
+            // player is looking straight at, and a click there used to fall through to the
+            // battlefield behind it. Only the card already drawn risen counts: the band
+            // above the strip is board - the block's own life buttons live there - and a
+            // card must not spring up under a cursor that was never on the hand.
+            return HandFan.onLifted(layout().hand(), count, liftedNow, x, y) ? liftedNow : -1;
+        }
+        return HandFan.at(layout().hand(), count, x, y);
+    }
+
+    /** Faces drawn along the top on the last frame, for the scripted run to count. */
+    int facesDrawn;
+
+    /**
+     * One player's face, from their skin.
+     * <p>The skin the game already holds for a player who is connected, and the default one their
+     * id picks for one who is not - never fetched from anywhere by this. Ringed while it is their
+     * turn, so whose turn it is shows in the row itself rather than only in the sentence at its end.
+     */
+    private void drawFace(GuiGraphics graphics, PlayerRef player, int x, int y, int size, boolean away, boolean theirTurn) {
+        net.minecraft.client.multiplayer.ClientPacketListener connection = Minecraft.getInstance().getConnection();
+        net.minecraft.client.multiplayer.PlayerInfo info = connection == null ? null : connection.getPlayerInfo(player.id());
+        net.minecraft.client.resources.PlayerSkin skin = info != null
+                ? info.getSkin()
+                : net.minecraft.client.resources.DefaultPlayerSkin.get(player.id());
+        if (away) {
+            graphics.setColor(1f, 1f, 1f, 0.45f);
+        }
+        net.minecraft.client.gui.components.PlayerFaceRenderer.draw(graphics, skin, x, y, size);
+        graphics.setColor(1f, 1f, 1f, 1f);
+        if (theirTurn) {
+            // A glow outside the face rather than a ring over it: the ring covered most of a face
+            // this small, which is the one thing the face is there to show.
+            GuiGlow.around(graphics, x, y, size, size, 2, 0xD0000000 | (ACCENT & 0x00FFFFFF));
+        }
+    }
+
+    /**
+     * The strip along the top: everybody's name and life, and whose turn it is.
+     * <p>In both views now. On the block the mats are two blocks away and a life total painted
+     * on one would be unreadable at any height worth playing at; on the screen it frees the
+     * mats to be nothing but board, which is what they are for.
+     */
+    private void renderStatus(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
+        facesDrawn = 0;
+        Rect area = layout().status();
+        if (area.isEmpty()) {
+            return;
+        }
+        // No panel behind it. It was one, and a bar across the top of the table is a bar
+        // across the top of the table: it took a band of the felt on every frame of every
+        // game to hold four short lines, and it wore each look's heaviest frame while doing
+        // it. The writing sits on the board now and carries its own shadow, which is what the
+        // game does for every word it draws over the world.
+        List<SeatView> seats = board.seats();
+        SeatId me = mySeat().orElse(null);
+        SeatId active = board.turn().activeSeat();
+        int inside = stripInside(this.width);
+        int turnWidth = turnWidthFor(inside);
+        // A gap between one seat's line and the next, so "library 1" and the next name do
+        // not read as one sentence on a narrow window.
+        int gap = 8;
+        int rows = Math.max(1, Math.min(dev.gathering.core.ui.SeatStrip.MOST_ROWS, area.height() / dev.gathering.core.ui.SeatStrip.ROW));
+        if (rows > 1) {
+            // On two rows the table's terms have a row of their own, so the turn needs only its own
+            // few words - and every pixel it does not keep is a seat's name.
+            turnWidth = Math.min(inside / 5, 150);
+        }
+        dev.gathering.core.ui.SeatStrip strip = dev.gathering.core.ui.SeatStrip.of(
+                area, rows, seats.size(), area.x() + PAD, inside, turnWidth, gap);
+        lastStrip = strip;
+        int hovered = strip.seatAt(mouseX, mouseY);
+
+        for (int index = 0; index < seats.size(); index++) {
+            SeatView seat = seats.get(index);
+            Rect cell = strip.seats().get(index);
+            int line = cell.y() + (cell.height() - this.font.lineHeight) / 2;
+            // A chair nobody is in says so and stops. Forty life, no cards and no deck are
+            // all true of a player who does not exist, and printing them makes an empty seat
+            // look like somebody who is losing badly.
+            //
+            // A board, not an occupant. The numbers beside a board somebody walked away from
+            // are real - that is their library and their life total, sitting on the table -
+            // and calling the whole column "free seat" hid a board in play behind an offer of
+            // a chair. The chair genuinely is free, so the offer is not wrong; it is just not
+            // the whole of what is there, and the name is the part that was missing.
+            // The seat's own mark in front of its name, so the mark an owner badge shows is
+            // a thing the board says somewhere else too. Color and mark together, for the
+            // same reason the badge carries both.
+            // The player's face first, from the skin the game already has for them: a name is
+            // something to read and a face is somebody sitting there. Only where there is a board
+            // with a name on it - a free chair has nobody to show - and faded for a player who has
+            // got up and left their cards, the same way the line says they are away.
+            int left = cell.x();
+            int room = cell.width();
+            PlayerRef whose = seat.whoseBoard().orElse(null);
+            int face = faceSize(cell.height());
+            if (whose != null && room > face * 3) {
+                drawFace(graphics, whose, left, cell.y() + (cell.height() - face) / 2, face,
+                        seat.occupant().isEmpty(), seat.seat().equals(active));
+                facesDrawn++;
+                left += face + 4;
+                room -= face + 4;
+            }
+            GuiText.drawOverTheBoard(graphics, this.font,
+                    seatLine(seat, room),
+                    left, line, room,
+                    SeatColor.at(seat.seat().index(), 0xFF));
+            // Everything about the seat on a rest, whatever the column had room for: with eight at
+            // a table a column holds a face and a life total, and the rest is one move away.
+            if (index == hovered) {
+                setTooltipForNextRenderPass(seatDetails(seat).stream().map(Component::getVisualOrderText).toList(),
+                        underTheStrip(cell.x(), area, cell.width()), true);
+            }
+        }
+
+        // A chair nobody is in is named by its number rather than called "(empty)". The
+        // columns above can say a chair is free, because that is what they are for; in a
+        // sentence about whose turn it is, "(empty)" reads as something having gone wrong.
+        String who = board.seat(active).whoseBoard()
+                .map(player -> player.name())
+                .orElseGet(() -> Component.translatable(
+                        "message.gathering.seat_number", active.index() + 1).getString());
+        boolean mine = me != null && me.equals(active);
+        // Whose turn it is, and which turn. There was a phase beside it - untap, upkeep, draw
+        // and the nine after them - and it is gone: nothing ever read it, no action was ever
+        // checked against it, and the tables people already play on do not have one either.
+        // What it actually did was spend a third of this strip telling four people something
+        // they had just said out loud.
+        Component turn = Component.translatable("screen.gathering.table.turn", board.turn().turnNumber(), who)
+                .withColor(mine ? ACCENT : QUIET);
+        Rect turnAt = strip.turn();
+        int turnLine = turnAt.y() + (turnAt.height() - this.font.lineHeight) / 2;
+        // And what the table is playing, as much of that as there is room for: the unusual parts -
+        // for keeps, no format - are the last to go. See TableTermsText. Beside the turn on one
+        // row; under it, with the whole width to itself, on two.
+        dev.gathering.core.match.TableTerms terms = ClientTableState.termsOf(table).orElse(null);
+        Component said = turn;
+        String shown;
+        if (terms != null && !strip.terms().isEmpty()) {
+            Component termsLine = fitting(TableTermsText.candidates(null, null, terms), turnWidth);
+            GuiText.drawOverTheBoard(graphics, this.font, termsLine, strip.terms().x(),
+                    strip.terms().y() + (strip.terms().height() - this.font.lineHeight) / 2, turnWidth, QUIET);
+            shown = turn.getString() + " " + termsLine.getString();
+        } else {
+            if (terms != null) {
+                // The same turn without the name, for a row too narrow to say both it and the
+                // terms: the seat columns above already say whose turn it is.
+                Component turnAlone = Component.translatable("screen.gathering.table.turn_short",
+                        board.turn().turnNumber()).withColor(mine ? ACCENT : QUIET);
+                said = fitting(TableTermsText.candidates(turn, turnAlone, terms), turnWidth);
+            }
+            shown = said.getString();
+        }
+        termsShown = shown;
+        GuiText.drawOverTheBoard(graphics, this.font, said, turnAt.x(), turnLine, turnWidth, mine ? ACCENT : QUIET);
+        if (terms != null && mouseX >= turnAt.x() && mouseX < turnAt.right()
+                && mouseY >= area.y() && mouseY < area.bottom()) {
+            setTooltipForNextRenderPass(TableTermsText.tooltip(terms).stream()
+                    .map(Component::getVisualOrderText).toList(), underTheStrip(turnAt.x(), area, turnAt.width()), true);
+        }
+    }
+
+    /** The strip as it was last drawn, for the scripted run to rest the pointer on a seat. */
+    dev.gathering.core.ui.SeatStrip lastStrip;
+
+    /**
+     * Where a tooltip about something in the top row goes: under the row, beside what it is about.
+     * <p>The default puts a tooltip above and to the right of the cursor, and the cursor on the top row
+     * is already at the top of the window - so the first lines of it were off the screen.
+     */
+    private static net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner underTheStrip(
+            int x, Rect strip, int width) {
+        return new net.minecraft.client.gui.screens.inventory.tooltip.BelowOrAboveWidgetTooltipPositioner(
+                new net.minecraft.client.gui.navigation.ScreenRectangle(x, strip.y(), Math.max(1, width), strip.height()));
+    }
+
+    /** The first of these that fits this width at the text size asked, or the last. */
+    private Component fitting(List<Component> ways, int width) {
+        for (Component way : ways) {
+            if (this.font.width(way) * GuiText.askedScale() <= width) {
+                return way;
+            }
+        }
+        return ways.get(ways.size() - 1);
+    }
+
+    /** The room the strip's columns and the turn share: the window less padding and the "?" at the end. */
+    private int stripInside(int windowWidth) {
+        int guideRoom = mode.isLearning() ? 0 : SeatStripGuide.ROOM;
+        return Math.max(1, windowWidth - PAD * 2 - guideRoom);
+    }
+
+    /** How much of the strip the turn keeps: wider than the turn alone, for what the table is playing. */
+    private static int turnWidthFor(int inside) {
+        return Math.min(inside / 3, 260);
+    }
+
+    /** How big a face is in a row of the strip this tall. */
+    private int faceSize(int rowHeight) {
+        return Math.max(6, Math.min(rowHeight - 4, this.font.lineHeight + 2));
+    }
+
+    /** How many rows the strip wants at this window width: two when one would leave a seat no room for a name. */
+    private int statusRows(int windowWidth) {
+        int seatCount = view().map(board -> board.seats().size()).orElse(anchors().size());
+        int inside = stripInside(windowWidth);
+        int least = faceSize(dev.gathering.core.ui.SeatStrip.ROW) + 4
+                + Math.round(this.font.width("8 Somebody - 40 life") * GuiText.askedScale()) + 8;
+        return dev.gathering.core.ui.SeatStrip.rowsFor(inside, seatCount, turnWidthFor(inside), least);
+    }
+
+    /**
+     * How many rows the strip along the top takes in a window this wide, by the rule the board lays itself
+     * out with. For the scripted harness, which has to know whether one row fits a window before it can
+     * expect one there.
+     */
+    int stripRowsAt(int windowWidth) {
+        return statusRows(windowWidth);
+    }
+
+    /** Everything the strip knows about a seat, one fact a line, for the tooltip over its column. */
+    private List<Component> seatDetails(SeatView seat) {
+        List<Component> lines = new java.util.ArrayList<>();
+        String mark = SeatMark.of(seat.seat().index());
+        if (!seat.hasABoard()) {
+            lines.add(Component.translatable("screen.gathering.table.seat_marked", mark,
+                    Component.translatable("screen.gathering.table.free_seat")).withColor(SeatColor.at(seat.seat().index(), 0xFF)));
+            return lines;
+        }
+        lines.add(Component.translatable("screen.gathering.table.seat_marked", mark, SeatNames.of(seat))
+                .withColor(SeatColor.at(seat.seat().index(), 0xFF)));
+        var kept = ClientTableState.awayAt(table).flatMap(away -> away.seat(seat.seat().index()));
+        if (kept.isPresent()) {
+            lines.add(Component.translatable("screen.gathering.table.seat_tip.afb", clock(keptFor(seat).orElse(0))));
+            if (kept.get().needed() > 0) {
+                lines.add(Component.translatable("screen.gathering.table.seat_tip.afb_votes",
+                        kept.get().votes(), kept.get().needed()));
+            }
+        } else if (seat.occupant().isEmpty()) {
+            lines.add(Component.translatable("screen.gathering.table.seat_tip.away"));
+        }
+        lines.add(Component.translatable("screen.gathering.table.seat_tip.life", seat.life()));
+        lines.add(Component.translatable("screen.gathering.table.seat_tip.cards",
+                count(seat, Zone.HAND), count(seat, Zone.LIBRARY), count(seat, Zone.GRAVEYARD), count(seat, Zone.EXILE)));
+        // Not the counters. They are written on the felt beside this seat's life now, where they
+        // are read without asking - see drawCountersOnTheMat. Repeating them here would be the
+        // hover saying what the table is already saying.
+        return lines;
+    }
+
+    /** How many seconds are left on this seat, if it is kept for a player away from the board. */
+    private Optional<Integer> keptFor(SeatView seat) {
+        return ClientTableState.awayAt(table).flatMap(away -> away.seat(seat.seat().index())
+                .map(kept -> away.secondsLeft(kept, System.currentTimeMillis())));
+    }
+
+    /** Seconds as minutes and seconds: 7:05. */
+    private static String clock(int seconds) {
+        return (seconds / 60) + ":" + String.format(java.util.Locale.ROOT, "%02d", seconds % 60);
+    }
+
+    /** What the top row said about the turn and the table on the last frame, for the scripted run. */
+    String termsShown = "";
+
+    /**
+     * One seat's column in the strip along the top, said as fully as the column has room for.
+     * <p>Longest first: name, life, hand, library, counters. Then name and life. Then life alone
+     * beside the seat's mark (a free chair has a short form too), which the color and the mark already tie to a mat. A four-seat
+     * table on a small window has columns about sixty pixels wide, and the full line cut to
+     * fit there read "Dev - 40 li..." - a label that has stopped saying what it was written to
+     * say, which the scripted run counts as a failure and a player counts as noise. Choosing a
+     * shorter sentence first means nothing here is ever an ellipsis unless even the shortest
+     * one is, which takes a name nobody could fit anywhere.
+     * <p>Everything the short forms leave out is still on the table: the hand and library on
+     * the mat's own piles, and the counters written on the felt beside each seat's life.
+     */
+    private Component seatLine(SeatView seat, int room) {
+        String mark = SeatMark.of(seat.seat().index());
+        if (!seat.hasABoard()) {
+            // Not an offer to sit down in a replay: nobody watching a finished game can take a
+            // chair in it, and the scripted client photographed the first frame of one offering
+            // two of them.
+            return mode.isWatching()
+                    ? Component.translatable("screen.gathering.table.seat_marked", mark,
+                            Component.translatable("screen.gathering.table.free_seat_short"))
+                    : firstThatFits(mark, room, List.of(
+                            Component.translatable("screen.gathering.table.free_seat"),
+                            Component.translatable("screen.gathering.table.free_seat_short")));
+        }
+        // Said plainly when nobody is in the chair, because a name in this row otherwise means
+        // somebody is sitting behind those cards and answering - and with how long is left, for a
+        // seat kept for a player away from the board.
+        Component away = keptFor(seat)
+                .<Component>map(seconds -> Component.translatable("screen.gathering.table.seat_afb", clock(seconds)))
+                .orElse(seat.occupant().isEmpty()
+                        ? Component.translatable("screen.gathering.table.seat_away")
+                        : Component.empty());
+        String name = SeatNames.of(seat).getString();
+
+        MutableComponent full = Component.translatable(
+                "screen.gathering.table.mat_line", name,
+                seat.life(), count(seat, Zone.HAND), count(seat, Zone.LIBRARY)).append(away);
+        List<Component> ways = List.of(
+                full,
+                Component.translatable("screen.gathering.table.mat_line_short", name, seat.life())
+                        .append(away),
+                Component.translatable("screen.gathering.table.mat_line_life", seat.life()));
+        return firstThatFits(mark, room, ways);
+    }
+
+    /** The first of these, behind the seat's mark, that fits whole; the last one if none does. */
+    private Component firstThatFits(String mark, int room, List<Component> ways) {
+        Component chosen = null;
+        for (Component way : ways) {
+            chosen = Component.translatable("screen.gathering.table.seat_marked", mark, way);
+            if (GuiText.fitsWhole(this.font, chosen, room)) {
+                break;
+            }
+        }
+        return chosen;
+    }
+
+    /**
+     * What has happened, most recent last.
+     * <p>Over the table rather than beside it. The log is read in bursts - somebody asks
+     * "wait, what did you just do" - and giving it a permanent column would cost table space
+     * every turn to answer a question asked twice a game.
+     */
+    private void renderLog(GuiGraphics graphics, GameView board) {
+        // Measured at full size first, to find how much the panel has to hold; the step between
+        // lines is decided below, once the size they are drawn at is.
+        int line = this.font.lineHeight + 1;
+        int margin = Math.max(4, this.width / 24);
+        // Below the status bar, and below the life controls that hang off the mats into the
+        // strip under it. Worked out before anything is sized, because how far down the panel
+        // starts is what decides how many lines fit in it - pushing the top down afterwards
+        // gave it the right position and one line more than it had room for, which then drew
+        // over its own footer.
+        //
+        // Measured against the widest the panel could be rather than the width it turns out
+        // to want. The width depends on the lines and the lines depend on the height, so the
+        // conservative span is the one that does not need the answer to find it.
+        int top = Math.max(layout().status().bottom() + 4,
+                clearOfTheLifeControls(board, margin, this.width - margin,
+                        layout().status().bottom() + 4));
+        int roomDown = floorOfTheFelt() - top - 6;
+        if (!theLogHasRoom() || roomDown < line * 3) {
+            return;
+        }
+
+        // Sized to what it has to say, not to a fraction of the window. This panel is read
+        // against the board - "who did that, and to what" is a question about the board - and
+        // two thirds of the window laid over it to show four lines of text answered the
+        // question by hiding the thing it was about.
+        Component title = Component.translatable("screen.gathering.table.log_title");
+        // The key the log is on now, as the key list says it. Written "L or Esc" it named a key
+        // that, after a rebind, closed nothing - or drew a card, with draw moved onto L.
+        Component logKey = TableShortcuts.label("show_log");
+        Component close = logKey == null
+                ? Component.translatable("screen.gathering.table.log_close_esc")
+                : Component.translatable("screen.gathering.table.log_close", logKey);
+        List<LogEntry> log = board.log();
+        // No + 1. The panel is a title line, the entries, and a footer line, and adding one
+        // back after dividing asked for a line more than there was room for - so the footer
+        // was drawn on top of the last thing that happened, which is the line anybody opening
+        // a log is looking for. At full size, this is the most there is ever room for.
+        int most = Math.max(1, (roomDown - line * 2 - 10) / line);
+        int from = Math.max(0, log.size() - most);
+        List<Component> recent = new ArrayList<>(log.size() - from);
+        int widest = Math.max(this.font.width(title), this.font.width(close));
+        for (int index = from; index < log.size(); index++) {
+            Component entry = GameLogText.render(board, log.get(index));
+            recent.add(entry);
+            widest = Math.max(widest, this.font.width(entry));
+        }
+        if (log.isEmpty()) {
+            widest = Math.max(widest, this.font.width(
+                    Component.translatable("screen.gathering.table.log_empty")));
+        }
+        // The whole log at one size: the size asked for, unless its widest line would not fit
+        // across the window at it, and never below full size for that reason alone. Each line
+        // used to be enlarged on its own wherever it fitted, so the short ones came out twice the
+        // size of the long ones in the same panel - and all of them were stepped ten pixels apart,
+        // so at 200% every enlarged line was printed through the next.
+        int across = Math.max(1, this.width - margin * 2 - 10);
+        float scale = Math.max(1f, Math.min(GuiText.askedScale(), across / (float) Math.max(1, widest)));
+        dev.gathering.core.ui.TextLines lines = new dev.gathering.core.ui.TextLines(this.font.lineHeight, scale, 1);
+        line = lines.pitch();
+        int room = Math.max(1, (roomDown - line * 2 - 10) / line);
+        List<Component> said = recent.subList(Math.max(0, recent.size() - room), recent.size());
+
+        int width = Math.min(this.width - margin * 2, Math.round(widest * scale) + 10);
+        int height = 4 + line + 2 + Math.max(1, said.size()) * line + line + 4;
+        Rect area = new Rect(
+                this.width - margin - width, top, width, Math.min(height, roomDown));
+
+        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+        int inside = area.width() - 10;
+        GuiText.drawUpTo(graphics, this.font, title, area.x() + 5, lines.drawY(area.y() + 4), inside, scale, ACCENT);
+        int first = area.y() + 4 + line + 2;
+        int y = first;
+        // Recorded as it is drawn rather than worked out again afterwards. A check that
+        // re-renders the log to see what the log says is a check that passes even when the
+        // panel draws nothing at all.
+        StringBuilder wrote = new StringBuilder();
+        for (Component entry : said) {
+            GuiText.drawUpTo(graphics, this.font, entry, area.x() + 5, lines.drawY(y), inside, scale, LABEL);
+            if (!wrote.isEmpty()) {
+                wrote.append(" / ");
+            }
+            wrote.append(entry.getString());
+            y += line;
+        }
+        logSaid = wrote.toString();
+        logScale = scale;
+        logPitch = line;
+        if (log.isEmpty()) {
+            // In the first entry's place, which is the line the panel has room for. Halfway between
+            // the first entry and the footer it ran into the footer at every size.
+            Component empty = Component.translatable("screen.gathering.table.log_empty");
+            GuiText.drawCenteredAt(graphics, this.font, empty, area.x() + area.width() / 2,
+                    lines.drawY(first), Math.min(scale, inside / (float) Math.max(1, this.font.width(empty))), DIM);
+        }
+        GuiText.drawUpTo(graphics, this.font, close, area.x() + 5, lines.drawY(area.bottom() - line - 2), inside, scale, DIM);
+    }
+
+    /** The size the log's lines were last drawn at and the step between them, for the scripted run. */
+    float logScale = 1f;
+    int logPitch;
+
+    /** The lines the log panel last actually put on the screen, for the scripted harness. */
+    String logSaid() {
+        return logSaid;
+    }
+
+    /** Whether the game log is open, for the scripted harness. */
+    boolean theLogIsShowing() {
+        return showingLog;
+    }
+
+    /** Whether the list of keys is open, for the scripted harness. */
+    boolean theKeyListIsShowing() {
+        return showingKeys;
+    }
+
+    /** Whether a line to the table is being typed, for the scripted harness. */
+    boolean typingToTheTable() {
+        return saying != null;
+    }
+
+    /**
+     * Whether there is room to open the log at all.
+     * <p>A real question: measured against the hand strip, a watcher has no hand, the height
+     * comes out negative and the log silently refuses to open.
+     * <p>Asked by the panel before it draws and by the scripted harness afterwards, from here
+     * rather than two copies - a harness holding its own copy of a rule goes on saying yes
+     * after the rule has moved, which is how a check stays green over a live fault.
+     */
+    boolean theLogHasRoom() {
+        return roomForTheLog() >= (this.font.lineHeight + 1) * 3;
+    }
+
+    /**
+     * The first line down the window at which a panel across this span covers no life total.
+     * <p>A life counter is the one thing on the felt that has to stay readable while
+     * something else is open over it - it is the number the thing being read is usually
+     * about.
+     */
+    private int clearOfTheLifeControls(GameView board, int from, int to, int top) {
+        int clear = top;
+        for (SeatView seat : board.seats()) {
+            Rect life = lifeBoxOf(seat.seat());
+            if (life.isEmpty() || life.right() <= from || life.x() >= to) {
+                continue;
+            }
+            if (life.bottom() > clear && life.y() < clear + this.font.lineHeight * 3) {
+                clear = life.bottom() + 4;
+            }
+        }
+        return clear;
+    }
+
+    /** How much window the log has to draw itself in, top to bottom. */
+    private int roomForTheLog() {
+        return floorOfTheFelt() - (layout().status().bottom() + 4) - 6;
+    }
+
+    /**
+     * How far down the window the felt goes before something else starts.
+     * <p>The hand, when there is one. A watcher holds no cards and the strip is not reserved
+     * for them, and a panel that measured itself against a hand that is not there came out
+     * with no height at all - so the one person at the table who most wants to read the log
+     * could not open it.
+     */
+    private int floorOfTheFelt() {
+        Rect hand = layout().hand();
+        return hand.isEmpty() ? this.height : hand.y();
+    }
+
+    /**
+     * Every key, in one place.
+     * <p>A Tabletop Simulator control scheme is a good one and a completely undiscoverable
+     * one: nothing on screen suggests that F turns a card over or that Home finds the table
+     * again. The bar along the bottom carries the handful people need in the first minute and
+     * this carries the rest, on the key every game uses for exactly this.
+     */
+    private void renderKeys(GuiGraphics graphics) {
+        int line = this.font.lineHeight + 1;
+        int margin = Math.max(4, this.width / 24);
+        int top = layout().status().bottom() + 4;
+        // Down to the bottom of the window, over the hand. The list used to stop where the
+        // hand starts, which on a short window left room for so few rows that it wrapped into
+        // three columns, and three columns of that width are narrower than half the lines in
+        // it - so the list that exists to teach the keys could not show what three of them
+        // do. Covering a hand nobody is playing while they read the help is the cheaper loss.
+        int available = this.height - top - margin;
+        // Room for a heading, two lines under it and the close hint, or there is no point.
+        // This used to floor `available` at forty and then test it against four lines, which
+        // with the vanilla font is exactly forty - so the guard could never fire and a
+        // forty-pixel panel drew twenty-two lines of help across the board.
+        if (available < line * 4) {
+            return;
+        }
+
+        // Columns sized to the text rather than by dividing the panel up. Dividing it made
+        // every line that did not fit shrink to suit, so the list came out in three different
+        // sizes - which is exactly the sort of thing that reads as unfinished however correct
+        // it is. Measured, the panel is as wide as it needs to be and nothing shrinks.
+        // How many lines a column really holds, measured the same way the draw loop stops:
+        // from the first line to `bottom`. Estimating it from the panel height instead
+        // over-counted, and the last column went on drawing past the close hint and out of
+        // the panel.
+        int firstLine = top + line + 2;
+        int lastLine = top + available - line - 6;
+        int perColumn = Math.max(1, (lastLine - firstLine) / line + 1);
+        int columns = Math.max(1, (linesOfKeyHelp() + perColumn - 1) / perColumn);
+        // Never more columns than the window can hold a legible line in. Text shrinks to fit
+        // its column but only down to the smallest size that is still letters, and past that
+        // it simply overran: at a large GUI scale the longest line was drawn a third of the
+        // way past the panel and off the side of the screen, cut mid-sentence. Columns only
+        // come off while what is left still has room for every line, so this can narrow the
+        // list but never lose a line of it.
+        // Measured once: every line of the key list through the font, which this used to do twice
+        // a frame for as long as the list was up.
+        int widest = widestKeyLine();
+        int leastColumn = Math.round(widest * dev.gathering.core.ui.TextScale.SMALLEST) + 14;
+        int acrossThatFit = Math.max(1, (this.width - margin * 2 - 10) / Math.max(1, leastColumn));
+        while (columns > acrossThatFit && (columns - 1) * perColumn >= linesOfKeyHelp()) {
+            columns--;
+        }
+        int columnWidth = widest + 14;
+        int wanted = Math.min(this.width - margin * 2, columns * columnWidth + 10);
+        columnWidth = Math.max(40, (wanted - 10) / columns);
+
+        // As tall as what is in it, rather than as tall as the window. Measuring against the
+        // window is right when the list fills it and reads as broken when it does not - a
+        // watcher's seven lines sat at the top of a panel four hundred pixels deep, which
+        // looks like a list that failed to load rather than a short one.
+        int rows = (linesOfKeyHelp() + columns - 1) / columns;
+        // A line of slack, because the draw loop breaks a column when the next line would
+        // pass the foot: sized to the row count exactly, one section's spacing tips the last
+        // line into a column that does not exist and it is drawn outside the panel.
+        available = Math.min(available,
+                line * (rows + 3) + keyHelp().size() * 2 + 12);
+
+        Rect area = new Rect((this.width - wanted) / 2, top - 4, wanted, available + 4);
+        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+
+        top = area.y() + 4;
+        int bottom = area.bottom() - line - 4;
+
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.table.keys_title"),
+                area.x() + 5, top, area.width() - 10, ACCENT);
+        top += line + 2;
+
+        // One size for the whole list, taken from its longest line. Fitting each line to the
+        // column on its own gave a list in as many sizes as it had lengths - three lines
+        // shrunk and twenty-two not - which reads as unfinished however correct each line is.
+        float scale = keyListScale(columnWidth - 12);
+
+        int column = 0;
+        int y = top;
+        for (String[] section : keyHelp()) {
+            // A heading with nothing under it is worse than a heading in the next column.
+            if (y + line * 2 > bottom && column + 1 < columns) {
+                column++;
+                y = top;
+            }
+            int x = area.x() + 5 + column * columnWidth;
+            GuiText.drawFlushLeft(graphics, this.font, keyLine(section[0]), x, y, scale, ACCENT);
+            y += line;
+            for (int index = 1; index < section.length; index++) {
+                if (y + line > bottom && column + 1 < columns) {
+                    column++;
+                    y = top;
+                    x = area.x() + 5 + column * columnWidth;
+                }
+                GuiText.drawFlushLeft(
+                        graphics, this.font, keyLine(section[index]), x + 6, y, scale, LABEL);
+                y += line;
+            }
+            y += 2;
+        }
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.table.keys_close"),
+                area.x() + 5, area.bottom() - line - 2, area.width() - 10, DIM);
+    }
+
+    /**
+     * The one size every line of the key list is drawn at.
+     * <p>Measured off the longest line rather than off each in turn, which is the rule the
+     * mat's own labels have followed since they were added. Remembered against the width it
+     * was worked out for, because the list is redrawn every frame it is open and the answer
+     * only changes when the window does.
+     */
+    private float keyListScale(int room) {
+        // And against the list it was worked out for: standing up mid-game swaps the seated list
+        // for the watcher's, on a window that has not changed size.
+        if (room != keyListRoom || keyHelp() != keyListFor) {
+            keyListRoom = room;
+            keyListFor = keyHelp();
+            Component longest = null;
+            int widest = -1;
+            for (String[] section : keyHelp()) {
+                for (String name : section) {
+                    Component line = keyLine(name);
+                    int width = this.font.width(line);
+                    if (width > widest) {
+                        widest = width;
+                        longest = line;
+                    }
+                }
+            }
+            keyListScale = longest == null ? 1f : GuiText.scaleForTheSet(this.font, longest, room);
+        }
+        return keyListScale;
+    }
+
+    private int keyListRoom = -1;
+    private List<String[]> keyListFor;
+    private float keyListScale = 1f;
+
+    /**
+     * One line of the key list, with the keys it names filled in from the real bindings.
+     * <p>Half this list used to be written out with the keys in it - "L - game log", "3 -
+     * scry", "Q and E - untap and tap". Those are the keys it shipped with, and they stayed on
+     * the screen after a player moved them, so the one panel whose entire job is answering
+     * "which key does this" answered with the wrong key to precisely the people who had cared
+     * enough to change it.
+     * <p>A line with no verbs is a line about something that cannot be rebound - the mouse,
+     * Escape, the camera keys - and is printed as it is written. The read key is not a table verb
+     * but the loader's own mapping, and is asked where the guide and the lesson ask it, so all
+     * three name the same key: this list said "Alt" after a rebind while the other two said the
+     * new one.
+     */
+    private static Component keyLine(String name) {
+        List<String> verbs = KEY_LIST_ACTIONS.get(name);
+        if (verbs == null) {
+            return Component.translatable(name);
+        }
+        Object[] keys = new Object[verbs.size()];
+        for (int at = 0; at < verbs.size(); at++) {
+            keys[at] = GuideScreen.keyLabel(verbs.get(at));
+        }
+        return Component.translatable(name, keys);
+    }
+
+    /** One line of the key list as it would be drawn now, for the scripted run. */
+    static Component keyLineForTesting(String name) {
+        return keyLine(name);
+    }
+
+    /**
+     * The fixed second key two verbs have beside their own: U for untapping everything, and Enter
+     * for the turn - the keys {@link #keyPressed} answers for them when nothing is bound there.
+     * <p>Named beside the verb's key only while no verb is bound to it, by {@link GuideScreen#keyLabel},
+     * which the key list and the guide both fill their keys from. A key the player gave a verb is that
+     * verb's and nothing else's, so with untap moved onto U the list's "1 or U - untap everything"
+     * named a key that now untapped one card. A verb whose own key is its second key is bound to it,
+     * so it is named once.
+     */
+    // statecheck: a constant list of keys
+    static final java.util.Map<String, Integer> SECOND_KEYS = java.util.Map.of(
+            "untap_all", org.lwjgl.glfw.GLFW.GLFW_KEY_U,
+            "pass_turn", org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER);
+
+    /**
+     * Which key-list lines have a key in them, and which verb's key that is.
+     * <p>The line is a sentence with a hole in it - "%s - draw a card" - and the hole is
+     * filled with what the verb is bound to when the list is drawn. A player who has moved
+     * draw onto Z reads "Z - draw a card", which is the only version of that sentence worth
+     * printing.
+     */
+    // statecheck: a constant list of keys
+    private static final java.util.Map<String, List<String>> KEY_LIST_ACTIONS =
+            java.util.Map.ofEntries(
+                    java.util.Map.entry("screen.gathering.table.key_untap", List.of("untap_all")),
+                    java.util.Map.entry("screen.gathering.table.key_draw", List.of("draw")),
+                    java.util.Map.entry("screen.gathering.table.key_shuffle", List.of("shuffle")),
+                    java.util.Map.entry("screen.gathering.table.key_palette", List.of("palette")),
+                    java.util.Map.entry("screen.gathering.table.key_log", List.of("show_log")),
+                    java.util.Map.entry("screen.gathering.table.key_mill", List.of("mill")),
+                    java.util.Map.entry("screen.gathering.table.key_pass", List.of("pass_turn")),
+                    java.util.Map.entry("screen.gathering.table.key_reveal", List.of("reveal")),
+                    java.util.Map.entry("screen.gathering.table.key_scry", List.of("scry")),
+                    java.util.Map.entry("screen.gathering.table.key_surveil", List.of("surveil")),
+                    java.util.Map.entry("screen.gathering.table.key_flip", List.of("turn_over")),
+                    java.util.Map.entry("screen.gathering.table.key_frame",
+                            List.of("show_everything")),
+                    // Two and three verbs on one line, because one line is how they read: the
+                    // pair that turn a card, and the three that send it away.
+                    java.util.Map.entry("screen.gathering.table.key_turn",
+                            List.of("untap", "tap")),
+                    java.util.Map.entry("screen.gathering.table.key_to_zones",
+                            List.of("to_exile", "to_graveyard", "to_library_bottom_random")),
+                    // Not a table verb: the read key is each loader's own mapping. See keyLine.
+                    java.util.Map.entry("screen.gathering.table.key_read", List.of("read")));
+
+    /**
+     * Whichever list this screen is teaching: the game's keys, the lesson's, or a watcher's.
+     * <p>Package-private so the scripted run can ask what the list offers rather than read it
+     * off a picture.
+     */
+    List<String[]> keyHelp() {
+        if (mode.isWatching()) {
+            return replayKeyHelp();
+        }
+        if (!mode.hasABlock()) {
+            return KEY_HELP_WITHOUT_A_BLOCK;
+        }
+        return mySeat().isPresent() ? KEY_HELP : KEY_HELP_WATCHING;
+    }
+
+    /**
+     * The replay's list, less any line of the transport whose key the log has been given: in a replay the log's key is
+     * the log before it is the transport's (see {@link #watcherPressed}), and "Space - play or pause" stayed on the
+     * list with the log on Space. The scrubber's own buttons still play, step and go to either end.
+     * <p>Only a log on the key the transport names, not on a scan code or a mouse button that shares its number: the
+     * log matches neither on that key's press, so the transport still has it.
+     * <p>The same list each time it is asked for until the log's key changes, so the size the list is drawn at is not
+     * worked out anew every frame: {@link #keyListScale} knows the list by which one it is.
+     */
+    private List<String[]> replayKeyHelp() {
+        com.mojang.blaze3d.platform.InputConstants.Key log = TableShortcuts.keyFor("show_log");
+        if (replayKeyHelp == null || !java.util.Objects.equals(log, replayKeyHelpFor)) {
+            replayKeyHelpFor = log;
+            int logKey = log == null || log.getType() != com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM
+                    ? org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN
+                    : log.getValue();
+            replayKeyHelp = REPLAY_TRANSPORT_KEYS.values().stream().flatMap(keys -> keys.stream())
+                    .noneMatch(key -> key == logKey)
+                    ? KEY_HELP_REPLAY
+                    : KEY_HELP_REPLAY.stream()
+                            .map(section -> java.util.Arrays.stream(section)
+                                    .filter(line -> !REPLAY_TRANSPORT_KEYS.getOrDefault(line, List.of()).contains(logKey))
+                                    .toArray(String[]::new))
+                            .toList();
+        }
+        return replayKeyHelp;
+    }
+
+    /** The replay's list as last worked out, and the key the log had then. */
+    private List<String[]> replayKeyHelp;
+    private com.mojang.blaze3d.platform.InputConstants.Key replayKeyHelpFor;
+
+    /** The replay's transport lines and the fixed keys each names. */
+    // statecheck: a constant list of keys
+    private static final java.util.Map<String, List<Integer>> REPLAY_TRANSPORT_KEYS = java.util.Map.of(
+            "screen.gathering.replay.key_play", List.of(org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE),
+            "screen.gathering.replay.key_step",
+            List.of(org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT),
+            "screen.gathering.replay.key_ends",
+            List.of(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, org.lwjgl.glfw.GLFW.GLFW_KEY_END));
+
+    /** How many lines the whole key list wants, headings included. */
+    private int linesOfKeyHelp() {
+        int lines = 0;
+        for (String[] section : keyHelp()) {
+            lines += section.length;
+        }
+        return lines;
+    }
+
+    /**
+     * Which of a seat's zone slots a point is over, or -1 for none of them.
+     * <p>Its own method because two different things have to agree about it and neither can
+     * see the other: {@code pileAt} decides, walking slot rectangles, and {@code pileRect}
+     * draws. They are built from the same arithmetic and could still drift - a count passed
+     * to one and not the other is enough - and the symptom is a card that lands in a zone the
+     * felt never lit up, which reads as the highlight being broken rather than as the two
+     * disagreeing. See {@link #slotUnder}, which the scripted run uses to check exactly that.
+     */
+    private int slotAimedAt(SeatId landing, double[] at) {
+        return board().pileAt(landing, pileCount(), at[0], at[1]);
+    }
+
+    /**
+     * The same question asked from outside a frame, for the harness.
+     * <p>A held card's aim cannot be scripted directly: the board works out what is under a
+     * card in the air from the cursor the game hands it while drawing, and moving the real
+     * cursor mid-drag does not reach a frame that already has a button held. So the run
+     * checks the half that decides everything instead - that aiming at the middle of a slot's
+     * own drawn rectangle names that slot.
+     *
+     * @return the slot index, or -1 if that point is on no slot of that seat
+     */
+    int slotUnder(SeatId seat, int screenX, int screenY) {
+        double[] at = coveredByTheStrip(screenY) ? null : pointer(screenX, screenY);
+        return at == null ? -1 : slotAimedAt(seat, at);
+    }
+
+    /** The longest line in the key list, so a column can be built to hold it whole. */
+    private int widestKeyLine() {
+        int widest = 0;
+        for (String[] section : keyHelp()) {
+            for (String key : section) {
+                widest = Math.max(widest, this.font.width(keyLine(key)));
+            }
+        }
+        return widest;
+    }
+
+    /**
+     * The card in the air, drawn under the cursor exactly where it would land.
+     * <p>Same size and angle as it will have once dropped, so the drag is a preview rather
+     * than a promise, and an outline on the mat it would land on so you can see whose side you
+     * are about to put it on.
+     */
+    private void renderHeldCard(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
+        if (gesture.held() == null) {
+            aimReport = "nothing held";
+            aimedSlotLastFrame = -1;
+            ClientTableHighlight.aimAt(table, null, -1);
+            ClientTableHighlight.landingOn(table, null);
+            return;
+        }
+        checkLongHold(board);
+        TableGesture.Held held = gesture.held();
+        CardView card = held.card() == null ? null : findCard(board, held.card()).orElse(null);
+        if (card == null && !held.whole()) {
+            aimReport = "held a card the view has no answer for";
+            return;
+        }
+        // Over the strip along the top of the flat board is nobody's mat, because a card let go
+        // there stays where it was: see the drop.
+        double[] at = coveredByTheStrip(mouseY) ? null : pointer(mouseX, mouseY);
+        SeatId landing = at == null ? null : board().seatAt(at[0], at[1]);
+        int aimedSlot = -1;
+
+        if (landing != null && at != null) {
+            int slot = slotAimedAt(landing, at);
+            aimedSlot = slot;
+            aimReport = "cursor " + mouseX + "," + mouseY
+                    + " -> board " + Math.round(at[0]) + "," + Math.round(at[1])
+                    + " seat " + landing.index() + " slot " + slot + " of " + pileCount()
+                    + "; lit " + (litSeat == null ? "nothing" : litSeat.index() + " slot " + litPile);
+            ClientTableHighlight.aimAt(table, landing, slot);
+        } else {
+            aimReport = "cursor " + mouseX + "," + mouseY + " is on nobody's mat";
+            ClientTableHighlight.aimAt(table, null, -1);
+        }
+        aimedSlotLastFrame = aimedSlot;
+        // Whose side of the table it would land on, which the board on the block draws as a
+        // lit mat. Most of a mat is not a zone, so aiming alone left a card being dragged
+        // across the felt with nothing at all saying where it was about to go.
+        ClientTableHighlight.landingOn(table, landing);
+
+        // The mat it would land on, outlined, so you can see whose side you are about to put
+        // it on. Only on the seated screen: the mats on the block are measured on the table
+        // and there is nothing honest to draw them over here.
+        if (landing != null && !playingOnTheBlock) {
+            Rect mat = board().matRect(landing);
+            GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                    mat.x(), mat.y(), mat.width(), mat.height());
+        }
+
+        // The card in the air is always drawn on the screen, at the size a card is on the
+        // screen. It is the one thing that is genuinely in the player's hand rather than on
+        // the table, and a card held over a table is not lying on it.
+        SeatId sizedFor = landing != null ? landing : held.from();
+        Rect comingDownOn = playingOnTheBlock
+                ? centeredOnCursor(mouseX, mouseY, sizedFor)
+                : centered(mouseX - held.grabX(), mouseY - held.grabY(),
+                        board().cardWidth(sizedFor), board().cardHeight(sizedFor));
+
+        // Where it would come down, cast on the table, and the card itself held up off it.
+        // Two things at once: picking a card up looks like picking it up rather than like the
+        // card teleporting to the cursor, and the shadow is the footprint - so the answer to
+        // "where is this going" is drawn on the felt, at the size and shape it will be, while
+        // the question is still being asked.
+        //
+        // Shape included: a tapped card stays tapped through the move and lands sideways, so
+        // its footprint lies sideways too. An upright shadow under a card about to come down
+        // landscape was a promise the landing broke.
+        boolean tappedInAir = card != null && card.tapped()
+                && !(held.whole() && held.fromPile() != null);
+        Rect footprint = tappedInAir
+                ? centered((int) Math.round(comingDownOn.centerX()),
+                        (int) Math.round(comingDownOn.centerY()),
+                        comingDownOn.height(), comingDownOn.width())
+                : comingDownOn;
+        // Aimed at a zone, the footprint is that zone's own box rather than a card-sized
+        // rectangle under the cursor. Reported as "still hard to see where placing card ie
+        // graveyard is smaller than the card so you cant see its going in" - and it was
+        // exactly that: on a two-player board the column of four zones is shrunk to fit a mat
+        // twice as wide as it is deep, so the card being dragged is bigger than the slot it
+        // is going into and covers the slot, its highlight and its own shadow. Snapping the
+        // footprint into the slot is the drop drawn at the size the drop actually is.
+        if (landing != null && aimedSlot >= 0 && !playingOnTheBlock) {
+            Rect slot = board().pileRect(landing, aimedSlot, pileCount());
+            if (!slot.isEmpty()) {
+                footprint = slot;
+            }
+        }
+        // Over a card, the footprint is the stack it would join, ringed: the drop snaps onto the
+        // stack, so where the stack stands is where it is drawn coming down. On the block the ring
+        // is the lit card under the cursor, which the world draws.
+        StackTarget onto = landing == null || aimedSlot >= 0
+                ? null : stackTargetAt(board, landing, mouseX, mouseY, held);
+        if (onto != null && !playingOnTheBlock) {
+            Rect stack = board().rectOf(landing, onto.base());
+            footprint = tappedInAir
+                    ? centered((int) Math.round(stack.centerX()), (int) Math.round(stack.centerY()),
+                            stack.height(), stack.width())
+                    : stack;
+            GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                    onto.where().x(), onto.where().y(), onto.where().width(), onto.where().height());
+        }
+        int lift = Math.max(3, comingDownOn.height() / 8);
+        GatheringSprites.draw(graphics, Element.CARD_CAST,
+                footprint.x(), footprint.y(), footprint.width(), footprint.height());
+        // And the footprint's own edge, drawn over the shadow so the two sides the card is
+        // lifted away from say where it lands as well as the two the shadow shows on. A
+        // shadow alone is only ever visible down one corner - which is a drop shadow, which
+        // is the thing this is not.
+        GatheringSprites.draw(graphics, Element.CARD_FOOTPRINT,
+                footprint.x(), footprint.y(), footprint.width(), footprint.height());
+
+        Rect airborne = new Rect(comingDownOn.x() - lift, comingDownOn.y() - lift,
+                comingDownOn.width(), comingDownOn.height());
+        graphics.pose().pushPose();
+        graphics.pose().translate(0f, 0f, LIFT);
+        if (held.whole() && held.fromPile() != null) {
+            drawHeldPile(graphics, board, card, airborne);
+        } else if (card != null) {
+            drawCard(graphics, card, CardSleeves.of(board, held.from()), airborne,
+                    tappedInAir ? TablePosition.QUARTER_TURN : 0, false, false);
+        }
+        graphics.pose().popPose();
+    }
+
+    /**
+     * A whole pile in the air: the pile, drawn as a pile, with how many are in it.
+     * <p>Offset copies behind the top card rather than one card with a number stuck on it,
+     * because the difference between carrying a card and carrying a graveyard has to be
+     * visible at a glance - the drop is the same gesture either way and the only warning is
+     * what it looks like.
+     */
+    private void drawHeldPile(GuiGraphics graphics, GameView board, CardView top, Rect airborne) {
+        ZoneView contents = board.seat(gesture.held().from()).zone(gesture.held().fromPile());
+        int count = contents == null ? 0 : contents.count();
+        int step = Math.max(2, airborne.height() / 24);
+        for (int behind = Math.min(3, count - 1); behind >= 1; behind--) {
+            int offset = behind * step;
+            CardSleeves.draw(graphics, CardSleeves.of(board, gesture.held().from()),
+                    airborne.x() + offset, airborne.y() - offset,
+                    airborne.width(), airborne.height());
+        }
+        if (top != null) {
+            drawCard(graphics, top, CardSleeves.of(board, gesture.held().from()), airborne, 0, false, false);
+        } else {
+            CardSleeves.draw(graphics, CardSleeves.of(board, gesture.held().from()),
+                    airborne.x(), airborne.y(), airborne.width(), airborne.height());
+        }
+        drawCountInTheCorner(graphics, airborne, count);
+    }
+
+    private static Rect centered(int middleX, int middleY, int width, int height) {
+        return new Rect(middleX - width / 2, middleY - height / 2, width, height);
+    }
+
+    /**
+     * The card in the air over the board on the block, at the size a card is on that board.
+     * <p>At the board's size, not the hand's: a card in the hand is about two and a half times
+     * a card on the table, so picking one up balloons it over the place it is going.
+     * <p>Asked of the camera rather than a constant. How big a card is on the block depends on
+     * eye height, which spans an eleven-fold range, so a fixed conversion is right at one zoom
+     * and four times or a quarter of the cards underneath it everywhere else.
+     */
+    private Rect centeredOnCursor(int mouseX, int mouseY, SeatId sizedFor) {
+        double blocks = board().surface().cardHeightOn(sizedFor.index())
+                / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS;
+        int height = Math.max(24, (int) Math.round(blocks * TableCameraView.pixelsPerBlock()));
+        int width = Math.max(16, CardShape.widthFor(height));
+        return new Rect(mouseX - width / 2, mouseY - height / 2, width, height);
+    }
+
+    // ---------------------------------------------------------------- input
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int x = (int) mouseX;
+        int y = (int) mouseY;
+
+        // The "?" first. Everything below treats the top row as felt - a press there starts a box
+        // selection - so a button drawn on it was a button no click could reach.
+        if (guideButton != null && guideButton.visible && guideButton.isMouseOver(mouseX, mouseY)
+                && menu == null && palette == null) {
+            return guideButton.mouseClicked(mouseX, mouseY, button);
+        }
+
+        if (mode.isWatching()) {
+            return watcherClicked(x, y, button);
+        }
+
+        // The palette eats every click while it is up, for the same reason the menu does:
+        // clicking away from it would otherwise also move whatever was underneath.
+        if (palette != null) {
+            palette.mouseClicked(this.font,
+                    palette.at(this.font, this.width, this.height, layout().status().bottom()),
+                    mouseX, mouseY);
+            if (palette.finished()) {
+                palette = null;
+            }
+            return true;
+        }
+        // An open menu eats every click, including the one that dismisses it - otherwise
+        // clicking away from a menu also does whatever was underneath.
+        if (menu != null) {
+            ContextMenu open = menu;
+            menu = null;
+            // Eaten whether it landed on a row or off the menu: the miss used to fall
+            // through and do whatever was under it, which was never what a click meant to
+            // put a menu away was for.
+            open.mouseClicked(x, y);
+            return true;
+        }
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        if ((showingLog || showingKeys) && layout().isOnFelt(x, y)) {
+            // Either panel is covering the table; the first click puts it away rather than
+            // doing something to a card the player cannot see.
+            showingLog = false;
+            showingKeys = false;
+            return true;
+        }
+
+        // A button drawn on the board, before the board's own hit tests. Everything below reads
+        // a press anywhere off the hand as a press on the table - a card, a mat, or the felt,
+        // which starts a box - so the lesson's Back, Skip this, Restart and Leave, which sit on
+        // the felt under its instruction, lit up under the cursor and did nothing when clicked:
+        // the felt took the click first. The "?" above had the same fault and was given its own
+        // line; this is the rule rather than another exception. After the menus, the palette and
+        // the two panels, because those are drawn over the buttons and take the click first.
+        // The left button only: a right-click on one still opens the felt's menu, and a middle
+        // drag still pans. Not where the hand is over a button: the hand is drawn over them, so a
+        // card fanned across one takes the click, as it looks to. And a button is not a card, so a
+        // press on one puts a half-finished attach away, as any press off a card does - Restart
+        // or Back used to leave it armed over a board that had changed under it.
+        if (button == 0 && cardInHandAt(board, x, y).isEmpty() && pressAWidgetAt(mouseX, mouseY, button)) {
+            attaching = List.of();
+            return true;
+        }
+
+        // Middle-drag pans, which is what it does in every table simulator.
+        if (button == 2) {
+            gesture.startPan(x, y);
+            return true;
+        }
+
+        Placed onTable = frontMostAt(board, everythingOnTheTable(board), x, y);
+        if (!attaching.isEmpty()) {
+            // Anywhere but a card cancels, which is what clicking off a half-finished thing
+            // should always do.
+            if (onTable != null) {
+                finishAttaching(onTable.card());
+            } else {
+                attaching = List.of();
+            }
+            return true;
+        }
+        if (onTable != null) {
+            return pressCard(board, onTable.card(), onTable.seat(), onTable.where(), false, x, y, button);
+        }
+
+        Optional<CardView> inHand = cardInHandAt(board, x, y);
+        if (inHand.isPresent()) {
+            return pressCard(board, inHand.get(), mySeat().orElseThrow(),
+                    handSlotOf(board, inHand.get()), true, x, y, button);
+        }
+
+        // Before the piles and before the felt: a button is a small target on top of a mat,
+        // and anything that answered first would swallow it.
+        SeatId mine = mySeat().orElse(null);
+        if (button == 0 && mine != null && pressVerb(mine, x, y)) {
+            return true;
+        }
+        // The life counters sit off the mats entirely, so nothing else is competing for the
+        // point - but they are still asked before the felt, which would otherwise read a
+        // press on one as the start of a box selection.
+        if (mine != null && pressLife(board, x, y, button)) {
+            return true;
+        }
+
+        SeatId pileSeat = pileSeatAt(board, x, y);
+        if (pileSeat != null) {
+            return pressPile(board, pileSeat, pileZoneAt(board, x, y), x, y, button);
+        }
+
+        if (layout().isOnFelt(x, y)) {
+            if (button == 1) {
+                openTableMenu(x, y);
+                return true;
+            }
+            // Empty table: drag out a box to pick several cards, or click to let them go.
+            if (button == 0) {
+                selected.clear();
+                gesture.startBox(x, y);
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /**
+     * Presses whichever of this screen's own buttons is drawn under the point, if one is.
+     * <p>The widget is asked directly, as the "?" is, rather than through {@code super.mouseClicked}:
+     * that would also give the button keyboard focus, and the board binds nothing to Space, so the
+     * next Space anybody pressed would press the last button they clicked a second time. A button
+     * that is drawn there and grayed still takes the click, so a press on it does nothing rather
+     * than reaching the felt beneath.
+     *
+     * @return whether a button was there, pressed or not
+     */
+    private boolean pressAWidgetAt(double mouseX, double mouseY, int button) {
+        for (net.minecraft.client.gui.components.events.GuiEventListener child : children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget
+                    && widget.visible
+                    && mouseX >= widget.getX() && mouseX < widget.getX() + widget.getWidth()
+                    && mouseY >= widget.getY() && mouseY < widget.getY() + widget.getHeight()) {
+                widget.mouseClicked(mouseX, mouseY, button);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean pressCard(
+            GameView board, CardView card, SeatId seat, Rect where,
+            boolean fromHand, int x, int y, int button) {
+        if (!(card instanceof CardView.Visible visible) || mySeat().isEmpty()) {
+            return true;
+        }
+        if (button == 1) {
+            openCardMenu(board, visible, fromHand, x, y);
+            return true;
+        }
+        if (button == 0) {
+            // Shift picks cards out one at a time rather than picking one up, which is the
+            // gesture everything else with a selection uses.
+            if (hasShiftDown() && !fromHand) {
+                if (!selected.remove(visible.id())) {
+                    selected.add(visible.id());
+                }
+                return true;
+            }
+            if (!fromHand && !selected.isEmpty() && !selected.contains(visible.id())) {
+                // Grabbing something outside the selection means that was the selection you
+                // meant, not the one you forgot to clear.
+                selected.clear();
+            }
+            gesture.pickUp(grab(visible.id(), seat, fromHand, where, x, y));
+            return true;
+        }
+        return true;
+    }
+
+    /**
+     * Picks a card up, remembering where on it the cursor took hold.
+     * <p>The offset is the whole reason a drag feels right: a card that snaps its corner to
+     * the cursor jumps out from under your finger the moment you touch it. A card coming out
+     * of the hand has no such offset to keep - its slot in the fan is not where it is going -
+     * so it takes the cursor by the middle, which is where you would expect to be holding it.
+     */
+    private TableGesture.Held grab(
+            CardInstanceId card, SeatId seat, boolean fromHand, Rect where, int x, int y) {
+        return grab(card, seat, fromHand, null, where, x, y);
+    }
+
+    private TableGesture.Held grab(
+            CardInstanceId card, SeatId seat, boolean fromHand, Zone fromPile,
+            Rect where, int x, int y) {
+        long now = ClientCardFlights.now();
+        double[] at = fromHand ? null : pointer(x, y);
+        // On the block the card takes the cursor by the middle too: the grab offset there is
+        // in table units while the airborne card is drawn in screen pixels, and carrying the
+        // offset through only one of the two promised a landing the drop did not honor - the
+        // card came down displaced by the grab, off the drawn footprint.
+        if (at == null || playingOnTheBlock) {
+            // Straight from the hand, or from somewhere the table cannot answer for: the card
+            // takes the cursor by the middle, which is where you would expect to be holding it.
+            return new TableGesture.Held(card, seat, fromHand, fromPile, 0, 0, x, y, now, false);
+        }
+        return new TableGesture.Held(card, seat, fromHand, fromPile,
+                (int) Math.round(at[0] - where.centerX()),
+                (int) Math.round(at[1] - where.centerY()), x, y, now, false);
+    }
+
+    /**
+     * Turns a press that has been held still into a hold on the whole pile or the whole stack.
+     * <p>The gesture a physical table has: a finger on the top card slides that card, a flat
+     * hand held a moment picks the pile up. Nothing is sent - only what the release will mean
+     * changes, so deciding against it is letting go somewhere harmless.
+     * <p>Asked once a frame from the drawing, the only place that runs while a button is
+     * merely held. Whether the hand wandered is latched by the drag events rather than read
+     * off the cursor, so a press that produced none never moved.
+     */
+    private void checkLongHold(GameView board) {
+        if (!gesture.isDueForAHold(ClientCardFlights.now())) {
+            return;
+        }
+        TableGesture.Held held = gesture.held();
+        if (held.fromPile() != null) {
+            // A pile with one card in it is a card; there is nothing for the gesture to mean.
+            ZoneView contents = board.seat(held.from()).zone(held.fromPile());
+            if (contents == null || contents.count() < 2) {
+                gesture.refuseWhole();
+                return;
+            }
+            // Emptying somebody else's library into the open would show you the whole thing,
+            // so the table refuses it. Refused here as well as there: a gesture that arms,
+            // draws a pile in the air and then does nothing on release is worse than one that
+            // never arms at all.
+            if (held.fromPile().isHidden() && !held.from().equals(mySeat().orElse(null))) {
+                gesture.refuseWhole();
+                return;
+            }
+            gesture.holdWhole();
+            GatheringButtons.clickSound();
+            return;
+        }
+        // On the felt: everything on the same spot, which is what a stack of cards is when
+        // there is no stack type in the game - two cards dropped on one spot are a stack, and
+        // the rule for how close counts is the same one that draws them leaning.
+        List<CardInstanceId> stack = stackedWith(board, held.from(), held.card());
+        if (stack.size() < 2) {
+            gesture.refuseWhole();
+            return;
+        }
+        selected.clear();
+        selected.addAll(stack);
+        gesture.holdWhole();
+        GatheringButtons.clickSound();
+    }
+
+    /**
+     * Every card this client may name lying on the same spot as this one, itself included.
+     * <p>Asked of where the cards are rather than of where they are drawn. What is drawn is
+     * staggered - that is what makes a pile read as a pile - so a hit test against the drawn
+     * rectangles finds the top card and misses everything leaning out from under it, which is
+     * the whole stack bar one.
+     */
+    private List<CardInstanceId> stackedWith(GameView board, SeatId seat, CardInstanceId card) {
+        if (card == null) {
+            return List.of();
+        }
+        // The same stacks the board draws, from the same rule: every card whose stack stands on
+        // the same bottom card. Asked pair by pair against the card pressed, a stack whose cards
+        // had crept a little apart came up without its far end.
+        for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+            if (!mat.seat().equals(seat)) {
+                continue;
+            }
+            int pressed = -1;
+            for (int index = 0; index < mat.cards().size(); index++) {
+                if (mat.cards().get(index) instanceof CardView.Visible visible && visible.id().equals(card)) {
+                    pressed = index;
+                    break;
+                }
+            }
+            if (pressed < 0 || mat.cards().get(pressed).placedAt().isEmpty()) {
+                return List.of();
+            }
+            int base = mat.piles().baseOf(pressed);
+            List<CardInstanceId> found = new ArrayList<>();
+            for (int index = 0; index < mat.cards().size(); index++) {
+                if (mat.piles().baseOf(index) == base && mat.cards().get(index).placedAt().isPresent()
+                        && mat.cards().get(index) instanceof CardView.Visible visible) {
+                    found.add(visible.id());
+                }
+            }
+            return found;
+        }
+        return List.of();
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (replayControls.dragging()) {
+            replayControls.drag(replayStrip(), (int) mouseX);
+            return true;
+        }
+        if (gesture.isPanning() && button == 2) {
+            pan(dragX, dragY);
+            return true;
+        }
+        // A press that has wandered is a drag, and stays one. Latched here rather than read
+        // off the cursor while drawing, because a drag that happens to pass back over where
+        // it started is still a drag and must not become a long hold when the hand comes home.
+        gesture.dragged((int) mouseX, (int) mouseY);
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (replayControls.release()) {
+            return true;
+        }
+        if (button == 2 && gesture.endPan()) {
+            return true;
+        }
+        // Only the button that drew the box ends it. Letting go of a right-click - the table's menu,
+        // pressed while a box was out - used to select whatever the half-drawn box covered.
+        TableGesture.Start from = button == 0 ? gesture.endBox() : null;
+        if (from != null) {
+            view().ifPresent(board ->
+                    selectWithin(board, boxBetween(from.x(), from.y(), (int) mouseX, (int) mouseY)));
+            return true;
+        }
+        if (gesture.held() == null) {
+            return super.mouseReleased(mouseX, mouseY, button);
+        }
+        // The button that picked it up is the one that puts it down. A right button released
+        // mid-drag used to drop the card wherever that happened.
+        if (button != 0) {
+            return true;
+        }
+        TableGesture.Held dropped = gesture.putDown();
+
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return true;
+        }
+        int x = (int) mouseX;
+        int y = (int) mouseY;
+
+        if (layout().hand().contains(x, y)) {
+            if (dropped.whole() && dropped.fromPile() != null) {
+                sendWholePile(dropped, me, ZoneRef.of(me, Zone.HAND), Placement.BOTTOM);
+            } else if (dropped.fromHand()) {
+                // Out of the hand and back into it somewhere else: the hand in a new order.
+                // Only once it has really moved - a press on the overlapped edge of a card
+                // lands nearer the next card's place, and a click must not shuffle the hand.
+                if (dropped.hasMoved(x, y)) {
+                    view().ifPresent(board -> reorderMyHand(board, me, dropped.card(), x));
+                }
+            } else {
+                for (CardInstanceId card : movingWith(dropped)) {
+                    send(new GameEvent.CardMoved(
+                            me, card, ZoneRef.of(me, Zone.HAND), Placement.BOTTOM));
+                }
+                selected.clear();
+            }
+            return true;
+        }
+
+        // A press on a pile that never moved was a click on the pile after all - unless it
+        // was held long enough to have picked the pile up, in which case letting go where it
+        // started is putting it back, and putting it back is doing nothing.
+        if (dropped.fromPile() != null && !dropped.whole() && !dropped.hasMoved(x, y)) {
+            if (clickPile(me, dropped.from(), dropped.fromPile())) {
+                GatheringButtons.clickSound();
+            }
+            return true;
+        }
+
+        // A pile whose top this client may not name, dragged rather than held: there is
+        // nothing in the air to put down.
+        if (dropped.card() == null && !dropped.whole()) {
+            return true;
+        }
+
+        // What letting go here means, decided in the pure module so every combination of the
+        // four booleans is covered by a test - see DropMeaning. The rule it holds is that a
+        // press which never moved is a card picked up and put back and nothing else: it used
+        // to tap, which made the plainest gesture on the table mean two things at once.
+        if (dev.gathering.core.ui.DropMeaning.of(
+                dropped.fromHand(), dropped.fromPile() != null, dropped.whole(),
+                dropped.hasMoved(x, y)) == dev.gathering.core.ui.DropMeaning.NOTHING) {
+            return true;
+        }
+
+        // Whose mat it landed on is where it goes. Stealing a creature is dragging it to your
+        // own side of the table, and the move event falls out of that rather than out of a
+        // mode somebody had to set first.
+        double[] at = coveredByTheStrip(y) ? null : pointer(x, y);
+        if (at == null) {
+            // Let go somewhere that is not the table at all, or over the strip of names that covers
+            // the top of the flat board. The card stays where it was. Put down under the strip, it
+            // lay where nothing is drawn - and, since nothing there may be pressed, where nothing
+            // could pick it up again until the view was moved.
+            return true;
+        }
+
+        // Whose mat it landed on is decided by where the cursor is, not by where the card's
+        // middle would end up. Asking about the card meant a drop near an edge - where the
+        // card overhangs and its middle is off the mat - was silently refused, which reads as
+        // the table ignoring you.
+        SeatId landing = board().seatAt(at[0], at[1]);
+        if (landing == null) {
+            return true;
+        }
+
+        // A zone catches the card before the felt does, so putting something in the graveyard
+        // is dropping it on the graveyard.
+        int zone = board().pileAt(landing, pileCount(), at[0], at[1]);
+        if (zone >= 0) {
+            ZoneRef into = ZoneRef.of(landing, Zone.PILES.get(zone));
+            if (dropped.whole() && dropped.fromPile() != null) {
+                sendWholePile(dropped, me, into, Placement.TOP);
+            } else {
+                // Everything that came with it goes with it. A selection dropped on a zone
+                // used to send one move and quietly leave the rest on the felt, which reads
+                // as the table having eaten the other four.
+                for (CardInstanceId card : movingWith(dropped)) {
+                    send(new GameEvent.CardMoved(me, card, into, Placement.TOP));
+                }
+            }
+            selected.clear();
+            return true;
+        }
+
+        TablePosition where = board().positionOn(
+                landing, at[0] - dropped.grabX(), at[1] - dropped.grabY());
+        // Let go over a card, it goes on that card's stack: exactly where the stack stands, not
+        // wherever the cursor happened to be over it. Put down by hand, a card on a stack landed
+        // a little off it, and a little off is either beside the stack or a stack of its own.
+        StackTarget onto = view().map(board -> stackTargetAt(board, landing, x, y, dropped)).orElse(null);
+        if (onto != null) {
+            where = TablePosition.of(onto.base().x(), onto.base().y(), where.rotation());
+        }
+        if (dropped.whole() && dropped.fromPile() != null) {
+            sendWholePile(dropped, me, ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(where));
+            selected.clear();
+            return true;
+        }
+        if (!dropped.fromHand() && dropped.fromPile() == null && selected.contains(dropped.card())) {
+            dropGroup(dropped, landing, where, me);
+        } else {
+            // A card already angled on the felt keeps its angle through a drag. The fresh
+            // position carries rotation 0, and sending that snapped a turned card upright -
+            // while dragging it as part of a selection preserved the angle, so the same
+            // gesture did two different things depending on how many cards came along.
+            if (!dropped.fromHand() && dropped.fromPile() == null) {
+                TablePosition previous = findCard(view().orElse(null), dropped.card())
+                        .flatMap(CardView::placedAt)
+                        .orElse(null);
+                if (previous != null) {
+                    where = where.rotatedTo(previous.rotation());
+                }
+            }
+            send(new GameEvent.CardMoved(
+                    me, dropped.card(), ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(where)));
+        }
+        return true;
+    }
+
+    /** A stack a card being carried would go onto: its top card, where that is drawn, and where the stack stands. */
+    private record StackTarget(SeatId seat, CardView top, Rect where, TablePosition base) {
+    }
+
+    /**
+     * The stack under the cursor that a card let go of here would join, or null.
+     * <p>The front-most card at the cursor on the mat it would land on, other than the ones being
+     * carried and other than a card attached to something - an aura is placed by attaching it,
+     * and dropping a card on one should not stack it under the creature. Its stack's bottom card
+     * says where the stack stands.
+     */
+    private StackTarget stackTargetAt(GameView board, SeatId landing, int x, int y, TableGesture.Held held) {
+        if (landing == null || held == null) {
+            return null;
+        }
+        java.util.Set<CardInstanceId> carried = new java.util.HashSet<>(movingWith(held));
+        for (Placed placed : everythingAtOrNothing(board, x, y)) {
+            if (!placed.seat().equals(landing) || placed.card().host().isPresent()
+                    || (placed.card() instanceof CardView.Visible visible && carried.contains(visible.id()))) {
+                continue;
+            }
+            for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+                if (!mat.seat().equals(landing)) {
+                    continue;
+                }
+                int index = mat.cards().indexOf(placed.card());
+                if (index < 0) {
+                    continue;
+                }
+                TablePosition base = mat.cards().get(mat.piles().baseOf(index)).placedAt().orElse(null);
+                return base == null ? null : new StackTarget(landing, placed.card(), placed.where(), base);
+            }
+            return null;
+        }
+        return null;
+    }
+
+    /** Everything at a point, front-most first, or nothing when the point is not on the felt. */
+    private List<Placed> everythingAtOrNothing(GameView board, int x, int y) {
+        return everythingAt(everythingOnTheTable(board), x, y);
+    }
+
+    /** The table this board is of. For the harness. */
+    BlockPos tablePosition() {
+        return table;
+    }
+
+    /** Where the hand is fanned on this screen as it is laid out now. For the harness. */
+    Rect handArea() {
+        return layout().hand();
+    }
+
+    /** The stack the card in the air would join if let go now, for the harness: null when none. */
+    TablePosition stackTheCardWouldJoin() {
+        TableGesture.Held held = gesture.held();
+        GameView board = view().orElse(null);
+        if (held == null || board == null) {
+            return null;
+        }
+        double[] at = coveredByTheStrip(cursorY) ? null : pointer(cursorX, cursorY);
+        SeatId landing = at == null ? null : board().seatAt(at[0], at[1]);
+        StackTarget onto = stackTargetAt(board, landing, cursorX, cursorY, held);
+        return onto == null ? null : onto.base();
+    }
+
+    /**
+     * Which cards a drop is carrying: the selection when this card is part of it, else itself.
+     * <p>Only for cards already on the felt. One coming out of a hand or off a pile is the one
+     * card that was picked up, whatever else happens to be selected.
+     */
+    private List<CardInstanceId> movingWith(TableGesture.Held dropped) {
+        if (dropped.card() == null) {
+            return List.of();
+        }
+        if (dropped.fromHand() || dropped.fromPile() != null || !selected.contains(dropped.card())) {
+            return List.of(dropped.card());
+        }
+        return List.copyOf(selected);
+    }
+
+    /**
+     * Puts a whole pile down somewhere, as one act rather than as forty moves.
+     * <p>One event, naming the pile and not its contents. That is what lets a library be
+     * moved at all: nobody may name the cards in one, so a client that had to list them could
+     * not ask - and it is what keeps the log to a line and undo to a step.
+     */
+    private void sendWholePile(TableGesture.Held dropped, SeatId me, ZoneRef to, Placement placement) {
+        if (dropped.fromPile() == null || to.equals(ZoneRef.of(dropped.from(), dropped.fromPile()))) {
+            return;
+        }
+        send(new GameEvent.ZoneMoved(me, dropped.from(), dropped.fromPile(), to, placement));
+    }
+
+    /**
+     * Puts a whole selection down, keeping the arrangement it was in.
+     * <p>One delta for all of them, trimmed until every card fits on the mat - so a group
+     * shoved into a corner slides along the edge instead of collapsing into a single pile,
+     * which is what clamping each card on its own would do to a board somebody spent the game
+     * building.
+     */
+    private void dropGroup(TableGesture.Held dropped, SeatId landing, TablePosition where, SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return;
+        }
+        List<CardView> moving = selectedOn(board);
+        TablePosition before = findCard(board, dropped.card()).flatMap(CardView::placedAt).orElse(null);
+        if (before == null || moving.isEmpty()) {
+            send(new GameEvent.CardMoved(
+                    me, dropped.card(), ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(where)));
+            return;
+        }
+
+        List<TablePosition> spots = new ArrayList<>(moving.size());
+        for (CardView card : moving) {
+            spots.add(card.placedAt().orElse(null));
+        }
+        List<TablePosition> after = TableDrag.movedTogether(
+                spots, where.x() - before.x(), where.y() - before.y());
+
+        for (int index = 0; index < moving.size(); index++) {
+            if (!(moving.get(index) instanceof CardView.Visible visible) || after.get(index) == null) {
+                continue;
+            }
+            send(new GameEvent.CardMoved(me, visible.id(),
+                    ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(after.get(index))));
+        }
+        selected.clear();
+    }
+
+    /**
+     * The wheel zooms, anchored to the cursor.
+     * <p>Tabletop Simulator's wheel, and every map's: turning a card is Q and E, which leaves
+     * the wheel free for the thing a wheel is for.
+     */
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scrollY == 0) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        double factor = scrollY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+        if (playingOnTheBlock) {
+            // Looking straight down, zoom is height - and anchored on what the cursor is
+            // pointing at, the same as the seated board's wheel, so leaning in keeps the
+            // thing being leaned toward. The cursor is off the felt often enough to matter
+            // here in a way it never is on the seated screen: over the hand, over the strip,
+            // over the floor beside the table. Then there is nothing to anchor to and the
+            // eye simply comes down.
+            double[] at = pointer(mouseX, mouseY);
+            if (at == null) {
+                TableCameraView.zoom(factor);
+            } else {
+                TableTop top = tableTop();
+                TableCameraView.zoomAt(factor, top.worldX(at[0]), top.worldZ(at[1]));
+            }
+        } else {
+            geometry.zoom(factor, mouseX, mouseY);
+        }
+        return true;
+    }
+
+    // ------------------------------------------------------------ hit-testing
+
+    /**
+     * Every card at this point, front-most first.
+     * <p>{@link #frontMostAt} answers what a click acts on; this answers what is <em>there</em>,
+     * which is a different question and the one somebody asks when the card they want is under
+     * something else. Cards overlap constantly on a Commander board - an aura on a creature, a
+     * token half behind a land, four permanents tucked together to make room - and until now
+     * the only way to reach a buried one was to move whatever was on top of it, which is a
+     * move the table logs and the other players see.
+     */
+    private List<Placed> everythingAt(List<Placed> onTable, int x, int y) {
+        if (!layout().isOnFelt(x, y) || coveredByTheStrip(y)) {
+            return List.of();
+        }
+        double[] at = pointer(x, y);
+        if (at == null) {
+            return List.of();
+        }
+        int pointX = (int) Math.round(at[0]);
+        int pointY = (int) Math.round(at[1]);
+        List<Placed> found = new ArrayList<>();
+        for (int index = onTable.size() - 1; index >= 0; index--) {
+            Placed placed = onTable.get(index);
+            if (placed.where().containsTurned(placed.angle(), pointX, pointY)) {
+                found.add(placed);
+            }
+        }
+        return List.copyOf(found);
+    }
+
+    /**
+     * The card under a point, front-most first.
+     * <p>Front to back, because the card you can see is the card you meant, and turned cards
+     * are tested at the angle they are drawn at - so the empty corner of an angled card is
+     * table and a click there reaches whatever is underneath it.
+     * <p>Nothing under somebody else's hand on the felt, which is drawn over every card on the
+     * table: a permanent at the near edge of its mat can lie half under its player's fan, and
+     * the half that cannot be seen is not the half to hover, read or pick up. The part of it on
+     * the mat still is.
+     */
+    private Placed frontMostAt(GameView board, List<Placed> onTable, int x, int y) {
+        // Two spaces, and the guard belongs to the screen either way: the hand and the bar sit
+        // over the table in both views, and a click on your own hand must not also reach the
+        // felt underneath it. And on the flat board, nothing under the strip, which covers it.
+        if (!layout().isOnFelt(x, y) || coveredByTheStrip(y)) {
+            return null;
+        }
+        double[] at = pointer(x, y);
+        if (at == null) {
+            return null;
+        }
+        int pointX = (int) Math.round(at[0]);
+        int pointY = (int) Math.round(at[1]);
+        if (aHandIsOver(board, x, y, pointX, pointY)) {
+            return null;
+        }
+        for (int index = onTable.size() - 1; index >= 0; index--) {
+            Placed placed = onTable.get(index);
+            if (placed.where().containsTurned(placed.angle(), pointX, pointY)) {
+                return placed;
+            }
+        }
+        return null;
+    }
+
+    private Optional<CardView> cardInHandAt(GameView board, int x, int y) {
+        SeatId seat = mySeat().orElse(null);
+        int index = handIndexAt(board, x, y);
+        if (seat == null || index < 0) {
+            return Optional.empty();
+        }
+        CardView card = board.seat(seat).zone(Zone.HAND).cards().get(index);
+        return isHeld(card) ? Optional.empty() : Optional.of(card);
+    }
+
+    private Rect handSlotOf(GameView board, CardView card) {
+        SeatId seat = mySeat().orElse(null);
+        if (seat == null) {
+            return Rect.NONE;
+        }
+        List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
+        int index = hand.indexOf(card);
+        return index < 0
+                ? Rect.NONE
+                : HandFan.slot(layout().hand(), hand.size(), index, index).where();
+    }
+
+    /** Whose pile row a point is in, or null. */
+    private SeatId pileSeatAt(GameView board, int x, int y) {
+        int slot = pileSlotAt(board, x, y);
+        return slot < 0 ? null : board.seats().get(slot / pileCount()).seat();
+    }
+
+    private Zone pileZoneAt(GameView board, int x, int y) {
+        int slot = pileSlotAt(board, x, y);
+        return slot < 0 ? Zone.LIBRARY : Zone.PILES.get(slot % pileCount());
+    }
+
+    /**
+     * Which pile a point is on, as one number covering both which seat and which zone.
+     * <p>One walk rather than two, because the two used to walk the piles separately and
+     * could in principle stop at different ones - the seat from the first and the zone from
+     * the second, which is a click that shuffles somebody else's library.
+     */
+    private int pileSlotAt(GameView board, int x, int y) {
+        double[] at = pointer(x, y);
+        if (at == null || !layout().isOnFelt(x, y) || coveredByTheStrip(y)) {
+            return -1;
+        }
+        for (int seat = 0; seat < board.seats().size(); seat++) {
+            // A free chair's zones are not drawn on either board, so a press where they would be is
+            // a press on the felt.
+            if (!board.seats().get(seat).hasABoard()) {
+                continue;
+            }
+            for (int index = 0; index < pileCount(); index++) {
+                Rect pile = board().pileRect(board.seats().get(seat).seat(), index, pileCount());
+                if (pileIsDrawn(pile) && pile.contains((int) Math.round(at[0]), (int) Math.round(at[1]))) {
+                    return seat * pileCount() + index;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private boolean isSelected(CardView card) {
+        return card instanceof CardView.Visible visible && selected.contains(visible.id());
+    }
+
+    /**
+     * The cards a verb should apply to.
+     * <p>The selection when the card acted on is part of it, and just that card otherwise.
+     * Right-clicking a card outside the selection is somebody addressing that card, not
+     * forgetting what they had picked.
+     * <p>Bounded, because a selection is made by dragging a box and a box can be dragged
+     * around the whole table - see {@link BulkLimit}. Clipped here rather than at the send,
+     * so the count the menu prints, the count the palette prints and the number of moves that
+     * go out are one number rather than three.
+     */
+    private List<CardInstanceId> targetsFor(CardInstanceId card) {
+        return howManyOfThem(selected.contains(card) ? List.copyOf(selected) : List.of(card));
+    }
+
+    /**
+     * Applies the bound, and says so once if it bit.
+     * <p>Said rather than swallowed. A gesture that quietly did a hundred and twenty-eight of
+     * a hundred and sixty leaves the player looking at cards still on the felt with no account
+     * of why, which is the failure this whole bound exists to avoid being.
+     */
+    private List<CardInstanceId> howManyOfThem(List<CardInstanceId> asked) {
+        BulkLimit.Batch<CardInstanceId> batch = BulkLimit.take(asked);
+        if (batch.wasClipped()) {
+            tellMe(Component.translatable("message.gathering.table.too_many_at_once",
+                    batch.size(), batch.askedFor()));
+        }
+        return batch.doing();
+    }
+
+    /**
+     * Says something to this player and nobody else.
+     * <p>The client's own voice, for the things only this client knows: that a gesture was
+     * bigger than one gesture is allowed to be, or that the same refusal has now arrived
+     * several times. None of it is a game event and none of it goes in the log - the log is
+     * the public account of a game, and these are notes about using the interface.
+     */
+    private void tellMe(Component what) {
+        if (this.minecraft != null && this.minecraft.player != null) {
+            ScreenNotice.tell(what);
+        }
+    }
+
+    /** Every selected card on the table, wherever it is, in board order. */
+    private List<CardView> selectedOn(GameView board) {
+        List<CardView> found = new ArrayList<>();
+        for (SeatView seat : board.seats()) {
+            for (CardView card : seat.zone(Zone.BATTLEFIELD).cards()) {
+                if (isSelected(card)) {
+                    found.add(card);
+                }
+            }
+        }
+        return found;
+    }
+
+    /**
+     * Picks out every card the box touches, in place of whatever was picked before.
+     * <p>The box is dragged on the screen and the cards may not be measured there, so it is
+     * carried across corner by corner. A corner that lands off the table takes the selection
+     * with it: a box half over the floor has no honest answer, and picking whatever happened
+     * to fall inside the half that was on the felt is not one.
+     */
+    private void selectWithin(GameView board, Rect box) {
+        selected.clear();
+        // On the flat board the box stops at the strip, which covers the felt: a card under the
+        // names is a card nobody can see, and a box dragged up to them selected it all the same.
+        int top = layout().status().bottom();
+        if (!playingOnTheBlock && box.y() < top) {
+            if (box.bottom() <= top) {
+                return;
+            }
+            box = new Rect(box.x(), top, box.width(), box.bottom() - top);
+        }
+        double[] from = pointer(box.x(), box.y());
+        double[] to = pointer(box.right(), box.bottom());
+        if (from == null || to == null) {
+            return;
+        }
+        Rect within = boxBetween(
+                (int) Math.round(from[0]), (int) Math.round(from[1]),
+                (int) Math.round(to[0]), (int) Math.round(to[1]));
+        for (Placed placed : everythingOnTheTable(board)) {
+            if (placed.card() instanceof CardView.Visible visible && placed.where().overlaps(within)) {
+                selected.add(visible.id());
+            }
+        }
+    }
+
+    private boolean isHeld(CardView card) {
+        TableGesture.Held held = gesture.held();
+        return held != null && held.card() != null
+                && card instanceof CardView.Visible visible && visible.id().equals(held.card());
+    }
+
+    // ----------------------------------------------------------------- menus
+
+    private void openCardMenu(GameView board, CardView.Visible card, boolean fromHand, int x, int y) {
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, cardMenuEntries(board, card, fromHand));
+        subjectMenu = menu;
+        menuSubject = card.id();
+    }
+
+    /**
+     * The card an open card menu is about, while that menu is still the one open.
+     * <p>Looked up again in the board being drawn rather than kept as the card itself, so a
+     * card that has since left the table, or been turned face down, is not read from a
+     * picture of how it was.
+     */
+    private Optional<CardView> theCardTheMenuIsAbout(GameView board) {
+        if (menu == null || menu != subjectMenu || menuSubject == null) {
+            return Optional.empty();
+        }
+        return findCard(board, menuSubject);
+    }
+
+    /**
+     * Everything that card's menu would offer, without opening one.
+     * <p>Split out so the palette can search these rows rather than keep a second list of the
+     * same verbs beside them - see {@link #paletteRows}.
+     */
+    private List<ContextMenu.Entry> cardMenuEntries(
+            GameView board, CardView.Visible card, boolean fromHand) {
+        SeatId me = mySeat().orElseThrow();
+        CardInstanceId id = card.id();
+        // Every verb below applies to the whole selection when this card is part of it, and to
+        // this card alone otherwise. What goes on the wire is the same events one card at a
+        // time would have sent, so a selection can do nothing an ordinary sequence of moves
+        // could not, and the log reads the same either way.
+        List<CardInstanceId> targets = fromHand ? List.of(id) : targetsFor(id);
+        List<ContextMenu.Entry> entries = ContextMenu.entries();
+        if (targets.size() > 1) {
+            entries.add(ContextMenu.Entry.disabled(Component.translatable(
+                    "menu.gathering.table.selected", targets.size())));
+        }
+
+        if (fromHand) {
+            entries.add(entry("play", () -> send(new GameEvent.CardMoved(
+                    me, id, ZoneRef.of(me, Zone.BATTLEFIELD), Placement.BOTTOM))));
+            // Turned down first, then put down. One payload carries one event and the table
+            // is sent a fresh board after each, so moving first would show every opponent the
+            // card before turning it over. PlayingFaceDown owns that order, and the core
+            // suite checks the board between the two.
+            entries.add(entry("play_face_down", () ->
+                    dev.gathering.core.game.event.PlayingFaceDown.onto(
+                            me, id, ZoneRef.of(me, Zone.BATTLEFIELD), Placement.BOTTOM)
+                            .forEach(this::send)));
+        } else {
+            // Tapping is E and untapping is Q; this row exists to say so. A menu entry that
+            // names its key teaches the key, where a second gesture would only compete with
+            // it - which is what the plain left click used to do.
+            entries.add(entry(card.tapped() ? "untap" : "tap",
+                    () -> setTap(board, targets, !card.tapped())));
+            // Frozen means it stays tapped through the untap step. Next to tap because that
+            // is the pair a player is thinking about, and because the one press this changes
+            // is the one two rows down on the felt's own menu.
+            boolean thawing = card.frozen();
+            entries.add(entry(thawing ? "thaw" : "freeze",
+                    () -> eachTarget(board, targets, target ->
+                            new GameEvent.CardFrozen(me, target, !thawing))));
+            entries.add(entry("turn_right", () -> eachCard(board, targets, seen ->
+                    new GameEvent.CardRotated(me, seen.id(), restingAngle(seen) + NUDGE_DEGREES))));
+            entries.add(entry("turn_left", () -> eachCard(board, targets, seen ->
+                    new GameEvent.CardRotated(me, seen.id(), restingAngle(seen) - NUDGE_DEGREES))));
+            if (restingAngle(card) != 0) {
+                entries.add(entry("straighten", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CardRotated(me, target, 0))));
+            }
+            Facing turnTo = card.facing() == Facing.FACE_UP ? Facing.FACE_DOWN : Facing.FACE_UP;
+            entries.add(entry(card.facing() == Facing.FACE_UP ? "turn_face_down" : "turn_face_up",
+                    () -> eachTarget(board, targets, target ->
+                            new GameEvent.CardFacingSet(me, target, turnTo))));
+            // Its other printed face, which is a different act from turning it face down: a
+            // transformed permanent is public on both sides and a face-down one is a sleeve.
+            // Offered only where there is a second face to turn to, because a menu entry that
+            // does nothing on nine cards in ten is a menu entry nobody trusts.
+            if (hasAnotherSide(card)) {
+                boolean showOther = !card.turnedOver();
+                entries.add(entry(showOther ? "turn_over" : "turn_back",
+                        () -> eachCard(board, targets, seen -> hasAnotherSide(seen)
+                                ? new GameEvent.CardTurnedOver(me, seen.id(), showOther)
+                                : null)));
+            }
+            // The single most common one keeps its own line, because a menu that makes you
+            // open a screen to put a +1/+1 on something is a menu nobody uses for counters.
+            entries.add(entry("add_counter", () -> eachTarget(board, targets, target ->
+                    new GameEvent.CounterChanged(
+                            me, target, CardInstance.Counters.PLUS_ONE_PLUS_ONE, 1))));
+            if (card.counter(CardInstance.Counters.PLUS_ONE_PLUS_ONE) != 0) {
+                entries.add(entry("remove_counter", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CounterChanged(
+                                me, target, CardInstance.Counters.PLUS_ONE_PLUS_ONE, -1))));
+            }
+            // Loyalty gets the same treatment on the cards that have it. Not a new mechanic -
+            // the counters panel has always been able to put a "loyalty" on anything - but a
+            // planeswalker's loyalty changes twice a turn, and a verb done twice a turn does
+            // not belong two screens deep.
+            if (isAPlaneswalker(card) || card.counter(CardInstance.Counters.LOYALTY) != 0) {
+                entries.add(entry("loyalty_up", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CounterChanged(
+                                me, target, CardInstance.Counters.LOYALTY, 1))));
+                entries.add(entry("loyalty_down", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CounterChanged(
+                                me, target, CardInstance.Counters.LOYALTY, -1))));
+            }
+            entries.add(entry("counters", () -> openCounters(new CountersScreen.Subject.Cards(
+                    targets, CountersScreen.titleFor(targets, nameOf(card))))));
+            // The pen. A group with no rules engine remembers "flying until end of turn" by
+            // somebody writing it on the card, and every other player reading it is the
+            // point - so it goes on every card in the selection at once, like the rest.
+            entries.add(entry("write", () -> openTheNote(card, targets)));
+            // The other pen, in the corner where the numbers are. Typed, never worked out -
+            // see CardStrength. A creature that is a 6/6 this turn says 6/6 because somebody
+            // said so, which is how it works across a table with no computer on it.
+            entries.add(entry("strength", () -> openTheStrength(card, targets)));
+            if (card.host().isPresent()) {
+                entries.add(entry("detach", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CardAttached(me, target, null))));
+            } else {
+                entries.add(entry("attach", () -> {
+                    attaching = targets;
+                    selected.clear();
+                }));
+            }
+            entries.add(entry("copy", () -> eachTarget(board, targets, target ->
+                    new GameEvent.TokenCopyCreated(me, target, me))));
+            // The tokens this card actually makes, named on the card's own menu. Scryfall
+            // knows them from all_parts, so a Thrull is one press rather than a screen, a
+            // guess at the spelling and a lookup that comes back with nothing. One press is
+            // one token: a card that makes two wants the row twice, which is still fewer
+            // steps than typing the name once.
+            // By the exact printing the card links to, not by name: a name looked up again
+            // put down the newest token of that name, which for a card that makes a 2/2 Cat
+            // could be somebody else's 1/1 one. A card making two tokens that share a name
+            // gets two rows, numbered, since the name alone cannot tell them apart.
+            List<CardSummary.MadeToken> made = tokensMadeBy(card);
+            for (int index = 0; index < made.size(); index++) {
+                CardSummary.MadeToken token = made.get(index);
+                String label = token.name();
+                long sameName = made.stream().filter(other -> other.name().equals(token.name())).count();
+                if (sameName > 1) {
+                    long before = made.subList(0, index).stream()
+                            .filter(other -> other.name().equals(token.name())).count();
+                    label = token.name() + " (" + (before + 1) + ")";
+                }
+                entries.add(ContextMenu.Entry.of(
+                        Component.translatable("menu.gathering.table.make_this_token", label),
+                        () -> TokenChoices.make(table, token.name(), token.printing(), 1)));
+            }
+            if (card.token()) {
+                entries.add(entry("remove_token", () -> eachCard(board, targets, seen ->
+                        seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null)));
+            }
+            // Everything above happens to the card where it lies; everything below sends it
+            // somewhere else. Two groups a player can see without reading either of them.
+            entries.add(ContextMenu.Entry.rule());
+            entries.add(entry("to_hand", () -> eachCard(board, targets, seen ->
+                    new GameEvent.CardMoved(
+                            me, seen.id(), ZoneRef.of(seen.owner(), Zone.HAND), Placement.BOTTOM))));
+        }
+        entries.add(entry("to_graveyard", () -> eachCard(board, targets, seen ->
+                new GameEvent.CardMoved(
+                        me, seen.id(), ZoneRef.of(seen.owner(), Zone.GRAVEYARD), Placement.TOP))));
+        entries.add(entry("to_exile", () -> eachCard(board, targets, seen ->
+                new GameEvent.CardMoved(
+                        me, seen.id(), ZoneRef.of(seen.owner(), Zone.EXILE), Placement.TOP))));
+        // A commander dying goes to the command zone, which is the single most common thing
+        // anybody does with one and had no entry at all: the only way back was to drag it.
+        // Offered on every card rather than only on a commander, because the mod holds no
+        // permanent mark saying which cards are commanders - where a card started is all the
+        // game knows - and refusing the move would be it inventing a rule.
+        if (pileCount() > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
+            // Which command slot is free is read off the board as it is when the entry is pressed,
+            // as the cards are. It was read off the board the menu opened on, so a commander put down
+            // while the menu was up sent the next one to a slot that was already taken.
+            entries.add(entry("to_command", () -> eachCard(board, targets, seen ->
+                    new GameEvent.CardMoved(me, seen.id(),
+                            ZoneRef.of(seen.owner(),
+                                    CommandSlots.homeFor(view().orElse(board).seat(seen.owner()))),
+                            Placement.TOP))));
+        }
+        entries.add(entry("to_library_top", () -> eachCard(board, targets, seen ->
+                new GameEvent.CardMoved(
+                        me, seen.id(), ZoneRef.of(seen.owner(), Zone.LIBRARY), Placement.TOP))));
+        entries.add(entry("to_library_bottom", () -> eachCard(board, targets, seen ->
+                new GameEvent.CardMoved(
+                        me, seen.id(), ZoneRef.of(seen.owner(), Zone.LIBRARY), Placement.BOTTOM))));
+        // Its own row rather than a note on the one above, because putting cards back in the
+        // order you picked them up and putting them back in no order are different acts - and
+        // the second is the one the number row does, so it needs somewhere to say so.
+        entries.add(entry("to_library_bottom_random",
+                () -> ClientNetworking.send(new ToBottomAtRandomPayload(table, targets))));
+        entries.add(ContextMenu.Entry.rule());
+        entries.add(entry("ping", () -> send(new GameEvent.CardPinged(me, id))));
+        // Only when there is something to reach. A row that opens a list of one card is a row
+        // that wasted a press, and this menu is already long.
+        long readableHere = everythingAt(everythingOnTheTable(board), cursorX, cursorY).stream()
+                .filter(placed -> placed.card() instanceof CardView.Visible)
+                .count();
+        if (readableHere > 1) {
+            entries.add(entry("others_here", () -> showWhatIsUnderTheCursor(board)));
+        }
+
+        return entries;
+    }
+
+    /**
+     * Sends one event per target, built from the id alone.
+     * <p>For verbs where every card gets the same instruction - tap them all, turn them all
+     * face down - which is what makes a selection useful rather than just faster clicking.
+     */
+    private void eachTarget(
+            GameView board, List<CardInstanceId> targets,
+            java.util.function.Function<CardInstanceId, GameEvent> verb) {
+        List<GameEvent> events = new ArrayList<>(targets.size());
+        for (CardInstanceId target : targets) {
+            GameEvent event = verb.apply(target);
+            if (event != null) {
+                events.add(event);
+            }
+        }
+        sendAll(events);
+        selected.clear();
+    }
+
+    /**
+     * Sends one event per target, built from what that card currently is.
+     * <p>For verbs whose answer differs per card - which angle it is at, whose graveyard it
+     * goes to. Cards that have already left the board are skipped rather than guessed at.
+     * <p><b>From the board as it is now, not the one the menu was built against.</b> A menu closes
+     * over the view it was opened on, and boards keep arriving the whole time it is open - a palette
+     * stays open while somebody types. So "turn right" was reading an angle that had already
+     * changed and sending that angle plus fifteen, putting the card back where it had been; and the
+     * tap filter read a card as untapped that somebody else had tapped since. The board it was
+     * built against is the fallback, for a screen whose table has gone.
+     */
+    private void eachCard(
+            GameView board, List<CardInstanceId> targets,
+            java.util.function.Function<CardView.Visible, GameEvent> verb) {
+        GameView now = view().orElse(board);
+        List<GameEvent> events = new ArrayList<>(targets.size());
+        for (CardInstanceId target : targets) {
+            findCard(now, target)
+                    .filter(CardView.Visible.class::isInstance)
+                    .map(CardView.Visible.class::cast)
+                    .map(verb)
+                    .ifPresent(events::add);
+        }
+        sendAll(events);
+        selected.clear();
+    }
+
+    /**
+     * Pressing one of the piles.
+     * <p>Left does the obvious thing and right offers the rest, the same bargain as everywhere
+     * else here: for a library that is drawing a card, for every other pile it is opening it,
+     * because a pile you cannot look through is a number.
+     * <p>A left press may also start a drag. A zone that only swallows cards is half a zone -
+     * putting something in the graveyard is a drag and getting it back is a screen and two
+     * clicks, for what on a real table is picking it up. So a press on a pile whose top card
+     * this player can see picks that card up, and the release decides which gesture it was.
+     */
+    private boolean pressPile(GameView board, SeatId owner, Zone pile, int x, int y, int button) {
+        SeatId me = mySeat().orElse(null);
+        // The tax band sits on top of the slot, so it answers first or it never answers at
+        // all - the slot underneath it picks a commander up on the same press.
+        if (pressTax(board, owner, pile, x, y, button)) {
+            return true;
+        }
+        // Anybody may open anybody's graveyard - it is public - but the verbs that only make
+        // sense on your own library are offered only there, because the mod refuses a search
+        // of somebody else's anyway and a menu full of refusals is worse than a short one.
+        // Cards turned face up off the top of a library are there for the room to read, and
+        // the slot only ever draws the first of them - so a cascade's hit, always the last
+        // card revealed, was on every client's wire and on nobody's screen. Anybody who is
+        // not the owner opens the revealed cards with a click; the owner has a menu row.
+        if (button == 0 && pile == Zone.LIBRARY && !owner.equals(me)
+                && !board.seat(owner).zone(Zone.LIBRARY).cards().isEmpty()) {
+            GatheringButtons.clickSound();
+            openPile(owner, Zone.LIBRARY, false);
+            return true;
+        }
+        if (button == 1 && owner.equals(me)) {
+            GatheringButtons.clickSound();
+            openPileMenu(me, pile, x, y);
+            return true;
+        }
+        if (button == 0 && me != null) {
+            // Somebody with no seat cannot move anything, so a drag that starts here would be
+            // a card following their cursor and snapping back when they let go. They get the
+            // click, which opens the pile - watching a graveyard is a thing a spectator does.
+            //
+            // A pile whose top nobody may name is still held, with no card in hand: your own
+            // library is the pile most worth being able to pick up whole, and the release
+            // decides between the click that draws and the hold that moves the lot.
+            gesture.pickUp(grab(liftableFrom(board, owner, pile), owner, false, pile,
+                    pileSlotOf(owner, pile), x, y));
+            return true;
+        }
+        // The sound is the answer to "did that do anything", so it is only made when the
+        // answer is yes. Clicking a face-down library belonging to somebody else has nothing
+        // it could mean, and a click that sounds like it worked is worse than a quiet one.
+        if (clickPile(me, owner, pile)) {
+            GatheringButtons.clickSound();
+        }
+        return true;
+    }
+
+    /**
+     * What a press on a pile does when it turns out to have been a click, and whether that
+     * was anything at all.
+     * <p>Opening a public pile asks nothing of the viewer's seat: a graveyard is public
+     * information, and somebody watching a game is exactly the person who wants to read one.
+     * What is actually in it is still the server's decision - the screen shows what this
+     * client was sent and says so when that is nothing.
+     */
+    private boolean clickPile(SeatId me, SeatId owner, Zone pile) {
+        if (pile != Zone.LIBRARY) {
+            openPile(owner, pile, false);
+            return true;
+        }
+        if (owner.equals(me)) {
+            send(new GameEvent.CardsDrawn(me, me, 1));
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * The card a press on this pile would pick up, or null.
+     * <p>Only a card this client has actually been sent. The top of a library is face down and
+     * has no identity here - which is the visibility rule doing its job, and the reason a
+     * library stays a click that draws rather than a card you can lift off.
+     */
+    private CardInstanceId liftableFrom(GameView board, SeatId owner, Zone pile) {
+        ZoneView contents = board.seat(owner).zone(pile);
+        if (contents == null) {
+            return null;
+        }
+        for (CardView card : contents.cards()) {
+            if (card instanceof CardView.Visible visible && !isHeld(card)) {
+                return visible.id();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A press on the tax written under a commander: one more cast, or one fewer.
+     * <p>Counted in casts and shown in mana, the same as the counters screen does it, because
+     * casts are what the rule counts and mana is what the player is about to pay. Left adds a
+     * cast, right takes one back - the mistake has to be as cheap to undo as it was to make,
+     * and a number that only goes up is a number somebody has to restart a game over.
+     * <p>Anybody seated may press it, like everything else in a public zone. Who did it is in
+     * the log, which is how this mod answers that question everywhere.
+     */
+    private boolean pressTax(GameView board, SeatId owner, Zone pile, int x, int y, int button) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null || (button != 0 && button != 1)) {
+            return false;
+        }
+        CardInstanceId commander = taxUnderThePointer(board, owner, pile, x, y);
+        if (commander == null) {
+            return false;
+        }
+        int casts = board.seat(owner).commanderTax().getOrDefault(commander, 0);
+        int delta = button == 0 ? 1 : -1;
+        if (casts + delta < 0) {
+            // Already nothing. Swallowed rather than sent, so the log does not fill up with
+            // lines saying a tax of nought was reduced to a tax of nought.
+            return true;
+        }
+        GatheringButtons.clickSound();
+        send(new GameEvent.CommanderTaxChanged(me, owner, commander, delta));
+        return true;
+    }
+
+    /** Where a pile is on screen, for a card being lifted off it to know where it started. */
+    private Rect pileSlotOf(SeatId owner, Zone pile) {
+        int index = Zone.PILES.indexOf(pile);
+        return index < 0 ? Rect.NONE : board().pileRect(owner, index, pileCount());
+    }
+
+    private void openPileMenu(SeatId me, Zone pile, int x, int y) {
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, pileMenuEntries(me, pile));
+    }
+
+    /**
+     * Everything that pile's menu would offer, without opening one.
+     * <p>Split out for the palette, as the card menu is.
+     */
+    private List<ContextMenu.Entry> pileMenuEntries(SeatId me, Zone pile) {
+        List<ContextMenu.Entry> entries = ContextMenu.entries();
+        if (pile == Zone.LIBRARY) {
+            boolean showing = revealedFromMyLibrary() > 0;
+            entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
+            entries.add(entry("draw_many", () -> ask("draw_many", 1,
+                    count -> send(new GameEvent.CardsDrawn(me, me, count)))));
+            entries.add(entry("mulligan", () -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND))));
+            // No "done bottoming" beside it. That entry existed only to put down a count this mod
+            // was keeping, and the count is gone - see verbTip. Putting cards under a library
+            // is a move like any other, and the menu already has one.
+            entries.add(entry("scry", () -> ask("scry", 1, count -> {
+                send(new GameEvent.LibraryLooked(me, me, count));
+                decideOnLibrary(me, PileScreen.Decision.SCRY);
+            })));
+            entries.add(entry("surveil", () -> ask("surveil", 1, count -> {
+                send(new GameEvent.LibraryLooked(me, me, count));
+                decideOnLibrary(me, PileScreen.Decision.SURVEIL);
+            })));
+            entries.add(entry("mill", () -> ask("mill", 1,
+                    count -> send(new GameEvent.LibraryMilled(me, me, count)))));
+            // The other place the top of a library goes. Beside mill rather than folded into
+            // it, because "exile the top four" and "mill four" are different sentences on the
+            // cards that say them, and a player reaching for one should not have to mill and
+            // then drag four cards across the felt to get it.
+            entries.add(entry("exile_top", () -> ask("exile_top", 1,
+                    count -> send(new GameEvent.LibraryExiled(me, me, count)))));
+            entries.add(showing
+                    ? entry("stop_revealing", () -> send(new GameEvent.LibraryRevealed(me, me, 0)))
+                    : entry("reveal", () -> ask("reveal", 1,
+                            count -> send(new GameEvent.LibraryRevealed(me, me, count)))));
+            if (revealedFromMyLibrary() > 1) {
+                // The slot draws the top card; the rest of a reveal is read here.
+                entries.add(entry("see_revealed", () -> openPile(me, Zone.LIBRARY, false)));
+            }
+            // Turn cards over until one of them is the one. Both of these ask the server how
+            // far down it is, because nobody may know their own library's order - see
+            // RevealUntilPayload. What comes back is an ordinary reveal.
+            entries.add(entry("cascade", () -> ask("cascade", 3, manaValue ->
+                    ClientNetworking.send(new RevealUntilPayload(table,
+                            RevealUntilPayload.Until.CHEAPER_THAN, manaValue, "")))));
+            entries.add(entry("reveal_until_type", () ->
+                    net.minecraft.client.Minecraft.getInstance().setScreen(new TextPromptScreen(
+                            Component.translatable("screen.gathering.reveal_until.type"),
+                            Component.translatable("screen.gathering.reveal_until.hint"),
+                            RevealUntilPayload.LONGEST_TYPE,
+                            wanted -> ClientNetworking.send(new RevealUntilPayload(table,
+                                    RevealUntilPayload.Until.OF_TYPE, 0, wanted)),
+                            this))));
+            // A land from outside the game, for the effects that put one there and for the
+            // moment somebody needs one and it is not worth stopping over. It arrives as a
+            // token because that is what it is - see FetchBasicPayload.
+            entries.add(entry("fetch_basic", this::askWhichBasic));
+            entries.add(entry("search", () -> {
+                send(new GameEvent.LibrarySearched(me, me));
+                openPile(me, Zone.LIBRARY, true);
+            }));
+            entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
+        } else {
+            entries.add(entry("open_pile", () -> openPile(me, pile, false)));
+        }
+        return entries;
+    }
+
+    /**
+     * A remembered token: the exact one last picked under that name, or the name when none was.
+     * <p>So a player who chose the 2/2 Cat once gets the 2/2 Cat from the row, rather than being
+     * asked again every time - and a name nobody ever had to choose for still goes by name.
+     */
+    private void makeRememberedToken(String name) {
+        RecentThings.tokenVariantOf(name).ifPresentOrElse(
+                printing -> TokenChoices.make(table, name, printing, 1),
+                () -> makeToken(name, 1));
+    }
+
+    /**
+     * Makes a token, and remembers what it was called.
+     * <p>One body, because there are three ways to ask for one - typing a name, the tokens a
+     * card says it makes, and the row of what this player keeps making - and a name that was
+     * only remembered down one of them would be a row that never filled up for the player who
+     * uses the card menu.
+     * <p>The name, and nothing about the card. An instance id would be a handle on one card in
+     * one game, written into a file that outlives both.
+     */
+    private void makeToken(String name, int count) {
+        RecentThings.rememberToken(name);
+        ClientNetworking.send(new CreateTokenPayload(table, name, count));
+    }
+
+    /**
+     * Asks what token, then how many.
+     * <p>Two questions rather than one screen with two fields, because they are answered in
+     * that order and the second one is usually "one". The name goes to the server, which does
+     * the looking up - a token is a real printing from Scryfall and not something a client
+     * describes.
+     */
+    private void askForToken() {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new TextPromptScreen(
+                Component.translatable("screen.gathering.token.name"),
+                Component.translatable("screen.gathering.token.hint"),
+                CreateTokenPayload.MAX_NAME,
+                // Named, because the second question arrives after the first has gone and
+                // "How many?" on its own is a question about something the player can no
+                // longer see. Every other amount asked for in the mod names its verb.
+                name -> net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
+                        Component.translatable("screen.gathering.amount.tokens", name), 1,
+                        count -> makeToken(name, count),
+                        this)),
+                this));
+    }
+
+    /**
+     * Asks what it should say, then puts it on the table.
+     * <p>One question, because a blank card with nothing on it is a blank card nobody can
+     * read - and the words are the whole of what is being made. Rewriting it afterwards is
+     * the pen, on the card's own menu, like any other note.
+     */
+    private void askForPaper(SeatId me, PaperStock stock) {
+        String which = stock == PaperStock.EMBLEM ? "emblem" : "note_card";
+        net.minecraft.client.Minecraft.getInstance().setScreen(new TextPromptScreen(
+                Component.translatable("screen.gathering.paper." + which),
+                Component.translatable("screen.gathering.paper." + which + ".hint"),
+                dev.gathering.core.game.CardNote.LONGEST,
+                text -> send(new GameEvent.PaperCardCreated(me, me, stock, text)),
+                this));
+    }
+
+    /**
+     * Which dungeon.
+     * <p>Four buttons rather than a typing box, because there are four of them and they are
+     * all spellable wrongly - the same reason the basic lands get buttons. The name is not on
+     * the wire at all: the client sends which of the four, and the server knows what they are
+     * called. See {@link dev.gathering.core.card.Dungeon}.
+     */
+    private void askWhichDungeon() {
+        List<ChoiceScreen.Option> dungeons = new ArrayList<>();
+        for (dev.gathering.core.card.Dungeon dungeon : dev.gathering.core.card.Dungeon.values()) {
+            int which = dungeon.ordinal();
+            dungeons.add(new ChoiceScreen.Option(
+                    Component.translatable("screen.gathering.dungeon."
+                            + dungeon.name().toLowerCase(java.util.Locale.ROOT)),
+                    () -> ClientNetworking.send(
+                            new dev.gathering.network.BringInDungeonPayload(table, which))));
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.dungeon.which"), dungeons, this));
+    }
+
+    /**
+     * Asks before doing something that cannot be taken back, then does it.
+     * <p>The question, what it means and the word on the button all come off one key, so a
+     * verb that needs asking about cannot end up asking half a question.
+     */
+    private void confirm(String key, Runnable action) {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ConfirmScreen(
+                Component.translatable("confirm.gathering." + key),
+                Component.translatable("confirm.gathering." + key + ".detail"),
+                Component.translatable("confirm.gathering." + key + ".yes"),
+                action, this));
+    }
+
+    /** Asks how many, then does it. The answer arrives after the table is back. */
+    private void ask(String key, int suggested, java.util.function.IntConsumer action) {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
+                Component.translatable("screen.gathering.amount." + key), suggested, action, this));
+    }
+
+    /** How much of my own library is currently face up to the table. */
+    private int revealedFromMyLibrary() {
+        SeatId me = mySeat().orElse(null);
+        GameView board = view().orElse(null);
+        if (me == null || board == null) {
+            return 0;
+        }
+        // What the server sent is the truth about what is showing: a revealed card arrives as
+        // a card in the library's card list, and a hidden one does not arrive at all.
+        return board.seat(me).zone(Zone.LIBRARY).cards().size();
+    }
+
+    /**
+     * Opens the top of your own library with a decision attached.
+     * <p>Looking is half of a scry. Without the other half the cards are revealed and then
+     * left exactly where they were, which is a scry that did nothing.
+     */
+    private void decideOnLibrary(SeatId me, PileScreen.Decision decision) {
+        net.minecraft.client.Minecraft.getInstance()
+                .setScreen(new PileScreen(table, me, Zone.LIBRARY, true, decision, this));
+    }
+
+    /**
+     * Spreads a pile out on its own screen.
+     * <p>{@code opensALibrary} is what makes the screen responsible for closing it again. A
+     * library is open because an event said so, so it stays open until an event says
+     * otherwise - not until a screen happens to go away.
+     */
+    private void openPile(SeatId owner, Zone pile, boolean opensALibrary) {
+        net.minecraft.client.Minecraft.getInstance()
+                .setScreen(new PileScreen(table, owner, pile, opensALibrary, this));
+    }
+
+    /** The menu for the table itself, for the verbs that are about a seat rather than a card. */
+    private void openTableMenu(int x, int y) {
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, tableMenuEntries());
+    }
+
+    /**
+     * Everything the felt's own menu would offer, without opening one.
+     * <p>Split out for the palette, as the card and pile menus are. A watcher gets the short
+     * list, which is the same one the menu gives them.
+     */
+    private List<ContextMenu.Entry> tableMenuEntries() {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            // A watcher has no seat, so every verb below is a verb they cannot make - but the
+            // log is not a verb. It is the record of what has happened at this table, it is
+            // public, and refusing to open the menu at all left the one person who most needs
+            // to catch up with no way to ask for it.
+            List<ContextMenu.Entry> watching = ContextMenu.entries();
+            watching.add(entry("say", () -> saying = new StringBuilder()));
+            watching.add(entry(showingLog ? "hide_log" : "show_log",
+                    () -> showingLog = !showingLog));
+            watching.add(themeEntry());
+            return watching;
+        }
+        // Not draw, not shuffle and not untap-all, though all three used to be here. Each of
+        // them is a button on your own mat, in front of you, always visible, and each has a
+        // key the row that carries it prints. Draw and shuffle are also on the library's own
+        // menu, where a verb that acts on a pile belongs. A fourth way to reach them bought
+        // nothing and cost the thing this menu is for: right-clicking the felt asks "what can
+        // I do that is not about an object", and a list that also answers "draw a card" is a
+        // list nobody can skim. See tools/gesturecheck.py, which fails if one comes back.
+        List<ContextMenu.Entry> entries = ContextMenu.entries();
+        // The one verb here the server decides. Everything else on this menu is a move you
+        // make and the table writes down; a discard at random is only worth anything because
+        // you did not choose, and a client that picked its own cards would look exactly like
+        // one that picked its worst. See DiscardAtRandomPayload.
+        entries.add(entry("discard_at_random", () -> ask("discard_at_random", 1,
+                howMany -> ClientNetworking.send(new DiscardAtRandomPayload(table, howMany)))));
+        entries.add(entry("sort_hand", () -> sortMyHand(me)));
+        // Tidying what is chosen, shown before it happens. Only offered when there is a
+        // selection to tidy: an empty one would plan nothing and look broken doing it.
+        if (selected.size() > 1) {
+            view().ifPresent(shown -> entries.add(
+                    entry("arrange", () -> offerToArrange(shown, me))));
+        }
+        // Turning your hand round. Always your own: "target player reveals their hand" is
+        // resolved by that player pressing this, exactly as they would turn it toward you
+        // across a table - see GameEvent.HandShown.
+        entries.add(entry("show_hand", () -> askWhoSeesMyHand(me)));
+        view().ifPresent(board -> {
+            if (board.seat(me).handIsShown()) {
+                entries.add(entry("hide_hand", () -> send(new GameEvent.HandShown(me, null, false))));
+            }
+            // One row per player who has turned their hand toward me, named, because
+            // being shown a hand and having nowhere to read it is the same as not being
+            // shown one. It opens in the box every other pile opens in.
+            for (SeatView theirs : board.seats()) {
+                if (!theirs.seat().equals(me) && theirs.handIsShownTo(me)) {
+                    entries.add(ContextMenu.Entry.of(
+                            Component.translatable("menu.gathering.table.read_hand",
+                                    SeatNames.of(theirs)),
+                            () -> openPile(theirs.seat(), Zone.HAND, false)));
+                }
+            }
+        });
+        entries.add(entry("make_token", this::askForToken));
+        // The ones this player keeps making, on this server, one press each. Built with
+        // Entry.of rather than entry(...) because the label carries a name - which is also
+        // what correctly keeps them out of the palette's search. See ActionPalette.
+        for (String token : RecentThings.tokenOffers()) {
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.table.make_this_token", token),
+                    () -> makeRememberedToken(token)));
+        }
+        // Recency is a good guess and a poor promise: the token a deck makes every turn needs
+        // no help staying on the row, and the one it makes twice a game has fallen off the end
+        // by the time it is wanted. This is where somebody says which of those they have.
+        if (!RecentThings.tokenOffers().isEmpty() || !RecentThings.counterOffers().isEmpty()) {
+            entries.add(entry("pin_names", this::askWhatToPin));
+        }
+        // Blank stock and a pen, for every table state the mod has no feature for: the
+        // monarch, the initiative, the ring tempting you, whatever the next set calls its
+        // version. See PaperCardCreated - the point of it is that it is never one set behind.
+        entries.add(entry("note_card", () -> askForPaper(me, PaperStock.BLANK)));
+        entries.add(entry("make_emblem", () -> askForPaper(me, PaperStock.EMBLEM)));
+        // A dungeon starts outside the game and cannot be drawn, bought or opened, so
+        // something has to bring it in. See Dungeons.
+        entries.add(entry("bring_in_dungeon", this::askWhichDungeon));
+        // Both decided by the server, like the discard at random and for the same reason: a
+        // die the roller chose is not a die. The coin is one press because Magic asks for one
+        // far more often than for any particular die.
+        entries.add(entry("flip_coin",
+                () -> ClientNetworking.send(new dev.gathering.network.FlipCoinPayload(table))));
+        entries.add(entry("roll_die", this::askWhichDie));
+        // The key does this too, and the key is the chat key - but a verb nobody knows about
+        // is a verb nobody uses, and the menu is where somebody looks for what a table can do.
+        entries.add(entry("say", () -> saying = new StringBuilder()));
+        entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
+        entries.add(themeEntry());
+        // Where the rest of them live. Until this existed the only way to change the text
+        // size, the control size or whether reading a card means holding a key was to close
+        // the game and edit a file - which is not a setting a player has.
+        entries.add(entry("settings",
+                () -> net.minecraft.client.Minecraft.getInstance()
+                        .setScreen(new SettingsScreen(this))));
+        view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
+        // The other half of going first: the choice of drawing instead, while it is still a
+        // choice. See GameEvent.DrawChosen.
+        view().filter(board -> offersDrawFirst(board, me))
+                .ifPresent(board -> entries.add(entry("draw_first", () -> doAction(me, "draw_first"))));
+        entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
+        entries.add(entry("lose_life", () -> send(new GameEvent.LifeChanged(me, me, -1))));
+        view().ifPresent(board -> entries.add(entry("my_counters",
+                () -> openCounters(new CountersScreen.Subject.Seat(
+                        me, CountersScreen.titleForSeat(board, me))))));
+        // Taking back a misclick. Asked for rather than done: this client does not decide
+        // whether a rewind is allowed, and saying so in the interface would only be a second
+        // opinion the table is free to disagree with.
+        entries.add(entry("undo", this::undoMyLastAction));
+        entries.add(entry("show_everything", this::showEverything));
+        // The way to find every verb that is not on a menu you already know the name of.
+        // On the felt's menu because that is where somebody goes when they are looking for
+        // something and do not know where it lives - which is the same question.
+        entries.add(entry("palette", this::openThePalette));
+        // Reachable for as long as anybody wants it, not only the first time. Somebody who
+        // said no thanks a month ago and now wants to know which key taps a card has no other
+        // way back to it, and "start a new world" is not an answer.
+        if (Tutorial.runningAt(table) || (mode.isLearning() && TutorialDemo.practicing())) {
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.table.leave_practice"),
+                    this::leaveTheTutorial));
+        } else if (!mode.isWatching()) {
+            // The way back to the lesson, for somebody who skipped it or wants it again. It
+            // opens a demonstration of its own and leaves this table exactly as it is: the
+            // game here carries on without them for the minute they are gone, because nothing
+            // about the demonstration touches it.
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.table.replay_tutorial"),
+                    () -> this.minecraft.setScreen(TableScreen.learning(table))));
+        }
+        // A vote to free each seat kept for a player away from the board, where this player may vote on it:
+        // every other player at a game of four or more has to, for the seat to be freed.
+        ClientTableState.awayAt(table).ifPresent(away -> view().ifPresent(board -> {
+            for (dev.gathering.network.TableAwayPayload.Away kept : away.seats()) {
+                if (kept.mayVote()) {
+                    entries.add(ContextMenu.Entry.of(
+                            Component.translatable("menu.gathering.table.free_seat",
+                                    SeatNames.of(board, SeatId.of(kept.seat())), kept.votes(), kept.needed()),
+                            () -> ClientNetworking.send(new dev.gathering.network.AwayVotePayload(table, kept.seat()))));
+                }
+            }
+        }));
+        entries.add(ContextMenu.Entry.rule());
+        // The one verb that ends a game. Everything else the table does is a move somebody can
+        // make again; this one settles the match, records the score and takes the board away,
+        // so it asks first. Without it a game could be started and never finished.
+        entries.add(entry("concede", () -> confirm(
+                "concede",
+                () -> send(new GameEvent.Conceded(me)))));
+        // Standing up lives here rather than on the table block. Clicking your own edge of
+        // the table is how a seated player opens their board, so it cannot also be how they
+        // give up their chair - and a verb about your seat belongs with the other verbs about
+        // your seat, where somebody can find it without being told.
+        entries.add(entry("leave_table", () -> {
+            send(new GameEvent.SeatReleased(me));
+            onClose();
+        }));
+        return entries;
+    }
+
+    /**
+     * Which set of GUI art to draw with, cycled from the table's own menu.
+     * <p>On the table rather than in a settings screen, and on the watchers' menu as well as
+     * the players', because the table is where the mod's art is. One entry rather than a list:
+     * the change is visible the instant it is made, so a list would be a dialog asking about
+     * something you can see.
+     * <p>Saved to this player's own file, not sent anywhere - see {@link ClientSettings}. The
+     * same choice is a row of the game's video settings; see {@link GuiThemeOption}.
+     */
+    private ContextMenu.Entry themeEntry() {
+        java.util.List<GuiTheme> looks = GuiThemes.all();
+        GuiTheme now = GuiThemes.active();
+        int next = (looks.indexOf(now) + 1) % Math.max(1, looks.size());
+        return ContextMenu.Entry.of(
+                Component.translatable("menu.gathering.table.theme", now.name()),
+                () -> GuiThemes.wear(looks.get(next)));
+    }
+
+    /** Puts the waiting cards onto the one just clicked, and leaves the mode either way. */
+    private void finishAttaching(CardView host) {
+        List<CardInstanceId> cards = attaching;
+        attaching = List.of();
+        SeatId me = mySeat().orElse(null);
+        if (me == null || !(host instanceof CardView.Visible visible)) {
+            return;
+        }
+        GatheringButtons.clickSound();
+        for (CardInstanceId card : cards) {
+            if (!card.equals(visible.id())) {
+                send(new GameEvent.CardAttached(me, card, visible.id()));
+            }
+        }
+    }
+
+    /**
+     * Opens the pen on this card, filled in with whatever it already says.
+     * <p>Filled in from the card that was clicked rather than from the selection, because a
+     * selection of five cards has five notes and only one of them was under the cursor.
+     * Writing goes to all of them; what is offered to edit is the one you pointed at.
+     */
+    private void openTheNote(CardView.Visible card, List<CardInstanceId> targets) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return;
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new NoteScreen(
+                Component.translatable("screen.gathering.note.title"),
+                card.writtenOn().orElse(""),
+                written -> {
+                    for (CardInstanceId target : targets) {
+                        send(new GameEvent.CardNoted(me, target, written));
+                    }
+                },
+                this));
+    }
+
+    /**
+     * The box for typing a power and toughness over the printed ones.
+     * <p>The same screen the pen uses, because it is the same act: something a player writes
+     * on a card and everybody reads. What differs is how much fits and what the words say.
+     */
+    private void openTheStrength(CardView.Visible card, List<CardInstanceId> targets) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return;
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new NoteScreen(
+                NoteScreen.Pen.STRENGTH,
+                Component.translatable("screen.gathering.strength.title"),
+                card.writtenStrength().orElse(""),
+                written -> {
+                    for (CardInstanceId target : targets) {
+                        send(new GameEvent.CardStrengthSet(me, target, written));
+                    }
+                },
+                this));
+    }
+
+    /**
+     * Which die, out of the ones Magic actually prints.
+     * <p>Six buttons and a way out to any other number. A card asks for a d20 more than for
+     * everything else combined, and none of them is worth typing a number for - but the odd
+     * one exists, so "another number" is there rather than a wall of twenty buttons.
+     */
+    private void askWhichDie() {
+        List<ChoiceScreen.Option> dice = new ArrayList<>();
+        for (int sides : new int[] {4, 6, 8, 10, 12, 20}) {
+            int howManySides = sides;
+            dice.add(new ChoiceScreen.Option(
+                    Component.translatable("screen.gathering.dice.die", howManySides),
+                    () -> ClientNetworking.send(
+                            new dev.gathering.network.RollDicePayload(table, howManySides))));
+        }
+        // The planar die, which is not a d6: its faces are a chaos symbol, a planeswalk
+        // symbol and four blanks. Planechase itself is not here - a planar deck belongs to
+        // the table and every zone in this game belongs to a seat - but a group can lay one
+        // out by hand, and this is the part of it nobody can do by hand honestly.
+        dice.add(new ChoiceScreen.Option(
+                Component.translatable("screen.gathering.dice.planar"),
+                () -> ClientNetworking.send(
+                        new dev.gathering.network.RollPlanarPayload(table))));
+        dice.add(new ChoiceScreen.Option(
+                Component.translatable("screen.gathering.dice.other"), this::askHowManySides));
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.dice.which"), dice, this));
+    }
+
+    /**
+     * Who may read my hand.
+     * <p>One screen rather than a verb per player, and it toggles rather than only turning
+     * on: a player who has shown Bob their hand and wants to stop has to find the same place
+     * they turned it on, or the feature is a door that only opens.
+     * <p>Only occupied seats, and never your own. Showing your hand to an empty chair is not
+     * a thing anybody means to do, and it would sit in the log looking like a mistake.
+     */
+    private void askWhoSeesMyHand(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return;
+        }
+        SeatView mine = board.seat(me);
+        List<ChoiceScreen.Option> who = new ArrayList<>();
+        who.add(new ChoiceScreen.Option(
+                Component.translatable("screen.gathering.hand.everybody"),
+                () -> send(new GameEvent.HandShown(me, null, true))));
+        for (SeatView seat : board.seats()) {
+            if (seat.seat().equals(me) || seat.occupant().isEmpty()) {
+                continue;
+            }
+            SeatId them = seat.seat();
+            boolean already = mine.handIsShownTo(them);
+            who.add(new ChoiceScreen.Option(
+                    Component.translatable(
+                            already ? "screen.gathering.hand.stop" : "screen.gathering.hand.start",
+                            SeatNames.of(seat)),
+                    () -> send(new GameEvent.HandShown(me, them, !already))));
+        }
+        if (mine.handIsShown()) {
+            who.add(new ChoiceScreen.Option(
+                    Component.translatable("screen.gathering.hand.nobody"),
+                    () -> send(new GameEvent.HandShown(me, null, false))));
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.hand.who"), who, this));
+    }
+
+    /** The odd die. Twenty suggested, because that is the one somebody is most likely after. */
+    private void askHowManySides() {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
+                Component.translatable("screen.gathering.dice.sides"),
+                dev.gathering.core.game.event.GameEvent.DiceRolled.MOST_SIDES,
+                sides -> ClientNetworking.send(
+                        new dev.gathering.network.RollDicePayload(table, sides)),
+                this));
+    }
+
+    /**
+     * Which basic land, and then how many.
+     * <p>Buttons rather than a typing box. There are six answers and they are all spellable
+     * wrongly, so a question that cannot be answered wrongly is worth a screen.
+     */
+    private void askWhichBasic() {
+        List<ChoiceScreen.Option> lands = new ArrayList<>();
+        for (dev.gathering.core.card.BasicLand land : dev.gathering.core.card.BasicLand.values()) {
+            lands.add(new ChoiceScreen.Option(
+                    Component.translatable(
+                            "screen.gathering.basic." + land.name().toLowerCase(java.util.Locale.ROOT)),
+                    () -> askHowManyBasics(land)));
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.basic.which"), lands, this));
+    }
+
+    /**
+     * How many of them.
+     * <p>Named, because the second question arrives after the first has gone and "How many?"
+     * on its own is a question about something the player can no longer see.
+     */
+    private void askHowManyBasics(dev.gathering.core.card.BasicLand land) {
+        // The plural, because the question is "how many". Six strings rather than an "s" on
+        // the end of one: Plains and Wastes are already plural, and "How many Plainss?" is
+        // the sort of thing nobody fixes once it has shipped.
+        Component name = Component.translatable(
+                "screen.gathering.basic." + land.name().toLowerCase(java.util.Locale.ROOT) + ".plural");
+        net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
+                Component.translatable("screen.gathering.amount.basics", name), 1,
+                count -> ClientNetworking.send(new FetchBasicPayload(table, land, count)),
+                this));
+    }
+
+    /**
+     * Which remembered name to pin, or unpin.
+     * <p>One list with both kinds on it, because it is one question - "which of these do I
+     * always want?" - and two screens to answer it would be two places to look. Each row says
+     * which state pressing it leads to rather than which state it is in, since a row that
+     * reads as a label is a row nobody presses.
+     */
+    private void askWhatToPin() {
+        List<ChoiceScreen.Option> rows = new ArrayList<>();
+        for (String token : RecentThings.tokenOffers()) {
+            boolean pinned = RecentThings.tokenIsPinned(token);
+            rows.add(new ChoiceScreen.Option(
+                    Component.translatable(pinned
+                            ? "screen.gathering.pin.unpin_token"
+                            : "screen.gathering.pin.pin_token", token),
+                    () -> RecentThings.toggleTokenPin(token)));
+        }
+        for (String counter : RecentThings.counterOffers()) {
+            boolean pinned = RecentThings.counterIsPinned(counter);
+            rows.add(new ChoiceScreen.Option(
+                    Component.translatable(pinned
+                            ? "screen.gathering.pin.unpin_counter"
+                            : "screen.gathering.pin.pin_counter", counter),
+                    () -> RecentThings.toggleCounterPin(counter)));
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.pin.which"), rows, this));
+    }
+
+    /**
+     * Lists everything under the cursor, so the one underneath can be picked.
+     * <p>A list rather than a fan of pictures, and deliberately: a list is read by a narrator,
+     * walked with the arrow keys and pressed with Enter, which a fan of overlapping rectangles
+     * is not. Reaching a buried card was the problem; reaching it only with a mouse would have
+     * solved half of it.
+     * <p><b>Nothing is moved.</b> Choosing a card opens its own menu, or selects it when it is
+     * one this player is not entitled to read - so a card can be reached and acted on without
+     * the board changing merely because somebody went looking.
+     * <p>Only cards this player is entitled to read appear, which is not a policy decision
+     * here so much as a consequence of one made further down: a face-down card reaches this
+     * client as {@code CardView.Anonymous}, which deliberately carries no instance id at all -
+     * there is nothing to name and nothing to address. So a face-down card belonging to
+     * somebody else, buried under a visible one, cannot be singled out by this client. That is
+     * the visibility rule working rather than a gap in this screen, and the card is still
+     * reachable the ordinary way when it is the one on top.
+     */
+    private void showWhatIsUnderTheCursor(GameView board) {
+        List<Placed> under = everythingAt(everythingOnTheTable(board), cursorX, cursorY);
+        if (under.size() < 2) {
+            return;
+        }
+        List<ChoiceScreen.Option> rows = new ArrayList<>();
+        for (Placed placed : under) {
+            if (placed.card() instanceof CardView.Visible visible) {
+                rows.add(new ChoiceScreen.Option(nameOf(visible),
+                        () -> openCardMenu(board, visible, false, cursorX, cursorY)));
+            }
+        }
+        if (rows.isEmpty()) {
+            return;
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.table.under_here"), rows, this));
+    }
+
+    /**
+     * Works out where the chosen cards would sit if they were tidied, and offers it.
+     * <p>Only this player's own cards. The selection can only contain cards this client can
+     * see, but seeing somebody else's creature is not permission to rearrange their board -
+     * so the plan is built from the cards on <em>my</em> battlefield and nothing else. That
+     * check is here rather than only at the far end because a plan that drew somebody else's
+     * cards moving would be a promise this client had no business making.
+     */
+    private void offerToArrange(GameView board, SeatId me) {
+        List<dev.gathering.core.ui.ArrangeSelection.Card> chosen = new ArrayList<>();
+        for (CardView card : board.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible && selected.contains(visible.id())) {
+                chosen.add(new dev.gathering.core.ui.ArrangeSelection.Card(
+                        visible.id(),
+                        visible.position() == null ? TablePosition.ORIGIN : visible.position(),
+                        visible.attachedTo()));
+            }
+        }
+        arranging = dev.gathering.core.ui.ArrangeSelection.plan(chosen);
+    }
+
+    /**
+     * Sends the tidy the player has just agreed to.
+     * <p>One ordinary move per card, which is the point: there is no "arrange" on the wire and
+     * no new authority. Each one goes through the same commit the server applies to a card
+     * dragged by hand, so it is refused on the same terms, logged in the same words and undone
+     * the same way. A verb that could rearrange a board in one packet would be a verb that
+     * needed its own rules about who may use it.
+     */
+    private void applyTheArrangement() {
+        SeatId me = mySeat().orElse(null);
+        if (me == null || arranging.isEmpty()) {
+            arranging = List.of();
+            return;
+        }
+        // Filtered against the board as it stands, not as it stood when the plan was drawn.
+        // A card moved to a graveyard between the preview and the press is still named by the
+        // plan, and sending its move would put it back on the battlefield - the convenience
+        // tool undoing a real decision. The tick below drops a stale preview outright; this is
+        // the belt for the frames between the last check and the press.
+        java.util.Map<CardInstanceId, Integer> facing = howMyCardsAreTurned(me);
+        List<GameEvent> moves = new ArrayList<>(arranging.size());
+        for (dev.gathering.core.ui.ArrangeSelection.Spot spot
+                : dev.gathering.core.ui.ArrangeSelection.stillStanding(
+                        arranging, facing.keySet())) {
+            // The angle it has now, not the one it had when this was drawn. Turning a card
+            // after previewing is a decision the player made later, and later wins - a tidy
+            // that straightened it would be the convenience tool overruling them. An audit
+            // caught exactly that: rotation=0 where 90 was expected.
+            moves.add(new GameEvent.CardMoved(me, spot.id(),
+                    ZoneRef.of(me, Zone.BATTLEFIELD),
+                    dev.gathering.core.game.Placement.at(
+                            spot.facing(facing.getOrDefault(spot.id(), 0)))));
+        }
+        sendAll(moves);
+        arranging = List.of();
+    }
+
+    /**
+     * Which of this player's cards are on their battlefield right now.
+     * <p>The set a plan is checked against. Only visible ones, because only a visible card has
+     * an id this client could have planned a move for.
+     */
+    private java.util.Map<CardInstanceId, Integer> howMyCardsAreTurned(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null || me == null) {
+            return java.util.Map.of();
+        }
+        java.util.Map<CardInstanceId, Integer> here = new java.util.LinkedHashMap<>();
+        for (CardView card : board.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            // Loose cards only. One that has become an aura on something since the preview was
+            // drawn would be torn off its host by being given a spot of its own.
+            if (card instanceof CardView.Visible visible && visible.attachedTo() == null) {
+                here.put(visible.id(),
+                        visible.position() == null ? 0 : visible.position().rotation());
+            }
+        }
+        return here;
+    }
+
+    /**
+     * Drops a tidy that no longer describes the board.
+     * <p>A preview is a promise about cards where they are now. If one of them has gone to a
+     * graveyard, been exiled or changed hands since, the promise is not true any more and the
+     * honest thing is to stop showing it - rather than to apply the rest and quietly do
+     * something the player did not see drawn.
+     */
+    private void dropAStaleArrangement() {
+        if (arranging.isEmpty()) {
+            return;
+        }
+        SeatId me = mySeat().orElse(null);
+        if (me == null || dev.gathering.core.ui.ArrangeSelection.isStale(
+                arranging, howMyCardsAreTurned(me).keySet())) {
+            arranging = List.of();
+        }
+    }
+
+    /**
+     * Draws the tidy as it would be, over the board as it is.
+     * <p>Outlines rather than card faces: a preview drawn as real cards is a board with every
+     * card on it twice, and the question being asked is "where would things go", not "what are
+     * they". The cards themselves stay where they are underneath, so the movement each one
+     * would make is the gap between the two.
+     */
+    private void renderArrangement(GuiGraphics graphics, GameView board) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null || arranging.isEmpty()) {
+            return;
+        }
+        for (dev.gathering.core.ui.ArrangeSelection.Spot spot : arranging) {
+            Rect where = board().rectOf(me, spot.facing(0));
+            GatheringSprites.highlight(graphics, where.x(), where.y(), where.width(), where.height());
+        }
+        GuiText.drawCentered(graphics, this.font,
+                // No key for doing it again: tidying is not a verb the catalogue binds, so the
+                // "(%s to redo)" this used to end with read "(not bound to redo)" every time.
+                Component.translatable("screen.gathering.table.arrange_asks"),
+                this.width / 2, layout().status().bottom() + 6, this.width / 2, ACCENT);
+    }
+
+    private void openCounters(CountersScreen.Subject subject) {
+        net.minecraft.client.Minecraft.getInstance()
+                .setScreen(new CountersScreen(table, subject, this));
+    }
+
+    /** A seat's life, and the commander damage that comes off it. */
+    private void openLife(SeatId seat) {
+        net.minecraft.client.Minecraft.getInstance()
+                .setScreen(new LifeScreen(table, seat, this));
+    }
+
+    /**
+     * Whether this card is printed with a second face to turn to.
+     * <p>A question about a printing, not about the game, so it is answered out of the card
+     * data this client has been sent. A card whose data has not arrived yet answers no: an
+     * entry that appears a second after the menu opens is worse than one that is not there.
+     */
+    private boolean hasAnotherSide(CardView card) {
+        return summaryOf(card).map(CardSummary::hasAnotherSide).orElse(false);
+    }
+
+    /** What to call a card on a screen that has to name what it is about to change. */
+    private Component nameOf(CardView card) {
+        return summaryOf(card)
+                .map(summary -> Component.literal(summary.name()))
+                .map(Component.class::cast)
+                .orElseGet(() -> ClientCardCache.get().unnamed(
+                        card instanceof CardView.Visible visible ? visible.identity().scryfallId() : null));
+    }
+
+    /**
+     * Asks the table to take back this player's most recent action.
+     * <p>One at a time, because that is what a misclick is. Whether it happens is the
+     * session's decision - your own action, this table's undo mode, and never across
+     * something that let somebody see a card - and the answer comes back as a message when
+     * it is no.
+     */
+    private void undoMyLastAction() {
+        ClientNetworking.send(new UndoPayload(table, 1));
+    }
+
+    /**
+     * One menu row for one of the catalogue's verbs.
+     * <p>Named with the verb's own id, which is what lets {@link #paletteRows} search the
+     * menus instead of keeping a second list of verbs beside them.
+     */
+    private static ContextMenu.Entry entry(String key, Runnable action) {
+        // What that verb is bound to now, not what it shipped bound to. A menu is the one
+        // place a player is looking straight at a verb, so it is the one place worth telling
+        // them there is a faster way - and the one place they can be told the wrong one.
+        return ContextMenu.Entry.named(
+                key,
+                Component.translatable("menu.gathering.table." + key),
+                TableShortcuts.label(key),
+                action);
+    }
+
+
+    // ------------------------------------------------------------ hit-testing
+
+    /**
+     * The keys, matched to Tabletop Simulator's defaults.
+     * <p>A key that does something else here is one people press by accident all evening. So
+     * F flips, Q and E turn, G groups, R is the deck verb and Alt reads a card, while the
+     * number row carries the nine verbs the Magic table binds it to. Where TTS has no
+     * equivalent - the turn, the log, life - the key is ours and avoids theirs.
+     */
+    @Override
+    public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (mode.isWatching()) {
+            return watcherPressed(key, scanCode, modifiers);
+        }
+        // Before everything, because while somebody is typing every other key is a letter.
+        // A board where pressing D drew a card halfway through the word "dead" would be a
+        // board nobody could talk at. The palette is the same problem with sharper teeth:
+        // every verb it can find is spelled with letters the board binds.
+        if (palette != null) {
+            palette.keyPressed(key, scanCode);
+            if (palette.finished()) {
+                palette = null;
+            }
+            return true;
+        }
+        if (saying != null && typingKey(key, modifiers)) {
+            return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            // Escape shuts whatever is open on top of the table, and only leaves the table
+            // when nothing is. Two of these used not to be on the list: the log, which is as
+            // open as a menu is and left by the same key everywhere else in the game, and a
+            // card halfway through being carried - so pressing Escape while holding one put
+            // the player outside the table still holding it.
+            // Before the verbs, so it stays Escape whatever is bound to it: the way out of the
+            // board is the one key a player must always have, and the game's own Controls screen
+            // binds nothing to Escape - pressing it there unbinds.
+            if (somethingIsOpen()) {
+                closeWhatIsOpen();
+                return true;
+            }
+            return super.keyPressed(key, scanCode, modifiers);
+        }
+        // Whatever the player has this key bound to, which is the only place that question is
+        // asked. The mat buttons, the number row and the TTS letters were three separate
+        // switches on hardcoded constants; they are one table now, and it is the table the
+        // menus, the key list and the palette all read their labels out of.
+        //
+        // Resolved before the seat check rather than after it, which is two fixes in one
+        // line. The log used to be a literal `L` tested above here: rebinding the log to Z
+        // left L still opening it, unbinding it left L still opening it, and binding anything
+        // else to L never saw the press - because a hardcoded key above the lookup is not a
+        // default, it is an override. And three of these verbs are not about a board at all,
+        // so a watcher used to reach none of them: the early return below gave up before the
+        // lookup, and the one person most likely to want to read the log of a game they
+        // joined halfway through was the one person who could not open it.
+        //
+        // And before every other use of the key at the board: the chat key, F1's list of keys,
+        // the camera's keys and the board's own fixed ones below. At the board a key bound to a
+        // table verb is that verb, whatever else it is bound to - the owner's rule (2026-10-27).
+        // The chat key and F1 used to be asked first, so a verb put on either never fired here
+        // while every menu printed the key beside it. Away from the board nothing changes, and
+        // keys that do not collide there are the player's to choose. The game's own keys that
+        // are read before a screen sees the press, and other mods' screen keys, are kept off a
+        // verb's key by each loader's BoardKeysFirstMixin, which hands such a press here first.
+        String bound = TableShortcuts.actionFor(key, scanCode);
+        if (bound != null) {
+            // A key the player gave to a verb means that verb, whether or not it found anything to
+            // act on. A miss used to fall through to the fixed keys below: with untap moved to U, U
+            // over bare felt untapped every permanent the seat had, because U is also the fixed key
+            // for that, and a cursor verb moved onto Enter, plus or minus passed the turn or changed
+            // a life total. Nothing below may answer a key somebody bound - for somebody watching
+            // either, whose key for a verb that needs a seat does nothing at all.
+            doTheVerbOnItsKey(bound);
+            return true;
+        }
+        if (saying == null && net.minecraft.client.Minecraft.getInstance()
+                .options.keyChat.matches(key, scanCode)) {
+            // The player's own chat key, whatever they have bound it to. Talking to the table
+            // is the same act as talking to the server, so it is the same press.
+            saying = new StringBuilder();
+            // The press that opened the line arrives once more as a typed character a
+            // moment later, and the line used to start with the letter of the chat key.
+            swallowingTheChatKey = true;
+            return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_F1) {
+            showingKeys = !showingKeys;
+            return true;
+        }
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            // Watching a game in play, from a chair that watches or after standing up. The camera's
+            // own keys still move the view and switch the board, as the key list and the guide both
+            // say they do: they used to sit behind this return, so W, the arrows and V did nothing,
+            // the arrows went to the game's focus navigation, and a watcher who had never sat down
+            // could never reach the flat board at all.
+            if (moveTheView(key, scanCode)) {
+                return true;
+            }
+            return super.keyPressed(key, scanCode, modifiers);
+        }
+        if (moveTheView(key, scanCode)) {
+            return true;
+        }
+
+        switch (key) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_G -> {
+                // TTS groups the selection into a stack; the nearest thing here is putting the
+                // selected cards onto one another, which is what a stack of cards is.
+                return groupSelection(me);
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE -> {
+                return deleteSelection(me);
+            }
+
+            // --- ours, chosen to keep clear of theirs ---
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_U -> {
+                // A second key for untapping everything, and a fixed one: the key list says so,
+                // as it says Enter for the turn. Through the verb rather than a copy of its send,
+                // so the button, the bound key and this cannot come to do different things.
+                doAction(me, "untap_all");
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> {
+                // A tidy that is on offer is what Enter is agreeing to. Passing the turn is
+                // the wrong thing to do to somebody who is looking at a question.
+                if (!arranging.isEmpty()) {
+                    applyTheArrangement();
+                    return true;
+                }
+                view().ifPresent(board -> passTurn(board, me));
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL -> {
+                countOrLive(me, 1);
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS -> {
+                countOrLive(me, -1);
+                return true;
+            }
+            default -> { }
+        }
+        return super.keyPressed(key, scanCode, modifiers);
+    }
+
+    /**
+     * Slides the view, whichever view it is.
+     * <p>Pixels either way now. The seated board is already in pixels, and the camera over
+     * the real one turns them into blocks itself, from the height it is actually at - which
+     * is the only thing that knows. Panning that moves the world by a different amount than
+     * the hand is the single most common way a drag feels wrong; moving it the other way is
+     * the one worse than that, and the board on the block did exactly that. Both views grab
+     * the felt and pull it, which is what the seated one has always done and what the camera
+     * over the real table always said it did.
+     */
+    private void pan(double pixelsX, double pixelsY) {
+        if (playingOnTheBlock) {
+            TableCameraView.panByPixels(pixelsX, pixelsY);
+        } else {
+            geometry.pan(pixelsX, pixelsY);
+        }
+    }
+
+    /**
+     * The camera's own keys, for a player and for somebody watching alike: WASD and the arrows
+     * slide the view, which is how TTS moves its camera and the only way to pan at all on a mouse
+     * without a wheel to press, and V moves between the two boards.
+     * <p>One method, asked from both places, so the seated keys and a watcher's cannot drift apart.
+     * The sign is the table's, not the camera's: pressing right looks further right, so the table
+     * slides left under you - the same direction dragging the felt leftwards would.
+     * <p>Takes the scan code it does not read so that {@code tools/keycheck.py} counts it as an
+     * input handler: a key written here is checked against the catalogue like any other press.
+     *
+     * @return whether the key was one of these
+     */
+    private boolean moveTheView(int key, int scanCode) {
+        switch (key) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_W, org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> pan(0, PAN_STEP);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_S, org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> pan(0, -PAN_STEP);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_A, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT -> pan(PAN_STEP, 0);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_D, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT -> pan(-PAN_STEP, 0);
+            // Between the two boards. Same game either way; only the place you are looking at it
+            // from changes, and which one you were last on is remembered.
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_V -> useTheBlock(!playingOnTheBlock);
+            default -> {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void showEverything() {
+        if (playingOnTheBlock) {
+            TableCameraView.showEverything();
+        } else {
+            geometry.showEverything(potTray());
+        }
+    }
+
+    /**
+     * Plus and minus: a counter on the card being pointed at, or a life if there is none.
+     * <p>Reported as "having to right click then click put a +1/+1 every time is too slow",
+     * and it was: a +1/+1 counter is the single most frequent thing anybody does to a card in
+     * a game of Magic and it cost a menu. It reads the cursor exactly as tap and untap do, so
+     * the rule is the one already learned - these keys act on what you are pointing at - and
+     * the felt is still your life total, which is what the keys did before and what they
+     * still do everywhere else on the screen.
+     */
+    private void countOrLive(SeatId me, int delta) {
+        List<CardInstanceId> targets = underCursorOrSelected();
+        if (targets.isEmpty()) {
+            send(new GameEvent.LifeChanged(me, me, delta));
+            return;
+        }
+        for (CardInstanceId card : targets) {
+            send(new GameEvent.CounterChanged(
+                    me, card, CardInstance.Counters.PLUS_ONE_PLUS_ONE, delta));
+        }
+    }
+
+    /**
+     * What a key press acts on: the selection if there is one, else the card under the cursor.
+     * <p>TTS's rule exactly, and the reason its keys feel immediate - you never have to click
+     * something first to act on it.
+     */
+    private List<CardInstanceId> underCursorOrSelected() {
+        if (!selected.isEmpty()) {
+            return howManyOfThem(List.copyOf(selected));
+        }
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return List.of();
+        }
+        Placed under = frontMostAt(board, everythingOnTheTable(board), cursorX, cursorY);
+        return under != null && under.card() instanceof CardView.Visible visible
+                ? List.of(visible.id())
+                : List.of();
+    }
+
+    /**
+     * Does the verb a pressed key is bound to: one about the table rather than a board for anybody, and any other for
+     * a player with a seat. For somebody watching, a verb that needs a seat does nothing - and its key is still that
+     * verb's, so it does nothing else either.
+     */
+    private void doTheVerbOnItsKey(String bound) {
+        if (!doActionWithoutASeat(bound)) {
+            mySeat().ifPresent(me -> doAction(me, bound));
+        }
+    }
+
+    /**
+     * The verbs that are about the table rather than about a board.
+     * <p>Nothing anybody else can see, and nothing that needs a chair: the log is the public
+     * record of a public game, framing the camera is where you are looking from, and the
+     * palette is how you find a verb whose key you do not know. A watcher may do all three,
+     * which is why they are answered before the seat check rather than inside {@link
+     * #doAction}, and why they live in one method rather than being written out twice.
+     *
+     * @param action a catalogue verb id, or null for a press that is not one
+     */
+    private boolean doActionWithoutASeat(String action) {
+        if (action == null) {
+            return false;
+        }
+        return switch (action) {
+            case "show_log", "hide_log" -> {
+                showingLog = !showingLog;
+                yield true;
+            }
+            case "show_everything" -> {
+                showEverything();
+                yield true;
+            }
+            case "palette" -> {
+                openThePalette();
+                yield true;
+            }
+            default -> false;
+        };
+    }
+
+    /**
+     * Does one verb, named by its catalogue id.
+     * <p>The number row's defaults are matched to the reference table key for key, because a
+     * row that is nearly the same is worse than one that is different: 0 passes, 1 untaps, 2
+     * draws, 3 scries, 4 mills, 5 reveals, 7 exiles, 8 bins, 9 puts cards under the library in
+     * a random order. Six is the one deliberate difference - that table spends it on a second
+     * reveal layout and this one spends it on surveil, which is a verb rather than a display.
+     * Which key each of those verbs is on now is the player's answer, not this list's; see
+     * {@link TableShortcuts}.
+     * <p>The one body for each verb, and the one place a verb is turned into an event. A key
+     * press, a mat button, a menu row, the palette and a tutorial step all arrive here with
+     * the same string, which is what makes "an action performed through a menu counts just as
+     * one performed through a shortcut" true rather than nearly true.
+     * <p>Says whether it did anything. False for a verb this board does not offer from here -
+     * which is not an error: the catalogue is what is <em>searchable and bindable</em>, and a
+     * verb whose only sensible entry point is a menu row that already knows which card it is
+     * about is answered there. A caller that gets false has not acted and may go on looking.
+     * <p>Package-visible so the scripted run can press a verb by name, the way a player does.
+     */
+    boolean doAction(SeatId me, String action) {
+        if (me == null || action == null) {
+            return false;
+        }
+        // The three that need no seat are still reachable through here, because this is what
+        // a menu row and a palette row call and both of those are open to a watcher too.
+        if (doActionWithoutASeat(action)) {
+            return true;
+        }
+        return switch (action) {
+            // The mat's own four. A button and its key are one body here, which is why the
+            // button presses this rather than having a copy of the send beside it.
+            case "untap_all" -> {
+                doVerb(me, TableVerb.UNTAP);
+                yield true;
+            }
+            case "draw" -> {
+                doVerb(me, TableVerb.DRAW);
+                yield true;
+            }
+            case "shuffle" -> {
+                doVerb(me, TableVerb.SHUFFLE);
+                yield true;
+            }
+            case "mulligan" -> {
+                doVerb(me, TableVerb.MULLIGAN);
+                yield true;
+            }
+
+            case "pass_turn" -> {
+                view().ifPresent(board -> passTurn(board, me));
+                yield true;
+            }
+            case "draw_first" -> {
+                // Only while it is still a choice; anywhere else the server would refuse it.
+                GameView board = view().orElse(null);
+                if (board == null || !offersDrawFirst(board, me)) {
+                    yield false;
+                }
+                send(new GameEvent.DrawChosen(me, board.nextSeatWithABoard(me)));
+                yield true;
+            }
+            case "scry" -> {
+                send(new GameEvent.LibraryLooked(me, me, 1));
+                decideOnLibrary(me, PileScreen.Decision.SCRY);
+                yield true;
+            }
+            case "mill" -> {
+                send(new GameEvent.LibraryMilled(me, me, 1));
+                yield true;
+            }
+            case "reveal" -> {
+                send(new GameEvent.LibraryRevealed(me, me, 1));
+                yield true;
+            }
+            case "surveil" -> {
+                send(new GameEvent.LibraryLooked(me, me, 1));
+                decideOnLibrary(me, PileScreen.Decision.SURVEIL);
+                yield true;
+            }
+            case "to_exile" -> sendUnderCursorTo(me, Zone.EXILE, Placement.TOP);
+            case "to_graveyard" -> sendUnderCursorTo(me, Zone.GRAVEYARD, Placement.TOP);
+            case "to_library_bottom_random" -> bottomOfLibraryAtRandom(me);
+
+            // The TTS letters, applied to whatever is under the cursor or selected.
+            case "tap" -> setTapUnderCursor(me, true);
+            case "untap" -> setTapUnderCursor(me, false);
+            case "turn_over" -> flipUnderCursor(me);
+
+            case "arrange" -> {
+                view().ifPresent(board -> offerToArrange(board, me));
+                yield true;
+            }
+            case "settings" -> {
+                net.minecraft.client.Minecraft.getInstance().setScreen(new SettingsScreen(this));
+                yield true;
+            }
+            case "others_here" -> {
+                view().ifPresent(this::showWhatIsUnderTheCursor);
+                yield true;
+            }
+            case "sort_hand" -> {
+                sortMyHand(me);
+                yield true;
+            }
+            default -> false;
+        };
+    }
+
+    /**
+     * Opens the search box for verbs.
+     * <p>Built here and now rather than kept: what is on it depends on what the cursor is on
+     * and what is selected, and a list built once at startup would offer verbs for a card that
+     * is no longer there.
+     */
+    private void openThePalette() {
+        List<ContextMenu.Entry> rows = paletteRows();
+        if (rows.isEmpty()) {
+            return;
+        }
+        palette = ActionPalette.over(rows, whatTheVerbsWouldActOn());
+    }
+
+    /**
+     * Every menu row a player could reach right now, gathered into one list.
+     * <p>The felt's menu, the library's, and the card menu for whatever the cursor or the
+     * selection is on. Those are the three menus that exist, so this is the whole of what
+     * right-clicking could offer - which is exactly what the palette is for searching.
+     * <p>Built from the same methods the menus are built from rather than from a list of ids,
+     * so a verb that a menu stops offering stops being findable here on the same day, and a
+     * verb added to a menu is searchable without anybody remembering to add it twice.
+     */
+    private List<ContextMenu.Entry> paletteRows() {
+        List<ContextMenu.Entry> rows = new ArrayList<>(tableMenuEntries());
+        SeatId me = mySeat().orElse(null);
+        GameView board = view().orElse(null);
+        if (me == null || board == null) {
+            // A watcher gets the felt menu's short list and nothing else, which is the same
+            // thing their right-click gets them.
+            return rows;
+        }
+        rows.addAll(pileMenuEntries(me, Zone.LIBRARY));
+        CardView.Visible card = theCardTheVerbsAreAbout(board);
+        if (card != null) {
+            rows.addAll(cardMenuEntries(board, card, inMyHand(board, me, card.id())));
+        }
+        return rows;
+    }
+
+    /**
+     * Which card the palette's card verbs are about: the first of what a key press would act
+     * on, which is the selection when there is one and the card under the cursor otherwise.
+     * <p>The first rather than a special case, because the card menu already applies every
+     * verb on it to the whole selection when the card it was opened on is part of one. So one
+     * card is enough to build the menu, and the menu does the rest.
+     */
+    private CardView.Visible theCardTheVerbsAreAbout(GameView board) {
+        for (CardInstanceId id : underCursorOrSelected()) {
+            for (CardView seen : everythingOnTheTable(board).stream().map(Placed::card).toList()) {
+                if (seen instanceof CardView.Visible visible && visible.id().equals(id)) {
+                    return visible;
+                }
+            }
+            for (CardView seen : board.seat(mySeat().orElseThrow()).zone(Zone.HAND).cards()) {
+                if (seen instanceof CardView.Visible visible && visible.id().equals(id)) {
+                    return visible;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Whether that card is one of mine in hand, which changes what its menu offers. */
+    private boolean inMyHand(GameView board, SeatId me, CardInstanceId id) {
+        for (CardView seen : board.seat(me).zone(Zone.HAND).cards()) {
+            if (seen instanceof CardView.Visible visible && visible.id().equals(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * What the palette's card verbs will act on, in words, or null when nothing is pointed at.
+     * <p>Counted, never named. A face-down card has a name this client is not allowed to
+     * print, and a summary that named its target would be the one place in the mod where a
+     * hidden card's identity reached a screen. Counting is also the more useful thing to say:
+     * what a player wants to know before pressing a bulk verb is how many cards it is about
+     * to happen to.
+     */
+    private Component whatTheVerbsWouldActOn() {
+        int many = underCursorOrSelected().size();
+        if (many == 0) {
+            return null;
+        }
+        // "On 1 cards" is what one string with a number in it gives you, and this line is on
+        // screen every time the cursor is over a card - which is most of the time.
+        return many == 1
+                ? Component.translatable("screen.gathering.palette.acting_on_one")
+                : Component.translatable("screen.gathering.palette.acting_on", many);
+    }
+
+    /**
+     * Puts your hand in order of what things cost.
+     * <p>Worked out here because the mana cost is card data and the client is what has it -
+     * the game itself knows a hand as a list of ids and has never heard of a mana value.
+     * <p>A card whose data has not arrived yet goes to the end rather than to the front. Both
+     * are arbitrary; the end is the one where an unsorted card is obviously unsorted instead
+     * of looking like the cheapest thing in the hand.
+     */
+    private void sortMyHand(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return;
+        }
+        List<CardView> hand = board.seat(me).zone(Zone.HAND).cards();
+        List<CardInstanceId> order = hand.stream()
+                .filter(card -> card instanceof CardView.Visible)
+                .map(card -> (CardView.Visible) card)
+                .sorted(java.util.Comparator
+                        .comparingInt((CardView.Visible card) -> costOf(card).orElse(Integer.MAX_VALUE))
+                        .thenComparing(card -> summaryOf(card)
+                                .map(CardSummary::name).orElse("")))
+                .map(CardView.Visible::id)
+                .toList();
+        if (order.isEmpty()) {
+            return;
+        }
+        send(new GameEvent.HandSorted(me, me, order));
+    }
+
+    /**
+     * Whether this card is printed as a planeswalker.
+     * <p>A question about a printing rather than about the game, so it is answered out of the
+     * card data this client holds. A card whose data has not arrived yet answers no, and its
+     * loyalty rows appear the moment the data does - which is better than showing every card
+     * a pair of buttons that only mean something on one card in thirty.
+     */
+    private boolean isAPlaneswalker(CardView card) {
+        return summaryOf(card)
+                .map(summary -> summary.sideShown(card.turnedOver()).typeLine())
+                .filter(line -> line != null)
+                .map(line -> line.toLowerCase(java.util.Locale.ROOT).contains("planeswalker"))
+                .orElse(false);
+    }
+
+    /** What this card costs, if its data has arrived. */
+    private java.util.OptionalInt costOf(CardView card) {
+        CardSummary summary = summaryOf(card).orElse(null);
+        return summary == null
+                ? java.util.OptionalInt.empty()
+                : java.util.OptionalInt.of(dev.gathering.core.card.ManaValue.of(
+                        summary.sideShown(false).manaCost()));
+    }
+
+    /**
+     * Puts whatever the keys are pointing at back under the library, in no order.
+     * <p>Asked of the server rather than done here, because the order cards go back in is a
+     * fact about the bottom of a library and a client that chose it would be the only thing
+     * at the table that knew it - see {@link ToBottomAtRandomPayload}.
+     */
+    private boolean bottomOfLibraryAtRandom(SeatId me) {
+        List<CardInstanceId> targets = underCursorOrSelected();
+        if (targets.isEmpty()) {
+            return false;
+        }
+        ClientNetworking.send(new ToBottomAtRandomPayload(table, targets));
+        selected.clear();
+        return true;
+    }
+
+    /**
+     * Sends whatever the keys are pointing at to one of its owner's zones.
+     * <p>Its owner's, not the presser's: a creature somebody stole dies to its own owner's
+     * graveyard, which is the rule the card menu already follows and the reason this asks the
+     * card who owns it rather than assuming.
+     */
+    private boolean sendUnderCursorTo(SeatId me, Zone zone, Placement placement) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return false;
+        }
+        List<CardInstanceId> targets = underCursorOrSelected();
+        eachCard(board, targets, seen -> new GameEvent.CardMoved(
+                me, seen.id(), ZoneRef.of(seen.owner(), zone), placement));
+        return !targets.isEmpty();
+    }
+
+    private boolean flipUnderCursor(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return false;
+        }
+        List<CardInstanceId> targets = underCursorOrSelected();
+        eachCard(board, targets, seen -> new GameEvent.CardFacingSet(me, seen.id(),
+                seen.facing() == Facing.FACE_UP ? Facing.FACE_DOWN : Facing.FACE_UP));
+        return !targets.isEmpty();
+    }
+
+    /**
+     * Taps or untaps whatever the keys are pointing at, which is a quarter turn on screen.
+     * <p>These used to nudge the resting angle instead, which drew the same picture and meant
+     * something else entirely: a card turned that way looks tapped, is not tapped, and does
+     * not come back when the player untaps everything. Tapping is a state the whole table can
+     * see and reason about; an angle is decoration. Free rotation is still on the card's own
+     * menu, where a thing nobody does twice a turn belongs.
+     */
+    private boolean setTapUnderCursor(SeatId me, boolean tapped) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return false;
+        }
+        List<CardInstanceId> targets = underCursorOrSelected();
+        setTap(board, targets, tapped);
+        return !targets.isEmpty();
+    }
+
+    /**
+     * Turns these cards sideways, or back, whichever they are now.
+     * <p>One method for the key and for the menu row, so the two can never come to mean
+     * slightly different things - which is the failure the whole "one gesture per verb" pass
+     * is about. A card already the way it is asked for sends nothing.
+     */
+    private void setTap(GameView board, List<CardInstanceId> targets, boolean tapped) {
+        mySeat().ifPresent(me -> eachCard(board, targets, seen -> seen.tapped() == tapped
+                ? null
+                : new GameEvent.CardTapSet(me, seen.id(), tapped)));
+    }
+
+    /**
+     * Puts every selected card onto the first one, which is what a stack is.
+     * <p>TTS's group makes a deck out of a selection. Here the equivalent is dropping them all
+     * on the same spot: the pile reads as a pile, and picking the top one off works, because
+     * the stacking code already handles exactly this.
+     */
+    private boolean groupSelection(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null || selected.size() < 2) {
+            return false;
+        }
+        List<CardView> cards = selectedOn(board);
+        TablePosition onto = cards.isEmpty()
+                ? null
+                : cards.get(0).placedAt().orElse(null);
+        if (onto == null) {
+            return false;
+        }
+        // The mat the first card is on, which is where the stack is made. Stacking used to
+        // send every card to the presser's own battlefield, so grouping a selection on an
+        // opponent's mat quietly stole it.
+        SeatId mat = matHolding(board, cards.get(0)).orElse(me);
+        List<GameEvent> moves = new ArrayList<>(cards.size());
+        for (CardView card : cards) {
+            if (card instanceof CardView.Visible visible) {
+                moves.add(new GameEvent.CardMoved(me, visible.id(),
+                        ZoneRef.of(mat, Zone.BATTLEFIELD), Placement.at(onto)));
+            }
+        }
+        sendAll(moves);
+        selected.clear();
+        return true;
+    }
+
+    /** Whose battlefield a card is lying on, which is not always whose card it is. */
+    private static Optional<SeatId> matHolding(GameView board, CardView card) {
+        for (SeatView seat : board.seats()) {
+            for (CardView on : seat.zone(Zone.BATTLEFIELD).cards()) {
+                if (on == card) {
+                    return Optional.of(seat.seat());
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Removes what is under the cursor, for the one kind of card that can be removed.
+     * <p>Only tokens cease to exist. A real card has an owner and a deck to go back to, so
+     * deleting one would be losing somebody's card - which is why this sends the token verb
+     * and silently passes over anything else.
+     */
+    private boolean deleteSelection(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return false;
+        }
+        List<CardInstanceId> targets = underCursorOrSelected();
+        eachCard(board, targets, seen ->
+                seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null);
+        return !targets.isEmpty();
+    }
+
+    /** Whether this player may still choose to draw: going first, on turn one, with somebody to hand it to. */
+    private static boolean offersDrawFirst(GameView board, SeatId me) {
+        return board.turn().turnNumber() == 1 && !board.turn().drawChosen() && board.turn().activeSeat().equals(me)
+                && board.players() > 1 && !board.nextSeatWithABoard(me).equals(me);
+    }
+
+    /**
+     * Hands the turn on, and nothing else.
+     * <p>It used to untap the seat receiving the turn as well, on the argument that untapping
+     * is unambiguous and forgetting it is how a paper game goes wrong. Playtesters reported
+     * it as a bug - "passing turn automatically untaps opponents boards" - and they were
+     * right to: this mod's whole promise is that it moves cards and never decides that a game
+     * action happened, and untapping somebody else's board is a game action. It is also one
+     * key for the player whose board it is, printed beside its own menu entry, so automating
+     * it saved a keystroke and cost the rule the rest of the table is trusting.
+     */
+    private void passTurn(GameView board, SeatId me) {
+        // Nothing said about hand size. It used to count your hand as you passed and tell you to
+        // discard down to seven, which is the mod knowing a rule - and it does not know whether
+        // the player has something on the board that says otherwise, which is exactly the owner's
+        // objection (2026-09-19). Anything that tells a player what the rules are is a step from
+        // telling them what they may do.
+        send(new GameEvent.TurnPassed(me, board.nextSeatWithABoard(board.turn().activeSeat())));
+    }
+
+    /**
+     * Sends an event, and notes any card it moves as this client's own doing.
+     * <p>A card this player just dragged has already crossed the felt under their own cursor,
+     * and a card they clicked into their graveyard was under the cursor when they did it. The
+     * board coming back and agreeing is not news, so it is not drawn flying: a second copy
+     * setting off from where the first one started would be the table arguing with the hand
+     * that moved it.
+     */
+    private void send(GameEvent event) {
+        if (!mode.sendsMoves()) {
+            // The last fence rather than the first. Every gesture that could reach here is
+            // already refused above, and this is what makes that a belt rather than a hope:
+            // a game that is over cannot be played, whatever a screen thinks it is doing.
+            return;
+        }
+        long now = ClientCardFlights.now();
+        if (event instanceof GameEvent.CardMoved moved) {
+            ClientCardFlights.movedItOurselves(moved.card(), now);
+        }
+        ClientTableActions.send(table, event);
+    }
+
+    /**
+     * Sends the moves one gesture makes on a selection, together.
+     * <p>The same moves {@link #send} would send one at a time, in the same order, with the same
+     * fence in front of them; the server judges each on its own and shows the table the result
+     * once. See {@link ClientTableActions#sendAll}.
+     */
+    private void sendAll(List<GameEvent> events) {
+        if (!mode.sendsMoves() || events.isEmpty()) {
+            return;
+        }
+        long now = ClientCardFlights.now();
+        for (GameEvent event : events) {
+            if (event instanceof GameEvent.CardMoved moved) {
+                ClientCardFlights.movedItOurselves(moved.card(), now);
+            }
+        }
+        ClientTableActions.sendAll(table, events);
+    }
+
+    // --------------------------------------------------------------- drawing
+
+    /** Where the pot is drawn, or nothing when there is not one. For the scene, and above. */
+    Rect potOnScreen() {
+        List<CardComponent> pot = ClientTableState.potOf(this.table);
+        if (pot.isEmpty()) {
+            return Rect.NONE;
+        }
+        return board().fromSurface(board().surface().pot(pot.size()));
+    }
+
+    /**
+     * Which card of the pot the cursor is on, or -1: the front-most, since the column leans once it is long and
+     * the card drawn last is on top. Every slot the cursor was inside used to light up, so a pointer over two
+     * overlapping cards ringed both and read out whichever came last.
+     * <p>Asked where each card is drawn on the window, on either board - the flat one's camera, or the game's own
+     * looking at the block, where the pot lies past the table's edge and a ray asked to land on the table never
+     * reaches it. Nothing under the strip along the top, or the hand, which cover it.
+     * <p>On the block, at the height each card was drawn at: the pot is lifted onto whatever stands where it lies
+     * (see {@code PotLift}), and a thing above the felt is seen to one side of the felt under it - tested at the felt,
+     * a pot on a wall was hovered where nothing was drawn and not where it was.
+     */
+    int potCardAt(double mouseX, double mouseY) {
+        List<CardComponent> pot = ClientTableState.potOf(this.table);
+        if (pot.isEmpty() || !layout().isOnFelt((int) mouseX, (int) mouseY) || coveredByTheStrip((int) mouseY)) {
+            return -1;
+        }
+        Rect where = board().surface().pot(pot.size());
+        int found = -1;
+        for (int index = 0; index < pot.size(); index++) {
+            // A slot with no size is not drawn, on either board, so it is not under the cursor either.
+            Rect slot = board().fromSurface(TableSurface.potSlot(where, index, pot.size()));
+            if (slot.isEmpty()) {
+                continue;
+            }
+            double[][] drawn = onTheWindow(Corners.of(slot, 0), potCardAbove(index));
+            if (drawn != null && Corners.inside(drawn, mouseX, mouseY)) {
+                found = index;
+            }
+        }
+        return found;
+    }
+
+    /**
+     * How far above the felt the block drew this card of the pot, in surface units, as it reports it; nought on the
+     * flat board, which draws the pot on its own plane, and on the block before a frame has drawn one.
+     */
+    private double potCardAbove(int index) {
+        if (!playingOnTheBlock) {
+            return 0;
+        }
+        double lift = TableMiniatureRenderer.potLiftAbove(table, index);
+        return Double.isNaN(lift) ? 0 : lift / TableTop.SPAN_BLOCKS * TableSurface.SPAN;
+    }
+
+    /**
+     * Where corners in this board's own space are drawn on the window, in the interface's units, for something
+     * lying this far above the felt in surface units: the corners themselves on the flat board, whose space is
+     * the window's, and each one run through the game's camera on the block - at the height it is drawn at,
+     * since a thing standing above the felt is seen to one side of the felt under it. Null on the block until a
+     * frame has been drawn to project with.
+     */
+    double[][] onTheWindow(double[][] corners, double above) {
+        if (corners == null || !playingOnTheBlock) {
+            return corners;
+        }
+        TableTop top = above == 0 ? tableTop() : tableTop().raisedBy(above);
+        double[][] drawn = new double[corners.length][];
+        for (int corner = 0; corner < corners.length; corner++) {
+            drawn[corner] = TablePointer.onScreen(top, corners[corner][0], corners[corner][1]).orElse(null);
+            if (drawn[corner] == null) {
+                return null;
+            }
+        }
+        return drawn;
+    }
+
+    /**
+     * The pot's whole tray on the surface, or nothing when there is no pot.
+     * <p>What showing the whole table frames besides the table itself: the pot lies off the
+     * edge, and a view of "everything" that left out the cards being played for would be
+     * the one view somebody reaches for to find them.
+     */
+    private Rect potTray() {
+        if (geometry == null) {
+            return Rect.NONE;
+        }
+        int staked = ClientTableState.potOf(this.table).size();
+        return TableSurface.potTray(geometry.surface().pot(staked));
+    }
+
+    /**
+     * The pot, face up in a column beside the table.
+     * <p>The one thing on the felt that belongs to nobody, so it sits on nobody's side and in
+     * nobody's way: off the east edge of the whole table, where no mat, life total or hand is
+     * ever drawn. Drawn whenever there is one and taking no room at all when there is not, so a
+     * table not playing for keeps looks exactly as it did.
+     * <p>Face up, always, with no face-down case to get wrong: a pot everybody agreed to play
+     * for is a pot everybody can see, and that is the whole drama of the thing.
+     */
+    private void renderPot(GuiGraphics graphics, int mouseX, int mouseY) {
+        List<CardComponent> pot = ClientTableState.potOf(this.table);
+        Rect area = potOnScreen();
+        if (pot.isEmpty() || area.isEmpty() || isOffScreen(area)) {
+            return;
+        }
+        Rect where = board().surface().pot(pot.size());
+        // The tray the surface reserved, drawn at exactly the size the whole-table view frames.
+        // Working one out here instead is how a thing that fits in the framing ends up drawn
+        // half off the screen.
+        Rect tray = board().fromSurface(TableSurface.potTray(where));
+        GatheringSprites.inset(graphics, tray.x(), tray.y(), tray.width(), tray.height());
+
+        // Front-most card under the cursor only, asked the way the board on the block asks it.
+        int hovered = potCardAt(mouseX, mouseY);
+        for (int index = 0; index < pot.size(); index++) {
+            Rect slot = board().fromSurface(
+                    TableSurface.potSlot(where, index, pot.size()));
+            if (slot.isEmpty()) {
+                continue;
+            }
+            CardComponent card = pot.get(index);
+            ClientCardCache.get().summary(card).ifPresentOrElse(
+                    summary -> CardInspectPanel.renderArt(
+                            graphics, summary, slot.x(), slot.y(), slot.width(), slot.height()),
+                    () -> GatheringSprites.inset(
+                            graphics, slot.x(), slot.y(), slot.width(), slot.height()));
+            potCardsDrawn++;
+            if (index == hovered) {
+                ClientHoverState.setHovered(CardItem.of(card));
+                GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                        slot.x(), slot.y(), slot.width(), slot.height());
+            }
+        }
+        // Said rather than assumed, under the cards. A column of cards beside a table is
+        // not obviously a pot, and somebody who missed the message when it was staked has
+        // nothing else to tell them what they are looking at or what it is for.
+        // Under the cards on screen, which is above them in surface terms for somebody sitting
+        // on the far side: their view is turned, so the tray's label room comes out on top.
+        boolean roomAbove = area.y() > tray.y();
+        int labelY = roomAbove ? tray.y() + 2 : area.bottom() + 2;
+        // Wider than the tray is allowed: the column is one card across, and nothing lies to
+        // either side of it but the gap to the table and empty floor.
+        GuiText.drawCentered(graphics, this.font,
+                Component.translatable("screen.gathering.table.the_pot", pot.size()),
+                tray.x() + tray.width() / 2, labelY, tray.width() * 2, POT_LABEL);
+    }
+
+    /**
+     * A card: its picture, turned to its own angle, and nothing drawn round it.
+     * <p>No border, anywhere. The art has its own printed one, so a second is somebody else's
+     * idea of a card drawn over the real one - and a frame round every card turns a hand into
+     * a row of lines with slivers of art between them.
+     * <p>Where it goes is decided here; painting it is {@link TableCardRenderer}'s, which is
+     * handed nothing but the filtered card.
+     * <p>What is left is feedback rather than decoration: a shadow under a card on the felt so
+     * a stack reads as a stack, a tint on a tapped one, a ring on the one under the cursor.
+     * <p>The sleeve is handed in rather than looked up, because a face-down card carries no
+     * owner - that is the visibility rule. Whose card it is is a fact about the zone it lies
+     * in, so it is known where the zones are walked and nowhere else.
+     *
+     * @param onTheFelt whether this is a card lying on the table, which is what earns it a
+     *     shadow and a tapped tint - a card in a hand or in a list has neither
+     */
+    private void drawCard(
+            GuiGraphics graphics, CardView card, dev.gathering.core.card.Sleeve sleeve,
+            Rect where, int angle, boolean hovered, boolean onTheFelt) {
+        cardRenderer.draw(graphics, this.font, mode.filedUnder(table),
+                card, sleeve, where, angle, hovered, onTheFelt);
+    }
+
+    /** The angle a card was left at, ignoring whatever tapping is doing on top of it. */
+    private static int restingAngle(CardView card) {
+        return card.placedAt().map(TablePosition::rotation).orElse(0);
+    }
+
+    /**
+     * The tokens and emblems this card makes, if the client has been told what the card is.
+     * <p>Off the summary the server already sent, so this costs nothing and asks nobody: a
+     * card whose metadata has not arrived yet simply offers no token rows, the same way it
+     * draws no name. The server does the lookup when a row is pressed, so what ends up on the
+     * table is still a real printing rather than a name a client chose.
+     */
+    private List<CardSummary.MadeToken> tokensMadeBy(CardView card) {
+        return summaryOf(card).map(CardSummary::makes).orElse(List.of());
+    }
+
+    /** What this client knows about the card, which for an anonymous one is nothing at all. */
+    private Optional<CardSummary> summaryOf(CardView card) {
+        return TableCardRenderer.summary(card);
+    }
+
+    /** Lets the read key show this card, exactly as it does over an inventory slot. */
+    private void offerToInspector(CardView card) {
+        if (card instanceof CardView.Visible visible) {
+            // Turned over if the table has turned it over. Reading a transformed permanent
+            // and being shown its front is the read key describing a different card from the
+            // one under the cursor.
+            CardComponent held = CardComponent.of(visible.identity());
+            // With whatever the table has written over its power and toughness, which is the
+            // number the game is actually being played with.
+            ClientHoverState.setHovered(
+                    CardItem.of(visible.turnedOver() ? held.flip() : held),
+                    visible.strength());
+            // The one tutorial step with no server side. Only while the key is actually held,
+            // because hovering a card is not reading it - and the card got here through the
+            // view, so nothing hidden can satisfy it.
+            if (CardZoomOverlay.isActive()) {
+                Tutorial.readACard();
+            }
+        }
+    }
+
+    private Optional<CardView> findCard(GameView board, CardInstanceId id) {
+        if (board == null) {
+            return Optional.empty();
+        }
+        return presentations.of(board).card(id);
+    }
+
+    /** A seat's counters as one short run of text, for the line across the top. */
+    private static String describeCounters(SeatView seat) {
+        StringBuilder text = new StringBuilder();
+        seat.counters().forEach((name, count) -> {
+            if (text.length() > 0) {
+                text.append(' ');
+            }
+            text.append(count).append(' ').append(name);
+        });
+        return text.toString();
+    }
+
+    private static int count(SeatView seat, Zone zone) {
+        ZoneView view = seat.zone(zone);
+        return view == null ? 0 : view.count();
+    }
+
+    private void panel(GuiGraphics graphics, Rect area) {
+        if (!area.isEmpty()) {
+            GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+        }
+    }
+
+
+    // --------------------------------------------------------------- replay
+
+    /** Shared geometry remains the source for both transport drawing and pointer input. */
+    private ReplayStrip replayStrip() {
+        return TableReplayControls.layout(layout().hand(), this.font);
+    }
+
+    /**
+     * A watcher's click. Three buttons, a bar, and nothing else on the whole screen.
+     * <p>Everything is swallowed rather than passed on, which is the point: a finished game
+     * has no verbs, and a click that fell through to the board would be looking for one.
+     */
+    private boolean watcherClicked(int x, int y, int button) {
+        if (button == 2) {
+            // Panning is looking, not playing, and a replay is entirely for looking.
+            gesture.startPan(x, y);
+        } else if (button == 0) {
+            replayControls.click(replayStrip(), x, y);
+        }
+        return true;
+    }
+
+    /**
+     * A watcher's key. The panels that read the game, the transport, and the way out.
+     * <p>Space, the arrows and Home and End, because that is what every video scrubber in the
+     * world uses and nobody should have to be told. L still opens the log - a replay is mostly
+     * read alongside it - and F1 still lists the keys.
+     * <p>The log is the one table verb a replay has, so its key is the log here before it is
+     * F1's or the transport's, as a verb's key is that verb at a table (see {@link #keyPressed}).
+     * The other verbs' keys keep the replay's meaning: framing the whole table is not offered
+     * while watching, and its Home goes to the start.
+     */
+    private boolean watcherPressed(int key, int scanCode, int modifiers) {
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            if (showingLog || showingKeys) {
+                showingLog = false;
+                showingKeys = false;
+            } else {
+                onClose();
+            }
+            return true;
+        }
+        // The log is the same verb on the same catalogue key as it is at a table, so
+        // it is asked for the same way. It was a literal L here too, which meant a
+        // player who moved the log key could open the log of a game they were playing
+        // and not of one they were watching - with this panel telling them L either
+        // way.
+        if (TableShortcuts.matches("show_log", key, scanCode)) {
+            showingLog = !showingLog;
+            return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_F1) {
+            showingKeys = !showingKeys;
+            return true;
+        }
+        if (replayControls.keyPressed(key, scanCode)) {
+            return true;
+        }
+        return super.keyPressed(key, scanCode, modifiers);
+    }
+
+    /**
+     * The strip along the bottom of a replay: where you are in the game, and the way about it.
+     * <p>Drawn last, over the felt, because the board is fitted to the window above it and
+     * anything that reached down here would be a card half under a control.
+     */
+    private void renderScrubber(GuiGraphics graphics) {
+        List<Component> hint = replayControls.render(
+                graphics, this.font, replayStrip(), cursorX, cursorY);
+        if (!hint.isEmpty()) {
+            tooltip = hint;
+        }
+    }
+
+    /**
+     * Where the table shows between the strip and the hand. Package-visible for the scene,
+     * which checks that what the board says it drew is inside what it let itself draw into.
+     */
+    Rect tableArea() {
+        return layout().tableArea();
+    }
+
+    private TableScreenLayout layout() {
+        if (layout == null) {
+            layout = freshLayout();
+        }
+        return layout;
+    }
+
+    /**
+     * The furniture around the felt, for whichever kind of screen this is.
+     * <p>One place, because the three that used to build it separately are the three that
+     * would have to learn about a replay's scrubber one at a time.
+     */
+    private TableScreenLayout freshLayout() {
+        int rows = statusRows(this.width);
+        return mode.isWatching()
+                ? TableScreenLayout.watching(this.width, this.height, rows)
+                : TableScreenLayout.of(this.width, this.height, mySeat().isPresent(), rows);
+    }
+
+    /**
+     * Points at a card, as the card menu's row does, for the scripted run.
+     * <p>Through the same event, so what is checked is the whole path: the move goes to the
+     * server, comes back as a log line, and the client reads the ring out of the log.
+     */
+    void pointAtForTesting(CardInstanceId card) {
+        mySeat().ifPresent(me -> send(new GameEvent.CardPinged(me, card)));
+    }
+
+    /** The last few log lines, as key and arguments, for the scripted run. */
+    java.util.List<String> lastLogKeysForTesting(int howMany) {
+        var board = view().orElse(null);
+        java.util.List<String> said = new java.util.ArrayList<>();
+        if (board == null) {
+            return said;
+        }
+        var log = board.log();
+        for (int at = Math.max(0, log.size() - howMany); at < log.size(); at++) {
+            var entry = log.get(at);
+            said.add(entry.key() + entry.args().stream()
+                    .map(arg -> arg instanceof dev.gathering.core.game.event.LogArg.Card card
+                            ? "Card:" + card.card().getClass().getSimpleName()
+                            : arg.getClass().getSimpleName())
+                    .collect(java.util.stream.Collectors.joining(",", "(", ")")));
+        }
+        return said;
+    }
+
+    /** Whether that card is ringed right now, for the scripted run. */
+    boolean aCardIsBeingPointedAt(CardInstanceId card) {
+        return ClientTableNews.pointedAtFor(
+                mode.filedUnder(table), card, ClientCardFlights.now()) >= 0;
+    }
+
+    /**
+     * What on the table would answer a press at this point - a card, a pile, a mat button or a life
+     * counter - named, or null for the felt. For the scripted run, which checks that nothing answers
+     * where nothing is drawn.
+     */
+    String whatAnswersAt(int x, int y) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return null;
+        }
+        Placed card = frontMostAt(board, everythingOnTheTable(board), x, y);
+        if (card != null) {
+            return "a card";
+        }
+        int pile = pileSlotAt(board, x, y);
+        if (pile >= 0) {
+            return "pile " + pile;
+        }
+        int verb = verbSlotAt(mySeat().orElse(null), x, y);
+        if (verb >= 0) {
+            return "mat button " + verb;
+        }
+        for (SeatView seat : board.seats()) {
+            if (seat.hasABoard() && lifeWayUnder(seat.seat(), x, y) != 0) {
+                return "life counter " + seat.seat().index();
+            }
+        }
+        return null;
+    }
+
+    /** Whether this player's mat button is drawn at the board's present size, for the scripted run. */
+    boolean verbIsDrawnForTesting(int index) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return false;
+        }
+        int count = TableVerb.count();
+        return verbIsDrawn(board().verbGroupRect(me, count), board().verbRect(me, index, count));
+    }
+
+    /** What a key press or a palette row would act on right now, for the scripted run. */
+    List<CardInstanceId> whatTheKeysWouldActOn() {
+        return underCursorOrSelected();
+    }
+
+    /** How many cards are waiting to be attached to the next card clicked, for the scripted run. */
+    int attachingForTesting() {
+        return attaching.size();
+    }
+
+    /** Whether a card or a pile is in the air, for the scripted run. */
+    boolean holdingForTesting() {
+        return gesture.held() != null;
+    }
+
+    /** Works out where the cursor at this point is on the table, telling the arm, for the scripted run. */
+    void pointAtForTesting(int x, int y) {
+        pointer(x, y);
+    }
+
+    /**
+     * Where the board last saw the cursor, for the scripted run.
+     * <p>Read while drawing, from the cursor the game hands each frame; see {@link #restCursorForTesting}.
+     */
+    int[] cursorForTesting() {
+        return new int[] {cursorX, cursorY};
+    }
+
+    /**
+     * Puts the board's idea of the cursor somewhere, until the next frame reads the real one.
+     * <p>For the scripted run, which has to press a key over a particular spot within one step: the
+     * real cursor reaches the board only through a frame, and a key pressed in the same step as a
+     * move acts on where the cursor used to be.
+     */
+    void restCursorForTesting(int x, int y) {
+        cursorX = x;
+        cursorY = y;
+    }
+
+    /** Whether the verb search is open, for the scripted run. */
+    boolean thePaletteIsShowing() {
+        return palette != null;
+    }
+
+    /** Which verbs the verb search is offering right now, for the scripted run. */
+    List<String> paletteShowing() {
+        return palette == null ? List.of() : palette.showingForTesting();
+    }
+
+    /** How tall the verb search's rows were last laid out, or -1 with it shut. For the scripted run. */
+    int paletteRowHeight() {
+        return palette == null ? -1 : palette.rowHeightForTesting();
+    }
+
+    /** What has been typed into the verb search, for the scripted run. */
+    String paletteQuery() {
+        return palette == null ? "" : palette.queryForTesting();
+    }
+
+    /**
+     * Whether anything is open on top of the felt.
+     * <p>What Escape shuts, and the one list that decides it. Written out at the key it
+     * would have grown a copy the first time something else asked - the log's own close
+     * button, say - and those two lists parting company is a panel Escape will not close.
+     */
+    private boolean somethingIsOpen() {
+        return saying != null || menu != null || palette != null || !attaching.isEmpty()
+                || showingKeys || showingLog || gesture.held() != null || !arranging.isEmpty();
+    }
+
+    /** Shuts all of it, because Escape is one press and a player pressed it once. */
+    private void closeWhatIsOpen() {
+        saying = null;
+        menu = null;
+        palette = null;
+        attaching = List.of();
+        showingKeys = false;
+        showingLog = false;
+        // Put back where it came from, which is what letting go off the table does too: the
+        // card never moved as far as the server is concerned, so there is nothing to undo.
+        gesture.putDown();
+        // The same is true of a tidy nobody agreed to: it was a drawing, and dropping it
+        // leaves every card exactly where its owner put it.
+        arranging = List.of();
+    }
+
+    /**
+     * The keys that mean something while a line is being typed, and whether this was one.
+     * <p>Its own method rather than four cases at the top of the key handler, because the
+     * answer to everything else is the same: swallow it. A key that fell through to the board
+     * while somebody was mid-sentence would play a card out of a word.
+     */
+    private boolean typingKey(int key, int modifiers) {
+        switch (key) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> saying = null;
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> say();
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE -> {
+                if (saying.length() > 0) {
+                    saying.deleteCharAt(saying.length() - 1);
+                }
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_V -> {
+                if (net.minecraft.client.gui.screens.Screen.hasControlDown()) {
+                    append(net.minecraft.client.Minecraft.getInstance().keyboardHandler.getClipboard());
+                }
+            }
+            default -> {
+                // Everything else is a letter on its way to charTyped, or a key that has no
+                // meaning here. Either way it is not the board's while a line is open.
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public boolean charTyped(char letter, int modifiers) {
+        if (palette != null) {
+            return palette.charTyped(letter);
+        }
+        if (saying == null) {
+            return super.charTyped(letter, modifiers);
+        }
+        if (swallowingTheChatKey) {
+            swallowingTheChatKey = false;
+            return true;
+        }
+        append(String.valueOf(letter));
+        return true;
+    }
+
+    /** Adds to the line, up to what the wire will carry. */
+    private void append(String more) {
+        if (more == null) {
+            return;
+        }
+        for (int index = 0; index < more.length()
+                && saying.length() < dev.gathering.network.TableChatPayload.LONGEST; index++) {
+            char letter = more.charAt(index);
+            if (net.minecraft.util.StringUtil.isAllowedChatCharacter(letter)) {
+                saying.append(letter);
+            }
+        }
+    }
+
+    /**
+     * Says it, and closes the line either way.
+     * <p>Closed even when there was nothing to say, because Enter on an empty line is
+     * somebody changing their mind - and a bar that stayed open would eat the next key press
+     * they meant for the board.
+     */
+    private void say() {
+        String line = saying.toString();
+        saying = null;
+        if (!line.isBlank()) {
+            ClientNetworking.send(new dev.gathering.network.TableChatPayload(table, line));
+        }
+    }
+
+    @Override
+    public void onClose() {
+        if (mode.isLearning()) {
+            // The door nothing on the screen leads to: Escape, and the world going away.
+            // Without this a demonstration ran on with nobody looking at it, and the player
+            // was recorded as having been offered a lesson they were in the middle of.
+            //
+            // Here rather than in removed(), which was the first attempt and was wrong.
+            // Minecraft calls removed() whenever the screen is replaced - including when this
+            // screen opens one of its own children - so opening the counters editor from the
+            // lesson's own card menu tore the lesson down on the way in. An audit reproduced
+            // it in a real client: demo running=false, screen=CountersScreen. onClose is the
+            // one that means "this player is leaving", which is the thing being asked about.
+            //
+            // Idempotent: leaving through the Exit button has already done this, and
+            // Tutorial.stop on a lesson that is over does nothing. What it must not do is
+            // record finishing - stop writes down which of the two happened, so an abandoned
+            // lesson is written as skipped, which is what it was.
+            Tutorial.stop();
+            TutorialDemo.clear();
+        }
+        ClientHoverState.clear();
+        TableCameraView.release();
+        TablePointer.forget();
+        TablePointSender.notHovering();
+        ClientTableHighlight.clear();
+        // Or the next table opens wearing the last one's roll.
+        ClientTableRolls.forget();
+        super.onClose();
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+}

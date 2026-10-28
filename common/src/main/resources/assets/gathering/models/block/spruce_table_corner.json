@@ -1,0 +1,223 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "felt": "minecraft:block/white_wool",
+    "wood": "minecraft:block/spruce_planks",
+    "particle": "minecraft:block/spruce_planks"
+  },
+  "elements": [
+    {
+      "name": "White dyeable felt",
+      "from": [
+        0,
+        14,
+        0
+      ],
+      "to": [
+        16,
+        15,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Apron",
+      "from": [
+        0,
+        12,
+        0
+      ],
+      "to": [
+        16,
+        14,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    },
+    {
+      "name": "Straight wooden leg",
+      "from": [
+        1,
+        0,
+        1
+      ],
+      "to": [
+        5,
+        12,
+        5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            12
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            12
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            12
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            12
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            4
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            4,
+            4
+          ]
+        }
+      }
+    }
+  ]
+}

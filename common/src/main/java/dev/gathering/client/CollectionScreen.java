@@ -1,0 +1,929 @@
+package dev.gathering.client;
+
+import dev.gathering.client.GatheringSprites.Element;
+import dev.gathering.core.card.Rarity;
+import dev.gathering.core.collection.CollectionSearch;
+import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.Rect;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.CardItem;
+import dev.gathering.network.CardSummary;
+import dev.gathering.network.CollectionPagePayload;
+import dev.gathering.network.CollectionQuery;
+import dev.gathering.network.CollectionSearchPayload;
+import dev.gathering.network.CollectionTakePayload;
+import dev.gathering.network.OpenCollectionPayload;
+import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+
+/**
+ * A collection, as the cards themselves.
+ * <p>A grid of card faces, each drawn as a stack as deep as the number of copies with the
+ * count on it. A collection is a box you look through, and a box of cards you cannot see is a
+ * spreadsheet; scanning is what the search box is for. Resting on one puts it in
+ * {@link ClientHoverState}, so the read key opens the panel it opens everywhere else.
+ * <p>Searching happens on the server, so nothing here filters: the box and the buttons ask
+ * and a page comes back, which makes the screen behave the same on ten cards and ten
+ * thousand. The page is sized from what this window has room for, so the server never sends a
+ * card nobody can see.
+ * <p>Deliberately <b>not</b> a {@link CardPreviewHost}: that marker tells the read overlay to
+ * stay out of a screen drawing its own preview, and this one draws none. Claiming it stopped
+ * the read key working in one of the two places somebody most wants to read a card.
+ * <p>Client-only.
+ */
+public final class CollectionScreen extends Screen {
+
+    private static final int MARGIN = 16;
+
+    /**
+     * How thick a recessed box's frame is: its nine-slice border, which is eight.
+     * <p>The sprite is thirty-two with a border of eight, so everything at that depth or
+     * deeper is the stretched field and everything shallower is frame - true of every look
+     * there is or ever will be, rather than measured off one of them.
+     * <p>Not four. Four was the neutral theme's wall rather than its frame: Future Sight's
+     * chrome band is the full eight and Retro's pressed border reads wider, so on those two
+     * the top row of stacks sat on the frame, which looks exactly like a card coming out of
+     * the top of the box.
+     */
+    private static final int WALL = 8;
+
+
+    /**
+     * Where the card box starts, worked out from the row of buttons above it.
+     * <p>Eighty was a number, and the number was wrong: the pips end at seventy-four and the
+     * box's own frame began at seventy-two, so every one of those buttons was drawn two
+     * pixels over it. Said as arithmetic instead - the last row of buttons, a gap, and the
+     * frame's own thickness - so moving the row moves the box with it.
+     */
+    private static final int PIP_ROW_HIGH = 16;
+    private static final int UNDER_THE_BUTTONS = 8;
+    private static final int TOP_BAR =
+            MARGIN + 42 + PIP_ROW_HIGH + UNDER_THE_BUTTONS + WALL;
+
+    /** The width a card wants in the grid, before the columns are fitted around it. */
+    private static final int CARD_WIDTH_WANTED = 78;
+
+    /** Never narrower than this: below it a card is a colored smudge rather than a card. */
+    private static final int CARD_WIDTH_LEAST = 34;
+
+    private static final int GRID_GAP = 6;
+
+    /** How far each card of a stack sits behind the one in front, so depth reads as depth. */
+    private static final int STACK_STEP = 3;
+
+    /** The most cards drawn behind the front one. Four copies and forty look the same anyway. */
+    private static final int STACK_DEEPEST = 3;
+
+    /**
+     * How far past its own cell a card is actually drawn, on each side.
+     * <p>A cell is not the card: the stack of copies leans up and to the right of it by three
+     * pixels a card, and the ring round a hovered one sits two pixels outside it all round.
+     * The grid used to be laid out against the cell alone and started four pixels inside the
+     * box, so every stack of two or more spilled five pixels out of the top of it - which
+     * reads as the box being the wrong size rather than as the cards being drawn outside it.
+     */
+    private static final int HOVER_REACH = 2;
+    private static final int ROOM_ABOVE = STACK_DEEPEST * STACK_STEP;
+    private static final int ROOM_RIGHT = STACK_DEEPEST * STACK_STEP;
+    private static final int ROOM_LEFT = HOVER_REACH;
+    private static final int ROOM_BELOW = HOVER_REACH;
+
+    private static final int COUNT_TEXT = 0xFFFFF0D0;
+    private static final int FOIL_MARK = 0xFFE8C86A;
+    private static final int BOTTOM_BAR = 34;
+
+    /** The buttons in the bottom corner, right to left, and the gap between them. */
+    private static final int CORNER_BUTTON = 18;
+    private static final int CORNER_GAP = 4;
+    private static final int DONE_WIDE = 56;
+    private static final int SETS_WIDE = 58;
+    private static final int SHARE_WIDE = 58;
+
+    /**
+     * Where the corner's row of buttons begins, so the footer's text can stop short of it.
+     * <p>Worked out from the buttons rather than written down beside them, because it was written down:
+     * the footer ended at a number that meant "clear of two buttons", and the third one - Share, for a
+     * collection's owner - was added without it, so the hint was drawn straight over it. A number that
+     * says what it is cannot go stale when a button is added next to it.
+     */
+    private int cornerLeft;
+
+    /** Where the footer's writing actually went, so the tour can check nothing was drawn over. */
+    private Rect footerText = Rect.NONE;
+    private static final int TEXT = 0xFFDDE3EC;
+    private static final int DIM = 0xFF8A94A3;
+
+    private final BlockPos where;
+    private final String label;
+    private final boolean mayTake;
+    private final boolean mayAdd;
+    private final boolean yours;
+    private int total;
+    private int distinct;
+
+    private CollectionQuery query = CollectionQuery.EVERYTHING;
+    private boolean descending;
+    private int page;
+    private int pages = 1;
+    private int matched;
+    private List<CollectionPagePayload.Row> rows = List.of();
+
+    /** Whether the syntax card is up over the grid. Off by default: it is a reminder, not a page. */
+    private boolean showingSyntax;
+
+    private EditBox searchBox;
+    private Button sortButton;
+    private Button directionButton;
+    private Button rarityButton;
+    private Button previousButton;
+    private Button nextButton;
+
+    private CollectionScreen(OpenCollectionPayload opened) {
+        super(Component.translatable("screen.gathering.collection"));
+        this.where = opened.where();
+        this.label = opened.label();
+        this.total = opened.total();
+        this.distinct = opened.distinct();
+        this.mayTake = opened.mayTake();
+        this.mayAdd = opened.mayAdd();
+        this.yours = opened.yours();
+    }
+
+    /** Opens one, replacing whatever collection was open before. */
+    public static void show(OpenCollectionPayload opened) {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new CollectionScreen(opened));
+    }
+
+    /**
+     * A page arriving for whichever screen asked for it.
+     * <p>Two screens read a collection - this one and the deck builder - and both ask through
+     * the same payload, so the answer goes to whichever is open. Routed here rather than each
+     * screen registering itself, because a page is answered by exactly one screen at a time
+     * and the alternative is two handlers racing to claim it.
+     */
+    public static void accept(CollectionPagePayload payload) {
+        net.minecraft.client.gui.screens.Screen open =
+                net.minecraft.client.Minecraft.getInstance().screen;
+        if (open instanceof CollectionScreen screen && screen.where.equals(payload.where())) {
+            screen.take(payload);
+        } else if (open instanceof DeckBuilderScreen builder) {
+            builder.accept(payload);
+        }
+    }
+
+    private void take(CollectionPagePayload payload) {
+        this.page = payload.page();
+        this.pages = Math.max(1, payload.pages());
+        this.total = payload.counts().total();
+        this.distinct = payload.counts().distinct();
+        this.matched = payload.counts().matched();
+        this.rows = payload.rows();
+        updateButtons();
+    }
+
+    @Override
+    protected void init() {
+        searchBox = new EditBox(this.font, MARGIN, MARGIN + 20, this.width - 2 * MARGIN - 166, 18,
+                Component.translatable("screen.gathering.collection.search"));
+        searchBox.setMaxLength(CollectionQuery.MOST_CHARACTERS);
+        searchBox.setHint(Component.translatable("screen.gathering.collection.search_hint"));
+        searchBox.setValue(query.text());
+        // Asked when the search is finished rather than while it is being typed: every
+        // keystroke would be a packet and a pass over the whole collection.
+        searchBox.setResponder(text -> { });
+        addRenderableWidget(searchBox);
+
+        // The one thing that says the box takes more than a name. A search language nobody is
+        // told about is a search language nobody uses, and the hint in the box only has room
+        // for one example - so the rest is behind a button beside it, which is also the only
+        // place a player who half-remembers "is it t: or type:" can go and check.
+        addRenderableWidget(GatheringButtons.glyph(
+                this.width - MARGIN - 164, MARGIN + 20, 16, 18, "?",
+                Component.translatable("screen.gathering.collection.search_help"),
+                () -> showingSyntax = !showingSyntax));
+
+        sortButton = GatheringButtons.of(this.width - MARGIN - 144, MARGIN + 20, 70, 18,
+                sortLabel(), this::nextSort);
+        addRenderableWidget(sortButton);
+        // Its own button rather than a wrap-around on the first one. Turning the order round
+        // is a thing people do constantly and it should not take five presses to reach.
+        directionButton = GatheringButtons.arrow(this.width - MARGIN - 72, MARGIN + 20, 18, 18,
+                () -> descending
+                        ? GatheringSprites.Element.ARROW_DOWN
+                        : GatheringSprites.Element.ARROW_UP,
+                directionLabel(), this::flipDirection);
+        addRenderableWidget(directionButton);
+
+        previousButton = GatheringButtons.arrow(this.width - MARGIN - 52, MARGIN + 20, 24, 18,
+                GatheringSprites.Element.ARROW_LEFT,
+                Component.translatable("screen.gathering.collection.previous_page"),
+                () -> turnTo(page - 1));
+        addRenderableWidget(previousButton);
+        nextButton = GatheringButtons.arrow(this.width - MARGIN - 26, MARGIN + 20, 26, 18,
+                GatheringSprites.Element.ARROW_RIGHT,
+                Component.translatable("screen.gathering.collection.next_page"),
+                () -> turnTo(page + 1));
+        addRenderableWidget(nextButton);
+
+        // Color and rarity are buttons rather than something to type, because a search box
+        // that understands "c:wu" is a query language, and a query language is a thing to
+        // learn. Six pips and a cycle say the same and can be found by looking.
+        dev.gathering.core.ui.FilterRowLayout row =
+                dev.gathering.core.ui.FilterRowLayout.of(this.width, MARGIN + 42, COLORS.length);
+        for (int index = 0; index < COLORS.length; index++) {
+            String color = COLORS[index];
+            // The orb is the face and the color's name is the message. A button whose whole
+            // label is a symbol says nothing to a tooltip or a narrator, which is the rule
+            // the page arrows and the help mark already follow.
+            //
+            // And a color that is on is a button that is down, which is what that face
+            // already means everywhere else in the mod.
+            addRenderableWidget(GatheringButtons.latch(row.pip(index), pip(color), nameOf(color),
+                    () -> query.colors().contains(color), () -> toggleColor(color)));
+        }
+        // The other way to take cards out, and the one worth finding. Sleeving a hundred-card
+        // list a card at a time is a hundred clicks; this is one, and it is here rather than
+        // on the import screen because the cards are here.
+        //
+        // Placed by FilterRowLayout, which anchors it to the right edge and gives the rarity
+        // button whatever is left - checked there against every window and every pip count.
+        rarityButton = GatheringButtons.of(row.rarity(), rarityLabel(), this::nextRarity);
+        addRenderableWidget(rarityButton);
+        addRenderableWidget(GatheringButtons.of(row.build(),
+                Component.translatable("screen.gathering.collection.build_deck"),
+                () -> this.minecraft.setScreen(new DeckBuilderScreen(this, where, label))));
+
+        // Laid out right to left from the corner, each one off the end of the last.
+        int cornerTop = this.height - BOTTOM_BAR + 8;
+        int doneLeft = this.width - MARGIN - DONE_WIDE;
+        int setsLeft = doneLeft - CORNER_GAP - SETS_WIDE;
+        int shareLeft = setsLeft - CORNER_GAP - SHARE_WIDE;
+        cornerLeft = yours ? shareLeft : setsLeft;
+
+        // How much of each set is in here, which is the one question a binder cannot answer
+        // by being looked at. Beside the way out because it is a place to go rather than a
+        // filter: everything else on this screen changes the list, and this leaves it.
+        addRenderableWidget(GatheringButtons.of(
+                setsLeft, cornerTop, SETS_WIDE, CORNER_BUTTON,
+                Component.translatable("screen.gathering.collection.sets"),
+                () -> {
+                    // Said out loud, because the answer is what opens the screen and the
+                    // server sends more than one: only the answer somebody asked for opens
+                    // it, the rest refresh it. See SetProgressScreen.asked.
+                    SetProgressScreen.asked(where);
+                    ClientNetworking.send(
+                            new dev.gathering.network.AskSetProgressPayload(where));
+                }));
+
+        // Who may use it, for its owner and nobody else. Beside the other place to go rather than
+        // among the filters: it changes who can open the box, not what the list shows.
+        if (yours) {
+            addRenderableWidget(GatheringButtons.of(
+                    shareLeft, cornerTop, SHARE_WIDE, CORNER_BUTTON,
+                    Component.translatable("screen.gathering.collection.share"),
+                    () -> CollectionKeysScreen.show(where)));
+        }
+
+        // A way out somebody can see. Every other panel in the mod has one, and this one
+        // relied on the escape key - which is a rule nobody was told. Bottom right, in the
+        // bar the page count already lives in.
+        addRenderableWidget(GatheringButtons.of(
+                doneLeft, cornerTop, DONE_WIDE, CORNER_BUTTON,
+                Component.translatable("gui.done"), this::onClose));
+
+        setInitialFocus(searchBox);
+        updateButtons();
+        // Here rather than when the collection opened: this is the first moment anything
+        // knows how tall the window is, and it runs again on every resize, so the page always
+        // fits the box it is drawn in.
+        askFor(page);
+    }
+
+    /** WUBRG and colorless, in the order a player reads them. */
+    private static final String[] COLORS = {"W", "U", "B", "R", "G", "C"};
+
+    /**
+     * One color's button face: the orb, not the letter.
+     * <p>The same symbol font every piece of card text in this mod is drawn with, so the pip
+     * on the filter and the pip in a card's cost are one picture rather than two things that
+     * mean the same. A letter had to be read and translated; the orb is the thing itself, and
+     * it is what a player has already learned by the time they open a collection.
+     */
+    private static Component pip(String color) {
+        return ManaText.of("{" + color + "}");
+    }
+
+    /** Which colors are on, for the scripted run. The orbs are pictures; this is the state. */
+    String colorsOn() {
+        return query.colors();
+    }
+
+    /** What that orb means, in words, for the tooltip and the narrator. */
+    private static Component nameOf(String color) {
+        return Component.translatable(
+                "screen.gathering.collection.color_" + color.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    /** The rarities worth filtering by, and off. */
+    private static final Rarity[] RARITIES = {
+            null, Rarity.COMMON, Rarity.UNCOMMON, Rarity.RARE, Rarity.MYTHIC};
+
+    /**
+     * Turns one color on or off.
+     * <p>Several on means at least all of them, which is how anybody already reads a color
+     * filter: white and blue finds the Azorius card, not the mono-white ones.
+     */
+    private void toggleColor(String color) {
+        String now = query.colors();
+        query = query.inColors(now.contains(color)
+                ? now.replace(color, "")
+                : now + color);
+        askFor(0);
+    }
+
+    private void nextRarity() {
+        int at = 0;
+        for (int index = 0; index < RARITIES.length; index++) {
+            if (RARITIES[index] == query.rarity()) {
+                at = index;
+                break;
+            }
+        }
+        query = query.ofRarity(RARITIES[(at + 1) % RARITIES.length]);
+        askFor(0);
+    }
+
+    private Component rarityLabel() {
+        return query.rarity() == null
+                ? Component.translatable("screen.gathering.collection.rarity_any")
+                : Component.translatable("screen.gathering.collection.rarity",
+                        Component.translatable("screen.gathering.collection.rarity."
+                                + query.rarity().name().toLowerCase(java.util.Locale.ROOT)));
+    }
+
+    private void updateButtons() {
+        if (sortButton != null) {
+            sortButton.setMessage(sortLabel());
+        }
+        if (directionButton != null) {
+            directionButton.setMessage(directionLabel());
+        }
+        if (rarityButton != null) {
+            rarityButton.setMessage(rarityLabel());
+        }
+        if (previousButton != null) {
+            previousButton.active = page > 0;
+        }
+        if (nextButton != null) {
+            nextButton.active = page + 1 < pages;
+        }
+    }
+
+    private Component sortLabel() {
+        return Component.translatable("screen.gathering.collection.sort."
+                + query.sort().name().toLowerCase(java.util.Locale.ROOT));
+    }
+
+    /**
+     * Which way the list runs, said rather than drawn.
+     * <p>This used to be the character for a triangle, which is a control labeled with a
+     * symbol the font may or may not have and which a screen reader can make nothing of. The
+     * triangle is the mod's own arrow now, and this is the sentence behind it - the tooltip
+     * and the narration both read it, and it names the order rather than the press.
+     */
+    private Component directionLabel() {
+        return Component.translatable(descending
+                ? "screen.gathering.collection.descending"
+                : "screen.gathering.collection.ascending");
+    }
+
+    /**
+     * Cycles what the list is ordered by.
+     * <p>One button rather than five, because a collection has one order at a time and five
+     * buttons of which four are off is four buttons doing nothing.
+     */
+    private void nextSort() {
+        CollectionSearch.Sort[] all = CollectionSearch.Sort.values();
+        query = query.orderedBy(all[(query.sort().ordinal() + 1) % all.length]);
+        askFor(0);
+    }
+
+    private void flipDirection() {
+        descending = !descending;
+        askFor(0);
+    }
+
+    private void turnTo(int newPage) {
+        askFor(Math.clamp(newPage, 0, pages - 1));
+    }
+
+    private void askFor(int wanted) {
+        query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
+        ClientNetworking.send(
+                new CollectionSearchPayload(
+                        where, query, descending, wanted, cellsThatFit(), false));
+    }
+
+    /**
+     * The grid this window has room for: how wide a card is, and how many fit across and down.
+     * <p>Worked out once and asked for by everything, because the click test and the drawing
+     * have to agree exactly - a grid drawn to one rule and hit-tested against another is a
+     * screen that takes the card next to the one you pointed at.
+     * <p>Cards are fitted to a wanted width rather than a fixed column count, so a wide window
+     * shows more of the collection rather than the same nine cards blown up, and a narrow one
+     * falls to a single column rather than to slivers.
+     */
+    private record Grid(int cardWidth, int cardHeight, int columns, int rows, int left, int top) {
+
+        int cells() {
+            return Math.max(1, columns * rows);
+        }
+
+        Rect cellAt(int index) {
+            int column = index % columns;
+            int row = index / columns;
+            return new Rect(
+                    left + column * (cardWidth + GRID_GAP),
+                    top + row * (cardHeight + GRID_GAP),
+                    cardWidth, cardHeight);
+        }
+    }
+
+    /** The recessed box the grid is drawn in, which is the thing nothing may spill out of. */
+    Rect boxOnScreen() {
+        return new Rect(MARGIN - WALL, TOP_BAR - WALL,
+                this.width - 2 * MARGIN + WALL * 2,
+                this.height - BOTTOM_BAR - TOP_BAR + WALL * 2);
+    }
+
+    /**
+     * Everything one cell's card really covers: the stack leaning off it and the hover ring.
+     * <p>Package-private, for the scripted run. A cell's own rectangle says nothing about
+     * this, and the one thing worth checking is that the two agree about staying inside the
+     * box.
+     */
+    Rect drawnAt(int index) {
+        Rect cell = grid().cellAt(index);
+        return new Rect(cell.x() - ROOM_LEFT, cell.y() - ROOM_ABOVE,
+                cell.width() + ROOM_LEFT + ROOM_RIGHT,
+                cell.height() + ROOM_ABOVE + ROOM_BELOW);
+    }
+
+    private Grid grid() {
+        // The room the cards get, not the room the box has: what a stack leans into and what
+        // a hover ring reaches into are taken off first, so a cell laid out here can be drawn
+        // in full without any of it landing outside the box.
+        int room = Math.max(CARD_WIDTH_LEAST,
+                this.width - MARGIN * 2 - ROOM_LEFT - ROOM_RIGHT);
+        int down = Math.max(1,
+                this.height - BOTTOM_BAR - TOP_BAR - ROOM_ABOVE - ROOM_BELOW);
+
+        int cardWidth = Math.min(CARD_WIDTH_WANTED, room);
+        int cardHeight = CardShape.heightFor(cardWidth);
+        // Never taller than the whole grid, whatever the width says.
+        if (cardHeight > down) {
+            cardHeight = down;
+            cardWidth = CardShape.widthFor(cardHeight);
+        }
+        // And small enough for two rows wherever a card that size is still a card. A
+        // collection showing one row of four is a page turn every four cards, which is the
+        // list this replaced with extra steps. Height drives the width here rather than the
+        // other way round, because the vertical room is what is short - deriving the height
+        // from a width fitted to fill the row grows the card straight back past the budget.
+        int forTwoRows = (down - GRID_GAP) / 2;
+        if (cardHeight > forTwoRows && CardShape.heightFor(CARD_WIDTH_LEAST) <= forTwoRows) {
+            cardHeight = forTwoRows;
+            cardWidth = CardShape.widthFor(cardHeight);
+        }
+
+        int columns = Math.max(1, (room + GRID_GAP) / (cardWidth + GRID_GAP));
+        int rows = Math.max(1, (down + GRID_GAP) / (cardHeight + GRID_GAP));
+
+        // Centered in what is left over, so the grid sits in its panel rather than against one
+        // edge of it with a wide gutter down the other.
+        int usedAcross = columns * cardWidth + GRID_GAP * (columns - 1);
+        return new Grid(cardWidth, cardHeight, columns, rows,
+                MARGIN + ROOM_LEFT + (room - usedAcross) / 2, TOP_BAR + ROOM_ABOVE);
+    }
+
+    /**
+     * How many cards this window has room for.
+     * <p>Sent with every search, because a page bigger than the grid is cards nobody can see -
+     * and, worse, cards somebody can click on without seeing, since a click is a position and
+     * anything below the fold is still under the cursor.
+     */
+    int cellsThatFit() {
+        return grid().cells();
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scan, int modifiers) {
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
+            askFor(0);
+            return true;
+        }
+        return super.keyPressed(key, scan, modifiers);
+    }
+
+    /**
+     * The felt and the panel, under the widgets.
+     * <p>Drawn here rather than in {@code render} because {@code super.render} paints the
+     * menu background and then the widgets: anything drawn before it is blurred over, and
+     * anything drawn after it sits on top of the buttons.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.draw(graphics, Element.SCREEN_BACKDROP,
+                0, 0, this.width, this.height);
+        Rect box = boxOnScreen();
+        GatheringSprites.inset(graphics, box.x(), box.y(), box.width(), box.height());
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+
+        Component title = label.isEmpty()
+                ? Component.translatable("screen.gathering.collection")
+                : Component.literal(label);
+        graphics.drawString(this.font, title, MARGIN, MARGIN, TEXT, false);
+        graphics.drawString(this.font,
+                Component.translatable("screen.gathering.collection.holding", total, distinct),
+                MARGIN + this.font.width(title) + 8, MARGIN, DIM, false);
+
+        drawRows(graphics, mouseX, mouseY);
+        drawFooter(graphics);
+        if (showingSyntax) {
+            drawSyntax(graphics);
+        }
+    }
+
+    private void drawRows(GuiGraphics graphics, int mouseX, int mouseY) {
+        int top = TOP_BAR;
+        int bottom = this.height - BOTTOM_BAR;
+        if (rows.isEmpty()) {
+            graphics.drawCenteredString(this.font,
+                    Component.translatable(total == 0
+                            ? "screen.gathering.collection.empty"
+                            : "screen.gathering.collection.nothing_found"),
+                    this.width / 2, (top + bottom) / 2 - 4, DIM);
+            ClientHoverState.clear();
+            return;
+        }
+
+        Grid grid = grid();
+        CollectionPagePayload.Row over = null;
+        int shown = Math.min(rows.size(), grid.cells());
+        for (int index = 0; index < shown; index++) {
+            CollectionPagePayload.Row row = rows.get(index);
+            Rect cell = grid.cellAt(index);
+            boolean hovered = cell.contains(mouseX, mouseY);
+            drawCard(graphics, row, cell, hovered);
+            if (hovered) {
+                over = row;
+            }
+        }
+        // Whatever the cursor is on, offered to the read key - the same door every other
+        // screen in the mod puts a card through, so Alt opens the panel here too.
+        ClientHoverState.setHovered(over == null
+                ? net.minecraft.world.item.ItemStack.EMPTY
+                : CardItem.of(over.card()));
+    }
+
+    /**
+     * One card, drawn as a stack as deep as the number of copies.
+     * <p>The depth is the count, which is the thing the old list said as "4x" and the thing a
+     * person actually reading a binder gets from the thickness of the pile. It stops at three
+     * behind the front card because four copies and forty look the same in a stack anyway -
+     * the number in the corner is what says which, and it is only drawn where there is more
+     * than one, since "1" on every card in a collection is noise on every card.
+     */
+    private void drawCard(
+            GuiGraphics graphics, CollectionPagePayload.Row row, Rect cell, boolean hovered) {
+        int behind = Math.min(STACK_DEEPEST, Math.max(0, row.count() - 1));
+        for (int depth = behind; depth >= 1; depth--) {
+            int offset = depth * STACK_STEP;
+            graphics.blit(CardFaceRenderer.CARD_BACK,
+                    cell.x() + offset, cell.y() - offset, 0f, 0f,
+                    cell.width(), cell.height(), cell.width(), cell.height());
+        }
+
+        CardSummary about = row.about().orElse(null);
+        if (about == null) {
+            // The server has the card and this client has never looked it up. Its own sleeve
+            // rather than an empty box, and the word for it, so a collection that is still
+            // fetching reads as one that is still fetching.
+            graphics.blit(CardFaceRenderer.CARD_BACK, cell.x(), cell.y(), 0f, 0f,
+                    cell.width(), cell.height(), cell.width(), cell.height());
+            GuiText.drawCentered(graphics, this.font,
+                    Component.translatable("screen.gathering.collection.unnamed"),
+                    (int) cell.centerX(), cell.y() + cell.height() / 2 - 4, cell.width() - 4, DIM);
+        } else {
+            CardInspectPanel.renderArt(graphics, about, row.card().flipped(),
+                    cell.x(), cell.y(), cell.width(), cell.height());
+        }
+
+        if (hovered) {
+            GatheringSprites.draw(graphics, Element.HOVER_RING,
+                    cell.x() - 2, cell.y() - 2, cell.width() + 4, cell.height() + 4);
+        }
+        if (row.card().foil()) {
+            GuiText.drawFlushRight(graphics, this.font, Component.literal("\u2726"),
+                    cell.right() - 3, cell.y() + 2, 1f, FOIL_MARK);
+        }
+        if (row.count() > 1) {
+            Component many = Component.literal("x" + row.count());
+            int wide = this.font.width(many) + 6;
+            int line = this.font.lineHeight + 2;
+            GatheringSprites.draw(graphics, Element.NAME_BACKDROP,
+                    cell.right() - wide - 2, cell.bottom() - line - 2, wide, line);
+            GuiText.drawFlushRight(graphics, this.font, many,
+                    cell.right() - 5, cell.bottom() - line, 1f, COUNT_TEXT);
+        }
+    }
+
+    /**
+     * What the search box understands, over the grid.
+     * <p>Every line is an example rather than a rule, because a search language is learned by
+     * copying a line that looks like the question being asked and changing a word. The list is
+     * short on purpose: these are the ones worth knowing, and the box takes more.
+     */
+    private void drawSyntax(GuiGraphics graphics) {
+        int line = this.font.lineHeight + 2;
+        int wide = 0;
+        for (int at = 0; at < SYNTAX_LINES; at++) {
+            wide = Math.max(wide, this.font.width(
+                    Component.translatable("screen.gathering.search.help_" + at)));
+        }
+        Rect panel = new Rect(
+                MARGIN, TOP_BAR, Math.min(this.width - MARGIN * 2, wide + 16),
+                Math.min(this.height - BOTTOM_BAR - TOP_BAR, SYNTAX_LINES * line + 12));
+        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+        for (int at = 0; at < SYNTAX_LINES; at++) {
+            int y = panel.y() + 6 + at * line;
+            if (y + line > panel.bottom()) {
+                break;
+            }
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("screen.gathering.search.help_" + at),
+                    panel.x() + 8, y, panel.width() - 16, at == 0 ? TEXT : DIM);
+        }
+    }
+
+    /** How many lines the syntax card has. Written out so the strings and the loop agree. */
+    private static final int SYNTAX_LINES = 10;
+
+    private void drawFooter(GuiGraphics graphics) {
+        // Below the grid's wall, which reaches WALL past the grid: at +6 the first line was drawn
+        // over the frame's bottom edge. Two lines of text still end inside the bar.
+        int y = this.height - BOTTOM_BAR + WALL + 2;
+
+        // Three things want this line: what was found, what a click does, and two buttons in
+        // the corner. The buttons own their corner. Of the other two the count goes first and
+        // the hint takes what is left, which is the other way round from how it was: the hint
+        // took all it wanted and the count shrank into the remainder, so on a narrow window a
+        // count became an ellipsis. A count is why this screen exists and is a handful of
+        // characters; a hint is advice, and one cut short is not advice.
+        int hintRight = cornerLeft - 8;
+        int row = Math.max(0, hintRight - MARGIN);
+
+        // How many were found and which page of them this is, said as fully as the row allows.
+        // The page number is the part worth losing first - the pager below already shows which
+        // page is lit - and the last way is a number and a word.
+        Component found = Component.translatable(
+                "screen.gathering.collection.page", matched, page + 1, pages);
+        if (!GuiText.fitsWhole(this.font, found, row)) {
+            Component shorter = Component.translatable(
+                    "screen.gathering.collection.page_short", matched, page + 1, pages);
+            found = GuiText.fitsWhole(this.font, shorter, row) ? shorter
+                    : Component.translatable("screen.gathering.collection.found", matched);
+        }
+        GuiText.draw(graphics, this.font, found, MARGIN, y, row, DIM);
+
+        // And the hint in what the count did not use, said as fully as that allows: the second
+        // gesture goes before the first one does, and the first before the hint goes entirely.
+        // A row narrow enough to lose all of it is one somebody has made narrow, and the
+        // gestures are still on the tooltip over a card.
+        int hintRoom = Math.max(0, row - GuiText.width(this.font, found, row) - 8);
+        Component how = null;
+        for (Component way : mayTake ? whatAClickDoes()
+                : List.of(Component.translatable("screen.gathering.collection.hint_look_details"),
+                        Component.translatable("screen.gathering.collection.hint_look"))) {
+            if (GuiText.fitsWhole(this.font, way, hintRoom)) {
+                how = way;
+                break;
+            }
+        }
+        if (how != null) {
+            int hintWidth = GuiText.width(this.font, how, hintRoom);
+            GuiText.draw(graphics, this.font, how, hintRight - hintWidth, y, hintWidth, DIM);
+            footerText = new Rect(hintRight - hintWidth, y, hintWidth, this.font.lineHeight);
+        } else {
+            footerText = Rect.NONE;
+        }
+
+        // The gestures that happen on the block rather than in here, said where somebody
+        // is in the state each one applies to. This is the only place either can be found,
+        // and a tooltip five lines long is not one.
+        //
+        // One at a time and the deck first, because holding a deck is the more particular
+        // state and two lines drawn at the same height would be one line on top of another.
+        Component onTheBlock = blockGestureHint();
+        if (onTheBlock != null) {
+            graphics.drawString(this.font, onTheBlock,
+                    hintRight - this.font.width(onTheBlock), y + 11, DIM, false);
+        }
+    }
+
+    /**
+     * What clicking a row will do - take the card into the inventory, whatever is in hand - said
+     * several ways, longest first, for a footer to take the first that fits.
+     * <p>Both gestures, then the one somebody will reach for first, then what the click does at
+     * all. The right-click is the one worth losing: it is a shortcut for the left one.
+     */
+    private List<Component> whatAClickDoes() {
+        return List.of(
+                Component.translatable("screen.gathering.collection.hint_take_details"),
+                Component.translatable("screen.gathering.collection.hint_take"),
+                Component.translatable("screen.gathering.collection.hint_take_short"),
+                Component.translatable("screen.gathering.collection.hint_take_shortest"));
+    }
+
+    /**
+     * The line about the gesture that happens on the block rather than in here, or none.
+     * <p>One at a time and the deck first: two lines at the same height are one line on top of
+     * another, and crouching with anything in hand is a click a collection never sees, so
+     * somebody holding a deck cannot sweep anyway. The line offers the gesture they can do.
+     * <p>Its own method so the scene can ask what the screen would say rather than reading it
+     * off a photograph, which is the only way a line that stopped appearing gets noticed.
+     */
+    Component blockGestureHint() {
+        return switch (dev.gathering.core.collection.CollectionGesture.offered(
+                heldDeckName() != null, handsAreEmpty(), mayAdd, carryingLooseCards())) {
+            case DISSOLVE -> Component.translatable("screen.gathering.collection.hint_dissolve");
+            case SWEEP -> Component.translatable("screen.gathering.collection.hint_sweep");
+            case NONE -> null;
+        };
+    }
+
+    /**
+     * Whether a crouching right-click would reach the block at all.
+     * <p>Vanilla skips block interaction entirely when somebody crouches holding anything in
+     * either hand, so the sweep is an empty-handed gesture whether or not it is called one -
+     * see {@code CollectionBlock#useWithoutItem}. The line used to be offered to anybody
+     * carrying loose cards, which is exactly the player most likely to be holding one: they
+     * crouched, nothing happened, and the screen had told them it would.
+     */
+    private boolean handsAreEmpty() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        return player != null
+                && player.getMainHandItem().isEmpty()
+                && player.getOffhandItem().isEmpty();
+    }
+
+    /**
+     * Whether this player has any loose cards on them at all.
+     * <p>Read off this client's own inventory, like the held deck beside it: the line is
+     * about what they are carrying, so it changes the moment they pick a card up and there
+     * is nothing to keep in step with the server. The server checks the same thing before it
+     * moves anything.
+     */
+    private boolean carryingLooseCards() {
+        var player = this.minecraft == null ? null : this.minecraft.player;
+        if (player == null) {
+            return false;
+        }
+        for (net.minecraft.world.item.ItemStack stack : player.getInventory().items) {
+            if (!stack.isEmpty() && stack.getItem() instanceof CardItem) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The name of the deck in hand, or null where there is not one. */
+    private String heldDeckName() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) {
+            return null;
+        }
+        return dev.gathering.item.DeckItem.deckOf(player.getMainHandItem())
+                .map(deck -> deck.name().isBlank()
+                        ? Component.translatable("item.gathering.deck").getString()
+                        : deck.name())
+                .orElse(null);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        // The syntax card is drawn over the grid, and the grid takes cards out of the box on
+        // a click. So reading the help and clicking anywhere on it took a card - a real card,
+        // out of a real collection, while somebody was looking up how to search. Put away by
+        // the click instead, which is also the way out of it that a reminder should have.
+        if (showingSyntax) {
+            showingSyntax = false;
+            GatheringButtons.clickSound();
+            return true;
+        }
+        int index = cardUnder(mouseX, mouseY);
+        // Bounded by what is drawn, not only by what the page holds: between a window shrink
+        // and the re-asked page arriving, cards past the grid exist but are not on the
+        // screen, and a click in the blank strip below took an unseen card.
+        if (index < 0 || index >= rows.size()) {
+            return false;
+        }
+        CardComponent card = rows.get(index).card();
+        // Shift-click looks at the card - every copy, and where the ones with a history have been -
+        // and so does any click where there is nothing to take.
+        if (hasShiftDown() || !mayTake) {
+            CardOverviewScreen.open(this, where, card, rows.get(index).about().orElse(null), mayTake);
+            GatheringButtons.clickSound();
+            return true;
+        }
+        // Left takes one, right takes four - a playset, which is what anybody taking more
+        // than one card out of a binder is taking.
+        int howMany = button == 1 ? 4 : 1;
+        ClientNetworking.send(new CollectionTakePayload(where, card, howMany));
+        // And then ask for the page again. Same connection, so the take is dealt with first;
+        // asking from here rather than being told keeps the search somebody is looking at in
+        // the one place that knows it.
+        askFor(page);
+        GatheringButtons.clickSound();
+        return true;
+    }
+
+    /** Which card of the grid this point is on, or -1 for the gaps and the margins. */
+    private int cardUnder(double mouseX, double mouseY) {
+        Grid grid = grid();
+        for (int index = 0; index < grid.cells(); index++) {
+            if (grid.cellAt(index).contains((int) mouseX, (int) mouseY)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    @Override
+    public void removed() {
+        ClientHoverState.clear();
+        super.removed();
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    /**
+     * Shows only one set, from the top.
+     * <p>What pressing a row of the set-progress screen does. Straight to the first page
+     * rather than wherever the last search was: the set being asked for is a different list,
+     * and page nine of it is not where anybody wants to arrive.
+     */
+    public void showOnly(String setCode) {
+        query = new CollectionQuery(
+                "", setCode == null ? "" : setCode, "", "", null, query.sort());
+        if (searchBox != null) {
+            searchBox.setValue("");
+        }
+        askFor(0);
+    }
+
+    /** What the screen is looking for, for the scripted run. */
+    public CollectionQuery query() {
+        return query;
+    }
+
+    /** What is on the page, for the scripted run. */
+    public List<CollectionPagePayload.Row> shown() {
+        return rows;
+    }
+
+    /** Where the footer's writing went, so the tour can check nothing was drawn over. */
+    public Rect footerText() {
+        return footerText;
+    }
+
+    /** Whether this player may take from it, for the scripted run. */
+    public boolean mayTake() {
+        return mayTake;
+    }
+
+    /** Types a search and asks for it, for the scripted run. */
+    public void searchFor(String text) {
+        if (searchBox != null) {
+            searchBox.setValue(text == null ? "" : text);
+        }
+        askFor(0);
+    }
+}

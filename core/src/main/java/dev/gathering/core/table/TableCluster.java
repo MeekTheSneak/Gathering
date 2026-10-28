@@ -1,0 +1,266 @@
+package dev.gathering.core.table;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Tables pushed together, and where the seats end up.
+ * <p>The design is the literal shop gesture: one table seats two facing each other, and when
+ * more people turn up you push another table against it. Edge-adjacent tables become one
+ * surface running one session, seating two more each, up to four tables and eight seats -
+ * which lands on the pod sizes that matter, a 4-player Commander game on two tables and an
+ * 8-player draft on four.
+ * <p>A line of tables seats people along its two long sides, whichever way the line runs. A table on
+ * its own has no long side, so it seats across whichever pair of opposite edges the first person to
+ * sit down chose - see {@link #turned()}.
+ * <p>All of it is arithmetic on a handful of coordinates, so it lives here where it can be
+ * checked against every shape a player can build. A cluster that miscounts its seats, or puts
+ * one on an edge two tables share, is not something anybody would notice until four people
+ * were standing around trying to sit down.
+ */
+public final class TableCluster {
+
+    /** Four tables, eight seats. Past this a "table" is a hall, and the seats stop pairing. */
+    public static final int MAX_TABLES = 4;
+
+    /** Every table seats two, which is what makes capacity 2, 4, 6, 8. */
+    public static final int SEATS_PER_TABLE = 2;
+
+    private final List<TableCell> cells;
+    private final List<SeatAnchor> seats;
+    private final boolean turned;
+
+    private TableCluster(List<TableCell> cells, List<SeatAnchor> seats, boolean turned) {
+        this.cells = List.copyOf(cells);
+        this.seats = List.copyOf(seats);
+        this.turned = turned;
+    }
+
+    /**
+     * The cluster reachable from one table.
+     * <p>{@code present} answers whether there is a table at a cell. Walking outward from the
+     * one placed, rather than scanning a region, means the cost is the size of the cluster and
+     * not the size of whatever the player has built nearby.
+     */
+    public static TableCluster around(TableCell start, java.util.function.Predicate<TableCell> present) {
+        return around(start, present, false);
+    }
+
+    /**
+     * The same, for a table that seats across its east and west edges when it stands alone.
+     *
+     * @param turnedWhenAlone what a cluster of one table does; a line of two or more runs the way it runs
+     */
+    public static TableCluster around(
+            TableCell start, java.util.function.Predicate<TableCell> present, boolean turnedWhenAlone) {
+        Set<TableCell> found = new LinkedHashSet<>();
+        if (!present.test(start)) {
+            return new TableCluster(List.of(), List.of(), false);
+        }
+
+        // Uncapped on purpose. MAX_TABLES is a rule about what may be *built*, enforced where
+        // a table is placed and can be explained; capping the search instead would return an
+        // arbitrary subset that depended on which table the walk started from, and the same
+        // cluster would answer differently to two different players standing at it.
+        Deque<TableCell> pending = new ArrayDeque<>();
+        pending.add(start);
+        found.add(start);
+        while (!pending.isEmpty()) {
+            TableCell cell = pending.removeFirst();
+            for (Side side : Side.values()) {
+                TableCell neighbor = cell.step(side);
+                if (!found.contains(neighbor) && present.test(neighbor)) {
+                    found.add(neighbor);
+                    pending.addLast(neighbor);
+                }
+            }
+        }
+        return of(found, turnedWhenAlone);
+    }
+
+    /**
+     * The shape a client should assume from nothing but a seat count.
+     * <p>A client is told a board, not a building: the session froze the cluster's shape when
+     * it started, and what arrives on the wire is a list of seats. That is enough, because
+     * seats come in facing pairs, so a row of {@code seats / 2} tables reproduces the seating
+     * the server laid out.
+     * <p>Here rather than in whichever screen needs it, because the seated view and the table
+     * in the world both have to work this out and two answers would be two different boards -
+     * one of them behind the other by however long it took somebody to notice.
+     */
+    public static List<SeatAnchor> assumedSeating(int seatCount) {
+        int tables = Math.max(0, seatCount + SEATS_PER_TABLE - 1) / SEATS_PER_TABLE;
+        Set<TableCell> row = new LinkedHashSet<>();
+        for (int x = 0; x < tables; x++) {
+            row.add(new TableCell(x, 0));
+        }
+        // Built by asking the real thing rather than by reproducing what it does. Writing the
+        // rule out a second time is how the client ended up seating everybody on the opposite
+        // edge from the server: both sides were internally consistent and neither said so.
+        return of(row).seats();
+    }
+
+    /**
+     * A cluster from a known set of tables.
+     * <p>Ordered before anything is derived from it, so the same set of tables always produces
+     * the same seats in the same order however it was discovered - a seat index that depends
+     * on which table happened to load first is a seat that changes hands on a chunk reload.
+     */
+    public static TableCluster of(Set<TableCell> cells) {
+        return of(cells, false);
+    }
+
+    /** The same, for a table that seats across its east and west edges when it stands alone. */
+    public static TableCluster of(Set<TableCell> cells, boolean turnedWhenAlone) {
+        List<TableCell> ordered = new ArrayList<>(cells);
+        ordered.sort(Comparator.comparingInt(TableCell::z).thenComparingInt(TableCell::x));
+        boolean turned = ordered.size() == 1 ? turnedWhenAlone : runsNorthToSouth(cells);
+        return new TableCluster(ordered, seatsFor(ordered, turned), turned);
+    }
+
+    /**
+     * Whether this cluster seats people across its east and west edges rather than its north and south.
+     * <p>A line of tables running north to south does, and so does a lone table the first person
+     * sat at from the east or the west. Everything drawn on the table is laid out as though the
+     * line ran east to west and turned a quarter turn in the world when it does not: the seats of a
+     * turned cluster, in order, are the seats of the same line unturned - each east edge where the
+     * north edge would be, each west edge where the south edge would be.
+     */
+    public boolean turned() {
+        return turned;
+    }
+
+    /** These seats as the same line unturned would have them: what the drawn surface is laid out from. */
+    public List<SeatAnchor> seatsAsLaidOut() {
+        if (!turned) {
+            return seats;
+        }
+        List<SeatAnchor> laidOut = new ArrayList<>(seats.size());
+        for (SeatAnchor seat : seats) {
+            laidOut.add(new SeatAnchor(new TableCell(seat.cell().z(), -seat.cell().x()),
+                    seat.side() == Side.EAST ? Side.NORTH : seat.side() == Side.WEST ? Side.SOUTH : seat.side()));
+        }
+        return List.copyOf(laidOut);
+    }
+
+    /** Whether a shape of two or more tables is one line running north to south. */
+    private static boolean runsNorthToSouth(Set<TableCell> cells) {
+        if (cells.size() < 2) {
+            return false;
+        }
+        int x = cells.iterator().next().x();
+        for (TableCell cell : cells) {
+            if (cell.x() != x) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public List<TableCell> cells() {
+        return cells;
+    }
+
+    public List<SeatAnchor> seats() {
+        return seats;
+    }
+
+    public int tableCount() {
+        return cells.size();
+    }
+
+    public int capacity() {
+        return seats.size();
+    }
+
+    public boolean isEmpty() {
+        return cells.isEmpty();
+    }
+
+    public boolean contains(TableCell cell) {
+        return cells.contains(cell);
+    }
+
+    /**
+     * Whether another table may join.
+     * <p>A cluster is capped rather than allowed to sprawl, so the answer to "can I push one
+     * more table against this" has to be given at placement time, where it can be explained,
+     * rather than silently by a table that sits next to a cluster without joining it.
+     */
+    public boolean hasRoomForAnotherTable() {
+        return tableCount() < MAX_TABLES;
+    }
+
+    /**
+     * Where the seats go: around the outside of the cluster, facing pairs first.
+     * <p>Every table adds two to the capacity, but the two are not necessarily on that table.
+     * Push four tables into a T and the middle one has a single outward edge - two seats on it
+     * would put somebody inside the furniture, and dropping one would make a four-table
+     * cluster seat seven. So the count is per cluster and the placement is around its
+     * perimeter, which is what the design says and what pushed-together tables look like.
+     * <p>Facing pairs are taken first, because sitting opposite your opponent is the shape of
+     * the game and a table with two free opposite edges should use them. What is left over is
+     * filled from the remaining outward edges in a fixed order, so the same cluster always
+     * seats people in the same places.
+     */
+    private static List<SeatAnchor> seatsFor(List<TableCell> ordered, boolean turned) {
+        Set<TableCell> present = new HashSet<>(ordered);
+        int wanted = ordered.size() * SEATS_PER_TABLE;
+
+        List<SeatAnchor> anchors = new ArrayList<>(wanted);
+        for (TableCell cell : ordered) {
+            List<Side> outward = outwardSides(cell, present);
+            // Across the line's two long sides and never its ends. A seat at the end of a line is
+            // a board read sideways, and the screen a player sits down to knows two ways up: its
+            // own and the one opposite. A shape that would need such a seat is refused where it
+            // is placed and can be explained, so the edge simply seats nobody.
+            Side first = turned ? Side.EAST : Side.NORTH;
+            if (!outward.contains(first) || !outward.contains(first.opposite())) {
+                continue;
+            }
+            anchors.add(new SeatAnchor(cell, first));
+            anchors.add(new SeatAnchor(cell, first.opposite()));
+        }
+        return anchors.size() > wanted
+                ? List.copyOf(anchors.subList(0, wanted))
+                : List.copyOf(anchors);
+    }
+
+    /**
+     * Whether every table in this shape would seat people on two facing long sides.
+     * <p>Which is to say: whether it is a line, running either way. A table with another one
+     * against its side as well as its end has lost one of the two edges the game is played across,
+     * and the players it could still seat would be sitting at the ends reading their own boards
+     * sideways. Asked where a table is placed, so the answer arrives as a refusal somebody can be
+     * told about rather than as a seat that turns out to be unusable.
+     */
+    public static boolean seatsEverySide(Set<TableCell> cells) {
+        if (cells.size() < 2) {
+            return true;
+        }
+        TableCell any = cells.iterator().next();
+        boolean sameZ = true;
+        boolean sameX = true;
+        for (TableCell cell : cells) {
+            sameZ &= cell.z() == any.z();
+            sameX &= cell.x() == any.x();
+        }
+        return sameZ || sameX;
+    }
+
+    private static List<Side> outwardSides(TableCell cell, Set<TableCell> present) {
+        List<Side> outward = new ArrayList<>(4);
+        for (Side side : Side.values()) {
+            if (!present.contains(cell.step(side))) {
+                outward.add(side);
+            }
+        }
+        return outward;
+    }
+}

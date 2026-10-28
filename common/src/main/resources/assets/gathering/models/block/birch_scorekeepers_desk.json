@@ -1,0 +1,469 @@
+{
+  "credit": "Gathering furniture design",
+  "parent": "minecraft:block/block",
+  "ambientocclusion": true,
+  "textures": {
+    "wood": "minecraft:block/birch_planks",
+    "felt": "minecraft:block/white_wool",
+    "metal": "minecraft:block/gold_block",
+    "paper": "minecraft:block/sandstone_top",
+    "particle": "minecraft:block/birch_planks"
+  },
+  "display": {
+    "gui": {
+      "rotation": [
+        30,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.35,
+        0.35,
+        0.35
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.7,
+        0.7,
+        0.7
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.375,
+        0.375,
+        0.375
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    }
+  },
+  "elements": [
+    {
+      "name": "Foot",
+      "from": [
+        1,
+        0,
+        1
+      ],
+      "to": [
+        15,
+        2,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            2
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            2
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            2
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            2
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            14
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            14
+          ]
+        }
+      }
+    },
+    {
+      "name": "Pedestal",
+      "from": [
+        4,
+        2,
+        4
+      ],
+      "to": [
+        12,
+        11,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            8,
+            9
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            8,
+            9
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            8,
+            9
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            8,
+            9
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            8,
+            8
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            8,
+            8
+          ]
+        }
+      }
+    },
+    {
+      "name": "Writing shelf",
+      "from": [
+        1,
+        11,
+        1
+      ],
+      "to": [
+        15,
+        12,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            14
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            14,
+            14
+          ]
+        }
+      }
+    },
+    {
+      "name": "Felt writing surface",
+      "from": [
+        1,
+        12,
+        1
+      ],
+      "to": [
+        15,
+        13,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            11,
+            1
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            11,
+            1
+          ],
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            14,
+            11
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            14,
+            11
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Standings backboard",
+      "from": [
+        2,
+        12,
+        12
+      ],
+      "to": [
+        14,
+        16,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            12,
+            4
+          ]
+        },
+        "south": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            12,
+            4
+          ]
+        },
+        "east": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            2,
+            4
+          ]
+        },
+        "west": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            2,
+            4
+          ]
+        },
+        "up": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            12,
+            2
+          ]
+        },
+        "down": {
+          "texture": "#wood",
+          "uv": [
+            0,
+            0,
+            12,
+            2
+          ]
+        }
+      }
+    }
+  ]
+}

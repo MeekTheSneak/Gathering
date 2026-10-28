@@ -1,0 +1,138 @@
+package dev.gathering.item;
+
+import dev.gathering.registry.GatheringComponents;
+import dev.gathering.server.PackOpening;
+import java.util.Optional;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
+
+/**
+ * A sealed booster, and the two ways of opening one.
+ * <p>Right-click opens it. Everything about what comes out is the server's: the collation, the
+ * seed, and the cards. A pack is a promise rather than a container, so there is nothing on the
+ * stack for a client to read early and nothing for one to lie about.
+ */
+public class PackItem extends Item {
+
+    public PackItem(Properties properties) {
+        super(properties);
+    }
+
+    public static ItemStack of(PackComponent pack) {
+        ItemStack stack = new ItemStack(dev.gathering.item.GatheringContent.PACK.get());
+        // The set's name goes on the pack as it is made, because the tooltip that wants it is drawn
+        // on the client and the list of set names is the server's. Where nothing knows the name -
+        // a test, or a server whose set list is still being read - the pack keeps only its code and
+        // says that, which is what it said before.
+        // An archive pack's set is the archive; what a player wants named is the family it is of,
+        // which it keeps in its kind. So the name looked up is that one.
+        String naming = pack.isArchive() ? pack.kind() : pack.setCode();
+        stack.set(GatheringComponents.PACK.get(), pack.setName().isBlank() && !naming.isBlank()
+                ? new PackComponent(pack.setCode(), pack.kind(), pack.color(),
+                        dev.gathering.server.SetNames.of(naming))
+                : pack);
+        return stack;
+    }
+
+    public static Optional<PackComponent> packOf(ItemStack stack) {
+        return Optional.ofNullable(stack.get(GatheringComponents.PACK.get()));
+    }
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        PackComponent pack = packOf(stack).orElse(null);
+        if (pack == null || !pack.isReal()) {
+            return InteractionResultHolder.pass(stack);
+        }
+        if (!level.isClientSide() && player instanceof ServerPlayer opener) {
+            // Written down before it is taken. Opening reaches a network and comes back
+            // later, and a pack still in the hand when it does is a pack that can be opened
+            // twice - so it has to be taken now. What that costs is a window: a server
+            // stopped between the taking and the return cancels the queued work, so the
+            // completion that used to write the debt never runs and the booster simply
+            // stops existing. The receipt goes on disk first and is settled at the end, so
+            // the window holds a record rather than nothing.
+            String receipt = dev.gathering.server.Owed
+                    .opening(opener.getUUID(), pack.setCode(), pack.kind(), pack.color())
+                    .orElse(null);
+            if (receipt == null) {
+                // Nowhere to write it down, so the pack is not taken. A booster that cannot
+                // be recovered if this goes wrong must not be opened at all.
+                opener.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.gathering.pack_not_recorded"));
+                return InteractionResultHolder.fail(stack);
+            }
+            // What the pack says about itself, read before it is taken: a pack a command made is
+            // stamped, and every card out of it has to say so. See CardStories.
+            java.util.List<dev.gathering.core.story.CardStory.Chapter> stamps =
+                    dev.gathering.server.CardStories.chaptersOnPack(stack);
+            stack.shrink(1);
+            // Sneaking opens it where it stands; an ordinary right-click opens it by hand.
+            // The server decides, because the server is what knows a pack came out at all -
+            // and it already knows whether this player is sneaking, because that is synced.
+            boolean ceremony = !opener.isShiftKeyDown();
+            PackOpening.openFor(opener, pack.setCode(), pack.kind(), pack.color(), receipt,
+                    () -> giveBack(opener, pack, stamps), ceremony, stamps);
+            // What is in the hand now, not the stack that was used. A refusal hands the pack back at
+            // once, and the last one in hand left the first empty slot - its own - so it went back
+            // there; returning the emptied stack told the click to clear the hand, pack and all.
+            return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
+        }
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+    }
+
+    /**
+     * Puts an unopened pack back where it came from. Server thread only.
+     * <p>Every way an opening can fail ends here: collecting switched off, the card pipeline
+     * not running, a set with no packs, a set file that would not come. None of those are the
+     * player's doing and none of them should cost them a booster.
+     */
+    private static void giveBack(ServerPlayer player, PackComponent pack,
+            java.util.List<dev.gathering.core.story.CardStory.Chapter> stamps) {
+        ItemStack stack = of(pack);
+        // With its stamp. A command-made pack handed back plain would open next time into
+        // cards that pass for found ones.
+        for (dev.gathering.core.story.CardStory.Chapter chapter : stamps) {
+            dev.gathering.server.CardStories.rememberOnPack(stack, chapter);
+        }
+        dev.gathering.server.Handing.give(player, stack);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+            java.util.List<Component> lines, TooltipFlag flag) {
+        packOf(stack).filter(PackComponent::isReal).ifPresent(pack -> {
+            // The archive is not a set and naming it as one would print "ARCHIVE" where a set
+            // code goes, which reads as a set nobody has heard of rather than as what it is.
+            if (pack.isArchive()) {
+                lines.add((pack.kind().isEmpty()
+                        ? Component.translatable("tooltip.gathering.archive")
+                        : Component.translatable("tooltip.gathering.archive_of",
+                                pack.familySaidToAPlayer()))
+                        .withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE));
+                lines.add(Component.translatable("tooltip.gathering.archive_what")
+                        .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+            } else {
+                lines.add(Component.translatable("tooltip.gathering.pack_set", pack.saidToAPlayer()));
+                if (!pack.kind().isEmpty()) {
+                    lines.add(Component.translatable("tooltip.gathering.pack_kind", pack.kind()));
+                }
+            }
+            // Both gestures, said here, because a pack is the first thing in collection mode
+            // a player picks up and there is nowhere else for it to be said. The ceremony is
+            // named first: it is the one worth finding, and the quick one is the shortcut.
+            lines.add(Component.translatable("tooltip.gathering.pack_open")
+                    .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+            lines.add(Component.translatable("tooltip.gathering.pack_open_quick")
+                    .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+        });
+    }
+}

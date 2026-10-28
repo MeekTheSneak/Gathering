@@ -1,0 +1,12 @@
+{
+  "parent": "gathering:first_deck",
+  "display": {
+    "icon": { "id": "gathering:table" },
+    "title": { "translate": "advancements.gathering.first_game.title" },
+    "description": { "translate": "advancements.gathering.first_game.description" },
+    "frame": "goal"
+  },
+  "criteria": {
+    "played": { "trigger": "minecraft:impossible" }
+  }
+}

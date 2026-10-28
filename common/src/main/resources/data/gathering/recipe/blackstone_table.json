@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WWW",
+    "PPP",
+    "P P"
+  ],
+  "key": {
+    "W": {
+      "tag": "minecraft:wool"
+    },
+    "P": {
+      "item": "minecraft:polished_blackstone"
+    }
+  },
+  "result": {
+    "id": "gathering:blackstone_table",
+    "count": 1
+  }
+}

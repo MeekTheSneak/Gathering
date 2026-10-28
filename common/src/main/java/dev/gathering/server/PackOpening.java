@@ -1,0 +1,786 @@
+package dev.gathering.server;
+
+import dev.gathering.network.Sending;
+import dev.gathering.core.booster.BoosterConfig;
+import dev.gathering.core.booster.BoosterOpener;
+import dev.gathering.core.booster.MtgjsonCollation;
+import dev.gathering.core.booster.OpenedPack;
+import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.card.CardMetadata;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.CardItem;
+import dev.gathering.network.CardMetadataPayload;
+import dev.gathering.network.CardSummary;
+import dev.gathering.service.CardDataService;
+import dev.gathering.service.CollationService;
+import dev.gathering.service.ServerSettings;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Opening a booster: collation in, cards out, nothing about any set written down.
+ * <p>Three things happen off the server thread and one on it. The set's collation is fetched
+ * and read, the pack is drawn from it, and the printings it named are resolved to card data -
+ * all on the two pipelines that own those blocking calls. Only handing the cards over touches
+ * a player, and that happens back on the server thread like every other inventory in the mod.
+ * <p>Every pack gets a fresh seed. A seed that came from anything a player could see or
+ * influence - a position, a tick, a name - is a seed somebody works out, and a booster whose
+ * contents can be predicted before it is opened is not a booster.
+ * <p>Behind {@code collection_enabled}, because a pack is cards being property and on a
+ * server where cards are not property there is nothing to open.
+ */
+public final class PackOpening {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
+
+    private static final SecureRandom SEEDS = new SecureRandom();
+
+    /**
+     * Which pack to open when nobody said, after whatever the server configured.
+     * <p>In the order a person means "a booster of this set": the modern retail pack, then
+     * the draft pack sets used to have, then the set pack that replaced it for a while. Not a
+     * rule about any set - every one of these is a name in somebody else's data, and a set
+     * with none of them falls through to whatever it does publish.
+     */
+    // statecheck: a constant list of product names, the same in every world
+    private static final List<String> USUAL_KINDS = List.of("play", "draft", "set");
+
+
+    private PackOpening() {
+    }
+
+    /**
+     * Opens one pack of a set and gives the cards to the player.
+     *
+     * @param kind which product of that set, or blank for whatever this server calls a booster
+     */
+    public static void openFor(ServerPlayer player, String setCode, String kind) {
+        // No receipt: nothing was taken off anybody, so there is nothing to give back.
+        openFor(player, setCode, kind, "", null, () -> { }, false);
+    }
+
+    /**
+     * The same, for a caller that took something off a player to do it.
+     *
+     * @param giveBack run on the server thread if no pack comes out, however far along it
+     *                 got. A booster that vanished from somebody's hand because a set turned
+     *                 out to have no packs is worse than one that would not open.
+     * @param receipt  what {@link Owed#opening} wrote down before the pack was consumed, or
+     *                 null when nothing was taken. Settled on every path out of here: the
+     *                 cards replace it if the player has gone, and it is simply removed once
+     *                 they are holding either the cards or the pack again. A path that
+     *                 forgets to settle leaves the player owed a booster they already had.
+     * @param ceremony whether to tell the client what came out so it can be opened by hand.
+     *                 The cards are already given either way; this only decides whether there
+     *                 is a wrapper to tear.
+     */
+    public static void openFor(
+            ServerPlayer player, String setCode, String kind, String receipt, Runnable giveBack,
+            boolean ceremony) {
+        openFor(player, setCode, kind, "", receipt, giveBack, ceremony);
+    }
+
+    /**
+     * The same, for a pack sold as one color.
+     *
+     * @param color one letter of WUBRG, or blank. Narrows which of the set's arrangements the
+     *               seed chooses between, and nothing else: what comes out is still decided at
+     *               the moment of opening. A product sold one color at a time - Jumpstart -
+     *               has nine or ten arrangements per color, and a pack that named only the
+     *               product would open as any of the forty-six
+     */
+    public static void openFor(
+            ServerPlayer player, String setCode, String kind, String color, String receipt,
+            Runnable giveBack, boolean ceremony) {
+        openFor(player, setCode, kind, color, receipt, giveBack, ceremony, List.of());
+    }
+
+    /**
+     * The same, writing these chapters on every card that comes out.
+     *
+     * @param stamps what the pack itself was carrying - a pack a command made says so - and is
+     *               handed on to all of its cards, first, before anything else is written on
+     *               them. Empty for almost every pack.
+     */
+    public static void openFor(
+            ServerPlayer player, String setCode, String kind, String color, String receipt,
+            Runnable giveBack, boolean ceremony,
+            List<dev.gathering.core.story.CardStory.Chapter> stamps) {
+        List<dev.gathering.core.story.CardStory.Chapter> stamped =
+                stamps == null ? List.of() : List.copyOf(stamps);
+        // Wrapped once, here, rather than at each of the seven ways out of this method:
+        // handing the pack back and settling the receipt are one act, and a path that did
+        // one without the other would leave the player owed a booster they were holding.
+        Runnable handedBack = () -> settleThenHandOver(player, receipt, giveBack);
+        if (Archive.SET.equals(setCode)) {
+            openTheArchive(player, kind, handedBack, receipt, ceremony, stamped);
+            return;
+        }
+        String refusal = whyNot();
+        if (refusal != null) {
+            player.sendSystemMessage(Component.translatable(refusal));
+            handedBack.run();
+            return;
+        }
+        CollationService collation = CollationService.active().orElse(null);
+        CardDataService cards = CardDataService.active().orElse(null);
+        if (collation == null || cards == null) {
+            player.sendSystemMessage(Component.translatable("message.gathering.pipeline_unavailable"));
+            handedBack.run();
+            return;
+        }
+
+        String set = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
+        // Said the moment the pack is asked for, because everything after this is somebody else's
+        // server answering at its own pace - and a throttled one can now be waited on for half a minute.
+        // The owner opened a pack, got nothing, and had no way of telling whether it was working, broken
+        // or gone (2026-09-16). Over the hotbar: it is replaced by whatever happens next.
+        Notices.tell(player,
+                Component.translatable("message.gathering.pack_opening", SetNames.of(set)));
+        collation.collationFor(set)
+                // Async on the collation worker, not chained plainly: a set already read is
+                // an already-completed future, and a plain chain would draw the pack on
+                // whichever thread asked - which here is the server thread.
+                .thenComposeAsync(reading -> {
+                    BoosterConfig config = narrowed(pick(reading, kind), color);
+                    if (config == null) {
+                        // Nobody has published how this set was collated. Rather than hand
+                        // the pack back - which is a real set the player cannot open, and was
+                        // what happened - cut one from the set itself and say so.
+                        return madeUpPack(cards, reading, set, kind);
+                    }
+                    return openAndName(cards, reading, config, false);
+                }, collation.worker())
+                .whenComplete(ServerRun.onServerThread(player, (opened, failure) -> {
+                    if (openerIsGone(player)) {
+                        // The pack left their hand before any of this started, so there is
+                        // nothing of theirs still in the world to fall back on: what they are
+                        // owed is written down and handed over the next time they join. It
+                        // used to be dropped here, and the comment said the stack had gone
+                        // with the player - it had not, it had been consumed a moment before.
+                        //
+                        // The cards replace the receipt in one write. A failure leaves the
+                        // receipt exactly as it is, which is already a promise of one pack:
+                        // writing another would owe them two for one.
+                        if (failure == null && opened != null && opened.pack() != null) {
+                            if (receipt == null) {
+                                Owed.cards(player.getUUID(), opened.pack().cards());
+                            } else {
+                                Owed.settled(player.getUUID(), receipt, opened.pack().cards());
+                            }
+                        } else if (receipt == null) {
+                            // The color too: a refunded starter is the color it was chosen
+                            // as, and a pack handed back without one opens as anything.
+                            Owed.aPack(player.getUUID(), set, kind, color);
+                        }
+                        return;
+                    }
+                    if (failure != null) {
+                        LOGGER.warn("Opening a {} pack failed", set, failure);
+                        player.sendSystemMessage(Component.translatable(
+                                "message.gathering.pack_failed", Failures.rootMessage(failure))
+                                .withStyle(net.minecraft.ChatFormatting.GOLD));
+                        // And say where the pack went, because "it did not open" and "it is gone" look
+                        // the same from the hotbar.
+                        Notices.tell(player,
+                                Component.translatable("message.gathering.pack_handed_back"));
+                        handedBack.run();
+                        return;
+                    }
+                    if (opened.pack() == null) {
+                        player.sendSystemMessage(nothingToOpen(opened.reading(), set, kind));
+                        handedBack.run();
+                        return;
+                    }
+                    if (ceremony) {
+                        // By hand: the cards go under the wrapper, which replaces the receipt in the
+                        // same write - see handOver.
+                        deliver(player, opened, receipt, true, stamped);
+                    } else {
+                        settleThenHandOver(player, receipt, () -> deliver(player, opened, null, false, stamped));
+                    }
+                }));
+    }
+
+    /**
+     * Whether the player a pack was opened for is no longer there to be handed its cards.
+     * <p>Removed as well as disconnected: a player who died and came back is a new entity, and the
+     * old one is removed - cards given to it went nowhere. So is a Deployer's stand-in broken with
+     * the Deployer. Either way what came out is written down for them and handed over when they are
+     * next here. Asked in one place so the ordinary pack and the archive's cannot disagree.
+     */
+    public static boolean openerIsGone(ServerPlayer player) {
+        return player.hasDisconnected() || player.isRemoved();
+    }
+
+    /**
+     * What one pack of this set holds, drawn for nobody in particular.
+     * <p>For a draft or sealed event opening every pack at once, where the cards go into a pod
+     * rather than into anybody's hands, so none of the ceremony, receipts or achievements that
+     * belong to opening a pack yourself apply. The same collation and the same fallback for a
+     * set nobody published, so a pack drafted is the same object as a pack opened.
+     *
+     * @return completes with every card the pack drew, named or not; empty when the set has
+     *         nothing to open; exceptionally when the card pipeline is not running
+     */
+    public static java.util.concurrent.CompletableFuture<List<CardIdentity>> draw(
+            String setCode, String kind, String color) {
+        CollationService collation = CollationService.active().orElse(null);
+        CardDataService cards = CardDataService.active().orElse(null);
+        if (collation == null || cards == null) {
+            return java.util.concurrent.CompletableFuture.failedFuture(
+                    new IllegalStateException("The card pipeline is not running"));
+        }
+        String set = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
+        if (Archive.SET.equals(set)) {
+            // The archive pack draws from this server's own collections rather than a set, and
+            // has no meaning passed round a ring.
+            return java.util.concurrent.CompletableFuture.completedFuture(List.of());
+        }
+        return collation.collationFor(set)
+                .thenComposeAsync(reading -> {
+                    BoosterConfig config = narrowed(pick(reading, kind), color);
+                    return config == null
+                            ? madeUpPack(cards, reading, set, kind)
+                            : openAndName(cards, reading, config, false);
+                }, collation.worker())
+                .thenApply(opened -> opened.pack() == null ? List.<CardIdentity>of() : opened.pack().cards());
+    }
+
+    /**
+     * Strikes the receipt off first, and hands the property over only if that worked.
+     * <p>The receipt is a promise of one pack. Handing the cards over and then settling reads
+     * as the safe order - if the settling fails the player still got their cards - and it is
+     * not, because what is left on disk then promises them a pack as well, and the next join
+     * makes good on it. One booster becomes cards plus a booster.
+     * <p>So the write comes first, exactly as it does in {@link Owed#deliver}, and for the
+     * same reason: between owing somebody a booster for another minute and printing one, the
+     * minute is the cheap one. A settle that fails hands nothing over and says so, and the
+     * receipt that is still on disk is handed back as a pack the next time they join.
+     *
+     * @param receipt what {@link Owed#opening} wrote down, or null when nothing was taken -
+     *                in which case there is nothing to settle and the handing over is
+     *                unconditional
+     */
+    private static void settleThenHandOver(ServerPlayer player, String receipt, Runnable giving) {
+        if (receipt != null && !Owed.settled(player.getUUID(), receipt, List.of())) {
+            LOGGER.error("Could not settle opening receipt {} for {}, so nothing was handed"
+                    + " over. The receipt stands and the pack comes back when they next join.",
+                    receipt, player.getUUID());
+            player.sendSystemMessage(Component.translatable("message.gathering.pack_not_settled"));
+            return;
+        }
+        giving.run();
+    }
+
+    /**
+     * Opens a config and looks up the names of what came out of it.
+     *
+     * @param madeUp whether this config is the fallback rather than a published collation,
+     *               which the player is told about once the cards are in their hands
+     */
+    private static java.util.concurrent.CompletableFuture<Opened> openAndName(
+            CardDataService cards, MtgjsonCollation.Reading reading, BoosterConfig config,
+            boolean madeUp) {
+        OpenedPack pack = BoosterOpener.open(config, freshSeed(), config.id());
+        List<UUID> printings = new ArrayList<>();
+        for (CardIdentity card : pack.cards()) {
+            card.printing().ifPresent(printings::add);
+        }
+        return cards.findAll(printings)
+                // Asked once more, a moment later, before the pack is handed back. Scryfall turning the
+                // server away for a second failed a pack outright, and a second try after its pause
+                // is nearly always answered.
+                .exceptionallyCompose(failure -> {
+                    LOGGER.info("Naming the cards of a {} pack failed once, trying again: {}", config.id(),
+                            Failures.rootMessage(failure));
+                    return java.util.concurrent.CompletableFuture.supplyAsync(() -> null,
+                            java.util.concurrent.CompletableFuture.delayedExecutor(NAMING_RETRY_MILLIS,
+                                    java.util.concurrent.TimeUnit.MILLISECONDS))
+                            .thenCompose(ignored -> cards.findAll(printings));
+                })
+                .thenApply(found -> new Opened(reading, config, madeUp, pack, found));
+    }
+
+    /** How long a pack waits before asking a second time for its cards' names. */
+    static final long NAMING_RETRY_MILLIS = 2_000L;
+
+    /**
+     * A pack for a set nobody has published the collation of.
+     * <p>One sheet per rarity, every card on it once, which is what "we do not know how this
+     * was printed" honestly comes to - see {@link BoosterFallback}, which has always been
+     * written and tested and was never reached. A set MTGJSON has no booster for is a set
+     * that exists, that the shop will sell packs of, and that used to hand every one of them
+     * straight back.
+     * <p>Said out loud when it happens, because a pack cut this way is a different object
+     * from a real one: every common in it is exactly as likely as every other, which no real
+     * pack has ever been.
+     */
+    private static java.util.concurrent.CompletableFuture<Opened> madeUpPack(
+            CardDataService cards, MtgjsonCollation.Reading reading, String set, String kind) {
+        return cards.everyPrintingIn(set).thenCompose(inTheSet -> {
+            BoosterConfig made = dev.gathering.core.booster.BoosterFallback.configFor(
+                    set,
+                    kind == null || kind.isBlank() ? FALLBACK_KIND : kind,
+                    poolOf(inTheSet),
+                    dev.gathering.core.booster.RaritySlots.usual());
+            if (!made.isUsable()) {
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                        new Opened(reading, null, false, null, List.of()));
+            }
+            return openAndName(cards, reading, made, true);
+        });
+    }
+
+    /**
+     * What a pack of this set could be cut from, by rarity.
+     * <p>The same rule {@link PackCoverage#catalogOf} audits against, sorted into sheets.
+     * Public so a test can check it without a card pipeline behind it: everything downstream
+     * of this is {@link BoosterFallback}'s and is checked in the pure module, and what is
+     * worth checking here is that the catalog going in is the one the audit measures.
+     */
+    public static Map<dev.gathering.core.card.Rarity, List<UUID>> poolOf(
+            List<CardMetadata> inTheSet) {
+        Map<dev.gathering.core.card.Rarity, List<UUID>> pool = new LinkedHashMap<>();
+        for (CardMetadata card : inTheSet) {
+            if (wasEverInABooster(card)) {
+                pool.computeIfAbsent(card.rarity(), rarity -> new ArrayList<>())
+                        .add(card.scryfallId());
+            }
+        }
+        return pool;
+    }
+
+    /** What a made-up pack calls itself when nobody asked for a particular kind. */
+    private static final String FALLBACK_KIND = "draft";
+
+    /**
+     * Whether a printing is one a pack could ever have contained.
+     * <p>A set's oversized cards and its digital-only printings are in the set and were never
+     * on a print sheet, so neither a fallback pack nor an audit of one should count them.
+     * <p>Nor are basic lands, which the rest of the mod already treats as free: a deck may
+     * take as many as it likes without owning any. Counting them would put a basic in every
+     * fallback pack, and would report a set as incomplete over five cards nobody has ever
+     * needed to open a pack to get.
+     */
+    public static boolean wasEverInABooster(CardMetadata card) {
+        // A card rather than a token, an emblem or an art card. That used to come for free: the
+        // network lookup this pool was built from is a Scryfall search, and a search does not return
+        // them; the local bulk index does, and it is what a server reads from by default now - so
+        // without asking, a set with no published collation could deal an art card into a pack.
+        // The layout alone, not the whole of ArchiveAudit.isACard: that also asks whether a printing
+        // is on paper, which is right for auditing a collection and wrong here. Asking it emptied
+        // every fallback pack on the dev world, whose card data says nothing about games at all -
+        // caught by the scripted client, which plays out of those packs, and by nothing else.
+        return card != null && card.scryfallId() != null
+                && dev.gathering.core.booster.ArchiveAudit.isACardLayout(card)
+                && !card.digitalOnly() && !card.oversized() && !card.isBasicLand();
+    }
+
+    /**
+     * Why no pack can be opened on this server, as a translation key, or null if one can.
+     * <p>Its own method so the thing that will ask before showing somebody a pack - an item's
+     * tooltip, a shop's shelf - asks the same question the opening does, rather than a second
+     * copy of it that drifts.
+     */
+    public static String whyNot() {
+        if (!ServerSettings.get().modes().collectionEnabled()) {
+            return "message.gathering.pack_collection_off";
+        }
+        return null;
+    }
+
+    /**
+     * A pack and the card data for what came out of it, or no pack and the reading that had
+     * none to give - which is the difference between two very different sentences.
+     */
+    private record Opened(MtgjsonCollation.Reading reading, BoosterConfig config, boolean madeUp,
+            OpenedPack pack, List<CardMetadata> cards) {
+    }
+
+    /**
+     * Why nothing came out, in a sentence that says which of the two things went wrong.
+     * <p>"That set publishes no booster" and "that set publishes no booster of that name" are
+     * not the same problem, and telling somebody the first when they typed the second sends
+     * them off to check the set code that was right all along. The second lists what the set
+     * does publish, because that is the next thing they would have to go and find out.
+     */
+    private static Component nothingToOpen(
+            MtgjsonCollation.Reading reading, String set, String kind) {
+        String key = whyNothingOpened(reading, kind);
+        if (key.endsWith("no_collation")) {
+            return Component.translatable(key, set);
+        }
+        return Component.translatable(key, set, kind.trim().toLowerCase(Locale.ROOT),
+                String.join(", ", reading.packs().keySet()));
+    }
+
+    /** Which of the two sentences applies. Its own method so a test can ask. */
+    public static String whyNothingOpened(MtgjsonCollation.Reading reading, String kind) {
+        if (reading == null || reading.isEmpty() || kind == null || kind.isBlank()) {
+            return "message.gathering.pack_no_collation";
+        }
+        return "message.gathering.pack_no_such_kind";
+    }
+
+    /**
+     * The kind of pack to open.
+     * <p>What was asked for, then what the server calls a booster, then the usual retail
+     * names, then whatever this set does publish - so a set that only ever had one kind of
+     * pack opens rather than reporting that it has no "play" booster.
+     */
+    public static BoosterConfig pick(MtgjsonCollation.Reading reading, String kind) {
+        if (reading == null || reading.isEmpty()) {
+            return null;
+        }
+        if (kind != null && !kind.isBlank()) {
+            return reading.pack(kind);
+        }
+        BoosterConfig configured = reading.pack(ServerSettings.get().collecting().boosterModel());
+        if (configured != null) {
+            return configured;
+        }
+        for (String usual : USUAL_KINDS) {
+            BoosterConfig found = reading.pack(usual);
+            if (found != null) {
+                return found;
+            }
+        }
+        // Any product of the set, but one sold in English first: MTGJSON lists Japanese boosters
+        // ("jp", "set-jp") beside the rest for some sets, and a pack that named no kind opening as
+        // one handed out Japanese cards.
+        for (var each : reading.packs().entrySet()) {
+            if (!each.getKey().equals("jp") && !each.getKey().endsWith("-jp")) {
+                return each.getValue();
+            }
+        }
+        return reading.packs().values().iterator().next();
+    }
+
+    /**
+     * The same product with only one color's arrangements left in it.
+     * <p>A new config rather than a flag threaded through the opener, because the opener's
+     * job is to choose an arrangement and cut cards off sheets, and it should not have to
+     * know that some products are sold by color. Handed a config with nine arrangements
+     * instead of forty-six, it does the same thing it always did.
+     * <p>A color the product has nothing in leaves the config alone rather than emptying it.
+     * That is the honest answer to "open a red pack of a set with no red packs": open one of
+     * its packs. An empty config would be a pack that cannot be opened at all, which loses
+     * somebody a booster over a data question they had no part in.
+     */
+    private static BoosterConfig narrowed(BoosterConfig config, String color) {
+        if (config == null || color == null || color.isEmpty()) {
+            return config;
+        }
+        java.util.List<dev.gathering.core.booster.BoosterVariant> ofThatColor =
+                dev.gathering.core.booster.BoosterColors.inColor(config, color.charAt(0));
+        if (ofThatColor.isEmpty()) {
+            LOGGER.warn("{} has no {} arrangements of its {} product; opening any of them",
+                    config.setCode(), color, config.kind());
+            return config;
+        }
+        return new BoosterConfig(config.setCode(), config.kind(), config.sheets(), ofThatColor);
+    }
+
+    /**
+     * What a pack hands over now, and what it still owes.
+     *
+     * @param unnamed cards the pack really drew that the pipeline could not name yet. Kept
+     *                rather than counted, because a card the player opened is theirs whether
+     *                or not this server can draw it today - see {@link Owed}.
+     */
+    public record Delivery(List<CardIdentity> giving, List<CardIdentity> unnamed) {
+
+        public Delivery {
+            giving = giving == null ? List.of() : List.copyOf(giving);
+            unnamed = unnamed == null ? List.of() : List.copyOf(unnamed);
+        }
+
+        /** How many the pipeline could not name, which is what the player is told. */
+        public int unnameable() {
+            return unnamed.size();
+        }
+    }
+
+    /**
+     * Pairs what the pack drew with what the card pipeline could name.
+     * <p>A printing the pipeline could not name is left out rather than handed over: the card
+     * is real and the pack is right about it, but an item nothing can draw is worse on screen
+     * than a pack one card short, and the count says so out loud.
+     * <p>Separate from the giving because this is the part with a decision in it. Putting a
+     * stack in an inventory is vanilla's job and needs no test of ours.
+     */
+    public static Delivery whatToGive(OpenedPack pack, List<CardMetadata> named) {
+        Map<UUID, CardMetadata> byPrinting = new LinkedHashMap<>();
+        if (named != null) {
+            for (CardMetadata card : named) {
+                if (card != null && card.scryfallId() != null) {
+                    byPrinting.put(card.scryfallId(), card);
+                }
+            }
+        }
+        List<CardIdentity> giving = new ArrayList<>();
+        List<CardIdentity> unnamed = new ArrayList<>();
+        for (CardIdentity card : pack.cards()) {
+            UUID printing = card.printing().orElse(null);
+            if (printing == null || !byPrinting.containsKey(printing)) {
+                unnamed.add(card);
+                continue;
+            }
+            giving.add(card);
+        }
+        return new Delivery(giving, unnamed);
+    }
+
+    /**
+     * The best card in what is being handed over, which is the one the pack was opened for.
+     * <p>The same rule the ceremony's own glow and reveal order use - see
+     * {@link dev.gathering.core.ui.PackGlow} - so the card that came out last, ringed in its
+     * rarity's color, is the card that remembers coming out.
+     * <p>Public so the in-world tests can ask it directly, which is how the direction of the
+     * comparison came to be checked at all.
+     */
+    public static CardIdentity bestOf(List<CardIdentity> giving, List<CardMetadata> about) {
+        CardIdentity best = null;
+        // Higher is better, which is the direction PackGlow ranks in and the direction the
+        // reveal ceremony walks. This started at MAX_VALUE and kept whatever ranked below
+        // it, so the card that remembered being opened was the worst common in the pack.
+        int rank = Integer.MIN_VALUE;
+        for (CardIdentity card : giving) {
+            for (CardMetadata detail : about) {
+                if (!card.printing().filter(detail.scryfallId()::equals).isPresent()) {
+                    continue;
+                }
+                int at = dev.gathering.core.ui.PackGlow.rankOf(detail.rarity());
+                if (at > rank) {
+                    rank = at;
+                    best = card;
+                }
+                break;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Whether any card actually handed over is a mythic.
+     * <p>What was given rather than what the pack held: a booster whose mythic slot rolled a
+     * card the collection already had still opened one, but the moment worth remembering is
+     * holding it. Only cards this mod could name are considered - an unknown printing is not
+     * evidence either way, and guessing would hand out the rarest advancement in the tree for
+     * a lookup that had not come back yet.
+     */
+    private static boolean holdsAMythic(List<CardIdentity> giving, List<CardMetadata> about) {
+        for (CardIdentity card : giving) {
+            for (CardMetadata detail : about) {
+                if (card.printing().filter(detail.scryfallId()::equals).isPresent()) {
+                    if (detail.rarity() == dev.gathering.core.card.Rarity.MYTHIC) {
+                        return true;
+                    }
+                    break;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Server thread only. */
+    private static void deliver(ServerPlayer player, Opened opened, String receipt, boolean ceremony,
+            List<dev.gathering.core.story.CardStory.Chapter> stamps) {
+        // What was actually opened, not what was asked for. Asking for a set and no kind is
+        // the ordinary way to open one from a console, and telling the screen the empty
+        // string it was given draws a play booster in the draft booster's black.
+        String set = opened.config().setCode();
+        String kind = opened.config().kind();
+        Delivery delivery = whatToGive(opened.pack(), opened.cards());
+        handOver(player, delivery.giving(), opened.cards(), set, kind, receipt, ceremony, stamps);
+        // A card the pipeline could not name yet is still a card this pack produced. It is
+        // kept rather than dropped from the delivery: metadata comes back, and when it does
+        // the player is handed the card they opened rather than a pack one short for good.
+        if (!delivery.unnamed().isEmpty()) {
+            Owed.cards(player.getUUID(), delivery.unnamed());
+        }
+        if (opened.madeUp()) {
+            // Said every time rather than once a session. A pack cut this way is a different
+            // object from a real one - every common in it is exactly as likely as every other
+            // - and somebody opening a box of them should be able to see which were which.
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.pack_made_up", SetNames.of(set)));
+        }
+        // Worded as owed rather than lost, because that is now what it is.
+        if (delivery.unnameable() == 1) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.pack_unresolved_one"));
+        } else if (delivery.unnameable() > 1) {
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.pack_unresolved", delivery.unnameable()));
+        }
+    }
+
+    /**
+     * Hands over what came out of a pack, whatever kind of pack it was.
+     * <p>Everything after the cards have been chosen: the details go down the wire first so
+     * no client ever renders a blank, the cards go into the inventory, the best of them
+     * remembers being pulled, and there is a wrapper to tear unless the player sneaked. The
+     * archive pack shares all of it and differs only in where its cards came from.
+     *
+     * @param giving what the player is about to hold
+     * @param named  whatever of it this server can describe, which may be less
+     *
+     *               <p>Server thread only.
+     */
+    private static void handOver(
+            ServerPlayer player, List<CardIdentity> giving, List<CardMetadata> named,
+            String set, String kind, String receipt, boolean ceremony,
+            List<dev.gathering.core.story.CardStory.Chapter> stamps) {
+        // Everything the client is about to hold, in one go rather than a packet a card:
+        // a client told about a card before it holds one never renders a blank.
+        List<CardSummary> summaries = new ArrayList<>();
+        for (CardMetadata card : named) {
+            summaries.add(CardSummary.of(card));
+        }
+        for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summaries)) {
+            Sending.to(player, packet);
+        }
+
+        // The one the pack was opened for remembers being opened. Only that one: a story on
+        // every common out of every booster would be a story on every card in the game, which
+        // is the same as no card having one. See CardStories.
+        CardIdentity best = bestOf(giving, named);
+        Achievements.award(player, Achievements.FIRST_PACK);
+        if (holdsAMythic(giving, named)) {
+            Achievements.award(player, Achievements.FIRST_MYTHIC);
+        }
+        if (ceremony) {
+            // Opened by hand: the cards are found by opening it. They wait under the wrapper - the
+            // player's already, written down in place of the receipt - and are handed over when it is
+            // torn. Written down or handed over now; never neither. See PackWrappers.
+            String token = PackWrappers.hold(player, receipt, set, best, giving, stamps);
+            if (token != null) {
+                List<dev.gathering.item.CardComponent> shown = new ArrayList<>();
+                for (CardIdentity card : giving) {
+                    shown.add(dev.gathering.item.CardComponent.of(card));
+                }
+                Sending.to(player, new dev.gathering.network.PackOpenedPayload(set, kind, shown, token));
+                return;
+            }
+            if (receipt != null && !Owed.settled(player.getUUID(), receipt, List.of())) {
+                player.sendSystemMessage(Component.translatable("message.gathering.pack_not_settled"));
+                return;
+            }
+        }
+        for (CardIdentity card : giving) {
+            ItemStack stack = CardItem.of(CardComponent.of(card));
+            CardStories.rememberAll(stack, stamps);
+            if (card.equals(best)) {
+                CardStories.remember(stack, CardStories.pulledBy(player, set));
+            }
+            dev.gathering.server.Handing.give(player, stack);
+        }
+
+        if (ceremony) {
+            // After the cards, not before. The wrapper is theater over something that has
+            // already happened, so nothing about tearing it can go wrong enough to cost
+            // somebody a booster.
+            List<dev.gathering.item.CardComponent> shown = new ArrayList<>();
+            for (CardIdentity card : giving) {
+                shown.add(dev.gathering.item.CardComponent.of(card));
+            }
+            // Nowhere to write the wrapper down, so the cards were handed over first; the reveal still
+            // shows them, with nothing left to tear for.
+            Sending.to(player,
+                    new dev.gathering.network.PackOpenedPayload(set, kind, shown, ""));
+        } else {
+            // Quick opened, so there is no screen to say it on.
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.pack_opened", SetNames.of(set), kind,
+                    giving.size()));
+        }
+    }
+
+    /**
+     * Opens an Archive Pack, which has no print sheet behind it.
+     * <p>Its own path because it is its own thing: the cards are what the pack's set family has out
+     * of reach, worked out for that family when one of its packs is first opened, not a collation.
+     * A family with nothing out of reach opens as another; after {@link Archive#ATTEMPTS} of those the
+     * pack is handed back rather than swallowed. What it shares with every other pack is everything
+     * after that - the cards are given, the best one remembers where it came from, and there is a
+     * wrapper to tear if the player did not sneak.
+     * <p>Server thread only, past the work it starts.
+     *
+     * @param family the set the pack is for, or blank for a pack from before archive packs had one
+     */
+    private static void openTheArchive(ServerPlayer player, String family, Runnable giveBack,
+            String receipt, boolean ceremony, List<dev.gathering.core.story.CardStory.Chapter> stamps) {
+        String refusal = whyNot();
+        if (refusal != null) {
+            player.sendSystemMessage(Component.translatable(refusal));
+            giveBack.run();
+            return;
+        }
+        CardDataService cards = CardDataService.active().orElse(null);
+        if (cards == null) {
+            player.sendSystemMessage(Component.translatable("message.gathering.pipeline_unavailable"));
+            giveBack.run();
+            return;
+        }
+        Archive.firstWithCards(Archive.candidates(family, player.level().getRandom()))
+                .whenComplete(ServerRun.onServerThread(player, (found, failure) -> {
+                    if (openerIsGone(player)) {
+                        return;
+                    }
+                    if (failure != null || found == null || found.isEmpty()) {
+                        // Nothing out of reach in any family tried, or they could not be read now.
+                        // Either way the pack is handed back: a player who found one of these found
+                        // the rarest thing on the server.
+                        player.sendSystemMessage(Component.translatable("message.gathering.archive_empty"));
+                        giveBack.run();
+                        return;
+                    }
+                    String opened = found.get().family();
+                    List<CardIdentity> giving = Archive.draw(found.get().printings(), player.level().getRandom());
+                    List<UUID> printings = new ArrayList<>(giving.size());
+                    for (CardIdentity card : giving) {
+                        card.printing().ifPresent(printings::add);
+                    }
+                    cards.findAll(printings).whenComplete(ServerRun.onServerThread(player, (named, lookup) -> {
+                        if (openerIsGone(player)) {
+                            return;
+                        }
+                        // A card the server could not name is still a card. The archive's whole point
+                        // is the long tail, which is exactly the part of a collection least likely to
+                        // be in a cache already - refusing to hand it over would refuse it most of the time.
+                        List<CardMetadata> about = lookup == null && named != null ? named : List.of();
+                        if (ceremony) {
+                            handOver(player, giving, about, Archive.SET, opened, receipt, true, stamps);
+                        } else {
+                            settleThenHandOver(player, receipt,
+                                    () -> handOver(player, giving, about, Archive.SET, opened, null, false, stamps));
+                        }
+                    }));
+                }));
+    }
+
+    /**
+     * A seed nobody can see coming.
+     * <p>Fresh per pack out of {@link SecureRandom}. The opener is deterministic on purpose -
+     * an economy nobody can check what a pack should have held is an economy nobody can audit
+     * - and that determinism is only safe as long as what goes into it is not guessable.
+     */
+    private static byte[] freshSeed() {
+        byte[] seed = new byte[32];
+        SEEDS.nextBytes(seed);
+        return seed;
+    }
+
+}

@@ -1,0 +1,277 @@
+package dev.gathering.neoforge.test;
+
+import dev.gathering.Gathering;
+import dev.gathering.client.RecentThings;
+import dev.gathering.core.ui.Recents;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+/**
+ * The names somebody keeps typing, on the right server, still there next launch.
+ * <p>{@code RecentsTest} covers the pure half - what the list does. This covers the half that
+ * touches a disk and a server identity, which is where the properties that matter actually
+ * live: a row that does not survive a restart is not a row worth having, a row that follows
+ * you to a server with different tokens on it is a row of wrong offers, and a file that
+ * recorded which cards were in somebody's game would be a settings file doing something it has
+ * no business doing.
+ * <p>The working record claimed a test like this already existed. It did not; only the pure
+ * one did.
+ */
+@GameTestHolder(Gathering.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class RecentThingsGameTest {
+
+    /** A file of this test's own. Game tests run at the same time and would share one. */
+    private static Path aFileOfItsOwn(String named) throws IOException {
+        Path where = Files.createTempFile("gathering-" + named + "-", ".txt");
+        Files.deleteIfExists(where);
+        RecentThings.fileForTesting(where);
+        return where;
+    }
+
+    /** Puts the shared statics back, whatever happened. */
+    private static void tidyUp(Path where) {
+        RecentThings.bindServerLookup(() -> "");
+        RecentThings.fileForTesting(null);
+        RecentThings.forgetForTesting();
+        if (where != null) {
+            try {
+                Files.deleteIfExists(where);
+            } catch (IOException ignored) {
+                // A temp file left behind is not worth failing a test over.
+            }
+        }
+    }
+
+    /** What a restart is, as far as this class is concerned: forget, then read the file again. */
+    private static void asThoughRestarted() {
+        RecentThings.flush();
+        RecentThings.forgetForTesting();
+    }
+
+    /**
+     * A name used on one server is offered there again next launch.
+     * <p>The whole feature in one test: type it once, restart, and it is a press.
+     */
+    @GameTest(template = "empty")
+    public static void anamesurvivesarestart(GameTestHelper helper) {
+        Path where = null;
+        try {
+            where = aFileOfItsOwn("restart");
+            RecentThings.bindServerLookup(() -> "play.example.test:25565");
+
+            RecentThings.rememberToken("Treasure");
+            RecentThings.rememberCounter("stun");
+            asThoughRestarted();
+
+            if (!RecentThings.tokens().contains("Treasure")) {
+                helper.fail("a token name did not survive a restart: " + RecentThings.tokens());
+                return;
+            }
+            if (!RecentThings.counters().contains("stun")) {
+                helper.fail("a counter name did not survive a restart: " + RecentThings.counters());
+                return;
+            }
+            helper.succeed();
+        } catch (IOException couldNotWrite) {
+            helper.fail("could not make a file to test with: " + couldNotWrite.getMessage());
+        } finally {
+            tidyUp(where);
+        }
+    }
+
+    /**
+     * A pin survives a restart, and survives the name falling out of the recents.
+     * <p>Recency is a guess; a pin is a promise, and a promise that lasts only until you have
+     * used eight other tokens is not one.
+     */
+    @GameTest(template = "empty")
+    public static void apinsurvivesarestartandacrowdedrow(GameTestHelper helper) {
+        Path where = null;
+        try {
+            where = aFileOfItsOwn("pin");
+            RecentThings.bindServerLookup(() -> "play.example.test:25565");
+
+            RecentThings.rememberToken("Clue");
+            RecentThings.toggleTokenPin("Clue");
+            // Enough other tokens that the pinned one is long gone from the recents.
+            for (int at = 0; at < Recents.MOST_KEPT + 2; at++) {
+                RecentThings.rememberToken("Other " + at);
+            }
+            asThoughRestarted();
+
+            if (RecentThings.tokens().contains("Clue")) {
+                helper.fail("the fixture did not manage to push the name out of the recents");
+                return;
+            }
+            if (!RecentThings.tokenIsPinned("Clue")) {
+                helper.fail("a pin did not survive a restart");
+                return;
+            }
+            if (!RecentThings.tokenOffers().contains("Clue")) {
+                helper.fail("a pinned name was not offered once it left the recents: "
+                        + RecentThings.tokenOffers());
+                return;
+            }
+
+            // And unpinning sticks too, rather than coming back on the next read.
+            RecentThings.toggleTokenPin("Clue");
+            asThoughRestarted();
+            if (RecentThings.tokenIsPinned("Clue")) {
+                helper.fail("unpinning did not survive a restart");
+                return;
+            }
+            helper.succeed();
+        } catch (IOException couldNotWrite) {
+            helper.fail("could not make a file to test with: " + couldNotWrite.getMessage());
+        } finally {
+            tidyUp(where);
+        }
+    }
+
+    /**
+     * One server's names are not offered on another.
+     * <p>Servers do not agree about what tokens exist. A row of names from somewhere else is a
+     * row of offers that do nothing, which is worse than an empty row because it looks like a
+     * feature working.
+     */
+    @GameTest(template = "empty")
+    public static void namesdonotfollowyoutoanotherserver(GameTestHelper helper) {
+        Path where = null;
+        try {
+            where = aFileOfItsOwn("scope");
+            String[] here = {"first.example.test"};
+            RecentThings.bindServerLookup(() -> here[0]);
+
+            RecentThings.rememberToken("Treasure");
+            RecentThings.toggleTokenPin("Treasure");
+
+            // Walk to a different server. Same client, same launch, nothing reloaded - which
+            // is what actually happens: only the answer to "where are we" changes, and that
+            // changes which line of the file is being read.
+            here[0] = "second.example.test";
+
+            if (RecentThings.tokens().contains("Treasure")) {
+                helper.fail("a name followed the player to another server: "
+                        + RecentThings.tokens());
+                return;
+            }
+            if (RecentThings.tokenIsPinned("Treasure")) {
+                helper.fail("a pin followed the player to another server");
+                return;
+            }
+
+            // And going back finds it where it was left.
+            here[0] = "first.example.test";
+            if (!RecentThings.tokenOffers().contains("Treasure")) {
+                helper.fail("coming back to the first server lost its names: "
+                        + RecentThings.tokenOffers());
+                return;
+            }
+
+            // The same, across a restart, with both servers' lines in one file: the one that
+            // is read back has to be the one belonging to where we are.
+            asThoughRestarted();
+            if (!RecentThings.tokenOffers().contains("Treasure")) {
+                helper.fail("the first server's names did not survive a restart: "
+                        + RecentThings.tokenOffers());
+                return;
+            }
+            here[0] = "second.example.test";
+            if (!RecentThings.tokenOffers().isEmpty()) {
+                helper.fail("after a restart the other server was offered somebody else's "
+                        + "names: " + RecentThings.tokenOffers());
+                return;
+            }
+            helper.succeed();
+        } catch (IOException couldNotWrite) {
+            helper.fail("could not make a file to test with: " + couldNotWrite.getMessage());
+        } finally {
+            tidyUp(where);
+        }
+    }
+
+    /**
+     * What reaches the disk is words, and nothing that identifies a card.
+     * <p>The rule this whole area is built around. An instance id is a handle on one card in
+     * one game; writing one into a settings file would keep a pointer to something that
+     * stopped existing when the game ended, and would turn a list of shortcuts into a record
+     * of what was in somebody's game.
+     */
+    @GameTest(template = "empty")
+    public static void nothingaboutacardreachesthedisk(GameTestHelper helper) {
+        Path where = null;
+        try {
+            where = aFileOfItsOwn("disk");
+            RecentThings.bindServerLookup(() -> "play.example.test");
+
+            RecentThings.rememberToken("Treasure");
+            RecentThings.toggleTokenPin("Treasure");
+            RecentThings.rememberCounter("stun");
+            RecentThings.flush();
+
+            String written = Files.readString(where, StandardCharsets.UTF_8);
+            if (!written.contains("Treasure") || !written.contains("stun")) {
+                helper.fail("the file did not contain the names it was asked to keep:\n" + written);
+                return;
+            }
+            // A card id is a UUID or a number behind a "card" key; neither has any business
+            // here. Checked as shapes rather than as one literal, because the point is that
+            // no identity of any kind is written, not that one particular one is not.
+            for (String forbidden : List.of("card", "instance", "CardInstanceId", "uuid")) {
+                if (written.toLowerCase(java.util.Locale.ROOT).contains(forbidden)) {
+                    helper.fail("something about a card reached the disk: found '" + forbidden
+                            + "' in\n" + written);
+                    return;
+                }
+            }
+            helper.succeed();
+        } catch (IOException couldNotWrite) {
+            helper.fail("could not read the file back: " + couldNotWrite.getMessage());
+        } finally {
+            tidyUp(where);
+        }
+    }
+
+    /**
+     * A file somebody has edited into nonsense costs them their shortcuts and nothing else.
+     * <p>It is a text file in a config folder, so it will be edited, and a client that refused
+     * to start over a row of token names would be a client with its priorities wrong.
+     */
+    @GameTest(template = "empty")
+    public static void amangledfilecostsnothingbuttheshortcuts(GameTestHelper helper) {
+        Path where = null;
+        try {
+            where = aFileOfItsOwn("mangled");
+            Files.writeString(where, "this is not a settings file\n=\n|||\ntokens.=\n",
+                    StandardCharsets.UTF_8);
+            RecentThings.bindServerLookup(() -> "play.example.test");
+            RecentThings.forgetForTesting();
+
+            if (!RecentThings.tokenOffers().isEmpty()) {
+                helper.fail("a mangled file produced offers out of nowhere: "
+                        + RecentThings.tokenOffers());
+                return;
+            }
+            // And it still works afterwards, rather than being poisoned by what it read.
+            RecentThings.rememberToken("Treasure");
+            asThoughRestarted();
+            if (!RecentThings.tokens().contains("Treasure")) {
+                helper.fail("the file never recovered from being mangled");
+                return;
+            }
+            helper.succeed();
+        } catch (IOException couldNotWrite) {
+            helper.fail("could not make a file to test with: " + couldNotWrite.getMessage());
+        } finally {
+            tidyUp(where);
+        }
+    }
+}

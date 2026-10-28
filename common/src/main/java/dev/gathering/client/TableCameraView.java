@@ -1,0 +1,572 @@
+package dev.gathering.client;
+
+import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.TableCamera;
+import dev.gathering.core.ui.TableSurface;
+import dev.gathering.core.ui.TableTop;
+import java.util.Optional;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+
+/**
+ * Where the camera goes while somebody is playing at a table.
+ * <p>A card game wants to be looked at from above. Standing at the edge in first person shows
+ * you a board at a raking angle with the far half foreshortened into a line, which is why
+ * nobody plays cards standing up at the end of a table - and why the seated view is worth
+ * having at all.
+ * <p>Minecraft will not simply be told where to put its camera. {@code ViewportEvent} on
+ * NeoForge offers the angles and not the position, and the position is set inside
+ * {@code Camera.setup} through a protected method after that event has already fired. So each
+ * loader carries a small mixin that reaches into the camera at the end of setup, and the
+ * decision about <em>what</em> to reach in with lives here, once, where both can ask it.
+ * <p>Client-only.
+ */
+public final class TableCameraView {
+
+    /** Straight down. The board is a plane and this is the only angle that does not lie. */
+    public static final float LOOKING_DOWN = 90f;
+
+    /**
+     * Which way up the table is drawn, for a player whose own mat is on the north half.
+     * <p>Looking straight down, the camera's up vector is whichever way it was facing: at yaw
+     * zero {@code Camera.setRotation} leaves it pointing south, so a larger world z is drawn
+     * higher up the screen and the north half of the table is at the bottom. Which is right
+     * for the player sitting at the north edge, and exactly backwards for the one opposite -
+     * they got their own board across the top of the screen with their zones along the far
+     * edge, reading upside down, which is what a table looks like from the wrong chair.
+     */
+    private static final float FACING_FROM_NORTH = 0f;
+    private static final float FACING_FROM_SOUTH = 180f;
+
+    /** Where the eye goes and which way it faces. */
+    public record Placement(double x, double y, double z, float yaw, float pitch) {
+    }
+
+    /**
+     * Where the eye starts, before anything has been framed.
+     * <p>How far up it may go and how far down are not constants here: they are the seated
+     * board's own zoom limits, which are stated as how big a card comes out rather than as a
+     * distance - see {@link #heightBounded}.
+     */
+    private static final double STARTING_HEIGHT = 2.2;
+
+    /**
+     * A little air around whatever is being framed, so nothing sits against the edge.
+     * <p>Nearly none. The seated view frames the same rectangle with none at all - it already
+     * knows the status row and the hand are not table - and the two views are supposed to
+     * differ only in whether a point is a pixel or a place on the felt. A tenth of air here
+     * and none there made the board on the block a tenth smaller than the same board on the
+     * screen, which is a difference a player reads as the real table being the worse one.
+     */
+    private static final double BREATHING_ROOM = 1.03;
+
+    /**
+     * How much of the window the screen's own furniture covers, top and bottom.
+     * <p>The camera centers what it is looking at in the <em>window</em>, and the window has a
+     * status strip across the top of it and the player's hand across the bottom. Left alone,
+     * that puts the near edge of the table - the player's own zones and their own mat -
+     * underneath their own cards, and the far edge behind the life totals. So what is framed
+     * is centered in the strip between the two, and sized to fit it.
+     */
+    private static double coveredAtTheTop;
+
+    private static double coveredAtTheBottom;
+
+    /** The table being played at, or nothing at all, which is the usual answer. */
+    private static BlockPos table;
+
+    /**
+     * The surface of the whole cluster this camera is looking at.
+     * <p>How many tables it is comes from the board this client has been sent, the same way
+     * the seating does. Without it the camera framed and clamped to one table's worth of
+     * blocks, which on a pod leaves half the game off the edge of the view.
+     * <p>Package-private for the board on the block, which asks the world what stands under the
+     * pot by the same surface, so the blocks it reads are the ones this frames and points at.
+     */
+    static TableTop surfaceOf(BlockPos corner) {
+        int seats = dev.gathering.client.ClientTableState.viewOf(corner)
+                .map(board -> board.seats().size())
+                .orElse(dev.gathering.core.table.TableCluster.SEATS_PER_TABLE);
+        int tables = Math.max(1, (seats + dev.gathering.core.table.TableCluster.SEATS_PER_TABLE - 1)
+                / dev.gathering.core.table.TableCluster.SEATS_PER_TABLE);
+        return TableTop.forCluster(corner.getX(), corner.getY(), corner.getZ(), tables, 1, isTurned(corner));
+    }
+
+    /**
+     * The board laid out on the table at this corner, from the same seat count {@link #surfaceOf}
+     * reads, so the two agree about how many tables it is.
+     */
+    private static TableSurface boardOf(BlockPos corner) {
+        return TableSurface.forSeatCount(dev.gathering.client.ClientTableState.viewOf(corner)
+                .map(board -> board.seats().size())
+                .orElse(dev.gathering.core.table.TableCluster.SEATS_PER_TABLE));
+    }
+
+    /**
+     * Whether the table at this corner lies a quarter turn round - a line running north to south, or a
+     * lone table seated east and west - read off the blocks this client has, the same way the board
+     * drawn on it is.
+     */
+    static boolean isTurned(BlockPos corner) {
+        var level = Minecraft.getInstance().level;
+        return level != null && corner != null && dev.gathering.block.TableClusters.at(level, corner).turned();
+    }
+
+    /** Which way round to draw it, so the player's own mat is the near one. */
+    private static float facing = FACING_FROM_NORTH;
+
+    /** How far above the surface the eye sits. */
+    private static double height = STARTING_HEIGHT;
+
+    /** How far the view has been slid off the middle of the table, in blocks. */
+    private static double offsetX;
+    private static double offsetZ;
+
+    private TableCameraView() {
+    }
+
+    /**
+     * Called when the in-world view opens, so the camera knows there is a table to look at.
+     *
+     * @param southHalf whether the viewer's own mat is on the far side of the table from the
+     *     block's north-west corner - in which case the whole board is turned around, so that
+     *     their own zones are the ones nearest them
+     */
+    private static void lookAt(BlockPos corner, boolean southHalf) {
+        hideTheHud();
+        table = corner;
+        facing = southHalf ? FACING_FROM_SOUTH : FACING_FROM_NORTH;
+        height = heightBounded(STARTING_HEIGHT);
+        offsetX = 0;
+        offsetZ = 0;
+    }
+
+    /**
+     * Opens on the player's own mat rather than on the whole table.
+     * <p>The same choice the seated screen makes, for the same reason: a table framed whole is
+     * a table whose cards are too small to read, and the half of it that matters on the turn
+     * you are taking is your own. The whole table is one key away.
+     *
+     * @param ownMat the viewer's mat in surface units, or an empty rectangle to frame the lot
+     */
+    public static void focusOn(BlockPos corner, boolean southHalf, Rect ownMat,
+            double coveredTop, double coveredBottom) {
+        lookAt(corner, southHalf);
+        covering(coveredTop, coveredBottom);
+        if (ownMat.isEmpty()) {
+            return;
+        }
+        // Surface units run north to south whichever way the viewer is facing, and so does
+        // world z, so the same offset finds the same mat for both players; the camera's own
+        // facing is what turns the picture round afterwards.
+        //
+        // From the middle of the whole cluster, because that is where wanted() puts the eye.
+        // This used to measure from the middle of one table and the two disagreed by half a
+        // table per table past the first: at four tables the "focused" mat sat three blocks
+        // to the side of the middle of the screen, and the further along the row somebody sat
+        // the worse it was. One geometry, asked once, and the two cannot drift again.
+        TableTop top = surfaceOf(corner);
+        offsetX = dev.gathering.core.ui.TableFraming.focusAcross(top, ownMat.centerX());
+        offsetZ = dev.gathering.core.ui.TableFraming.focusDown(top, ownMat.centerY());
+        height = heightThatFrames(top.blocks(ownMat.width()), top.blocks(ownMat.height()));
+    }
+
+    /**
+     * How high the eye has to be for something that size to fit in the strip of window that
+     * is neither the status row nor the hand.
+     * <p>Both ways round: a mat is wider than it is deep and a narrow window runs out of width
+     * long before it runs out of depth, so whichever side needs more air decides.
+     */
+    private static double heightThatFrames(double acrossBlocks, double downBlocks) {
+        return heightBounded(heightToFrame(acrossBlocks, downBlocks));
+    }
+
+    /** The same, before the zoom limits are applied: how high the eye would have to be. */
+    private static double heightToFrame(double acrossBlocks, double downBlocks) {
+        Minecraft client = Minecraft.getInstance();
+        double perBlock = spread();
+        double visible = visibleShare();
+        // The frame's own ratio where there is one, for the same reason as the spread: what
+        // was drawn beats what was configured.
+        double aspect = Math.max(0.1, TablePointer.aspect().orElseGet(() ->
+                client.getWindow().getWidth()
+                        / (double) Math.max(1, client.getWindow().getHeight())));
+        double forDepth = downBlocks * BREATHING_ROOM / (visible * perBlock);
+        double forWidth = acrossBlocks * BREATHING_ROOM / (aspect * perBlock);
+        return Math.max(forDepth, forWidth);
+    }
+
+    /**
+     * How high the eye may go, said in the only units that mean anything: card pixels.
+     * <p>This view used to bound itself with a pair of distances of its own, and the seated
+     * board bounds itself by how tall a reference card comes out. Two rules for one decision,
+     * so the same key gave two different boards: "show me everything" on the screen stopped
+     * at a card twenty-four pixels tall, and on the block carried on going, framing the same
+     * table a fifth smaller. A player reads that as the real table being the worse one.
+     * <p>So the limits are the seated board's, converted. A reference card is a fixed share
+     * of one table, a table is a known number of blocks, and at eye height {@code h} the
+     * window shows {@code h * spread} blocks over its own height in pixels - which turns "a
+     * card is twenty-four pixels" into a height and back.
+     */
+    private static double heightBounded(double wanted) {
+        double cardBlocks = TableSurface.CARD_HEIGHT_UNITS / (double) TableSurface.SPAN
+                * TableTop.SPAN_BLOCKS;
+        double window = Math.max(1, Minecraft.getInstance().getWindow().getGuiScaledHeight());
+        double perBlock = spread();
+        // The seated board's floor, whole: a card at the size it stops being identifiable, unless
+        // the whole table would not fit at that size. The card alone was converted and the second
+        // half was not, so on a small interface "show everything" on the block framed the table a
+        // fifth bigger than the space for it and put its far edge under the strip along the top.
+        TableSurface board = table == null ? null : boardOf(table);
+        double furthest = board == null
+                ? cardBlocks * window / (TableCamera.smallestCardPixels() * perBlock)
+                : window * TableTop.SPAN_BLOCKS / (TableSurface.SPAN * perBlock
+                        * TableCamera.furthestScale(board.width(), board.height()));
+        // And as much further as the hands are held above the felt. The seated board's floor is for a board lying
+        // flat, and its "far enough to show it" is sized for the hands at the felt's edges; held over the tallest
+        // pile they are seen further out, and on the smallest window, with a library of a hundred, the far one went
+        // under the strip along the top where the floor stopped the camera short of framing them.
+        // The pot too, lifted onto whatever stands where it lies (see PotLift), which is seen further out the same way.
+        furthest += TableMiniatureRenderer.highestAbove(table);
+        double closest = cardBlocks * window / (TableCamera.largestCardPixels() * perBlock);
+        return Math.max(closest, Math.min(furthest, wanted));
+    }
+
+    /**
+     * How many blocks of table one block of eye height shows, top to bottom of the window.
+     * <p>Read off the frame the game actually drew wherever there is one, and only worked
+     * out from the field-of-view setting before the first frame. The setting is not the
+     * effective angle: it goes through a private method, a sprint modifier, a potion and a
+     * loader hook, so a camera that framed from the setting alone would frame the board
+     * wrongly for exactly the players whose view is not the default one - and only while the
+     * modifier lasted. That is the same mistake the picker exists not to make, and there is
+     * no reason for the framing to make it when the answer is already captured.
+     * <p>Package-private rather than private because the scripted run builds a camera ray by
+     * hand to check the board's picker against, and the half-angle is the one thing such a
+     * ray cannot work out for itself. Reading it here rather than writing the formula out
+     * again is what stops the check and the framing from disagreeing about the same camera.
+     */
+    static double spread() {
+        return TablePointer.verticalSpread().orElseGet(TableCameraView::spreadFromTheSetting);
+    }
+
+    /**
+     * What the setting says, for the first frame, before there is a drawn one to read - and for V pressed on the flat
+     * board, which leaves the world undrawn and so has none.
+     * <p>With what the game multiplies the setting by: speed and slowness, flying, and whatever a loader's hook adds,
+     * all said by the player the camera is on, as the game asks it a tick at a time (and eases toward it, which a
+     * seated player has long done). Without it, a player under Slowness pressing V had the block framed for a wider
+     * view than the one drawn, and their own board ran off the window.
+     */
+    private static double spreadFromTheSetting() {
+        Minecraft client = Minecraft.getInstance();
+        double fov = Math.max(30, Math.min(110, client.options.fov().get()));
+        if (client.getCameraEntity() instanceof net.minecraft.client.player.AbstractClientPlayer player) {
+            // The bounds the game holds the multiplier to.
+            fov *= Math.max(0.1, Math.min(1.5, player.getFieldOfViewModifier()));
+        }
+        return 2 * Math.tan(Math.toRadians(fov) / 2);
+    }
+
+    /**
+     * What the camera is doing, for the scripted run to write down.
+     * <p>Both spreads, because the whole point is whether the one the framing is built on
+     * matches the one the frame was drawn with.
+     */
+    static String report() {
+        return "height=" + height
+                + " spread=" + String.format("%.4f", spread())
+                + " fromTheSetting=" + String.format("%.4f", spreadFromTheSetting())
+                + " aspect=" + String.format("%.4f",
+                        TablePointer.aspect().orElse(Double.NaN))
+                + " coveredTop=" + String.format("%.4f", coveredAtTheTop)
+                + " coveredBottom=" + String.format("%.4f", coveredAtTheBottom);
+    }
+
+    /** Tells the camera how much of the window, top and bottom, it cannot use. */
+    private static void covering(double top, double bottom) {
+        coveredAtTheTop = Math.max(0, Math.min(0.4, top));
+        coveredAtTheBottom = Math.max(0, Math.min(0.6, bottom));
+    }
+
+    /** The share of the window's height that is actually table. */
+    private static double visibleShare() {
+        return Math.max(0.1, 1 - coveredAtTheTop - coveredAtTheBottom);
+    }
+
+    /**
+     * Points the camera back at a table it was already looking at, without re-framing it.
+     * <p>Opening a graveyard takes the table screen away, and the camera goes back to the
+     * player with it. Coming back is not arriving: the player had zoomed in on a corner and
+     * expects to find that corner, not the whole table from the starting height again.
+     */
+    public static void resume(BlockPos corner, boolean southHalf,
+            double coveredTop, double coveredBottom) {
+        hideTheHud();
+        table = corner;
+        facing = southHalf ? FACING_FROM_SOUTH : FACING_FROM_NORTH;
+        covering(coveredTop, coveredBottom);
+    }
+
+    /** Called when it closes. The camera goes back to being the player's, and so does the HUD. */
+    public static void release() {
+        table = null;
+        TableMiniatureRenderer.forgetTheHands();
+        showTheHud();
+    }
+
+    /**
+     * What the HUD was before the table took it over, or null while the player has it back.
+     * <p>Minecraft draws the crosshair and the held item whatever screen is open, which for
+     * every other screen is invisible behind it. This one has the world showing through, so
+     * the player got a crosshair in the middle of the board and their own arm holding a deck
+     * across the corner of it. Hiding the HUD turns both off together, and it is the option
+     * the player themselves can toggle, so nothing about it is a surprise.
+     */
+    private static Boolean hudWas;
+
+    private static void hideTheHud() {
+        if (hudWas == null) {
+            hudWas = Minecraft.getInstance().options.hideGui;
+            Minecraft.getInstance().options.hideGui = true;
+        }
+    }
+
+    private static void showTheHud() {
+        if (hudWas != null) {
+            Minecraft.getInstance().options.hideGui = hudWas;
+            hudWas = null;
+        }
+    }
+
+    public static boolean isLooking() {
+        return table != null;
+    }
+
+    /**
+     * Whether this camera is over the table at this corner: the board its player is playing on,
+     * rather than any other table in sight.
+     */
+    public static boolean isLookingAt(BlockPos corner) {
+        return table != null && table.equals(corner);
+    }
+
+    /**
+     * Moves the eye up or down, which is what zoom is when you are looking straight down.
+     * <p>Bounded at both ends for the same reasons the seated view bounds its own: too close
+     * and the table is a card and a half, too far and it is a mosaic. A factor above one
+     * leans in, matching the wheel on the seated screen.
+     */
+    public static void zoom(double factor) {
+        if (factor > 0) {
+            height = heightBounded(height / factor);
+        }
+    }
+
+    /**
+     * The same, keeping whatever is under the cursor under the cursor.
+     * <p>This used to just lower the eye toward the middle of the view, on the reasoning
+     * that leaning toward a table is what moving your head does. Looking at the pictures
+     * said otherwise: six notches in from the opening framing gave a screen of bare felt,
+     * because what the player was pointing at slid out of the frame while they zoomed
+     * toward a spot that happened to be empty. Leaning toward a table is leaning toward
+     * the thing you are looking at, and the seated board has anchored its wheel to the
+     * cursor since it had one.
+     * <p>Straight down at a plane, a ground point's distance from the middle of the screen is
+     * its distance from the eye's ground point divided by the height - so holding it still
+     * means moving the eye's ground point in by the same ratio the height changed.
+     */
+    public static void zoomAt(double factor, double anchorWorldX, double anchorWorldZ) {
+        BlockPos corner = table;
+        if (corner == null || factor <= 0) {
+            return;
+        }
+        double was = height;
+        height = heightBounded(height / factor);
+        if (height == was) {
+            return;
+        }
+        double ratio = height / was;
+        TableTop top = surfaceOf(corner);
+        double baseX = top.worldX(top.surfaceWidth() / 2.0);
+        double baseZ = top.worldZ(top.surfaceDepth() / 2.0);
+        double wantedX = anchorWorldX - (anchorWorldX - (baseX + offsetX)) * ratio;
+        double wantedZ = anchorWorldZ
+                - (anchorWorldZ - (baseZ + offsetZ + lift(was))) * ratio;
+        // Panning reaches half the cluster, not half a table: on a four-seat pod the far
+        // mats sit outside one table's worth of blocks and could not be brought into view.
+        double reach = top.widthInBlocks() / 2;
+        offsetX = Math.max(-reach, Math.min(reach, wantedX - baseX));
+        offsetZ = Math.max(-reach, Math.min(reach, wantedZ - baseZ - lift(height)));
+    }
+
+    /**
+     * How far the picture is slid along the table to clear the hand and the status strip.
+     * <p>Screen-up is north for one player and south for the other, so lifting the picture
+     * clear of the hand is a step in opposite world directions for the two of them.
+     */
+    private static double lift(double eyeHeight) {
+        return (coveredAtTheTop - coveredAtTheBottom) / 2.0 * eyeHeight * spread()
+                * (facing == FACING_FROM_SOUTH ? -1 : 1);
+    }
+
+    /**
+     * Slides the view across the table, in blocks.
+     * <p>Clamped to the table itself rather than to nothing: panning until the board is off
+     * screen is a way to lose the game you are playing.
+     */
+    public static void pan(double acrossBlocks, double downBlocks) {
+        BlockPos corner = table;
+        if (corner == null) {
+            return;
+        }
+        // Turned with the view. Dragging right has to move the table right on the screen, and
+        // for the player sitting opposite, screen-right is world-west.
+        double sense = facing == FACING_FROM_SOUTH ? -1 : 1;
+        // The whole cluster's reach, and each axis its own. One table's span in both
+        // directions meant a four-table row could not be panned to either end of itself:
+        // the felt was there, the camera refused to go and look at it.
+        TableTop top = surfaceOf(corner);
+        double acrossReach = dev.gathering.core.ui.TableFraming.panReachAcross(top);
+        double downReach = dev.gathering.core.ui.TableFraming.panReachDown(top);
+        offsetX = Math.max(-acrossReach, Math.min(acrossReach, offsetX + acrossBlocks * sense));
+        offsetZ = Math.max(-downReach, Math.min(downReach, offsetZ + downBlocks * sense));
+    }
+
+    /**
+     * Slides the view by a drag on the window, in pixels.
+     * <p>How many blocks a pixel is worth depends entirely on how high the eye is, and this
+     * view's zoom now spans an eleven-fold range - a card is twenty-four pixels at one end
+     * and two hundred and sixty at the other. It used to convert with a fixed two hundred and
+     * twenty pixels per block, on the reasoning that nobody notices a pan being five per cent
+     * fast. Nobody does; what they notice is a drag that runs four times too slow zoomed in
+     * and two and a half times too fast zoomed out, which is what that constant came to once
+     * the zoom limits stopped being a pair of fixed heights.
+     * <p>So it is worked out rather than assumed, from the same height and the same drawn
+     * spread the framing uses. One number for both axes: pixels are square, and the window is
+     * exactly as many blocks wider than it is tall as it is pixels wider than it is tall.
+     */
+    public static void panByPixels(double pixelsX, double pixelsY) {
+        double perBlock = pixelsPerBlock();
+        pan(pixelsX / perBlock, pixelsY / perBlock);
+    }
+
+    /**
+     * How much window one block of table covers, top to bottom, at this height.
+     * <p>Package-private because the screen sizes the card in the player's hand against it
+     * too. A card lifted off the block is drawn at the size a card is <em>on</em> the block,
+     * and that is this number times how much of a block a card is - so if the two ever came
+     * from different places, picking a card up would change its size.
+     */
+    static double pixelsPerBlock() {
+        double window = Math.max(1, Minecraft.getInstance().getWindow().getGuiScaledHeight());
+        return window / Math.max(1e-6, height * spread());
+    }
+
+    /**
+     * Back to the whole table, centered, and still clear of the hand.
+     * <p>The whole cluster, which is what "everything" means at a table people have pushed
+     * more tables against. Framed for one table's span, a four-table row was cut off at both
+     * ends by the key whose entire job is to stop that happening.
+     */
+    public static void showEverything() {
+        BlockPos corner = table;
+        TableTop top = corner == null ? null : surfaceOf(corner);
+        offsetX = 0;
+        offsetZ = 0;
+        if (top == null) {
+            height = heightThatFrames(TableTop.SPAN_BLOCKS, TableTop.SPAN_BLOCKS);
+            return;
+        }
+        // With every hand, which is held partly past the table's edge: framed on the table alone the
+        // far player's hand went under the strip along the top. And with the pot, which lies off the
+        // east edge: framed without it, the key a player reaches for to find what is at stake showed
+        // the table and left the pot beside it. The flat board frames the same, from the same surface.
+        TableSurface board = boardOf(corner);
+        Rect pot = TableSurface.potTray(board.pot(ClientTableState.potOf(corner).size()));
+        Rect framed = dev.gathering.core.ui.TableFraming.everything(board, pot);
+        offsetX = dev.gathering.core.ui.TableFraming.focusAcross(top, framed.centerX());
+        offsetZ = dev.gathering.core.ui.TableFraming.focusDown(top, framed.centerY());
+        // And as much higher again as the hands are held over the felt, or the pot is lifted onto whatever stands
+        // where it lies. Framed as though they lay on it, the far hand - drawn above the tallest pile, and so seen
+        // further out than the felt under it - went under the strip along the top as soon as a library was tall.
+        // Looking straight down, a thing this far above the felt fits the window at exactly this much more height
+        // than the same thing lying on it. Bounded once, after: the furthest the eye may go is that much further
+        // too, and bounded before as well, a board framed at the floor lost the lift to it.
+        height = heightBounded(heightToFrame(top.blocks(framed.width()), top.blocks(framed.height()))
+                + TableMiniatureRenderer.highestAbove(corner));
+    }
+
+    /**
+     * Which way round writing on the felt reads upright to whoever this camera is showing the table to, in the
+     * degrees a seat's facing is given in: the north seats' own, for a camera facing from the north, and the south
+     * seats' otherwise. For what belongs to no seat, such as the pot, which the flat board draws upright to its
+     * viewer.
+     */
+    public static int uprightDegrees() {
+        return facing == FACING_FROM_NORTH ? 180 : 0;
+    }
+
+    /**
+     * Whether this entity should be left out while the camera is over a table.
+     * <p>Reported as "do not render other players when in real table view". The eye sits a
+     * couple of blocks above the felt looking straight down, so everybody standing around the
+     * table is between it and the board - four players at a four-table cluster can cover most
+     * of what they are all trying to read, and the person it hides most reliably is the one
+     * whose own head is directly under the camera.
+     * <p>Players only. The board itself is drawn by the table's block entity rather than as an
+     * entity, and item frames, armor stands and everything else somebody has arranged around
+     * their table are part of the room they built - hiding those would be tidying up after
+     * them. A player is the only thing here that is in the way rather than in the scene.
+     * <p><b>Except the people you are playing against.</b> Every player was hidden while a table
+     * was open, which left a board with nobody at it: four empty chairs and a game happening by
+     * itself. The players seated at <em>this</em> cluster are kept, because they are the game -
+     * and they are drawn at rest, hands at the table's edge, never following a cursor. An arm
+     * reaching out over the felt is foreshortened into a line by a camera looking straight down
+     * at it, so a pointing player at a pod would sweep their own arm across three other people's
+     * mats. That rule is {@link TableBodyPose}'s; this only decides who is there at all.
+     * <p>You are never drawn to yourself: your own body is directly under the camera and covers
+     * the middle of the board, which is the one player this always hid most reliably.
+     * <p>The decision lives here rather than in either loader's mixin so the two cannot come
+     * to different conclusions, which is the same reason {@link #wanted} does.
+     */
+    public static boolean hides(net.minecraft.world.entity.Entity entity) {
+        BlockPos watching = table;
+        if (watching == null || !(entity instanceof net.minecraft.world.entity.player.Player player)) {
+            return false;
+        }
+        var client = net.minecraft.client.Minecraft.getInstance();
+        if (client.player != null && client.player.getUUID().equals(player.getUUID())) {
+            return true;
+        }
+        return !SeatedPlayers.isSeatedAt(player.getUUID(), watching);
+    }
+
+    /**
+     * Where the camera should be this frame, or empty to leave it alone.
+     * <p>Empty is the answer almost every frame of almost every session, and it has to be
+     * cheap and unconditional: this is called from inside the camera's own setup, for every
+     * frame, for every player who has never seen a table.
+     */
+    public static Optional<Placement> wanted() {
+        BlockPos corner = table;
+        if (corner == null) {
+            return Optional.empty();
+        }
+        TableTop top = surfaceOf(corner);
+        double lift = lift(height);
+        // Worked out over the table's own surface, then put where that surface is in the world -
+        // which on an airship is not where its blocks' coordinates say. See WorldSpace.
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        var space = dev.gathering.platform.WorldSpace.get();
+        // And in the surface's own frame before that, which a turned table lays a quarter round on its
+        // blocks: framed as though unturned, then turned with it, eye and facing both.
+        double[] over = top.inTheWorld(
+                top.worldX(top.surfaceWidth() / 2.0) + offsetX,
+                top.worldZ(top.surfaceDepth() / 2.0) + offsetZ + lift);
+        net.minecraft.world.phys.Vec3 eye = space.toWorld(level, new net.minecraft.world.phys.Vec3(
+                over[0], top.topY() + height, over[1]));
+        return Optional.of(new Placement(eye.x, eye.y, eye.z,
+                facing + top.yawTurned() + space.yawOf(level, corner), LOOKING_DOWN));
+    }
+}

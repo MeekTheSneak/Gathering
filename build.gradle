@@ -1,0 +1,98 @@
+// Root build. Holds only what is genuinely shared; each module states its own toolchain.
+plugins {
+    id 'java'
+    id 'idea'
+}
+
+/**
+ * The modules whose classes and resources are part of the mod itself rather than of a loader.
+ *
+ * <p>Both loaders have to declare these to their own loader plugin, or that loader serves the
+ * mod's code without its assets - a mod that boots, registers everything, logs happily, and
+ * then draws missing textures and untranslated keys. Fabric shipped exactly that until
+ * somebody read the resource pack list on startup.
+ *
+ * <p>Stated once here so the two cannot drift apart again. Adding a shared module means
+ * adding it here and nowhere else.
+ */
+ext.sharedModules = [':common', ':core']
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'idea'
+
+    group = project.mod_group_id
+    version = project.mod_version
+
+    // gathering-neoforge-<version>.jar rather than neoforge-<version>.jar. The module's own name is
+    // the loader, which is the right name inside this build and exactly the wrong one in
+    // somebody's mods folder: two mods built this way would both ship a "neoforge-1.0.0.jar"
+    // and one of them would quietly overwrite the other.
+    base {
+        archivesName = project.mod_id + '-' + project.name
+    }
+
+    java {
+        toolchain.languageVersion = JavaLanguageVersion.of(project.java_version as int)
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = project.java_version as int
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        testLogging {
+            events 'failed'
+            exceptionFormat 'full'
+        }
+    }
+
+    repositories {
+        mavenCentral()
+        maven { name = 'NeoForged'; url = 'https://maven.neoforged.net/releases' }
+        maven { name = 'Fabric';    url = 'https://maven.fabricmc.net/' }
+        maven { name = 'ParchmentMC'; url = 'https://maven.parchmentmc.org' }
+    }
+}
+
+/**
+ * The verification gate, in one command.
+ *
+ * Nothing is reported done until this exits zero.
+ *
+ * Both loaders run their in-world tests. NeoForge's are the game: every rule that lives in
+ * :common is checked once, there, because running the same assertions against the same code on
+ * a second loader proves nothing the first run did not. Fabric's are only what is this loader's
+ * own - the loot hook, the registration bootstrap, the break rules - which is the code that had
+ * no coverage at all while a boot check proved it booted, and the code that had already been wrong
+ * on one loader and right on the other for months at a time.
+ */
+tasks.register('verify') {
+    group = 'verification'
+    description = 'Compile, test, fences, data generation, and both loaders\' game tests.'
+
+    // Every module by name. This said ':build' once, which is the *root* project's build -
+    // an empty project whose build task builds nothing. The gate therefore ran both loaders'
+    // in-world tests and skipped :core:test, both architecture fences and both jars, and
+    // reported green. An audit read the task graph and found the hole; the doLast below is
+    // what stops it reopening.
+    dependsOn ':core:build', ':common:build', ':neoforge:build', ':fabric:build',
+            ':neoforge:runData', ':neoforge:runGameTestServer', ':fabric:runGametest'
+
+    // The gate checks its own coverage. A dependency dropped, renamed or wired to the wrong
+    // project fails here rather than passing quietly for months.
+    def wanted = [':core:test', ':core:checkCorePure', ':common:checkNoLoaderImports',
+                  ':core:jar', ':neoforge:jar', ':fabric:jar',
+                  ':neoforge:runData', ':neoforge:runGameTestServer', ':fabric:runGametest']
+    def ran = project.provider { gradle.taskGraph.allTasks*.path as Set }
+    doLast {
+        def missing = wanted.findAll { !ran.get().contains(it) }
+        if (!missing.isEmpty()) {
+            throw new GradleException(
+                    "verify no longer covers " + missing + "; the gate has quietly shrunk")
+        }
+    }
+}

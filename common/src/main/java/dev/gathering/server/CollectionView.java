@@ -1,0 +1,861 @@
+package dev.gathering.server;
+
+import dev.gathering.network.Sending;
+import dev.gathering.block.CollectionBlockEntity;
+import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.card.CardMetadata;
+import dev.gathering.core.collection.CardTally;
+import dev.gathering.core.collection.CollectionSearch;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.CardItem;
+import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DeckItem;
+import dev.gathering.network.CollectionPagePayload;
+import dev.gathering.network.BuildDeckPayload;
+import dev.gathering.network.CollectionQuery;
+import dev.gathering.network.OpenCollectionPayload;
+import dev.gathering.registry.GatheringComponents;
+import dev.gathering.service.CardDataService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+
+/**
+ * Reading and taking from a collection, on the server.
+ * <p>The searching happens here rather than on the client, because here is where the card
+ * details are. A client that had to search a collection itself would need every name in it,
+ * and a collection is meant to run to ten thousand cards; what crosses the wire instead is a
+ * question and one page of answer.
+ * <p>Every one of these is a discrete thing somebody did - opened a block, pressed a sort
+ * button, took a card - so the work happens on the server thread where the collection lives.
+ * Searching one is a pass over what is in it and a sort, off a cache that is already in
+ * memory; it is not per-tick and it is not per-keystroke, because the screen asks when a
+ * search is finished rather than while it is being typed.
+ * <p>Every payload names a position, and a position is any position. So each of these starts
+ * by finding out whether there is a collection there and whether this player is standing at
+ * it: reading a collection is public, but being in front of it is not, and without that check
+ * this would be a way to read every collection on the server from anywhere on it.
+ */
+public final class CollectionView {
+
+    /** How far from a collection somebody may be and still be at it. */
+    private static final double WITHIN = 8.0;
+
+    /**
+     * At most one search per player per tick.
+     * <p>A search is a pass over everything in the collection and a sort of what matched, on
+     * the server thread, asked for by a packet a client sends whenever it likes. Ten thousand
+     * cards is a few milliseconds; ten thousand cards a thousand times a second is a server
+     * nobody can play on.
+     * <p>One tick rather than a comfortable-looking number on purpose. Anything slower would
+     * drop the refresh after a card is taken when somebody is clicking quickly, which is a
+     * screen going stale to defend against something nobody doing that is doing. Two searches
+     * inside one tick cannot come from a person at all.
+     */
+    private static final int TICKS_BETWEEN_SEARCHES = 1;
+
+    /**
+     * When each player last searched. Server thread only.
+     * <p>Emptied rather than pruned when it grows past a server's worth of players: the
+     * entries are a UUID and an int, and forgetting them all costs one player one extra
+     * search.
+     */
+    private static final int MOST_REMEMBERED = 512;
+    private static final Map<UUID, Integer> LAST_SEARCH = new java.util.HashMap<>();
+
+    /**
+     * The ordered answer each player was last given, so turning a page is not a new search.
+     * <p>A search is a pass over every row and a sort of what matched - measured at about two
+     * milliseconds for ten thousand distinct cards - and paging through a result used to pay
+     * that again for every page, to cut a different slice out of the same list.
+     * <p>Kept per player, never shared: two people at one box can be asking different things,
+     * and one of them may be counting their own pockets in. An answer is used again only when
+     * everything it was built from is provably unchanged - the same box by identity, the same
+     * revision of its counts, the same cards loose in this player's pockets, the same card
+     * service at the same generation of what it knows, and the same question. Anything else is
+     * a new search, so a card taken, a card put in, a name that arrived from the cache or a
+     * card picked up off the floor shows on the very next page.
+     * <p>This is only ever reading. Taking a card still goes through the box and its rights
+     * every time; nothing here can hand anybody anything.
+     * <p>At most a server's handful, least recently asked dropped first, and forgotten on
+     * disconnect. Server thread only.
+     */
+    private static final int MOST_ORDERINGS_KEPT = 64;
+    private static final Map<UUID, Ordering> ORDERED =
+            new java.util.LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<UUID, Ordering> eldest) {
+                    return size() > MOST_ORDERINGS_KEPT;
+                }
+            };
+
+    /** Everything an ordered answer was built from. Equal only when all of it is. */
+    private record Asked(
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
+            BlockPos where, CollectionBlockEntity box, long boxRevision, CardTally carried,
+            CardDataService service, long knownGeneration, CollectionSearch.Query query) {
+    }
+
+    /** One ordered answer, and the pool it was taken from. */
+    private record Ordering(Asked asked, CardTally pool, List<CollectionSearch.Row> found) {
+    }
+
+    /** How many times a search actually ran rather than being read back. For a test. */
+    private static int orderingsBuilt;
+
+    private CollectionView() {
+    }
+
+    /**
+     * Opens a collection for somebody.
+     * <p>No cards with it. The screen asks for its first page itself, once it knows how tall
+     * it is - a page sent before then would be sized for a window nobody has measured, and
+     * would be thrown away by the one the screen asks for a moment later.
+     */
+    public static void open(ServerPlayer player, BlockPos where, CollectionBlockEntity collection) {
+        UUID who = player.getUUID();
+        if (!collection.rights().mayLook(who)) {
+            // Over the hotbar rather than in the chat: somebody who has walked up to a locked cabinet is
+            // going to click it more than once.
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_locked"));
+            return;
+        }
+        Sending.to(player, new OpenCollectionPayload(
+                where,
+                collection.label(),
+                collection.cards().total(),
+                collection.cards().distinct(),
+                OpenCollectionPayload.allowing(
+                        collection.rights().mayTake(who),
+                        collection.rights().mayAdd(who),
+                        collection.rights().isOwner(who))));
+    }
+
+    /**
+     * Answers one search with one page.
+     * <p>Over the box, and over the cards in the player's own pockets too when the thing
+     * asking is a builder. A deck is built out of everything somebody owns, and before this
+     * the only way to get a card from a pack you had just opened into a deck was to put it in
+     * the box first and take it straight back out - two errands for a card that never moved.
+     * The binder screen asks without them, because a binder shows what is in the binder.
+     */
+    public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
+            boolean descending, int page, int rowsThatFit, boolean pockets) {
+        search(player, where, query, descending, page, rowsThatFit, pockets, 0);
+    }
+
+    /**
+     * The same, saying which request is being answered.
+     * <p>A screen sends one of these per keystroke and the answers do not have to come back
+     * in the order they were asked. The number goes out with the page so a screen can tell an
+     * answer to what it is showing now from an answer to what it was showing two letters ago.
+     */
+    public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
+            boolean descending, int page, int rowsThatFit, boolean pockets, int revision) {
+        if (tooSoon(player)) {
+            // Kept rather than dropped, and on a real later tick. A search arriving inside the
+            // throttle is almost always the last letter somebody typed, and throwing it away
+            // left the screen showing the results for the word without its final letter. The
+            // newest one replaces any older one still waiting, so a burst of keystrokes costs
+            // one search and it is the one the player meant.
+            //
+            // Through ServerTicks and not through server.execute: that runs a task inline when
+            // it is called on the server thread, so the first shape of this re-entered itself
+            // until the stack ran out. Two searches in one tick were enough.
+            ServerTicks.on(waitingKey(player), lastSearchTick(player) + TICKS_BETWEEN_SEARCHES,
+                    () -> searchNow(player, where, query, descending, page, rowsThatFit,
+                            pockets, revision));
+            return;
+        }
+        searchNow(player, where, query, descending, page, rowsThatFit, pockets, revision);
+    }
+
+    /** The search itself, once the throttle has let it through. Server thread only. */
+    private static void searchNow(ServerPlayer player, BlockPos where, CollectionQuery query,
+            boolean descending, int page, int rowsThatFit, boolean pockets, int revision) {
+        CollectionPagePayload answer =
+                pageFor(player, where, query, descending, page, rowsThatFit, pockets, revision);
+        if (answer == null) {
+            return;
+        }
+        Sending.to(player, answer);
+
+        // Whatever this page could not name is looked up now, so a second look at the same
+        // page has it. Only this page: a collection of ten thousand cards nobody has ever
+        // fetched is not worth ten thousand requests, and the cards a player actually looks
+        // at are the ones worth having.
+        List<UUID> unnamed = new ArrayList<>();
+        for (CollectionPagePayload.Row row : answer.rows()) {
+            if (row.about().isEmpty()) {
+                row.card().faceUp().toIdentity().printing().ifPresent(unnamed::add);
+            }
+        }
+        fetchLater(unnamed);
+    }
+
+    /**
+     * The page one search would send, or null where this player is not at a collection.
+     * <p>Split from the sending so a test can read what a player would be shown: a stand-in
+     * player cannot receive a payload. Public for that reason only.
+     */
+    public static CollectionPagePayload pageFor(ServerPlayer player, BlockPos where,
+            CollectionQuery query, boolean descending, int page, int rowsThatFit,
+            boolean pockets, int revision) {
+        CollectionBlockEntity collection = at(player, where);
+        if (collection == null || query == null) {
+            return null;
+        }
+        CardTally carried = pockets ? PocketCards.loose(player) : CardTally.EMPTY;
+        Ordering ordering = orderingFor(player, where, collection, carried,
+                query.asSearch(descending));
+        CardTally pool = ordering.pool();
+        List<CollectionSearch.Row> found = ordering.found();
+
+        // As many as the window asking has room for, and never more than a page holds. A
+        // page larger than the box is rows nobody can see and rows somebody can click on
+        // without seeing.
+        int perPage = Math.clamp(rowsThatFit, 1, CollectionPagePayload.ROWS_PER_PAGE);
+        int pages = Math.max(1, (found.size() + perPage - 1) / perPage);
+        int showing = Math.clamp(page, 0, pages - 1);
+        int from = showing * perPage;
+        int to = Math.min(found.size(), from + perPage);
+
+        List<CollectionPagePayload.Row> sending = new ArrayList<>();
+        for (CollectionSearch.Row row : found.subList(from, to)) {
+            sending.add(new CollectionPagePayload.Row(
+                    CardComponent.of(row.card()),
+                    row.count(),
+                    Optional.ofNullable(row.about())
+                            .map(dev.gathering.network.CardSummary::of),
+                    carried.of(row.card())));
+        }
+        return new CollectionPagePayload(
+                where, showing, pages,
+                new CollectionPagePayload.Counts(pool.total(), pool.distinct(), found.size()),
+                sending, revision);
+    }
+
+    /**
+     * The ordered answer to this question, read back where nothing it depends on has moved.
+     * <p>The generation is read before a single card is looked up. A name arriving while the
+     * rows are being built then leaves this answer filed under the older number, which the
+     * next page sees as stale and builds again - the safe way round.
+     */
+    private static Ordering orderingFor(ServerPlayer player, BlockPos where,
+            CollectionBlockEntity collection, CardTally carried, CollectionSearch.Query search) {
+        CardDataService service = CardDataService.active().orElse(null);
+        Asked asked = new Asked(player.level().dimension(), where.immutable(), collection,
+                collection.revision(), carried, service,
+                service == null ? 0 : service.knownGeneration(), search);
+        Ordering kept = ORDERED.get(player.getUUID());
+        if (kept != null && kept.asked().equals(asked)) {
+            return kept;
+        }
+        CardTally pool = carried.isEmpty()
+                ? collection.cards()
+                : collection.cards().plus(carried);
+        Ordering built = new Ordering(asked, pool,
+                CollectionSearch.run(rowsOf(service, pool), search));
+        orderingsBuilt++;
+        ORDERED.put(player.getUUID(), built);
+        return built;
+    }
+
+    /** How many searches have actually run since the count was last forgotten. */
+    public static int orderingsBuilt() {
+        return orderingsBuilt;
+    }
+
+    /** Starts the count again. */
+    public static void forgetTheCount() {
+        orderingsBuilt = 0;
+    }
+
+    /**
+     * Sweeps every loose card the player is carrying into a collection.
+     * <p>Shift and an empty hand, which is the gesture for "all of it" everywhere else in
+     * this game. A booster box is thirty-six stacks and putting them away one right-click at
+     * a time is the same evening the deck builder just got back.
+     * <p><b>Only loose cards.</b> A deck is an object somebody assembled and it stays one -
+     * dissolving one is the deck screen's verb, and a shift-click that quietly took a
+     * hundred-card Commander deck apart would be a misclick nobody could undo. A sealed pack
+     * is not a card either, and neither is anything else in the inventory: this walks the
+     * slots and takes the ones holding a card item, and nothing else can match.
+     * <p>A card with a history keeps it, one entry per copy, exactly as putting one in by
+     * hand does. Two cards with different histories never stacked in the first place, so a
+     * stack is only ever more than one card when none of them has a story.
+     *
+     * @return how many cards went in, which is nothing where they were carrying none
+     */
+    public static int sweepPockets(
+            ServerPlayer player, CollectionBlockEntity collection) {
+        if (collection == null) {
+            return 0;
+        }
+        if (!collection.rights().mayAdd(player.getUUID())) {
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_may_not_add"));
+            return 0;
+        }
+
+        // Counted into a tally and put in once rather than a slot at a time, so a sweep of
+        // forty stacks is one save rather than forty. Storied copies go in on their own,
+        // because each of those is an entry with a biography attached to it.
+        CardTally.Builder plain = CardTally.builder();
+        List<CollectionBlockEntity.StoriedCard> withStories = new ArrayList<>();
+        int swept = 0;
+        for (ItemStack stack : player.getInventory().items) {
+            swept += gather(stack, plain, withStories);
+        }
+        for (ItemStack stack : player.getInventory().offhand) {
+            swept += gather(stack, plain, withStories);
+        }
+        if (swept == 0) {
+            Notices.tell(player,
+                    Component.translatable("message.gathering.collection_nothing_loose"));
+            return 0;
+        }
+
+        collection.putAll(plain.build());
+        for (CollectionBlockEntity.StoriedCard one : withStories) {
+            collection.putStoried(one.card(), one.story());
+        }
+        DeckItem.playAssembleSound(player);
+        Notices.tell(player, Component.translatable(
+                "message.gathering.collection_swept", swept, collection.cards().total()));
+        return swept;
+    }
+
+    /**
+     * Takes one slot's cards, if that slot holds cards at all, and empties it.
+     * <p>Matched on the item rather than on whether a component happens to parse: a deck and
+     * a pack are not card items and cannot become ones, so nothing but a card can be picked
+     * up by this however it is written.
+     */
+    private static int gather(ItemStack stack, CardTally.Builder plain,
+            List<CollectionBlockEntity.StoriedCard> withStories) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof CardItem)) {
+            return 0;
+        }
+        CardIdentity card = CardItem.cardOf(stack)
+                .map(component -> component.faceUp().toIdentity())
+                .orElse(null);
+        if (card == null) {
+            // A blank creative card carries no identity to store, so there is nothing to put
+            // in and it is left where it is rather than deleted.
+            return 0;
+        }
+        int howMany = stack.getCount();
+        dev.gathering.core.story.CardStory story = CardStories.storyOf(stack);
+        if (story.isEmpty()) {
+            plain.add(card, howMany);
+        } else {
+            for (int one = 0; one < howMany; one++) {
+                withStories.add(new CollectionBlockEntity.StoriedCard(card, story));
+            }
+        }
+        stack.setCount(0);
+        return howMany;
+    }
+
+    /**
+     * Tells somebody about one card in a collection: how many copies, and where the copies with a
+     * history have been, newest first. What the card overview shows.
+     * <p>Reading, so standing at the box is enough - the same as searching it. A history names who
+     * pulled or traded a card, which anybody holding that card can already read on it.
+     */
+    public static void describe(ServerPlayer player, BlockPos where, CardComponent card) {
+        CollectionBlockEntity collection = at(player, where);
+        if (collection == null) {
+            // On the screen as well as in chat: the overview is open over the chat window.
+            Notices.answer(player, Component.translatable("message.gathering.collection_gone"));
+            return;
+        }
+        if (card == null) {
+            return;
+        }
+        Sending.to(player, described(collection, where, card));
+    }
+
+    /** What the overview is told about one card in a collection. */
+    public static dev.gathering.network.CollectionCardPayload described(CollectionBlockEntity collection, BlockPos where,
+            CardComponent card) {
+        CardIdentity identity = card.faceUp().toIdentity();
+        List<dev.gathering.core.story.CardStory> stories = new ArrayList<>();
+        int storied = 0;
+        List<CollectionBlockEntity.StoriedCard> kept = collection.storied();
+        for (int index = kept.size() - 1; index >= 0; index--) {
+            if (kept.get(index).card().equals(identity)) {
+                storied++;
+                if (stories.size() < dev.gathering.network.CollectionCardPayload.MOST_STORIES) {
+                    stories.add(kept.get(index).story());
+                }
+            }
+        }
+        return new dev.gathering.network.CollectionCardPayload(where, card,
+                collection.cards().of(identity), stories, storied - stories.size());
+    }
+
+    /**
+     * Takes cards out, into the inventory.
+     * <p>Whatever is in hand. A deck in hand used to fill up from the collection instead - sleeving -
+     * and the owner found it in play as a card going somewhere they did not expect, and chose the
+     * inventory (2026-09-15). A card goes into a deck by being put on it, or from the deck builder.
+     * <p>Takes and says nothing back. The screen asks for a fresh page itself, because the
+     * screen is where the search somebody is looking at actually lives: a page pushed from
+     * here would have to guess at it, and guessing wrong means every card taken throws the
+     * player back to the top of an unfiltered list.
+     */
+    public static int take(ServerPlayer player, BlockPos where, CardComponent card, int howMany) {
+        CollectionBlockEntity collection = at(player, where);
+        if (collection == null) {
+            // Walked out of reach, or somebody broke it. Said, the way building out of the box says
+            // it: the screen has no tick and nothing closes it, so without this the grid went on
+            // showing its last page, every click played the sound that means it worked, and nothing
+            // happened for as long as the player kept trying. On the screen as well as in chat,
+            // because the collection screen is drawn over the chat window, and the line said only
+            // there was still nothing the player could see.
+            Notices.answer(player, Component.translatable("message.gathering.collection_gone"));
+            return 0;
+        }
+        if (card == null) {
+            return 0;
+        }
+        if (!collection.rights().mayTake(player.getUUID())) {
+            Notices.answer(player,
+                    Component.translatable("message.gathering.collection_may_not_take"));
+            return 0;
+        }
+        CardIdentity identity = card.faceUp().toIdentity();
+        // Copies and histories together, because they cannot be asked for separately: the
+        // take prunes the histories the box no longer has copies for, so asking afterwards
+        // asks how many survived rather than how many left.
+        CollectionBlockEntity.Taken taken = collection.takeWithStories(identity, howMany);
+        int took = taken.took();
+        if (took == 0) {
+            return 0;
+        }
+        java.util.List<dev.gathering.core.story.CardStory> histories =
+                new java.util.ArrayList<>(taken.stories());
+        // Ordinary copies first, and only then the ones with a history. The card somebody
+        // won in an ante game stays at the bottom of the box until it is the only one left,
+        // which is what a person does with a card like that.
+        int plain = took - histories.size();
+        for (int one = 0; one < took; one++) {
+            ItemStack stack = CardItem.of(card.faceUp());
+            if (one >= plain && !histories.isEmpty()) {
+                dev.gathering.core.story.CardStory story = histories.remove(0);
+                if (!story.isEmpty()) {
+                    stack.set(dev.gathering.registry.GatheringComponents.STORY.get(),
+                            dev.gathering.item.StoryComponent.of(story));
+                }
+            }
+            dev.gathering.server.Handing.give(player, stack);
+        }
+        return took;
+    }
+
+    /**
+     * Takes a whole built deck out of the box at once, and hands it over as a deck.
+     * <p>The commit end of the deck builder. Every card the client named is checked against
+     * what the collection actually holds and taken out one at a time by the same call a single
+     * click uses, so a client asking for cards that are not there gets a deck without them
+     * rather than a deck the box never had - and the arithmetic that decides which physical
+     * copy leaves, plain before storied, is the one that was already there.
+     * <p>Basics are conjured rather than taken, exactly as building from a list does: they are
+     * given away everywhere else in this mod and charging for them here would be a charge for
+     * something that is not for sale.
+     * <p>Told what it could not find, by name and count. A deck that quietly came out four
+     * cards short is a deck somebody takes to a table and discovers is illegal.
+     * <p>All three piles are claimed the same way - the command zone, the deck and the
+     * sideboard - and land in the three the deck item has. Nothing about a sideboard card is
+     * cheaper: it comes out of the same box, keeps the same history, and counts the same when
+     * it cannot be found.
+     */
+    public static void build(ServerPlayer player, BuildDeckPayload asked) {
+        CollectionBlockEntity collection = at(player, asked.where());
+        if (collection == null) {
+            // Walked out of reach, or the box has gone. The builder is waiting to hear, and
+            // used to close on the press and lose the whole selection to silence.
+            Component gone = Component.translatable("message.gathering.collection_gone");
+            player.sendSystemMessage(gone);
+            Sending.to(player, new dev.gathering.network.ImportResultPayload(
+                    asked.name(), 0, List.of(gone.getString()), asked.request()));
+            return;
+        }
+        // Somebody who may not take from this box may still build out of their own pockets.
+        // Refusing the whole press would refuse cards the box has no claim on, and the note
+        // is sent once here rather than once per card that could not be found.
+        boolean mayTake = collection.rights().mayTake(player.getUUID());
+        if (!mayTake) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.collection_may_not_take"));
+        }
+
+        if (!mayBuildNow(player)) {
+            Sending.to(player, new dev.gathering.network.ImportResultPayload(
+                    asked.name(), 0, List.of(Component.translatable("message.gathering.build_too_soon").getString()),
+                    asked.request()));
+            return;
+        }
+        CardDataService service = CardDataService.active().orElse(null);
+        List<CardComponent> got = new ArrayList<>();
+        List<CardComponent> beside = new ArrayList<>();
+        List<CardComponent> commanders = new ArrayList<>();
+        // What each claimed card was carrying, so the deck can keep it. Taking a card one at a time
+        // has always kept its history; building a deck out of forty of them threw every one away,
+        // and a story is the one thing in this mod a player cannot get back. One entry per copy, not
+        // per printing: kept by card, the second storied copy of a printing wrote over the first.
+        List<DeckComponent.Kept> histories = new ArrayList<>();
+        int missed = 0;
+        for (CardComponent wanted : asked.commander().map(List::of).orElse(List.of())) {
+            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted, histories);
+            if (claimed != null) {
+                commanders.add(claimed);
+            } else {
+                missed++;
+            }
+        }
+        for (CardComponent wanted : asked.cards()) {
+            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted, histories);
+            if (claimed != null) {
+                got.add(claimed);
+            } else {
+                missed++;
+            }
+        }
+        // The sideboard is claimed the same way and out of the same box. A sideboard filled
+        // from a list the collection could not answer is a deck that arrives short between
+        // games, which is the one moment nobody can go and fix it.
+        for (CardComponent wanted : asked.sideboard()) {
+            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted, histories);
+            if (claimed != null) {
+                beside.add(claimed);
+            } else {
+                missed++;
+            }
+        }
+        if (got.isEmpty() && commanders.isEmpty() && beside.isEmpty()) {
+            // Nothing was found. An empty deck is not a thing to hand over, and handing one over
+            // for every request filled an inventory and then the ground around it.
+            Component nothing = Component.translatable("message.gathering.collection_deck_nothing");
+            player.sendSystemMessage(nothing);
+            Sending.to(player, new dev.gathering.network.ImportResultPayload(
+                    asked.name(), 0, List.of(nothing.getString()), asked.request()));
+            return;
+        }
+
+        // Both drawn for other players - the name on the item, the description in its tooltip -
+        // so cleaned the way any text one player shows another is.
+        String name = dev.gathering.core.game.PlayerText.oneLine(asked.name(), BuildDeckPayload.LONGEST_NAME);
+        DeckComponent deck = new DeckComponent(
+                name == null ? "" : name,
+                dev.gathering.core.game.PlayerText.lines(asked.description(), BuildDeckPayload.LONGEST_DESCRIPTION),
+                Optional.of(player.getUUID()),
+                List.copyOf(got), List.copyOf(commanders), List.copyOf(beside))
+                .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()))
+                // In whatever the builder was showing when Finish was pressed. The server
+                // still decides what the deck contains; the sleeve is the one thing the
+                // client picks, and it decides nothing but what the cards look like.
+                .sleeved(asked.sleeve());
+        // Every history the cards brought with them, kept with the deck they went into.
+        for (DeckComponent.Kept held : histories) {
+            deck = deck.keeping(held.card(), held.story());
+        }
+        ItemStack stack = DeckItem.of(deck);
+        dev.gathering.server.Handing.give(player, stack);
+        player.sendSystemMessage(Component.translatable(
+                "message.gathering.deck_built", deck.totalCards()));
+        Achievements.award(player, Achievements.FIRST_DECK);
+        List<String> problems = new ArrayList<>();
+        if (missed > 0) {
+            Component shortBy = Component.translatable("message.gathering.deck_built_short", missed);
+            player.sendSystemMessage(shortBy);
+            problems.add(shortBy.getString());
+        }
+        // And the screen that pressed Finish is told it happened, so it can close on the
+        // answer rather than on the press. Naming the press, so a builder that was closed
+        // and reopened while this was in flight does not act on somebody else's answer.
+        Sending.to(player, new dev.gathering.network.ImportResultPayload(
+                deck.name(), deck.totalCards(), problems, asked.request()));
+    }
+
+    /**
+     * Takes one copy out for a deck being built, or says nobody had it.
+     * <p>A basic land is never taken and always granted, which is what building from a list
+     * already does. Everything else has to actually be somewhere: this is the check that
+     * makes the payload's card list a request rather than an instruction.
+     * <p>The box first and the pockets after. Both are the same player's cards and either
+     * would do, but taking from the box first leaves the copy in their hand - which is the
+     * one they can see, and the one they would be surprised to find gone if the deck was
+     * built out of the box's stock anyway.
+     *
+     * @param collection the box to take from, or null where this player may not take from it
+     */
+    private static CardComponent claim(CardDataService service, ServerPlayer player,
+            CollectionBlockEntity collection, CardComponent wanted, List<DeckComponent.Kept> histories) {
+        if (wanted == null) {
+            return null;
+        }
+        CardIdentity identity = wanted.faceUp().toIdentity();
+        if (isBasic(service, identity)) {
+            // Free, and so never foil: a free basic is the land a deck needs, not a foil to
+            // pour into a collection or trade.
+            return identity.printing()
+                    .map(printing -> CardComponent.of(CardIdentity.ofPrinting(printing, false)))
+                    .orElse(null);
+        }
+        if (collection != null) {
+            // With its history, not without it. Taking by identity alone pruned the oldest story for
+            // that printing and left nothing holding it.
+            CollectionBlockEntity.Taken taken = collection.takeWithStories(identity, 1);
+            if (taken.took() > 0) {
+                taken.stories().stream().filter(story -> story != null && !story.isEmpty())
+                        .forEach(story -> histories.add(new DeckComponent.Kept(wanted.faceUp(), story)));
+                return wanted.faceUp();
+            }
+        }
+        java.util.Optional<dev.gathering.core.story.CardStory> carried =
+                PocketCards.takeWithItsStory(player, wanted);
+        if (carried.isEmpty()) {
+            return null;
+        }
+        if (!carried.get().isEmpty()) {
+            histories.add(new DeckComponent.Kept(wanted.faceUp(), carried.get()));
+        }
+        return wanted.faceUp();
+    }
+
+    /** The last build each player asked for, so one cannot be asked for every tick. */
+    private static final Map<UUID, Long> LAST_BUILD = new java.util.HashMap<>();
+
+    private static boolean mayBuildNow(ServerPlayer player) {
+        long now = System.currentTimeMillis();
+        Long last = LAST_BUILD.get(player.getUUID());
+        if (last != null && now - last < 1_000L) {
+            return false;
+        }
+        if (LAST_BUILD.size() > 512) {
+            LAST_BUILD.clear();
+        }
+        LAST_BUILD.put(player.getUUID(), now);
+        return true;
+    }
+
+    /**
+     * Whether this printing is a basic land, and so free.
+     * <p>Asked of the card cache rather than believed from the client, because "this one is
+     * free" is exactly the claim a client should not be allowed to make about a card it wants
+     * out of somebody's box. A printing the server has never looked up is not free: the
+     * conservative answer costs a card that was probably a Forest, and the other way round
+     * costs whatever a client cares to name.
+     */
+    private static boolean isBasic(CardDataService service, CardIdentity identity) {
+        CardMetadata card = known(service, identity);
+        if (card == null) {
+            return false;
+        }
+        for (dev.gathering.core.card.BasicLand basic : dev.gathering.core.card.BasicLand.values()) {
+            if (basic.printedName().equalsIgnoreCase(card.name())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Pours a deck back into a collection.
+     * <p>Every card of it, from every section, and the deck item goes with them. Paper-true,
+     * and the reason a shared collection cannot quietly back two decks at once: the cards are
+     * in one place or the other, never counted in both.
+     *
+     * @return whether the deck was dissolved, so the caller knows whether to keep the item
+     */
+    public static boolean dissolve(ServerPlayer player, BlockPos where, ItemStack held,
+            net.minecraft.world.InteractionHand hand) {
+        CollectionBlockEntity collection = at(player, where);
+        DeckComponent deck = DeckItem.deckOf(held).orElse(null);
+        if (collection == null || deck == null) {
+            return false;
+        }
+        if (deck.loaner()) {
+            // A loaner was made out of nothing; pouring it in would make its cards real.
+            player.sendSystemMessage(Component.translatable("message.gathering.loaner_not_kept"));
+            return true;
+        }
+        if (!collection.rights().mayAdd(player.getUUID())) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.collection_may_not_add"));
+            return true;
+        }
+        if (deck.isEmpty()) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.collection_deck_empty"));
+            return true;
+        }
+        CardTally.Builder pouring = CardTally.builder();
+        for (DeckComponent.Section section : DeckComponent.Section.values()) {
+            for (CardComponent card : deck.section(section)) {
+                pouring.add(card.faceUp().toIdentity(), 1);
+            }
+        }
+        CardTally poured = pouring.build();
+        collection.putAll(poured);
+        // And every history the deck was keeping, one per copy, as the box keeps a card put in by hand.
+        // Poured in by count alone, a deck sleeved from a card won in an ante went back into the box as
+        // an ordinary copy of its printing, the record of winning it gone. No more of a printing's than
+        // the copies this deck poured: a history the deck kept for a copy it no longer holds is not one
+        // to hang on a card that was already in the box.
+        Map<CardIdentity, Integer> keptFor = new java.util.HashMap<>();
+        List<CollectionBlockEntity.StoriedCard> histories = new ArrayList<>();
+        for (DeckComponent.Kept kept : deck.stories()) {
+            CardIdentity card = kept.card().faceUp().toIdentity();
+            if (keptFor.merge(card, 1, Integer::sum) <= poured.of(card)) {
+                histories.add(new CollectionBlockEntity.StoriedCard(card, kept.story()));
+            }
+        }
+        collection.keepStories(histories);
+        // The hand is replaced rather than the stack shrunk, and that is not a style choice.
+        // A creative player's item survives its own useOn: ServerPlayerGameMode reads the
+        // count before calling it and writes the same number back afterwards, so a shrink is
+        // undone and the deck stays in hand with its cards now also in the collection - the
+        // one gesture in the mod that could mint cards out of nothing. Putting a different
+        // stack in the slot leaves vanilla restoring the count on an object nothing holds.
+        ItemStack left = held.copy();
+        left.shrink(1);
+        player.setItemInHand(hand, left);
+        player.sendSystemMessage(Component.translatable(
+                "message.gathering.collection_dissolved",
+                deck.name().isBlank()
+                        ? Component.translatable("item.gathering.deck")
+                        : Component.literal(deck.name()),
+                poured.total()));
+        return true;
+    }
+
+    // ------------------------------------------------------------------ bits
+
+    /** What a player's pending search is filed under, so a newer one replaces it. */
+    private static Object waitingKey(ServerPlayer player) {
+        return waitingKey(player.getUUID());
+    }
+
+    /** The one place this key is spelled, so a forget and a wait cannot drift apart. */
+    private static Object waitingKey(UUID player) {
+        return "collection-search:" + player;
+    }
+
+    /** Which tick this player last searched on, or a long time ago. */
+    private static int lastSearchTick(ServerPlayer player) {
+        return LAST_SEARCH.getOrDefault(player.getUUID(), Integer.MIN_VALUE / 2);
+    }
+
+    /** Forgets a player's waiting search, for a disconnect or a server stop. */
+    public static void forget(UUID player) {
+        ServerTicks.forget(waitingKey(player));
+        LAST_SEARCH.remove(player);
+        ORDERED.remove(player);
+    }
+
+    /** Forgets everybody's, for a server that is stopping. */
+    public static void clear() {
+        LAST_BUILD.clear();
+        LAST_SEARCH.clear();
+        ORDERED.clear();
+    }
+
+    /**
+     * Whether this player has searched too recently to search again.
+     * <p>Silently, because the only thing that can hit it is a client asking faster than a
+     * person can press a button, and a screen that said "slow down" to somebody who did
+     * nothing would be answering a question they never asked. A dropped search is followed
+     * by another one the moment they touch anything.
+     */
+    private static boolean tooSoon(ServerPlayer player) {
+        int now = player.server.getTickCount();
+        Integer last = LAST_SEARCH.get(player.getUUID());
+        if (last != null && now - last < TICKS_BETWEEN_SEARCHES && now >= last) {
+            return true;
+        }
+        if (LAST_SEARCH.size() >= MOST_REMEMBERED) {
+            LAST_SEARCH.clear();
+        }
+        LAST_SEARCH.put(player.getUUID(), now);
+        return false;
+    }
+
+    /**
+     * The collection this player is actually standing at, or null.
+     * <p>Three halves, and all of them matter. A block that is not a collection is somebody
+     * pointing a payload at a wall; a position in an unloaded chunk is somebody making the
+     * server go and fetch one; and a collection across the world is somebody reading a
+     * stranger's binder from their own base.
+     * <p>Package-visible so {@link CollectionDecks} asks the same question rather than a
+     * second one that looks like it. A payload naming a position is a payload naming
+     * <em>any</em> position - so every path in has to check, and there is one check.
+     * <p>The fourth half is the lock. A closed collection answers nothing at all to somebody who
+     * has not been let in: not a page, not a count, not whether a card is in it. Asked here rather
+     * than at each of the half-dozen payloads that arrive with a position, because the one that
+     * gets forgotten is the one somebody reads a locked cabinet through.
+     * <p>And before any of it, that there is a player there at all. A build from a list finishes
+     * seconds after it was asked for, holding the player as they were then; one who has died since,
+     * or respawned - which replaces them with a new entity - left a body standing exactly where they
+     * asked from, so the reach check passed for it and the cards came out of the box for a bag that
+     * respawning throws away. A body is not standing at anything.
+     */
+    static CollectionBlockEntity at(ServerPlayer player, BlockPos where) {
+        if (where == null || !Handing.canReceive(player) || !player.level().isLoaded(where)) {
+            return null;
+        }
+        if (player.distanceToSqr(where.getX() + 0.5, where.getY() + 0.5, where.getZ() + 0.5)
+                > WITHIN * WITHIN) {
+            return null;
+        }
+        if (!(player.level().getBlockEntity(where) instanceof CollectionBlockEntity collection)) {
+            return null;
+        }
+        return collection.rights().mayLook(player.getUUID()) ? collection : null;
+    }
+
+    /** The collection as rows, with whatever the cache already knows about each card. */
+    private static List<CollectionSearch.Row> rowsOf(CardDataService service, CardTally cards) {
+        List<CollectionSearch.Row> rows = new ArrayList<>(cards.distinct());
+        for (Map.Entry<CardIdentity, Integer> entry : cards.counts().entrySet()) {
+            rows.add(new CollectionSearch.Row(
+                    entry.getKey(), entry.getValue(), known(service, entry.getKey())));
+        }
+        return rows;
+    }
+
+    /**
+     * What is already known about a card, without going anywhere for it.
+     * <p>The cache only. A search that fetched what it did not know would be one search
+     * making ten thousand requests, and the honest answer for a card nobody has looked up is
+     * that nobody has looked it up.
+     * <p>Package-visible for the same reason {@link #at} is: one answer, asked from two
+     * places.
+     */
+    static CardMetadata known(CardDataService service, CardIdentity card) {
+        if (service == null) {
+            return null;
+        }
+        // Memory only. This is asked once per row of a page, so on a cold cache a page of a
+        // large collection was a hundred file reads and parses inside one tick. What is not
+        // in memory is fetched off the game thread by fetchLater and named on the next page.
+        return card.printing().flatMap(service::peek).orElse(null);
+    }
+
+    private static void fetchLater(List<UUID> printings) {
+        if (printings.isEmpty()) {
+            return;
+        }
+        CardDataService.active().ifPresent(service -> service.findAll(printings));
+    }
+}

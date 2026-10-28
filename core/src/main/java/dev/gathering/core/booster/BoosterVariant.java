@@ -1,0 +1,59 @@
+package dev.gathering.core.booster;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * One arrangement a pack can come out as: how many cards off which sheets.
+ * <p>A set does not have one pack layout, it has several with different chances - the plain
+ * one, the one with a rare-slot upgrade, the one with a special card in the land slot. Which
+ * you got was decided when the sheet was cut, so it is chosen first here and everything else
+ * follows from it.
+ *
+ * @param weight  how often this arrangement turns up against the set's other arrangements
+ * @param slots   how many cards to take from each sheet, by sheet name
+ */
+public record BoosterVariant(String name, int weight, Map<String, Integer> slots) {
+
+    /**
+     * The most cards one slot may ask for.
+     * <p>A slot count comes off somebody else's file - published collation, or a booster JSON an
+     * operator wrote - and it sized an array before anything looked at it, so {@code "common":
+     * 2000000000} in a tampered or corrupted set file was an eight-gigabyte allocation the first
+     * time anybody opened that pack. A real booster is under forty cards. The sealed reader beside
+     * this one bounds its counts the same way and for the same reason.
+     */
+    public static final int MOST_PER_SLOT = 256;
+
+    public BoosterVariant {
+        name = name == null ? "" : name;
+        if (weight < 0) {
+            throw new IllegalArgumentException("A booster variant cannot appear negatively often");
+        }
+        Map<String, Integer> kept = new LinkedHashMap<>();
+        if (slots != null) {
+            slots.forEach((sheet, count) -> {
+                if (sheet != null && !sheet.isBlank() && count != null && count > 0) {
+                    kept.put(sheet, Math.min(count, MOST_PER_SLOT));
+                }
+            });
+        }
+        // Not Map.copyOf, whose order is a per-launch hash order: the slots decide what order
+        // cards go into a pack, and a pack whose contents reshuffled between launches would
+        // not be reproducible from its seed.
+        slots = java.util.Collections.unmodifiableMap(kept);
+    }
+
+    /** How many cards this arrangement comes to, which is what a pack's size means. */
+    public int cards() {
+        int cards = 0;
+        for (int count : slots.values()) {
+            cards += count;
+        }
+        return cards;
+    }
+
+    public boolean isEmpty() {
+        return slots.isEmpty();
+    }
+}

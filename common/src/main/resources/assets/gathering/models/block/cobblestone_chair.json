@@ -1,0 +1,361 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "stone": "minecraft:block/cobblestone",
+    "felt": "minecraft:block/white_wool",
+    "particle": "minecraft:block/cobblestone"
+  },
+  "elements": [
+    {
+      "name": "Left slab",
+      "from": [
+        2,
+        0,
+        2
+      ],
+      "to": [
+        5,
+        8,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            3,
+            8
+          ]
+        },
+        "south": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            3,
+            8
+          ]
+        },
+        "east": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            12,
+            8
+          ]
+        },
+        "west": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            12,
+            8
+          ]
+        },
+        "up": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            3,
+            12
+          ]
+        },
+        "down": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            3,
+            12
+          ]
+        }
+      }
+    },
+    {
+      "name": "Right slab",
+      "from": [
+        11,
+        0,
+        2
+      ],
+      "to": [
+        14,
+        8,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            3,
+            8
+          ]
+        },
+        "south": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            3,
+            8
+          ]
+        },
+        "east": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            12,
+            8
+          ]
+        },
+        "west": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            12,
+            8
+          ]
+        },
+        "up": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            3,
+            12
+          ]
+        },
+        "down": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            3,
+            12
+          ]
+        }
+      }
+    },
+    {
+      "name": "Seat",
+      "from": [
+        1,
+        8,
+        1
+      ],
+      "to": [
+        15,
+        9,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ]
+        },
+        "south": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ]
+        },
+        "east": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ]
+        },
+        "west": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            1
+          ]
+        },
+        "up": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            14
+          ]
+        },
+        "down": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            14
+          ]
+        }
+      }
+    },
+    {
+      "name": "White cushion",
+      "from": [
+        2,
+        9,
+        2
+      ],
+      "to": [
+        14,
+        10,
+        13
+      ],
+      "faces": {
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            12,
+            1
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            12,
+            1
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            11,
+            1
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            11,
+            1
+          ],
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            12,
+            11
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            12,
+            11
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "Solid back",
+      "from": [
+        1,
+        9,
+        13
+      ],
+      "to": [
+        15,
+        16,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            7
+          ]
+        },
+        "south": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            7
+          ]
+        },
+        "east": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            2,
+            7
+          ]
+        },
+        "west": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            2,
+            7
+          ]
+        },
+        "up": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            2
+          ]
+        },
+        "down": {
+          "texture": "#stone",
+          "uv": [
+            0,
+            0,
+            14,
+            2
+          ]
+        }
+      }
+    }
+  ]
+}

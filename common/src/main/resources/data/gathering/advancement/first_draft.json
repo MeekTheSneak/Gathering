@@ -1,0 +1,12 @@
+{
+  "parent": "gathering:first_pack",
+  "display": {
+    "icon": { "id": "gathering:sealed" },
+    "title": { "translate": "advancements.gathering.first_draft.title" },
+    "description": { "translate": "advancements.gathering.first_draft.description" },
+    "frame": "goal"
+  },
+  "criteria": {
+    "drafted": { "trigger": "minecraft:impossible" }
+  }
+}

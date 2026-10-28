@@ -1,0 +1,60 @@
+package dev.gathering.server;
+
+/**
+ * Everything a server held in memory, dropped in one place when it stops.
+ * <p>Written once rather than once per loader, for the reason {@link
+ * dev.gathering.client.ClientState} is: a teardown list kept in two files is a list where a
+ * new holder gets added to one of them, and in single-player that means state from the world
+ * somebody just left turning up in the world they just opened.
+ * <p>What stays with the loaders is what the loaders own: the card pipeline and the collation
+ * service are constructed there and closed there.
+ * <p>Server thread only.
+ */
+public final class ServerState {
+
+    private ServerState() {
+    }
+
+    /** Drops everything the server that is stopping was holding. */
+    public static void forgetTheWorld() {
+        dev.gathering.service.ServerSettings.clear();
+        dev.gathering.service.ConfigProfiles.clear();
+        Antes.clear();
+        TableCustody.clear();
+        Archive.clear();
+        CardArtPush.clear();
+        CardMetadataRequests.clear();
+        CardShop.clear();
+        CollectionSets.clear();
+        CollectionView.clear();
+        CurrentSet.clear();
+        LoanerDecks.clear();
+        dev.gathering.service.Rewards.clear();
+        Refusals.clear();
+        ReplayWatch.clear();
+        SealedLoot.clear();
+        Finds.clear();
+        ServerTicks.clear();
+        PackWrappers.clear();
+        DeckVault.clear();
+        // So the next world in this JVM reads its own key rather than the last one's. Its javadoc
+        // said it was called here and it was called nowhere, which in single-player meant a failed
+        // read stayed failed until the game was restarted.
+        SessionKeyring.forget();
+        CollectionKeys.clear();
+        TradeSessions.clear();
+        TableActions.clear();
+        Lending.clear();
+        TableJoining.clear();
+        AwayFromBoard.clear();
+        LessonRecords.clear();
+        StarterBoosters.clear();
+        ActionBudget.clearShared();
+        TablePointing.clear();
+        CreativeDecks.clear();
+        DecklistImport.clear();
+        TableTalk.clear();
+        dev.gathering.server.events.Events.clear();
+        dev.gathering.server.events.EventRecords.clear();
+    }
+}

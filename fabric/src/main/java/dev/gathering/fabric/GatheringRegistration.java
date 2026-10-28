@@ -1,0 +1,280 @@
+package dev.gathering.fabric;
+
+import dev.gathering.Gathering;
+import dev.gathering.item.GatheringContent;
+import dev.gathering.registry.GatheringComponents;
+import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import java.util.List;
+
+/**
+ * All Fabric registration, in one class, mirroring the NeoForge bootstrap.
+ * <p>The registered objects come from the same factories in {@code common}; only the
+ * mechanism differs, which is exactly how large the platform-specific surface is meant to
+ * be.
+ */
+final class GatheringRegistration {
+
+    /** The blocks of one kind in the other woods, for a block entity type's valid blocks. */
+    private static net.minecraft.world.level.block.Block[] blocksOf(GatheringContent.Woodwork kind) {
+        return GatheringContent.woodVariants(kind).stream()
+                .map(GatheringContent.WoodVariant::block)
+                .map(dev.gathering.registry.Registered::get)
+                .toArray(net.minecraft.world.level.block.Block[]::new);
+    }
+
+    private GatheringRegistration() {
+    }
+
+    static void bootstrap() {
+        // One list, walked, rather than three named registrations - see GatheringSounds. The
+        // two loaders read the same list, which is what keeps them from ending up with
+        // different sets of sounds under the same names.
+        for (dev.gathering.registry.Registered<net.minecraft.sounds.SoundEvent> sound
+                : dev.gathering.sound.GatheringSounds.all()) {
+            String id = sound.entryName();
+            sound.bindValue(Registry.register(BuiltInRegistries.SOUND_EVENT,
+                    Gathering.id(id), dev.gathering.sound.GatheringSounds.create(id)));
+        }
+
+        // The block first: the table's item names its block when it is created.
+        net.minecraft.world.level.block.Block table = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.TABLE_ID), GatheringContent.createTable());
+        GatheringContent.TABLE.bindValue(table);
+
+        GatheringContent.TABLE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.TABLE_ID),
+                GatheringContent.createTableItem()));
+
+        // The same table in other materials. Separate blocks that merge into one another's
+        // clusters anyway, because every rule in the mod asks "is this a TableBlock".
+        net.minecraft.world.level.block.Block cobblestoneTable = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.COBBLESTONE_TABLE_ID),
+                GatheringContent.createCobblestoneTable());
+        GatheringContent.COBBLESTONE_TABLE.bindValue(cobblestoneTable);
+        GatheringContent.COBBLESTONE_TABLE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.COBBLESTONE_TABLE_ID),
+                GatheringContent.createCobblestoneTableItem()));
+
+        net.minecraft.world.level.block.Block blackstoneTable = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.BLACKSTONE_TABLE_ID),
+                GatheringContent.createBlackstoneTable());
+        GatheringContent.BLACKSTONE_TABLE.bindValue(blackstoneTable);
+        GatheringContent.BLACKSTONE_TABLE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.BLACKSTONE_TABLE_ID),
+                GatheringContent.createBlackstoneTableItem()));
+
+        net.minecraft.world.level.block.Block cryingObsidianTable = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.CRYING_OBSIDIAN_TABLE_ID),
+                GatheringContent.createCryingObsidianTable());
+        GatheringContent.CRYING_OBSIDIAN_TABLE.bindValue(cryingObsidianTable);
+        GatheringContent.CRYING_OBSIDIAN_TABLE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CRYING_OBSIDIAN_TABLE_ID),
+                GatheringContent.createCryingObsidianTableItem()));
+
+        // Fabric's own builder, because BlockEntityType.Builder's supplier interface is
+        // package-private in vanilla and only NeoForge access-transforms it.
+        // The same furniture in the other woods, from one list rather than fifty registrations. Each is its
+        // own block and item, named for its wood; everything that asks "is this a table" answers the same.
+        for (GatheringContent.WoodVariant variant : GatheringContent.woodVariants()) {
+            variant.block().bindValue(Registry.register(
+                    BuiltInRegistries.BLOCK, Gathering.id(variant.id()), variant.createBlock()));
+            variant.item().bindValue(Registry.register(
+                    BuiltInRegistries.ITEM, Gathering.id(variant.id()), variant.createItem()));
+        }
+
+        GatheringContent.TABLE_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.TableBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        // Every table, or a stone one placed down has no block entity and
+                        // therefore no session: vanilla's own valid-blocks check refuses
+                        // the ones it was not told about.
+                        .create(GatheringContent::createTableEntity, table,
+                                cobblestoneTable, blackstoneTable, cryingObsidianTable)
+                        .addBlocks(blocksOf(GatheringContent.Woodwork.TABLE))
+                        .build()));
+
+        Item card = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CARD_ID), GatheringContent.createCard());
+        Item deck = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.DECK_ID), GatheringContent.createDeck());
+
+        Item pack = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.PACK_ID),
+                GatheringContent.createPack());
+        Item sealed = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.SEALED_ID),
+                GatheringContent.createSealed());
+        Item manaCoin = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.MANA_COIN_ID),
+                GatheringContent.createManaCoin());
+
+        GatheringContent.CARD.bindValue(card);
+        GatheringContent.DECK.bindValue(deck);
+        GatheringContent.PACK.bindValue(pack);
+        GatheringContent.SEALED.bindValue(sealed);
+        GatheringContent.MANA_COIN.bindValue(manaCoin);
+        // The cup before the item that places it: the item is a BlockItem and asks for its block
+        // while it is being built.
+        net.minecraft.world.level.block.Block trophy = Registry.register(BuiltInRegistries.BLOCK,
+                Gathering.id(GatheringContent.TROPHY_ID), GatheringContent.createTrophyBlock());
+        GatheringContent.TROPHY_BLOCK.bindValue(trophy);
+        GatheringContent.TROPHY.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.TROPHY_ID),
+                GatheringContent.createTrophy()));
+        GatheringContent.TROPHY_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.TrophyBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(GatheringContent::createTrophyEntity, trophy)
+                        .build()));
+
+        GatheringComponents.CARD.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.CARD_ID),
+                GatheringComponents.createCardType()));
+        GatheringComponents.DECK.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.DECK_ID),
+                GatheringComponents.createDeckType()));
+        GatheringComponents.POOL.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.POOL_ID),
+                GatheringComponents.createPoolType()));
+        GatheringComponents.PACK.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.PACK_ID),
+                GatheringComponents.createPackType()));
+        GatheringComponents.SEALED.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.SEALED_ID),
+                GatheringComponents.createSealedType()));
+        GatheringComponents.STORY.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.STORY_ID),
+                GatheringComponents.createStoryType()));
+        GatheringComponents.TROPHY.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.TROPHY_ID),
+                GatheringComponents.createTrophyType()));
+        GatheringComponents.DECK_HANDLE.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.DECK_HANDLE_ID),
+                GatheringComponents.createDeckHandleType()));
+
+        net.minecraft.world.level.block.Block collection = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.COLLECTION_ID),
+                GatheringContent.createCollection());
+        GatheringContent.COLLECTION.bindValue(collection);
+        GatheringContent.COLLECTION_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.COLLECTION_ID),
+                GatheringContent.createCollectionItem()));
+        GatheringContent.COLLECTION_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.CollectionBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(GatheringContent::createCollectionEntity, collection)
+                        .addBlocks(blocksOf(GatheringContent.Woodwork.COLLECTION))
+                        .build()));
+
+        net.minecraft.world.level.block.Block displayCase = Registry.register(BuiltInRegistries.BLOCK,
+                Gathering.id(GatheringContent.DISPLAY_CASE_ID), GatheringContent.createDisplayCase());
+        GatheringContent.DISPLAY_CASE.bindValue(displayCase);
+        GatheringContent.DISPLAY_CASE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.DISPLAY_CASE_ID),
+                GatheringContent.createDisplayCaseItem()));
+        GatheringContent.DISPLAY_CASE_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.DisplayCaseBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(dev.gathering.block.DisplayCaseBlockEntity::new, displayCase)
+                        .addBlocks(blocksOf(GatheringContent.Woodwork.DISPLAY_CASE))
+                        .build()));
+
+        GatheringContent.CHAIR.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.CHAIR_ID), GatheringContent.createChair()));
+        GatheringContent.CHAIR_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CHAIR_ID), GatheringContent.createChairItem()));
+        GatheringContent.COBBLESTONE_CHAIR.bindValue(Registry.register(BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.COBBLESTONE_CHAIR_ID),
+                GatheringContent.createStoneChair(net.minecraft.world.level.material.MapColor.STONE, 2.0f, net.minecraft.world.level.block.SoundType.STONE)));
+        GatheringContent.COBBLESTONE_CHAIR_ITEM.bindValue(Registry.register(BuiltInRegistries.ITEM, Gathering.id(GatheringContent.COBBLESTONE_CHAIR_ID),
+                GatheringContent.createStoneChairItem(GatheringContent.COBBLESTONE_CHAIR.get())));
+        GatheringContent.BLACKSTONE_CHAIR.bindValue(Registry.register(BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.BLACKSTONE_CHAIR_ID),
+                GatheringContent.createStoneChair(net.minecraft.world.level.material.MapColor.COLOR_BLACK, 2.0f, net.minecraft.world.level.block.SoundType.STONE)));
+        GatheringContent.BLACKSTONE_CHAIR_ITEM.bindValue(Registry.register(BuiltInRegistries.ITEM, Gathering.id(GatheringContent.BLACKSTONE_CHAIR_ID),
+                GatheringContent.createStoneChairItem(GatheringContent.BLACKSTONE_CHAIR.get())));
+        GatheringContent.CRYING_OBSIDIAN_CHAIR.bindValue(Registry.register(BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.CRYING_OBSIDIAN_CHAIR_ID),
+                GatheringContent.createStoneChair(net.minecraft.world.level.material.MapColor.COLOR_PURPLE, 5.0f, net.minecraft.world.level.block.SoundType.STONE)));
+        GatheringContent.CRYING_OBSIDIAN_CHAIR_ITEM.bindValue(Registry.register(BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CRYING_OBSIDIAN_CHAIR_ID),
+                GatheringContent.createStoneChairItem(GatheringContent.CRYING_OBSIDIAN_CHAIR.get())));
+        GatheringContent.CHAIR_SEAT.bindValue(Registry.register(
+                BuiltInRegistries.ENTITY_TYPE, Gathering.id(dev.gathering.block.ChairSeat.ID), GatheringContent.createChairSeat()));
+
+        net.minecraft.world.level.block.Block desk = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.SCOREKEEPERS_DESK_ID),
+                GatheringContent.createScorekeepersDesk());
+        GatheringContent.SCOREKEEPERS_DESK.bindValue(desk);
+        GatheringContent.SCOREKEEPERS_DESK_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.SCOREKEEPERS_DESK_ID),
+                GatheringContent.createScorekeepersDeskItem()));
+        GatheringContent.SCOREKEEPERS_DESK_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.ScorekeepersDeskBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(GatheringContent::createScorekeepersDeskEntity, desk)
+                        .addBlocks(blocksOf(GatheringContent.Woodwork.SCOREKEEPERS_DESK))
+                        .build()));
+
+        // The counter, then somewhere to work at it, then the job. Fabric's helper registers
+        // the point of interest and puts every one of the block's states into the map
+        // villagers search, which is the part vanilla keeps to itself.
+        net.minecraft.world.level.block.Block counter = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.SHOP_COUNTER_ID),
+                GatheringContent.createShopCounter());
+        GatheringContent.SHOP_COUNTER.bindValue(counter);
+        Item counterItem = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.SHOP_COUNTER_ID),
+                GatheringContent.createShopCounterItem());
+        GatheringContent.SHOP_COUNTER_ITEM.bindValue(counterItem);
+        // Every counter in every wood, which is what GatheringVillagers builds. Passing the one plain
+        // block here left a shop built out of spruce or birch a shop no villager on this loader would
+        // ever take a job at, while the same shop worked on the other one.
+        dev.gathering.village.GatheringVillagers.COUNTER_POI.bindValue(Registry.register(
+                BuiltInRegistries.POINT_OF_INTEREST_TYPE, Gathering.id(GatheringContent.SHOP_COUNTER_ID),
+                dev.gathering.village.GatheringVillagers.createCounterPoi()));
+        dev.gathering.village.GatheringVillagers.SHOPKEEPER.bindValue(Registry.register(
+                BuiltInRegistries.VILLAGER_PROFESSION,
+                Gathering.id(dev.gathering.village.GatheringVillagers.SHOPKEEPER_ID),
+                dev.gathering.village.GatheringVillagers.createShopkeeper()));
+        for (int level = 1; level <= dev.gathering.core.sealed.ShopTier.LEVELS; level++) {
+            List<net.minecraft.world.entity.npc.VillagerTrades.ItemListing> listings =
+                    dev.gathering.village.ShopTrades.at(level);
+            net.fabricmc.fabric.api.object.builder.v1.trade.TradeOfferHelper
+                    .registerVillagerOffers(
+                            dev.gathering.village.GatheringVillagers.SHOPKEEPER.get(), level,
+                            factories -> factories.addAll(listings));
+        }
+
+        dev.gathering.registry.GatheringLoot.SEALED_PRODUCT.bindValue(Registry.register(
+                BuiltInRegistries.LOOT_POOL_ENTRY_TYPE,
+                Gathering.id(dev.gathering.registry.GatheringLoot.SEALED_PRODUCT_ID),
+                dev.gathering.registry.GatheringLoot.createSealedProductType()));
+
+        Registry.register(
+                BuiltInRegistries.CREATIVE_MODE_TAB,
+                Gathering.id("main"),
+                FabricItemGroup.builder()
+                        .title(Component.translatable("itemGroup." + Gathering.MOD_ID + ".main"))
+                        .icon(() -> new ItemStack(deck))
+                        // One order, shared with NeoForge, with every family whole and no plain
+                        // variant standing apart from its own woods. See creativeItems.
+                        .displayItems((parameters, output) -> GatheringContent.creativeItems()
+                                .forEach(item -> output.accept(new ItemStack(item.get()))))
+                        .build());
+    }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "theme.gathering.ember",
+  "sprites": "gathering:ember",
+  "order": 100
+}

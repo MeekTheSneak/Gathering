@@ -1,0 +1,436 @@
+package dev.gathering.neoforge.test;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
+import dev.gathering.Gathering;
+import dev.gathering.core.sealed.LootSource;
+import dev.gathering.item.GatheringContent;
+import dev.gathering.loot.PackLootEntry;
+import dev.gathering.registry.GatheringLoot;
+import dev.gathering.server.SealedLoot;
+import java.io.IOException;
+import java.io.Reader;
+import java.util.List;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
+import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+/**
+ * Sealed product turning up in the world.
+ * <p>Two things are worth checking in a running server rather than on paper. The first is
+ * that rolling one of Minecraft's own chests still works with the mod installed: a loot
+ * modifier runs inside loot generation, and one that throws takes every chest in the world
+ * with it. The second is that the two files that wire the modifier up actually shipped -
+ * they are generated, and a modifier whose files are missing is not an error anywhere, it is
+ * simply a feature that never happens.
+ */
+@GameTestHolder(Gathering.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class SealedLootGameTest {
+
+    /** What these tests are about: a server that is not collecting. */
+    private static final String COLLECTING_OFF =
+            "[modes]\ncollection_enabled = false\n";
+
+    private static final ResourceLocation DUNGEON =
+            ResourceLocation.withDefaultNamespace("chests/simple_dungeon");
+
+    /**
+     * A vanilla chest still rolls, and does not quietly gain a pack.
+     * <p>Collecting is off in a test server, and off means off however the loot tables are
+     * written - a pack here would mean the switch in the config file is not the switch.
+     */
+    @GameTest(template = "empty")
+    public static void aChestRollsAndHasNoPackInIt(GameTestHelper helper) {
+        // Switched off here rather than assumed. These tests share one server with
+        // tests that switch collecting on, so a test that reads a setting it did not
+        // set passes or fails by the order the tests happened to run in.
+        TestConfig.run(COLLECTING_OFF, () -> {
+            ServerLevel level = helper.getLevel();
+            LootTable table = level.getServer().reloadableRegistries()
+                    .getLootTable(ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE, DUNGEON));
+            LootParams params = new LootParams.Builder(level)
+                    .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
+                            Vec3.atCenterOf(helper.absolutePos(net.minecraft.core.BlockPos.ZERO)))
+                    .create(LootContextParamSets.CHEST);
+
+            for (int roll = 0; roll < 64; roll++) {
+                for (ItemStack stack : table.getRandomItems(params)) {
+                    if (stack.is(GatheringContent.PACK.get())) {
+                        helper.fail("A pack came out of a dungeon chest with collecting switched off");
+                        return;
+                    }
+                }
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Fishing can bring up a pack on this loader.
+     * <p>The bobber rolls {@code gameplay/fishing}, which reaches the treasure table as a nested
+     * entry, and NeoForge runs global loot modifiers only for the table a roll starts from. The
+     * modifier's rule named the treasure table, so it was never asked about it, and nobody on
+     * NeoForge ever fished up a pack. The treasure table now carries a pool of its own, as it
+     * does on Fabric. Checked on the loaded table rather than by rolling for a pack, because a
+     * pack needs the set list and a test server has none - which is also why the older check,
+     * handing the treasure table's name straight to the roll, could not see this.
+     */
+    @GameTest(template = "empty")
+    public static void theTreasureFishingReachesHasAPackPool(GameTestHelper helper) {
+        LootTable treasure = helper.getLevel().getServer().reloadableRegistries().getLootTable(
+                ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE,
+                        ResourceLocation.withDefaultNamespace("gameplay/fishing/treasure")));
+        if (treasure.getPool("gathering_sealed_product") == null) {
+            helper.fail("the fishing treasure table has no pack pool, so fishing never brings up a pack");
+            return;
+        }
+        // And the premise: the table fishing rolls is not the treasure table. If vanilla ever
+        // rolled treasure directly, the modifier would see it and this pool would double it.
+        String rolled = net.minecraft.world.level.storage.loot.BuiltInLootTables.FISHING.location().toString();
+        if (rolled.equals("minecraft:gameplay/fishing/treasure")) {
+            helper.fail("fishing now rolls the treasure table directly; the pack pool would roll twice");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** The modifier's own two files, which nothing complains about the absence of. */
+    @GameTest(template = "empty")
+    public static void theLootModifierIsActuallyInstalled(GameTestHelper helper) {
+        String list = read(helper, ResourceLocation.fromNamespaceAndPath(
+                "neoforge", "loot_modifiers/global_loot_modifiers.json"));
+        String modifier = read(helper, ResourceLocation.fromNamespaceAndPath(
+                Gathering.MOD_ID, "loot_modifiers/" + GatheringLoot.SEALED_PRODUCT_ID + ".json"));
+        if (list == null || modifier == null) {
+            helper.fail("The generated loot modifier files are not in the jar; run runData");
+            return;
+        }
+        String id = Gathering.id(GatheringLoot.SEALED_PRODUCT_ID).toString();
+        if (!list.contains(id)) {
+            helper.fail("global_loot_modifiers.json does not list " + id);
+            return;
+        }
+        if (!modifier.contains(id)) {
+            helper.fail(GatheringLoot.SEALED_PRODUCT_ID + ".json does not name " + id);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The entry type a data pack would write, both registered and fussy about its source.
+     * <p>Fabric puts packs in chests with this entry rather than with a modifier, so a
+     * codec that does not round trip is that whole loader's loot silently not loading.
+     */
+    @GameTest(template = "empty")
+    public static void theEntryTypeRoundTripsAndRefusesNonsense(GameTestHelper helper) {
+        if (!BuiltInRegistries.LOOT_POOL_ENTRY_TYPE.containsKey(
+                Gathering.id(GatheringLoot.SEALED_PRODUCT_ID))) {
+            helper.fail("gathering:sealed_product is not a registered loot pool entry type");
+            return;
+        }
+
+        JsonElement written = JsonParser.parseString(
+                "{\"source\": \"" + LootSource.STRUCTURES.configName() + "\"}");
+        if (PackLootEntry.CODEC.codec().parse(JsonOps.INSTANCE, written).result().isEmpty()) {
+            helper.fail("A sealed_product entry naming a real source would not parse");
+            return;
+        }
+
+        JsonElement nonsense = JsonParser.parseString("{\"source\": \"trading\"}");
+        if (PackLootEntry.CODEC.codec().parse(JsonOps.INSTANCE, nonsense).result().isPresent()) {
+            helper.fail("A sealed_product entry naming a source nobody has parsed anyway");
+            return;
+        }
+
+        // And a data pack may say its own chest is a find worth making, which is what
+        // decides whether a collector booster is plausible out of it.
+        JsonElement rich = JsonParser.parseString(
+                "{\"source\": \"structures\", \"richness\": \"rich\"}");
+        var parsed = PackLootEntry.CODEC.codec().parse(JsonOps.INSTANCE, rich).result();
+        if (parsed.isEmpty()) {
+            helper.fail("A sealed_product entry saying its chest is rich would not parse");
+            return;
+        }
+        var backOut = PackLootEntry.CODEC.codec()
+                .encodeStart(JsonOps.INSTANCE, parsed.get()).result().orElse(null);
+        if (backOut == null || !backOut.toString().contains("rich")) {
+            helper.fail("How good the chest is did not survive a round trip: " + backOut);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A server that is not collecting does not go and ask which set is current.
+     * <p>The answer is already there before anything asks for it, which is what "did not
+     * make a request" looks like from here. Worth pinning: every play-only server in the
+     * world would otherwise fetch a megabyte at every start for a number nobody reads.
+     */
+    @GameTest(template = "empty")
+    public static void aPlayOnlyServerNeverAsksWhichSetIsCurrent(GameTestHelper helper) {
+        // Off here rather than assumed, and resolved again under it: the answer is a static
+        // that another test's server may already have filled in.
+        TestConfig.run(COLLECTING_OFF, () -> {
+            dev.gathering.server.CurrentSet.resolve();
+            var known = dev.gathering.server.CurrentSet.whenKnown();
+            if (!known.isDone()) {
+                helper.fail("A server with collecting off went looking for the current set");
+                return;
+            }
+            if (known.join().isPresent()) {
+                helper.fail("A server with collecting off has a current set: " + known.join().get());
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    /** Nothing is available on a server that has not been told a set, so nothing drops. */
+    @GameTest(template = "empty")
+    public static void nothingDropsBeforeASetIsKnown(GameTestHelper helper) {
+        // Emptied here rather than assumed empty. The pool used to take long enough to fill
+        // that it was still empty whenever this ran; it is one read now and fills in seconds,
+        // so a test about a server that has read no set has to be the thing that unreads them.
+        SealedLoot.clear();
+        for (LootSource source : LootSource.values()) {
+            if (SealedLoot.rollFrom(source, dev.gathering.core.sealed.LootRichness.PLAIN,
+                    helper.getLevel().getRandom()).isPresent()) {
+                helper.fail("A pack dropped from " + source.configName()
+                        + " before any set had been read");
+                return;
+            }
+        }
+        if (SealedLoot.rollFor("minecraft:entities/zombie", helper.getLevel().getRandom())
+                .isPresent()) {
+            helper.fail("A pack dropped out of a mob before any set had been read");
+            return;
+        }
+        if (SealedLoot.rollFor("minecraft:blocks/stone", helper.getLevel().getRandom())
+                .isPresent()) {
+            helper.fail("A pack dropped out of a table this mod has nothing to do with");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A mob nobody fought drops nothing, however many times it dies.
+     * <p>The one source that can be automated, so the one with a gate on it: a drop chute under
+     * a spawner is a pack faucet nobody is playing, and the whole point of making packs common
+     * was to reward going somewhere rather than standing still. Read from the same loot
+     * parameter vanilla's own {@code killed_by_player} condition reads.
+     * <p>Checked on the rule rather than by rolling a real zombie, because a pack also needs a
+     * set list and a test server has none - so a roll that came back empty would prove nothing
+     * about which of the two said no.
+     */
+    @GameTest(template = "empty")
+    public static void amobNobodyFoughtDropsNothing(GameTestHelper helper) {
+        if (!dev.gathering.core.sealed.LootSource.MOBS.needsAPlayer()) {
+            helper.fail("Mob drops no longer need a player, so a spawner farm is a pack faucet");
+            return;
+        }
+        // A table rolled with no context behind it is not a kill, which is what the two-argument
+        // roll means and what every command-driven roll is.
+        if (SealedLoot.rollFor("minecraft:entities/zombie", helper.getLevel().getRandom(), false)
+                .isPresent()) {
+            helper.fail("A pack dropped off a mob a player had nothing to do with");
+            return;
+        }
+        // And the parameter the loader reads is the one vanilla uses for the same question, so
+        // a rename in a later version is a compile error rather than a silent faucet.
+        if (!net.minecraft.world.level.storage.loot.predicates.LootItemKilledByPlayerCondition
+                .killedByPlayer().build().getReferencedContextParams()
+                .contains(net.minecraft.world.level.storage.loot.parameters
+                        .LootContextParams.LAST_DAMAGE_PLAYER)) {
+            helper.fail("Vanilla no longer decides 'killed by a player' from LAST_DAMAGE_PLAYER");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The entry inside a real table, rolled by the real loot machinery.
+     * <p>This is the whole of Fabric's mechanism bar the one line that registers the hook,
+     * so it is worth rolling here where there is a server to roll it on: an entry that
+     * throws, or one the pool refuses to build, is that loader's chests broken.
+     */
+    @GameTest(template = "empty")
+    public static void theEntryRollsInsideARealTable(GameTestHelper helper) {
+        // Switched off here rather than assumed. These tests share one server with
+        // tests that switch collecting on, so a test that reads a setting it did not
+        // set passes or fails by the order the tests happened to run in.
+        TestConfig.run(COLLECTING_OFF, () -> {
+            ServerLevel level = helper.getLevel();
+            LootTable table = LootTable.lootTable()
+                    .withPool(LootPool.lootPool()
+                            .setRolls(ConstantValue.exactly(1.0f))
+                            .add(PackLootEntry.forTable(
+                                    LootSource.STRUCTURES, dev.gathering.core.sealed.LootRichness.RICH)))
+                    .build();
+            LootParams params = new LootParams.Builder(level).create(LootContextParamSets.EMPTY);
+
+            for (int roll = 0; roll < 64; roll++) {
+                for (ItemStack stack : table.getRandomItems(params)) {
+                    if (stack.is(GatheringContent.PACK.get())) {
+                        helper.fail("A pack came out of a sealed_product entry with collecting off");
+                        return;
+                    }
+                    helper.fail("A sealed_product entry produced " + stack + ", which is not nothing");
+                    return;
+                }
+            }
+            helper.succeed();
+        });
+    }
+
+    private static String read(GameTestHelper helper, ResourceLocation where) {
+        List<Resource> stack = helper.getLevel().getServer().getResourceManager()
+                .getResourceStack(where);
+        StringBuilder all = new StringBuilder();
+        for (Resource resource : stack) {
+            try (Reader reader = resource.openAsReader()) {
+                reader.transferTo(new java.io.Writer() {
+                    @Override
+                    public void write(char[] buffer, int off, int len) {
+                        all.append(buffer, off, len);
+                    }
+
+                    @Override
+                    public void flush() {
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                });
+            } catch (IOException unreadable) {
+                return null;
+            }
+        }
+        return all.isEmpty() ? null : all.toString();
+    }
+
+    /**
+     * A chest is never thinned; a boss anybody can respawn is.
+     * <p>The owner's line: no farms, and no limit on exploring. An Archive Pack out of an ancient
+     * city has been walked to, and one off a wither has not - a wither is three farmed skulls - so
+     * the same pack is kept to a pace in one place and never in the other.
+     * <p>Rolled through the archive rather than the ordinary pack because the archive can be held
+     * for testing without any set data, and a test that quietly passes on an empty pool says nothing.
+     */
+    @GameTest(template = "empty")
+    public static void chestsAreNeverKeptToaPaceAndFarmableBossesAre(GameTestHelper helper) {
+        java.util.UUID explorer = java.util.UUID.randomUUID();
+        java.util.UUID farmer = java.util.UUID.randomUUID();
+        ServerLevel level = helper.getLevel();
+        dev.gathering.server.Archive.holdForTesting(java.util.Set.of(java.util.UUID.randomUUID()));
+        try {
+            int outOfChests = 0;
+            for (int chest = 0; chest < 2_000; chest++) {
+                outOfChests += SealedLoot.findsIn("minecraft:chests/ancient_city", level.getRandom(),
+                        false, explorer).size();
+            }
+            if (outOfChests <= 0) {
+                helper.fail("fixture: two thousand ancient city chests gave nothing at all");
+                return;
+            }
+            double chargedForExploring = dev.gathering.server.Finds.had(explorer,
+                    dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE);
+            if (chargedForExploring != 0.0) {
+                helper.fail("two thousand chests put " + chargedForExploring + " against the "
+                        + "player's pace, and exploring must never be kept to one");
+                return;
+            }
+
+            // And the same pack off a wither, which is three farmed skulls and a machine.
+            int offWithers = 0;
+            for (int wither = 0; wither < 2_000; wither++) {
+                offWithers += SealedLoot.findsIn("minecraft:entities/wither", level.getRandom(),
+                        true, farmer).size();
+            }
+            double chargedForFarming = dev.gathering.server.Finds.had(farmer,
+                    dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE);
+            if (chargedForFarming <= 0.0) {
+                helper.fail("fixture: two thousand withers put nothing against the farmer's pace");
+                return;
+            }
+            // One pack in two withers is a thousand of them without a pace. The brim, and the climb
+            // out of it, is what running the farm is actually worth.
+            if (offWithers > dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE.burst() + 12) {
+                helper.fail("two thousand farmed withers gave " + offWithers + " archive packs");
+                return;
+            }
+        } finally {
+            dev.gathering.server.Archive.clear();
+            dev.gathering.server.Finds.forgetForTesting(explorer);
+            dev.gathering.server.Finds.forgetForTesting(farmer);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A machine does not outrun the pace the world was written for.
+     * <p>Every rate this mod has is set against an hour of somebody playing, and none of them is set
+     * against a wither farm, a re-triggered shrieker or a weighted fishing rod. This rolls a chest
+     * that always pays, over and over, as a machine would - and checks that what comes out settles
+     * near the pace rather than near the machine's own rate, while a player who has been exploring
+     * for an hour is thinned by nothing at all.
+     */
+    @GameTest(template = "empty")
+    public static void amachineDoesNotOutrunThePace(GameTestHelper helper) {
+        java.util.UUID farmer = java.util.UUID.randomUUID();
+        java.util.UUID explorer = java.util.UUID.randomUUID();
+        try {
+            // An hour of exploring, as LootYieldTest counts one: nothing is refused.
+            int given = 0;
+            for (int find = 0; find < dev.gathering.core.sealed.FindingPace.FARMED_PACKS.burst(); find++) {
+                if (dev.gathering.server.Finds.arrives(explorer,
+                        dev.gathering.core.sealed.FindingPace.FARMED_PACKS,
+                        helper.getLevel().getRandom())) {
+                    given++;
+                }
+            }
+            if (given != dev.gathering.core.sealed.FindingPace.FARMED_PACKS.burst()) {
+                helper.fail("an evening of real fishing was thinned: " + given + " of "
+                        + dev.gathering.core.sealed.FindingPace.FARMED_PACKS.burst() + " arrived");
+                return;
+            }
+
+            // And a machine, rolling far more times than any player could in the same wall clock.
+            int minted = 0;
+            for (int roll = 0; roll < 20_000; roll++) {
+                if (dev.gathering.server.Finds.arrives(farmer,
+                        dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE,
+                        helper.getLevel().getRandom())) {
+                    minted++;
+                }
+            }
+            // The brim it starts with, plus the climb out of it. Nothing like twenty thousand.
+            if (minted > dev.gathering.core.sealed.FindingPace.FARMED_ARCHIVE.burst() + 12) {
+                helper.fail("a machine rolling twenty thousand times was given " + minted
+                        + " archive packs");
+                return;
+            }
+        } finally {
+            dev.gathering.server.Finds.forgetForTesting(farmer);
+            dev.gathering.server.Finds.forgetForTesting(explorer);
+        }
+        helper.succeed();
+    }
+}

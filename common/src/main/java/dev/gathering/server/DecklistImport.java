@@ -1,0 +1,367 @@
+package dev.gathering.server;
+
+import dev.gathering.network.Sending;
+import dev.gathering.core.decklist.DeckSection;
+import dev.gathering.core.decklist.ParseProblem;
+import dev.gathering.core.deck.ResolvedCard;
+import dev.gathering.core.deck.ResolvedDeck;
+import dev.gathering.core.deck.UnresolvedEntry;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DeckItem;
+import dev.gathering.network.CardMetadataPayload;
+import dev.gathering.network.CardSummary;
+import dev.gathering.network.ImportResultPayload;
+import dev.gathering.network.ImportDecklistPayload;
+import dev.gathering.service.CardDataService;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Turns a pasted decklist into a deck item in a player's hands.
+ * <p>All of the interesting work is in the pure core; this is the part that knows about
+ * players, threads, and packets. Two rules shape it:
+ *
+ * <ul>
+ *   <li>Resolution runs on the card pipeline's executor, never on the server thread. Giving
+ *       the item runs on the server thread, never anywhere else.</li>
+ *   <li>The client is told the card metadata for the deck it just imported - it holds these
+ *       cards, so it is entitled to know what they are. Nothing else is sent.</li>
+ * </ul>
+ */
+public final class DecklistImport {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
+
+    /**
+     * One import at a time per player, and a short breath between them.
+     * <p>Every import is potentially two Scryfall requests. The rate limiter keeps the
+     * server polite whatever happens, but without this a client could queue unbounded work
+     * behind it and starve everyone else's imports. A player who has to wait a couple of
+     * seconds between decklists has lost nothing.
+     */
+    private static final long COOLDOWN_NANOS = java.time.Duration.ofSeconds(3).toNanos();
+
+    /** Vanilla's own "runs the server" level, the same one /op grants. */
+    private static final int OPERATOR_LEVEL = 2;
+
+    private static final java.util.Map<UUID, Long> lastImportNanos = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Set<UUID> inFlight = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private DecklistImport() {
+    }
+
+    /**
+     * Forgets every import in flight and every cooldown, for a world that has closed.
+     * <p>The in-flight marker comes off when the lookup completes, and a lookup still queued
+     * when the world closes never does: the card worker is shut down with its queue dropped,
+     * and a dropped task completes nothing. So a single-player import made while the worker
+     * was still busy warming its caches, then a quit, left that player refused - "An import is
+     * already running" - in every world until the game was restarted.
+     */
+    public static void clear() {
+        inFlight.clear();
+        lastImportNanos.clear();
+    }
+
+    /**
+     * Why this player may not import, or null if they may.
+     * <p>Public so the command that opens the import screen can ask before opening it: being
+     * told no after typing a decklist out is a worse answer than being told no instead of
+     * being handed the box to type it into.
+     */
+    public static String whyNot(ServerPlayer player) {
+        return whyNot(runsThisServer(player));
+    }
+
+    /**
+     * Whether this player is the person whose server it is.
+     * <p>Operator, or the owner of a single-player world - which is the same person and is not
+     * the same permission. A player in their own world has permission level zero until they
+     * turn cheats on, so on the shipped defaults, where importing is the operator's tool,
+     * somebody who installed the mod to play on their own was told they were not allowed to
+     * use it. Nobody was going to report that as a bug; they were going to uninstall it.
+     * <p>Not merely "single player", because a world opened to the LAN is still a single-player
+     * server and its guests are guests. The one this asks about is the host.
+     */
+    private static boolean runsThisServer(ServerPlayer player) {
+        return player.hasPermissions(OPERATOR_LEVEL)
+                || player.server.isSingleplayerOwner(player.getGameProfile());
+    }
+
+    /**
+     * Why this player may not build a deck out of a collection, or null.
+     * <p>Not the import rule. Sleeving a deck out of cards you already own is what collection
+     * mode is for, and a server running collection without import - which the brief calls a
+     * collecting game that still uses the table - would otherwise be a server where the whole
+     * feature is switched off. What the list is checked against is the box, and that check is
+     * the collection's own: own the cards, and be standing in front of them.
+     */
+    public static String whyNotFromCollection() {
+        return dev.gathering.service.ServerSettings.get().modes().collectionEnabled()
+                ? null
+                : "Collecting is turned off on this server.";
+    }
+
+    /** The same answer for somebody described only by whether they run the server. */
+    public static String whyNot(boolean isOperator) {
+        var settings = dev.gathering.service.ServerSettings.get();
+        if (!settings.modes().importEnabled()) {
+            return "Importing decklists is turned off on this server.";
+        }
+        if (!settings.mayImport(isOperator)) {
+            // Said with the way in that is open, because on a collecting server this is not
+            // a refusal so much as a signpost: cards are things you own here, and there is a
+            // whole game on the other side of that sentence. Only claimed where it is true.
+            return settings.modes().collectionEnabled()
+                    ? "Only server operators can import decklists here. Open packs and build "
+                            + "a deck out of your own collection instead."
+                    : "Only server operators can import decklists here.";
+        }
+        return null;
+    }
+
+    /**
+     * @param player   the importer; the deck is bound to them and lands in their inventory
+     * @param service  the card pipeline, which owns the off-thread executor
+     * @param decklist the pasted text, exactly as typed
+     * @return why it was refused, or null when the import is under way. A command has to know:
+     *         it said "import started" whatever happened, straight after a refusal.
+     */
+    public static String importFor(ServerPlayer player, CardDataService service, String decklist) {
+        return importFor(player, service, decklist, "", "");
+    }
+
+    /**
+     * @param deckName    what the player called it, or blank to take the list's own name
+     * @param description the player's note, shown under the name on the item
+     */
+    public static String importFor(
+            ServerPlayer player, CardDataService service, String decklist, String deckName,
+            String description) {
+        return importFor(player, service, decklist, deckName, description, null,
+                java.util.Optional.empty());
+    }
+
+    /**
+     * @param from the collection to build the deck out of, or null to conjure it out of
+     *             nothing. Naming one is the same request with the cards having to come from
+     *             somewhere: everything up to the resolved list is identical, and only the
+     *             last step differs.
+     * @param forRequest which press this answers, when a screen is waiting for it. Every
+     *                   answer sent from here carries it back, so a screen can tell its own
+     *                   answer from one meant for a screen it is not. Empty for an import
+     *                   nobody pressed a button for - a command, or the scripted run - which
+     *                   no screen then acts on, which is right: nobody is waiting.
+     */
+    public static String importFor(
+            ServerPlayer player, CardDataService service, String decklist, String deckName,
+            String description, net.minecraft.core.BlockPos from,
+            java.util.Optional<UUID> forRequest) {
+        UUID id = player.getUUID();
+
+        // The server's own answer, not the screen's. A client that never saw the screen - or
+        // one written to skip it - arrives here, and this is the only place that decides.
+        String refusal = from == null ? whyNot(player) : whyNotFromCollection();
+        if (refusal != null) {
+            send(player, new ImportResultPayload("", 0, List.of(refusal), forRequest));
+            return refusal;
+        }
+
+        if (!inFlight.add(id)) {
+            String running = "An import is already running; wait for it to finish.";
+            send(player, new ImportResultPayload("", 0, List.of(running), forRequest));
+            return running;
+        }
+
+        long now = System.nanoTime();
+        Long previous = lastImportNanos.get(id);
+        if (previous != null && now - previous < COOLDOWN_NANOS) {
+            inFlight.remove(id);
+            String soon = "Importing again so soon; give it a few seconds.";
+            send(player, new ImportResultPayload("", 0, List.of(soon), forRequest));
+            return soon;
+        }
+        // Forgotten wholesale past a bound, the way CollectionView remembers its takes: one
+        // entry per player who ever imported, kept for the life of the JVM, is a map that
+        // only grows. Forgetting costs one free re-import, which the cooldown can afford.
+        if (lastImportNanos.size() > 512) {
+            lastImportNanos.clear();
+        }
+        lastImportNanos.put(id, now);
+
+        // Back on the server thread of the world that asked, or not at all. Built here rather
+        // than inside the completion because that is where the server and the run have to be
+        // read from: a completion that outlives its world reads the wrong server.
+        java.util.function.BiConsumer<ResolvedDeck, Throwable> handOver =
+                ServerRun.onServerThread(player, (deck, failure) -> {
+                    if (player.hasDisconnected()) {
+                        // Nobody to hand a deck to. The cache kept everything it fetched,
+                        // so re-importing after logging back in costs no requests.
+                        return;
+                    }
+                    if (failure != null) {
+                        LOGGER.warn("Decklist import failed for {}",
+                                player.getGameProfile().getName(), failure);
+                        send(player, new ImportResultPayload("", 0,
+                                List.of("The import could not reach Scryfall: "
+                                        + rootMessage(failure)), forRequest));
+                        return;
+                    }
+                    if (from == null) {
+                        deliver(player, deck, deckName, description, forRequest);
+                    } else {
+                        CollectionDecks.build(player, from, deck, deckName, description, forRequest);
+                    }
+                });
+
+        service.importDecklist(decklist)
+                .whenComplete((deck, failure) -> {
+                    // runcheck: the fence is handOver, built above where the server and the
+                    // run can still be read. What is outside it is one line of this process's
+                    // own bookkeeping, which touches no world state.
+                    //
+                    // Off the fence on purpose: this marker is this process's own bookkeeping
+                    // about who has an import out, and it has to come off however the import
+                    // ended and whichever world is running by then. Leaving it on would refuse
+                    // that player's next import for the rest of the session.
+                    inFlight.remove(id);
+                    handOver.accept(deck, failure);
+                });
+        return null;
+    }
+
+    private static void deliver(ServerPlayer player, ResolvedDeck deck, String deckName,
+            String description, java.util.Optional<UUID> forRequest) {
+        DeckComponent component = toComponent(deck, player.getUUID(), deckName, description)
+                .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()));
+        if (!component.fitsInAnItem()) {
+            // Refused rather than handed over. A deck this size cannot be encoded, and the
+            // stack would still go into the inventory and be saved there - so the next login
+            // fails, and every one after it, until somebody edits the player file by hand.
+            // A list that big is a mistake or a probe either way; saying so costs nothing.
+            send(player, new ImportResultPayload("", 0, List.of(
+                    "That list is " + component.totalCards() + " cards. A deck holds "
+                            + DeckComponent.MAX_CARDS + "."), forRequest));
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.import_too_big",
+                    component.totalCards(), DeckComponent.MAX_CARDS));
+            return;
+        }
+        ItemStack stack = DeckItem.of(component);
+
+        dev.gathering.server.Handing.give(player, stack);
+
+        // Split, because a deck may be a cube of a thousand cards and a summary carries
+        // oracle text and two image links per face. One packet of that is a packet the game
+        // refuses to write, which disconnects whoever was importing.
+        for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summariesFor(deck))) {
+            send(player, packet);
+        }
+        send(player, new ImportResultPayload(
+                component.name(), component.totalCards(), problemsOf(deck), forRequest));
+
+        player.sendSystemMessage(Component.translatable(
+                "message.gathering.import_complete", component.name(), component.totalCards()));
+        dev.gathering.server.Achievements.award(
+                player, dev.gathering.server.Achievements.FIRST_DECK);
+    }
+
+    /**
+     * Flattens quantities into individual cards: a decklist line saying "4 Lightning Bolt"
+     * becomes four cards, because four copies is four objects on a table.
+     */
+    public static DeckComponent toComponent(ResolvedDeck deck, UUID owner) {
+        return toComponent(deck, owner, "", "");
+    }
+
+    public static DeckComponent toComponent(
+            ResolvedDeck deck, UUID owner, String deckName, String description) {
+        // What the player typed wins; a list that named itself is the fallback.
+        // The list's own "Name:" line is capped exactly as a typed name is. It arrives inside
+        // the decklist text, which has a bound of its own, and a name that came in through it
+        // at a thousand characters went onto the deck item - and into every packet that
+        // carries the item's name under the typed bound, which disconnected the importer.
+        String typed = dev.gathering.core.game.PlayerText.oneLine(deckName, ImportDecklistPayload.MAX_NAME_LENGTH);
+        String named = dev.gathering.core.game.PlayerText.oneLine(
+                deck.deckName().orElse(null), ImportDecklistPayload.MAX_NAME_LENGTH);
+        String chosen = typed != null ? typed : named != null ? named : "Imported Deck";
+        return new DeckComponent(
+                chosen,
+                dev.gathering.core.game.PlayerText.lines(description, ImportDecklistPayload.MAX_DESCRIPTION_LENGTH),
+                java.util.Optional.of(owner),
+                flatten(deck, DeckSection.MAINBOARD),
+                flatten(deck, DeckSection.COMMANDER),
+                flatten(deck, DeckSection.SIDEBOARD));
+    }
+
+    /**
+     * A section as one card per copy, and never more copies than an item could hold.
+     * <p>The size of a deck is checked afterwards, by {@code fitsInAnItem}. That is the right place to
+     * refuse it and the wrong place to find out: a line asking for two billion of something built the
+     * list first and answered afterwards, which is a server spending its memory to say no. Stopping
+     * one past the limit is enough for the check to still fail, and costs nothing to the decks people
+     * actually import.
+     */
+    private static List<CardComponent> flatten(ResolvedDeck deck, DeckSection section) {
+        int most = DeckComponent.MAX_CARDS + 1;
+        List<CardComponent> cards = new ArrayList<>();
+        for (ResolvedCard card : deck.in(section)) {
+            CardComponent component = CardComponent.of(card.identity());
+            for (int copy = 0; copy < card.quantity() && cards.size() < most; copy++) {
+                cards.add(component);
+            }
+            if (cards.size() >= most) {
+                break;
+            }
+        }
+        return cards;
+    }
+
+    /** One summary per distinct printing, not one per card: a deck of forty Forests is one entry. */
+    public static List<CardSummary> summariesFor(ResolvedDeck deck) {
+        Map<UUID, CardSummary> distinct = new LinkedHashMap<>();
+        for (ResolvedCard card : deck.cards()) {
+            distinct.computeIfAbsent(card.metadata().scryfallId(), id -> CardSummary.of(card.metadata()));
+        }
+        return List.copyOf(distinct.values());
+    }
+
+    public static List<String> problemsOf(ResolvedDeck deck) {
+        List<String> problems = new ArrayList<>();
+        for (ParseProblem problem : deck.problems()) {
+            problems.add(problem.toString());
+        }
+        for (UnresolvedEntry unresolved : deck.unresolved()) {
+            problems.add(unresolved.toString());
+        }
+        int limit = ImportResultPayload.MAX_PROBLEMS;
+        if (problems.size() > limit) {
+            List<String> trimmed = new ArrayList<>(problems.subList(0, limit - 1));
+            trimmed.add("...and " + (problems.size() - limit + 1) + " more");
+            return trimmed;
+        }
+        return problems;
+    }
+
+    private static void send(ServerPlayer player, net.minecraft.network.protocol.common.custom.CustomPacketPayload payload) {
+        Sending.to(player, payload);
+    }
+
+    private static String rootMessage(Throwable failure) {
+        Throwable cause = failure;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        String message = cause.getMessage();
+        return message == null ? cause.getClass().getSimpleName() : message;
+    }
+}

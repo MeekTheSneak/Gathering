@@ -1,0 +1,184 @@
+package dev.gathering.client;
+
+import dev.gathering.client.GatheringSprites.Element;
+import dev.gathering.core.tutorial.TutorialProgress;
+import dev.gathering.core.tutorial.TutorialStep;
+import dev.gathering.core.ui.Rect;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+
+/**
+ * One instruction at a time, over the corner of the board.
+ * <p>Deliberately small and deliberately in the way of nothing. A tutorial that darkens the
+ * screen and points at things is teaching somebody to follow a highlight; this one puts a
+ * sentence on the felt and gets out of the way, because the thing being taught is a key press
+ * on the real board and the real board has to stay visible and usable while it happens.
+ * <p>Every instruction names a key, and the key it names is the one that verb is bound to
+ * right now - so somebody who has rebound draw reads their own key rather than mine. See
+ * {@link Tutorial#instruction()}.
+ * <p>Existing art only: the panel is the same sprite every other panel in the mod uses, and
+ * the ticks beside the finished steps are text. Nothing here needs a picture drawn.
+ * <p>Client-only.
+ */
+public final class TutorialPanel {
+
+    /** How wide the panel is, as a fraction of the window, and what it will not go past. */
+    private static final double SHARE_OF_WIDTH = 0.34;
+    private static final int WIDEST = 260;
+    private static final int NARROWEST = 150;
+
+    /** The narrowest the panel goes to keep off the board: its buttons still hold their words. */
+    private static final int SQUEEZED = 120;
+
+    private static final int PADDING = 6;
+    private static final int GAP = 3;
+
+    private static final int TITLE = 0xFFF3EEE4;
+    private static final int STEP_NUMBER = 0xFFB6AC9C;
+    private static final int INSTRUCTION = 0xFFFFFFFF;
+    private static final int WHY = 0xFFC8BFAF;
+    private static final int NOTE = 0xFF9C9384;
+
+    private TutorialPanel() {
+    }
+
+    /**
+     * Where the panel sits, given the window and how tall its text turned out.
+     * <p>Top left, under the status strip, because that is the one corner of this board with
+     * nothing in it: the hand is along the bottom, the zone column is down one side and the
+     * life totals are across the top.
+     */
+    public static Rect at(Font font, int screenWidth, int screenHeight, int topEdge) {
+        return at(font, screenWidth, screenHeight, topEdge, Integer.MAX_VALUE);
+    }
+
+    /**
+     * The same, kept left of a line the board needs.
+     * <p>The lesson frames the whole table, so both mats are on the screen - the card it asks
+     * somebody to read is on the far one - and a panel of its usual width lay over the near
+     * mat's own buttons. The scripted client photographed "Dr" and "Un" showing between the
+     * lesson's buttons: the Draw button, under the panel telling the player to draw. So the
+     * panel narrows to stop short of the mats, down to the narrowest it can still be read at,
+     * and only below that does it cover anything.
+     *
+     * @param rightLimit the leftmost x the panel must not reach, or {@code Integer.MAX_VALUE}
+     */
+    public static Rect at(Font font, int screenWidth, int screenHeight, int topEdge, int rightLimit) {
+        int width = Math.clamp((int) (screenWidth * SHARE_OF_WIDTH), NARROWEST, WIDEST);
+        if (rightLimit != Integer.MAX_VALUE) {
+            width = Math.max(SQUEEZED, Math.min(width, rightLimit - PADDING * 2));
+        }
+        int height = heightOf(font, width);
+        return new Rect(PADDING, topEdge + PADDING,
+                Math.min(width, Math.max(NARROWEST, screenWidth - PADDING * 2)),
+                Math.min(height, Math.max(40, screenHeight - topEdge - PADDING * 2)));
+    }
+
+    /**
+     * How tall the panel needs to be for what is currently on it.
+     * <p>Measured, every line of it. An earlier version counted one line for the note about
+     * practice cards, which wraps to three at any ordinary GUI scale - so the buttons under
+     * the panel were drawn straight over the last sentence, and the scripted run photographed
+     * "take Back away" where two overlapping strings had been.
+     */
+    private static int heightOf(Font font, int width) {
+        int room = width - PADDING * 2;
+        int high = PADDING * 2;
+        dev.gathering.core.ui.TextLines heading = heading(font, room, Tutorial.progress().orElse(null));
+        if (Tutorial.progress().map(TutorialProgress::isFinished).orElse(false)) {
+            high += heading.drawnHeight() + GAP * 2;
+            high += lines(font, Component.translatable("tutorial.gathering.done"), room);
+            return high;
+        }
+        // Title, then "step n of six".
+        high += heading.pitch() * 2;
+        high += lines(font, Tutorial.instruction(), room) + GAP;
+        high += lines(font, Tutorial.why(), room) + GAP;
+        high += lines(font, Component.translatable("tutorial.gathering.practice_note"), room);
+        return high;
+    }
+
+    /**
+     * The heading and the step number, at one size and stepped by it: the size asked for, unless
+     * either would not fit across at it, and never below full size for that reason alone.
+     * <p>Both grow with the text size, so stepping from one to the next by the font's own height
+     * printed "Step 1 of 6" through "Learning the controls" at 200% - and each was enlarged on its
+     * own, so the short one came out twice the size of the long one above it.
+     */
+    private static dev.gathering.core.ui.TextLines heading(Font font, int room, TutorialProgress progress) {
+        float scale = GuiText.askedScale();
+        for (Component line : headingLines(progress)) {
+            int width = font.width(line);
+            if (width > 0 && width * scale > room) {
+                scale = Math.max(1f, Math.min(scale, room / (float) width));
+            }
+        }
+        return new dev.gathering.core.ui.TextLines(font.lineHeight, scale, GAP);
+    }
+
+    /** What the heading says: the title, and while the lesson runs, which step this is. */
+    private static java.util.List<Component> headingLines(TutorialProgress progress) {
+        if (progress == null || progress.isFinished()) {
+            return java.util.List.of(Component.translatable("tutorial.gathering.done.title"));
+        }
+        return java.util.List.of(Component.translatable("tutorial.gathering.title"),
+                Component.translatable("tutorial.gathering.of",
+                        progress.showing().ordinal() + 1, TutorialStep.count()));
+    }
+
+    /**
+     * How tall this text is once it has been wrapped to the room there is.
+     * <p>A line and the pixel {@code drawWrapped} leaves under it, per line: counted at the font's
+     * height alone, every paragraph of three lines ran two pixels into the next.
+     */
+    private static int lines(Font font, Component text, int room) {
+        return GuiText.linesNeeded(font, text, room) * (font.lineHeight + 1);
+    }
+
+    /**
+     * Draws it, if there is anything to draw.
+     * <p>Says nothing when the tutorial is not running, so a caller may call it every frame
+     * without asking first.
+     */
+    public static void render(GuiGraphics graphics, Font font, Rect where) {
+        TutorialProgress progress = Tutorial.progress().orElse(null);
+        if (progress == null || where == null || where.isEmpty()) {
+            return;
+        }
+        GatheringSprites.draw(graphics, Element.PANEL,
+                where.x(), where.y(), where.width(), where.height());
+
+        int room = where.width() - PADDING * 2;
+        int left = where.x() + PADDING;
+        int y = where.y() + PADDING;
+
+        dev.gathering.core.ui.TextLines heading = heading(font, room, progress);
+        java.util.List<Component> said = headingLines(progress);
+        if (progress.isFinished()) {
+            GuiText.drawUpTo(graphics, font, said.get(0), left, heading.drawY(y), room, heading.scale(), TITLE);
+            y += heading.drawnHeight() + GAP * 2;
+            GuiText.drawWrapped(graphics, font,
+                    Component.translatable("tutorial.gathering.done"), left, y, room, INSTRUCTION);
+            return;
+        }
+
+        GuiText.drawUpTo(graphics, font, said.get(0), left, heading.drawY(y), room, heading.scale(), TITLE);
+        y += heading.pitch();
+        GuiText.drawUpTo(graphics, font, said.get(1), left, heading.drawY(y), room, heading.scale(), STEP_NUMBER);
+        y += heading.pitch();
+
+        Component instruction = Tutorial.instruction();
+        GuiText.drawWrapped(graphics, font, instruction, left, y, room, INSTRUCTION);
+        y += lines(font, instruction, room) + GAP;
+
+        Component why = Tutorial.why();
+        GuiText.drawWrapped(graphics, font, why, left, y, room, WHY);
+        y += lines(font, why, room) + GAP;
+
+        // Said on every step rather than once at the start, because it is the thing somebody
+        // most needs to still be true when they wonder whether to keep any of this.
+        GuiText.drawWrapped(graphics, font,
+                Component.translatable("tutorial.gathering.practice_note"), left, y, room, NOTE);
+    }
+}

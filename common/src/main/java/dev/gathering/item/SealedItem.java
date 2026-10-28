@@ -1,0 +1,110 @@
+package dev.gathering.item;
+
+import dev.gathering.registry.GatheringComponents;
+import dev.gathering.server.CardShop;
+import java.util.List;
+import java.util.Optional;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
+
+/**
+ * A sealed box, and what happens when you cut the tape.
+ * <p>Everything bigger than a booster: a display box, a bundle, a Commander precon, a case of
+ * six boxes. Right-click opens it, and it opens one level down - a case gives six boxes, a box
+ * gives thirty-six packs, a precon gives the deck and the sample pack that came in with it.
+ * All the way down in one click would turn the best part of the whole feature into a shower of
+ * two hundred and sixteen items.
+ * <p>Like a pack, this is a pointer rather than a container: what is inside is looked up in the
+ * server's catalog when it is opened, so there is nothing on the stack to read early and
+ * nothing for a client to lie about.
+ */
+public class SealedItem extends Item {
+
+    public SealedItem(Properties properties) {
+        super(properties);
+    }
+
+    public static ItemStack of(SealedComponent box) {
+        ItemStack stack = new ItemStack(GatheringContent.SEALED.get());
+        stack.set(GatheringComponents.SEALED.get(), box);
+        return stack;
+    }
+
+    public static Optional<SealedComponent> boxOf(ItemStack stack) {
+        return Optional.ofNullable(stack.get(GatheringComponents.SEALED.get()));
+    }
+
+    @Override
+    public Component getName(ItemStack stack) {
+        // What it said on the front. A row of unlabeled brown boxes on a shelf is a row
+        // nobody can tell apart, and the name is the one thing the client has.
+        return boxOf(stack)
+                .filter(box -> box.isReal() && !box.name().isEmpty())
+                .<Component>map(box -> Component.literal(box.name()))
+                .orElseGet(() -> super.getName(stack));
+    }
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        SealedComponent box = boxOf(stack).orElse(null);
+        if (box == null || !box.isReal()) {
+            return InteractionResultHolder.pass(stack);
+        }
+        if (level.isClientSide()) {
+            return InteractionResultHolder.sidedSuccess(stack, true);
+        }
+        if (!(player instanceof ServerPlayer buyer)) {
+            return InteractionResultHolder.pass(stack);
+        }
+
+        List<ItemStack> inside = CardShop.openingOf(box);
+        if (inside.isEmpty()) {
+            // Not on the shelf is not the same as not a box. A set the shop has not stocked
+            // this rotation has simply not been read yet, so it is read now and the player is
+            // asked to try again - which is what a box bought a fortnight ago needs. Only a
+            // box whose set really cannot be looked up says so. Nothing is destroyed and
+            // nothing is invented either way.
+            // Budgeted: a read that failed is forgotten so the next press tries again, which made
+            // holding right-click on a box of an unreachable set a network request a tick.
+            boolean reading = dev.gathering.server.ActionBudget.TABLE_REQUESTS.spend(buyer.getUUID(), 1)
+                    && CardShop.learn(box.setCode());
+            buyer.sendSystemMessage(Component.translatable(
+                    reading ? "message.gathering.sealed_looking_up" : "message.gathering.sealed_unknown",
+                    dev.gathering.server.SetNames.of(box.setCode())));
+            return InteractionResultHolder.fail(stack);
+        }
+
+        stack.shrink(1);
+        for (ItemStack one : inside) {
+            dev.gathering.server.Handing.give(buyer, one);
+        }
+        level.playSound(null, buyer.blockPosition(),
+                net.minecraft.sounds.SoundEvents.ITEM_FRAME_REMOVE_ITEM,
+                net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 1.1f);
+        // What is in the hand now, not the box that was used. The last box in hand leaves the first
+        // empty slot - its own - so the first packs go there; returning the emptied box told the click
+        // to clear the hand, and sixteen packs went with it.
+        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+            List<Component> lines, TooltipFlag flag) {
+        boxOf(stack).filter(SealedComponent::isReal).ifPresent(box -> {
+            // No set line. The item's own name is the product's full name - "Bloomburrow Collector
+            // Booster Box" - so a line under it reading "BLB" told nobody anything they could not
+            // already see, in a spelling most players do not know.
+            lines.add(Component.translatable("tooltip.gathering.sealed_open")
+                    .withStyle(ChatFormatting.DARK_GRAY));
+        });
+    }
+}

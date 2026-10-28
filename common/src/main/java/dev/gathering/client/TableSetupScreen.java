@@ -1,0 +1,321 @@
+package dev.gathering.client;
+
+import dev.gathering.core.format.FormatPreset;
+import dev.gathering.core.format.FormatPresets;
+import dev.gathering.core.match.MatchRules;
+import dev.gathering.core.ui.Rect;
+import dev.gathering.network.StartTablePayload;
+import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+
+/**
+ * What kind of game this is going to be.
+ * <p>Two questions and a button. Which format, because a table that only knows how to run
+ * Commander is a Commander mod with a table in it - and best of how many, because
+ * best-of-three is not a nicety for the sixty-card formats, it is how they are played. A deck
+ * with fifteen cards it never gets to use is a deck missing a quarter of itself.
+ * <p>Commander answers "one" and answers it first, which is the only concession this screen
+ * makes to it being the format most people are here for. Every other format defaults to three
+ * because that is what a match of it is.
+ * <p>The screen sends a format <em>id</em> and a length. The server looks both up against its
+ * own copy of the presets, so nothing here can invent a format with a two-card minimum.
+ * <p>Client-only.
+ */
+public final class TableSetupScreen extends Screen {
+
+    private static final int LABEL = 0xFFE8E4DC;
+    private static final int DIM = 0xFF9A9690;
+
+    private static final int PANEL_WIDTH = 260;
+    /** How wide the panel may grow on a short window, where it goes four formats across. */
+    private static final int WIDE_PANEL = 380;
+    private static final int MARGIN = 10;
+    private static final int ROW_HEIGHT = 18;
+    private static final int GAP = 4;
+
+    private final BlockPos table;
+
+    /** Null while free play is chosen, which is not a format and has no preset. */
+    private FormatPreset format = FormatPresets.defaultPreset();
+    private int bestOf = MatchRules.single(FormatPresets.defaultPreset()).bestOf();
+
+    private Rect panel = Rect.NONE;
+    private int formatsHeading;
+    private int columns = 3;
+    private boolean sharedLearnRow;
+    private int lengthsHeading;
+
+    public TableSetupScreen(BlockPos table) {
+        super(Component.translatable("screen.gathering.setup"));
+        this.table = table;
+    }
+
+    @Override
+    protected void init() {
+        List<FormatPreset> formats = FormatPresets.all();
+        boolean apart = touchingTables() > 1;
+        // Counted row by row, and fitted to the window: three formats across in the usual panel
+        // where it fits, and on a short window four across in a wider one with the guided first
+        // game sharing the event row. The count used to be a formula that missed a row, and on
+        // a 240-pixel-high interface the last row of buttons ran off the panel and over the
+        // line saying what is chosen.
+        int room = this.height - MARGIN * 2;
+        columns = 3;
+        sharedLearnRow = false;
+        int width = PANEL_WIDTH;
+        if (heightFor(formats.size() + 1, 3, false, apart) > room) {
+            columns = 4;
+            sharedLearnRow = true;
+            width = Math.max(PANEL_WIDTH, Math.min(WIDE_PANEL, this.width - MARGIN * 2));
+        }
+        int height = heightFor(formats.size() + 1, columns, sharedLearnRow, apart);
+        panel = new Rect(
+                (this.width - width) / 2,
+                Math.max(MARGIN, (this.height - height) / 2),
+                width,
+                Math.min(height, room));
+
+        int y = panel.y() + MARGIN + ROW_HEIGHT;
+        formatsHeading = y - this.font.lineHeight - 2;
+        int buttonWidth = (panel.width() - MARGIN * 2 - GAP * (columns - 1)) / columns;
+
+        // Free play first, because it is the shorter answer to "what kind of game" and the
+        // one a table full of people who just want to put cards down wants. Without it this
+        // screen could only start a game somebody would be held to, and the only way to a
+        // game with no format was to close the screen and walk up to the table holding a
+        // deck - a route nothing here mentions.
+        addRenderableWidget(GatheringButtons.toggle(
+                panel.x() + MARGIN, y, buttonWidth, ROW_HEIGHT,
+                Component.translatable("screen.gathering.setup.free_play"),
+                () -> format == null,
+                this::chooseFreePlay));
+        for (int index = 0; index < formats.size(); index++) {
+            FormatPreset preset = formats.get(index);
+            int column = (index + 1) % columns;
+            int row = (index + 1) / columns;
+            addRenderableWidget(GatheringButtons.toggle(
+                    panel.x() + MARGIN + column * (buttonWidth + GAP),
+                    y + row * (ROW_HEIGHT + GAP), buttonWidth, ROW_HEIGHT,
+                    Component.literal(preset.displayName()),
+                    () -> preset.equals(format),
+                    () -> chooseFormat(preset)));
+        }
+
+        int lengthsTop = y + rowsFor(formats.size() + 1, columns) * (ROW_HEIGHT + GAP) + ROW_HEIGHT;
+        lengthsHeading = lengthsTop - this.font.lineHeight - 2;
+        List<Integer> lengths = MatchRules.SUPPORTED_LENGTHS;
+        int lengthWidth = (panel.width() - MARGIN * 2 - GAP * (lengths.size() - 1)) / lengths.size();
+        for (int index = 0; index < lengths.size(); index++) {
+            int length = lengths.get(index);
+            addRenderableWidget(GatheringButtons.toggle(
+                    panel.x() + MARGIN + index * (lengthWidth + GAP),
+                    lengthsTop, lengthWidth, ROW_HEIGHT,
+                    Component.translatable("screen.gathering.setup.best_of", length),
+                    () -> bestOf == length,
+                    () -> bestOf = length));
+        }
+
+        // Two buttons, because starting is the thing this screen does and there has to be a
+        // way to arrive here and change your mind that is not a key nobody was told about.
+        // Every other panel the table opens offers one.
+        int decideTop = lengthsTop + ROW_HEIGHT + GAP * 2;
+        int half = (panel.width() - MARGIN * 2 - GAP) / 2;
+        addRenderableWidget(GatheringButtons.of(
+                panel.x() + MARGIN, decideTop, half, ROW_HEIGHT,
+                Component.translatable("gui.cancel"), this::onClose));
+        addRenderableWidget(GatheringButtons.of(
+                panel.right() - MARGIN - half, decideTop, half, ROW_HEIGHT,
+                Component.translatable("screen.gathering.setup.start"), this::start));
+
+        // The guided first game lives here because this is the screen somebody who has never
+        // done this before is actually looking at. A table with no game on it has no board,
+        // so there is no board screen to offer it on - which is exactly the moment it is
+        // wanted. Always offered, not only the first time: somebody who said no a month ago
+        // and now wants to know which key taps a card has nowhere else to go.
+        int learnTop = decideTop + ROW_HEIGHT + GAP * 2;
+        int whole = panel.width() - MARGIN * 2;
+        net.minecraft.client.gui.components.Button learnButton = GatheringButtons.of(panel.x() + MARGIN, learnTop,
+                sharedLearnRow ? half : whole, ROW_HEIGHT,
+                Component.translatable("tutorial.gathering.offer.yes"), this::learn);
+        // What it is for, on the button rather than above it. It was a line drawn in the eight
+        // pixels between this row and Cancel and Start, which is a pixel less than a line of
+        // text: the scripted client photographed it running through the bottom of both
+        // buttons. There is no room to give it on a small window - this panel is already
+        // taller than a 240-pixel-high interface - and the button's own label says most of
+        // it, so the sentence went where a sentence about a button goes.
+        learnButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("tutorial.gathering.offer")));
+        addRenderableWidget(learnButton);
+
+        // Not a game at all: a draft or sealed event, which this table can host instead. Here
+        // because this is the screen a table asks "what will it be" on. Tournaments are not: they
+        // are hosted at a Scorekeeper's Desk, which runs them.
+        int eventTop = sharedLearnRow ? learnTop : learnTop + ROW_HEIGHT + GAP;
+        addRenderableWidget(GatheringButtons.of(
+                sharedLearnRow ? panel.right() - MARGIN - half : panel.x() + MARGIN, eventTop,
+                sharedLearnRow ? half : whole, ROW_HEIGHT,
+                Component.translatable("screen.gathering.setup.event"),
+                () -> this.minecraft.setScreen(new PodCreateScreen(table, this))));
+
+        // A long table can be one surface or several tables side by side. Offered only where
+        // there is more than one table to split, and said as what pressing it does.
+        if (apart) {
+            boolean playingApart = dev.gathering.block.TableClusters.playsApart(this.minecraft.level, table);
+            addRenderableWidget(GatheringButtons.of(
+                    panel.x() + MARGIN, eventTop + ROW_HEIGHT + GAP, panel.width() - MARGIN * 2, ROW_HEIGHT,
+                    Component.translatable(playingApart ? "screen.gathering.setup.play_together" : "screen.gathering.setup.play_apart",
+                            touchingTables()),
+                    () -> {
+                        ClientNetworking.send(new dev.gathering.network.TablesApartPayload(table, !playingApart));
+                        this.onClose();
+                    }));
+        }
+    }
+
+    /** How many tables are pushed together here, however they are being played. */
+    private int touchingTables() {
+        return this.minecraft == null || this.minecraft.level == null
+                ? 1 : dev.gathering.block.TableClusters.touching(this.minecraft.level, table).cells().size();
+    }
+
+    /**
+     * Asks for a practice game and gets out of the way.
+     * <p>The screen closes on the press rather than waiting: what comes back is a board, and
+     * the board opens itself. If the server refuses - somebody else sat down in the meantime -
+     * the refusal is a line of chat and this screen is gone, which is the right outcome for a
+     * table that is no longer free.
+     */
+    private void learn() {
+        // Straight into a demonstration this client builds for itself. Nothing is asked of
+        // the server, so there is nothing that can be refused, nothing to wait for and no
+        // table to take over - which is what makes this work at a table somebody else is
+        // already playing at, and on a fresh install with no cards downloaded at all.
+        this.minecraft.setScreen(TableScreen.learning(table));
+    }
+
+    /**
+     * Offers the guided first game once, to somebody who has never been offered it.
+     * <p>On the tick rather than in {@code init}, because {@code init} runs again on every
+     * resize and because swapping the screen out from inside its own construction is a way to
+     * have two of them half-built at once.
+     * <p>Once is enforced by the offer itself: beginning records that this client has been
+     * asked, whatever they go on to do about it, so the next table does not ask again. A
+     * player who skips is not asked a second time and a player who disconnects halfway
+     * through has not finished, so they are.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        if (Tutorial.worthOffering()) {
+            learn();
+        }
+    }
+
+    private static int rowsFor(int formats, int columns) {
+        return (formats + columns - 1) / columns;
+    }
+
+    /**
+     * How tall the panel is, row by row as {@link #init} lays it out: the title and format
+     * heading, the formats, the length heading and row, Cancel and Start, the guided first game
+     * (on a row of its own or sharing the event row), the event row, the play-apart row where
+     * there is one, and the line saying what is chosen.
+     */
+    private int heightFor(int buttons, int columns, boolean learnShares, boolean apart) {
+        return MARGIN + ROW_HEIGHT
+                + rowsFor(buttons, columns) * (ROW_HEIGHT + GAP)
+                + ROW_HEIGHT
+                + ROW_HEIGHT + GAP * 2
+                + ROW_HEIGHT + GAP * 2
+                + (learnShares ? 0 : ROW_HEIGHT + GAP)
+                + ROW_HEIGHT
+                + (apart ? ROW_HEIGHT + GAP : 0)
+                + GAP + this.font.lineHeight + GAP + 4;
+    }
+
+    /**
+     * Picking a format also picks the length it is usually played at.
+     * <p>Overwriting a choice the player has already made would be rude; this is not that.
+     * Commander is a single game and everything else is a match, and a player who wants
+     * something else says so afterwards. The alternative - defaulting everything to one -
+     * quietly makes every sideboard in the mod decorative.
+     */
+    private void chooseFormat(FormatPreset preset) {
+        format = preset;
+        bestOf = preset.hasSideboard() ? 3 : 1;
+    }
+
+    /**
+     * No format: one game, nobody's deck refused.
+     * <p>A single game rather than a match, because a best-of-three with no format to
+     * sideboard against is three games with a screen between them.
+     */
+    private void chooseFreePlay() {
+        format = null;
+        bestOf = 1;
+    }
+
+    private void start() {
+        ClientNetworking.send(new StartTablePayload(
+                table, format == null ? StartTablePayload.FREE_PLAY : format.id(), bestOf));
+        this.onClose();
+    }
+
+    /** Behind the widgets. Drawn in render(), the panel covers every button on the screen. */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+
+        GuiText.drawCentered(graphics, this.font, this.title,
+                panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.setup.format"),
+                panel.x() + MARGIN, formatsHeading, panel.width() - MARGIN * 2, DIM);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.setup.length"),
+                panel.x() + MARGIN, lengthsHeading, panel.width() - MARGIN * 2, DIM);
+
+        // What is currently chosen, spelled out, because eight buttons with one of them
+        // selected is only legible if the selection is written down somewhere.
+        Component chosen = format == null
+                ? Component.translatable("screen.gathering.setup.chosen_free",
+                        FormatPresets.defaultPreset().startingLife())
+                : Component.translatable("screen.gathering.setup.chosen",
+                        format.displayName(), bestOf, format.startingLife());
+        GuiText.drawCentered(graphics, this.font, chosen,
+                panel.x() + panel.width() / 2, panel.bottom() - 12, panel.width() - MARGIN * 2, DIM);
+
+        chosenSaid = chosen.getString();
+    }
+
+    /**
+     * What the line spelling out the chosen game said last frame. For the scripted harness.
+     * <p>Recorded while drawing rather than worked out from the fields, because the fields
+     * are what the buttons set and a check that reads them back is a check that the button
+     * assigned a variable - which it plainly did. What is worth knowing is that the screen
+     * then told the player, since eight buttons with one of them chosen are only legible if
+     * the choice is written down.
+     */
+    String chosenSaid() {
+        return chosenSaid;
+    }
+
+    private String chosenSaid = "";
+
+    @Override
+    protected void renderBlurredBackground(float partialTick) {
+        // The table is behind this and worth seeing; a blur makes it look like a pause menu.
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+}

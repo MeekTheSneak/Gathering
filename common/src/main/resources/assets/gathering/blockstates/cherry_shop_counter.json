@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "gathering:block/cherry_shop_counter"
+    },
+    "facing=east": {
+      "model": "gathering:block/cherry_shop_counter",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "gathering:block/cherry_shop_counter",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "gathering:block/cherry_shop_counter",
+      "y": 270
+    }
+  }
+}

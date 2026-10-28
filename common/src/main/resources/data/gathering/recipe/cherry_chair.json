@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "S  ",
+    "PPP",
+    "S S"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:stick"
+    },
+    "P": {
+      "item": "minecraft:cherry_planks"
+    }
+  },
+  "result": {
+    "id": "gathering:cherry_chair",
+    "count": 1
+  }
+}

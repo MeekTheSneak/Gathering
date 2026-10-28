@@ -1,0 +1,520 @@
+package dev.gathering.item;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.DecoderException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+
+/**
+ * A sleeved deck: its name, who imported it, and its cards in order.
+ * <p>Import produces one of these bound to the importing player. Sections are kept as
+ * separate lists rather than flags on each entry because the pre-game validator asks about
+ * them by section and never about individual cards.
+ * <p>Name and description are the player's, not the importer's: a deck is a thing you title
+ * and annotate, and both show on the item so a row of deckboxes on a shelf reads as a
+ * collection rather than as five identical objects.
+ *
+ * @param entries mainboard, in decklist order
+ * @param commanders the command zone, empty outside commander formats
+ * @param sideboard the sideboard, empty in singleton formats
+ * @param color the box's own color, as ARGB. Empty on a deck made before boxes had one, and
+ *     on the stand-ins tests build; the item draws those white, which is what the texture is.
+ * @param sleeve what its cards look like from behind once it is on a table. The box's color
+ *     is how a deck is told from another on a shelf; this is how it is told from another
+ *     across a table, and they are separate choices because a player owns one of each
+ */
+public record DeckComponent(
+        String name,
+        String description,
+        Optional<UUID> owner,
+        List<CardComponent> entries,
+        List<CardComponent> commanders,
+        List<CardComponent> sideboard,
+        Optional<Integer> color,
+        dev.gathering.core.card.Sleeve sleeve,
+        List<DeckComponent.Kept> stories,
+        boolean loaner) {
+
+    /**
+     * A deck with no loaner mark: every deck but one borrowed from the server's shelf.
+     */
+    public DeckComponent(
+            String name, String description, Optional<UUID> owner,
+            List<CardComponent> entries, List<CardComponent> commanders,
+            List<CardComponent> sideboard, Optional<Integer> color,
+            dev.gathering.core.card.Sleeve sleeve, List<DeckComponent.Kept> stories) {
+        this(name, description, owner, entries, commanders, sideboard, color, sleeve, stories, false);
+    }
+
+    /**
+     * The same deck, lent from the server's shelf.
+     * <p>A loaner is cards to play with, not cards to keep. It is made out of nothing - that is
+     * what lets somebody with no cards sit down and play - so nothing may turn it into cards
+     * that exist: it cannot be poured into a collection, have cards taken out of it, take cards
+     * in, or be staked at a table playing for keeps. The mark is part of the deck, so it goes
+     * wherever the deck goes: into a table's keeping and back, through sideboarding, renaming
+     * and sleeving.
+     */
+    public DeckComponent lent() {
+        return new DeckComponent(name, description, owner, entries, commanders, sideboard, color, sleeve, stories, true);
+    }
+
+    /**
+     * Where a card in this deck has been, kept beside the deck rather than on the card.
+     * <p>A card's history lives on the item, and sleeving one into a deck used to leave the
+     * item behind - so the pack it came out of, the person who traded it and the game it was
+     * won in were all lost the first time it was played with. Kept here instead, and handed
+     * back to whichever copy of that printing is taken out again.
+     * <p>Not part of what a card <em>is</em>: two copies of one printing are two copies of one
+     * printing however different their histories, which is what the collection counts on.
+     */
+    public record Kept(CardComponent card, dev.gathering.core.story.CardStory story) {
+    }
+
+    /**
+     * This deck's box - name, note, owner, commanders, color, sleeves, the loaner mark - holding another's
+     * cards and their histories. For putting a deck's real cards back on a copy whose cards arrived hidden.
+     */
+    public DeckComponent holding(DeckComponent cards) {
+        return new DeckComponent(name, description, owner, cards.entries(), commanders, cards.sideboard(),
+                color, sleeve, cards.stories(), loaner);
+    }
+
+    /**
+     * The same deck with the stand-ins taken out, leaving whatever cards are really in it.
+     * <p>The last resort for a copy that arrived with its cards hidden and cannot be put back together -
+     * a deck the server has never seen whole. Keeping the stand-ins is worse than dropping them: a deck
+     * holding them lists cards that load for ever and hands out blank ones when a card is taken, which is
+     * the shape the owner has reported twice. What is left is at least true.
+     */
+    public DeckComponent withoutHiddenCards() {
+        if (!isRedacted()) {
+            return this;
+        }
+        return new DeckComponent(name, description, owner,
+                entries.stream().filter(card -> !card.isHidden()).toList(), commanders,
+                sideboard.stream().filter(card -> !card.isHidden()).toList(),
+                color, sleeve, stories, loaner);
+    }
+
+    /** A deck built without any histories to carry, which is most of the ways one is made. */
+    public DeckComponent(
+            String name, String description, Optional<UUID> owner,
+            List<CardComponent> entries, List<CardComponent> commanders,
+            List<CardComponent> sideboard, Optional<Integer> color,
+            dev.gathering.core.card.Sleeve sleeve) {
+        this(name, description, owner, entries, commanders, sideboard, color, sleeve, List.of());
+    }
+
+    /** The same deck in the sleeves a deck arrives in when nobody has picked any. */
+    public DeckComponent(
+            String name, String description, Optional<UUID> owner,
+            List<CardComponent> entries, List<CardComponent> commanders,
+            List<CardComponent> sideboard, Optional<Integer> color) {
+        this(name, description, owner, entries, commanders, sideboard, color,
+                dev.gathering.core.card.Sleeve.DEFAULT);
+    }
+
+    /**
+     * A deck with no color yet, which is every deck the moment before it is handed over.
+     * <p>Here so that the twenty-odd places that build a deck did not all have to learn about
+     * boxes at once. Whoever hands the deck to a player paints it; everything that only
+     * rearranges one carries the color it already had.
+     */
+    public DeckComponent(
+            String name, String description, Optional<UUID> owner,
+            List<CardComponent> entries, List<CardComponent> commanders,
+            List<CardComponent> sideboard) {
+        this(name, description, owner, entries, commanders, sideboard, Optional.empty());
+    }
+
+    /**
+     * How many cards one deck may hold, across every section.
+     * <p>A cube is the largest real thing anyone builds and sits near 540, so this is well
+     * clear of legitimate use. It exists because a deck component travels over the wire on
+     * every held-item sync: without a bound, a hostile or merely broken client could hand a
+     * server an arbitrarily long list to allocate. The stream codec enforces it on decode.
+     */
+    public static final int MAX_CARDS = 1024;
+
+    /** One card's history, as it is written into the deck it is sleeved in. */
+    private static final Codec<Kept> KEPT = RecordCodecBuilder.create(instance -> instance.group(
+            CardComponent.CODEC.fieldOf("card").forGetter(Kept::card),
+            StoryComponent.STORY_CODEC.fieldOf("story").forGetter(Kept::story))
+            .apply(instance, Kept::new));
+
+    public static final Codec<DeckComponent> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.STRING.fieldOf("name").forGetter(DeckComponent::name),
+            Codec.STRING.optionalFieldOf("description", "").forGetter(DeckComponent::description),
+            UUIDUtil.STRING_CODEC.optionalFieldOf("owner").forGetter(DeckComponent::owner),
+            CardComponent.CODEC.listOf().optionalFieldOf("entries", List.of()).forGetter(DeckComponent::entries),
+            CardComponent.CODEC.listOf().optionalFieldOf("commanders", List.of()).forGetter(DeckComponent::commanders),
+            CardComponent.CODEC.listOf().optionalFieldOf("sideboard", List.of()).forGetter(DeckComponent::sideboard),
+            Codec.INT.optionalFieldOf("color").forGetter(DeckComponent::color),
+            Codec.STRING.optionalFieldOf("sleeve", dev.gathering.core.card.Sleeve.DEFAULT.name())
+                    .xmap(dev.gathering.core.card.Sleeve::named, dev.gathering.core.card.Sleeve::name)
+                    .forGetter(DeckComponent::sleeve),
+            KEPT.listOf().optionalFieldOf("stories", List.of()).forGetter(DeckComponent::stories),
+            Codec.BOOL.optionalFieldOf("loaner", false).forGetter(DeckComponent::loaner))
+            .apply(instance, DeckComponent::new));
+
+
+    /** One section of a deck on the wire, bounded so a bad packet cannot allocate the world. */
+    private static final StreamCodec<RegistryFriendlyByteBuf, List<CardComponent>> SECTION =
+            CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_CARDS));
+
+    private static final StreamCodec<ByteBuf, Optional<UUID>> OWNER =
+            ByteBufCodecs.optional(UUIDUtil.STREAM_CODEC);
+
+    private static final StreamCodec<ByteBuf, Optional<Integer>> COLOR =
+            ByteBufCodecs.optional(ByteBufCodecs.INT);
+
+    /**
+     * The sleeve, as a place in the list.
+     * <p>Out of range reads as the ordinary back rather than throwing: a deck component
+     * crosses the wire on every held-item sync, and a sleeve that did not survive the trip is
+     * a deck drawn plain, not a disconnect.
+     */
+    private static final StreamCodec<ByteBuf, dev.gathering.core.card.Sleeve> SLEEVE =
+            ByteBufCodecs.idMapper(
+                    dev.gathering.core.card.Sleeve::byOrdinal,
+                    dev.gathering.core.card.Sleeve::ordinal);
+
+    /**
+     * Written out by hand rather than composed.
+     * <p>{@code StreamCodec.composite} stops at six parts in this version and a deck has eight.
+     * There is nothing clever here - it is the same fields in the same order, and the only
+     * thing to keep right is that the two halves stay in step.
+     */
+    public static final StreamCodec<RegistryFriendlyByteBuf, DeckComponent> STREAM_CODEC =
+            StreamCodec.of(DeckComponent::toNetwork, DeckComponent::fromNetwork);
+
+    private static void toNetwork(RegistryFriendlyByteBuf out, DeckComponent deck) {
+        ByteBufCodecs.STRING_UTF8.encode(out, deck.name());
+        ByteBufCodecs.STRING_UTF8.encode(out, deck.description());
+        OWNER.encode(out, deck.owner());
+        SECTION.encode(out, deck.entries());
+        SECTION.encode(out, deck.commanders());
+        SECTION.encode(out, deck.sideboard());
+        COLOR.encode(out, deck.color());
+        SLEEVE.encode(out, deck.sleeve());
+        KEPT_STREAM.encode(out, deck.stories());
+        ByteBufCodecs.BOOL.encode(out, deck.loaner());
+    }
+
+    /** The histories a deck is keeping, bounded like every other list that crosses. */
+    private static final StreamCodec<RegistryFriendlyByteBuf, List<Kept>> KEPT_STREAM =
+            StreamCodec.<RegistryFriendlyByteBuf, Kept, CardComponent, dev.gathering.core.story.CardStory>composite(
+                            CardComponent.STREAM_CODEC, Kept::card,
+                            StoryComponent.STORY_STREAM_CODEC, Kept::story,
+                            Kept::new)
+                    .apply(ByteBufCodecs.list(MAX_CARDS));
+
+    private static DeckComponent fromNetwork(RegistryFriendlyByteBuf in) {
+        return new DeckComponent(
+                ByteBufCodecs.STRING_UTF8.decode(in),
+                ByteBufCodecs.STRING_UTF8.decode(in),
+                OWNER.decode(in),
+                SECTION.decode(in),
+                SECTION.decode(in),
+                SECTION.decode(in),
+                COLOR.decode(in),
+                SLEEVE.decode(in),
+                KEPT_STREAM.decode(in),
+                ByteBufCodecs.BOOL.decode(in));
+    }
+
+    /**
+     * The deck as everybody else may see it, which is not what is in it.
+     * <p>An item component is synchronized to every client that can see the item, and a deck
+     * is a held item: carrying yours to a table handed your whole list to everybody in the
+     * room, tooltip or no tooltip. What crosses here is what a deck is from across a table -
+     * its name, the note on the box, its color, its sleeves, its commanders, and how thick
+     * each part of it is. The cards themselves cross as {@link CardComponent#HIDDEN}, so the
+     * counts stay honest and the identities do not travel.
+     * <p>Commanders are the exception on purpose: a commander sits face up in the command
+     * zone all game and the deck box is colored from it.
+     * <p>The owner still gets the real thing - see {@code MyDeckPayload}, which is sent to
+     * one player about a deck they are holding.
+     */
+    public static final StreamCodec<RegistryFriendlyByteBuf, DeckComponent> PUBLIC_STREAM_CODEC =
+            StreamCodec.of(DeckComponent::publicToNetwork, DeckComponent::publicFromNetwork);
+
+    private static void publicToNetwork(RegistryFriendlyByteBuf out, DeckComponent deck) {
+        ByteBufCodecs.STRING_UTF8.encode(out, deck.name());
+        ByteBufCodecs.STRING_UTF8.encode(out, deck.description());
+        OWNER.encode(out, deck.owner());
+        ByteBufCodecs.VAR_INT.encode(out, Math.min(MAX_CARDS, deck.entries().size()));
+        SECTION.encode(out, deck.commanders());
+        ByteBufCodecs.VAR_INT.encode(out, Math.min(MAX_CARDS, deck.sideboard().size()));
+        COLOR.encode(out, deck.color());
+        SLEEVE.encode(out, deck.sleeve());
+        ByteBufCodecs.BOOL.encode(out, deck.loaner());
+    }
+
+    private static DeckComponent publicFromNetwork(RegistryFriendlyByteBuf in) {
+        String name = ByteBufCodecs.STRING_UTF8.decode(in);
+        String description = ByteBufCodecs.STRING_UTF8.decode(in);
+        Optional<UUID> owner = OWNER.decode(in);
+        List<CardComponent> entries = hidden(ByteBufCodecs.VAR_INT.decode(in));
+        List<CardComponent> commanders = SECTION.decode(in);
+        List<CardComponent> sideboard = hidden(ByteBufCodecs.VAR_INT.decode(in));
+        Optional<Integer> color = COLOR.decode(in);
+        dev.gathering.core.card.Sleeve sleeve = SLEEVE.decode(in);
+        return new DeckComponent(
+                name, description, owner, entries, commanders, sideboard, color, sleeve, List.of(),
+                ByteBufCodecs.BOOL.decode(in));
+    }
+
+    /** That many cards, each of them a card this client is not being told the name of. */
+    private static List<CardComponent> hidden(int howMany) {
+        return java.util.Collections.nCopies(Math.clamp(howMany, 0, MAX_CARDS), CardComponent.HIDDEN);
+    }
+
+    /**
+     * Whether this copy is the one everybody sees rather than the one the owner gets.
+     * <p>A screen that means to list the cards asks the server for the real deck when this is
+     * true; a screen that only wants the name, the count or the sleeves does not care.
+     */
+    public boolean isRedacted() {
+        return entries.stream().anyMatch(CardComponent::isHidden)
+                || sideboard.stream().anyMatch(CardComponent::isHidden);
+    }
+
+
+    public DeckComponent {
+        description = description == null ? "" : description;
+        sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
+        entries = List.copyOf(entries);
+        commanders = List.copyOf(commanders);
+        sideboard = List.copyOf(sideboard);
+        stories = stories == null ? List.of() : List.copyOf(stories);
+    }
+
+    /**
+     * The deck, keeping this card's history for as long as the card is in it.
+     * <p>Bounded by the deck's own card limit: one history per card at most, and a deck
+     * cannot hold more cards than that.
+     */
+    public DeckComponent keeping(CardComponent card, dev.gathering.core.story.CardStory story) {
+        if (card == null || story == null || story.isEmpty() || stories.size() >= MAX_CARDS) {
+            return this;
+        }
+        List<Kept> kept = new ArrayList<>(stories);
+        kept.add(new Kept(card.faceUp(), story));
+        return new DeckComponent(
+                name, description, owner, entries, commanders, sideboard, color, sleeve, kept, loaner);
+    }
+
+    /** Whatever history this deck was keeping for a copy of that card, if it was keeping one. */
+    public Optional<dev.gathering.core.story.CardStory> storyOf(CardComponent card) {
+        CardComponent wanted = card == null ? null : card.faceUp();
+        return stories.stream()
+                .filter(kept -> kept.card().equals(wanted))
+                .map(Kept::story)
+                .findFirst();
+    }
+
+    /** The deck no longer keeping one history for that card, because the card has gone. */
+    public DeckComponent withoutStoryOf(CardComponent card) {
+        CardComponent wanted = card == null ? null : card.faceUp();
+        List<Kept> kept = new ArrayList<>(stories);
+        for (int at = 0; at < kept.size(); at++) {
+            if (kept.get(at).card().equals(wanted)) {
+                kept.remove(at);
+                return new DeckComponent(
+                        name, description, owner, entries, commanders, sideboard, color, sleeve, kept, loaner);
+            }
+        }
+        return this;
+    }
+
+    /**
+     * The same deck, called something else.
+     * <p>A blank name means the deck has none, which is what a deck started by putting two
+     * cards together has: the item falls back to "Deck" and the screen invites a name.
+     */
+    public DeckComponent named(String newName) {
+        return new DeckComponent(
+                newName == null ? "" : newName.strip(),
+                description, owner, entries, commanders, sideboard, color, sleeve, stories, loaner);
+    }
+
+    /**
+     * The same deck in a box of this color.
+     * <p>Set once, where a deck is handed to somebody, and carried by everything after: a
+     * deck that changed color when a card came out of it would be a different deck on the
+     * shelf every time it was edited.
+     */
+    public DeckComponent colored(int argb) {
+        return new DeckComponent(
+                name, description, owner, entries, commanders, sideboard,
+                Optional.of(0xFF000000 | argb), sleeve, stories, loaner);
+    }
+
+    /**
+     * The same deck in different sleeves.
+     * <p>Changed as freely as the name is, and by the same person: sleeves are something a
+     * player swaps between games, so nothing here treats the first choice as final.
+     */
+    public DeckComponent sleeved(dev.gathering.core.card.Sleeve chosen) {
+        return new DeckComponent(
+                name, description, owner, entries, commanders, sideboard, color,
+                chosen == null ? dev.gathering.core.card.Sleeve.DEFAULT : chosen, stories, loaner);
+    }
+
+    /** Physical cards in the deck proper - mainboard plus command zone, never the sideboard. */
+    public int deckSize() {
+        return entries.size() + commanders.size();
+    }
+
+    public int totalCards() {
+        return deckSize() + sideboard.size();
+    }
+
+    public boolean isEmpty() {
+        return totalCards() == 0;
+    }
+
+    /**
+     * Whether this deck can be carried as an item at all.
+     * <p>Each section crosses the wire as a list bounded at {@link #MAX_CARDS}, and a bounded
+     * list throws when it is <em>written</em> past its bound, not only when it is read. So a
+     * deck bigger than this is not a deck that arrives truncated - it is a deck that cannot be
+     * encoded, in an item stack that is nonetheless in somebody's inventory and saved with
+     * their player data. Every inventory sync after that throws, which is a player who cannot
+     * log in until an administrator edits their file by hand.
+     * <p>{@code withAdded} has always refused past this bound, so nothing built a card at a
+     * time could get here. An import builds the whole list at once and skipped straight past
+     * it, which is the one way in.
+     */
+    public boolean fitsInAnItem() {
+        return entries.size() <= MAX_CARDS
+                && commanders.size() <= MAX_CARDS
+                && sideboard.size() <= MAX_CARDS
+                && totalCards() <= MAX_CARDS;
+    }
+
+    public boolean hasDescription() {
+        return !description.isBlank();
+    }
+
+    /** Every distinct printing in the deck, for asking the server what these cards are. */
+    public List<UUID> distinctPrintings() {
+        LinkedHashSet<UUID> printings = new LinkedHashSet<>();
+        for (List<CardComponent> section : List.of(commanders, entries, sideboard)) {
+            for (CardComponent card : section) {
+                card.scryfallId().ifPresent(printings::add);
+            }
+        }
+        return List.copyOf(printings);
+    }
+
+    /** Which pile a card sits in. Editing is always section-explicit, never a search. */
+    public enum Section {
+        COMMANDERS,
+        MAINBOARD,
+        SIDEBOARD;
+
+        /**
+         * Where a card goes when somebody moves it without saying where to.
+         * <p>The deck and the sideboard swap, which is what building a deck is. A commander
+         * goes to the deck: a card in the command zone that is not wanted there is wanted in
+         * the ninety-nine far more often than it is wanted out of the box altogether.
+         * <p>Never itself, or the gesture that means "move this" would sometimes mean
+         * nothing at all - and a click that silently does nothing is the worst kind.
+         */
+        public Section across() {
+            return switch (this) {
+                case MAINBOARD -> SIDEBOARD;
+                case SIDEBOARD, COMMANDERS -> MAINBOARD;
+            };
+        }
+
+        public static final StreamCodec<ByteBuf, Section> STREAM_CODEC =
+                ByteBufCodecs.idMapper(Section::byId, Section::ordinal);
+
+        private static Section byId(int id) {
+            Section[] sections = values();
+            if (id < 0 || id >= sections.length) {
+                throw new DecoderException("Unknown deck section id " + id);
+            }
+            return sections[id];
+        }
+    }
+
+    public List<CardComponent> section(Section section) {
+        return switch (section) {
+            case COMMANDERS -> commanders;
+            case MAINBOARD -> entries;
+            case SIDEBOARD -> sideboard;
+        };
+    }
+
+    /**
+     * The same deck with one section replaced, and everything else kept - the histories
+     * included.
+     * <p>They were not, and that was the whole of why sleeving a storied card did not work:
+     * every functional copy on this record went through the eight-argument convenience
+     * constructor, which starts the histories empty. Adding a second card to a deck, moving
+     * one between sections, renaming it, painting the box or changing the sleeves each wiped
+     * the provenance of every card already in it. The one-line fix is to stop taking that
+     * shortcut here; the rule is that nothing in this class may build a deck from another
+     * deck without carrying its histories across.
+     */
+    private DeckComponent withSection(Section section, List<CardComponent> cards) {
+        return switch (section) {
+            case COMMANDERS -> new DeckComponent(
+                    name, description, owner, entries, cards, sideboard, color, sleeve, stories, loaner);
+            case MAINBOARD -> new DeckComponent(
+                    name, description, owner, cards, commanders, sideboard, color, sleeve, stories, loaner);
+            case SIDEBOARD -> new DeckComponent(
+                    name, description, owner, entries, commanders, cards, color, sleeve, stories, loaner);
+        };
+    }
+
+    /**
+     * The deck with one copy of {@code card} taken out of {@code section}.
+     * <p>Empty when that section holds no such card. That is not an error worth shouting
+     * about: it is what a stale click looks like when the client asks to remove a card the
+     * server has already removed, and the right answer is to do nothing.
+     */
+    public Optional<DeckComponent> withoutOne(Section section, CardComponent card) {
+        List<CardComponent> cards = new ArrayList<>(section(section));
+        return cards.remove(card) ? Optional.of(withSection(section, cards)) : Optional.empty();
+    }
+
+    /** The deck with {@code card} added to {@code section}, or empty if the deck is full. */
+    public Optional<DeckComponent> withAdded(Section section, CardComponent card) {
+        if (totalCards() >= MAX_CARDS) {
+            return Optional.empty();
+        }
+        return Optional.of(insert(section, card));
+    }
+
+    /**
+     * The deck with one copy of {@code card} moved between sections.
+     * <p>The size limit does not apply: a move cannot make a deck larger.
+     */
+    public Optional<DeckComponent> moved(Section from, Section to, CardComponent card) {
+        if (from == to) {
+            return Optional.empty();
+        }
+        return withoutOne(from, card).map(deck -> deck.insert(to, card));
+    }
+
+    private DeckComponent insert(Section section, CardComponent card) {
+        List<CardComponent> cards = new ArrayList<>(section(section));
+        cards.add(card);
+        return withSection(section, cards);
+    }
+}

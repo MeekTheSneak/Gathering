@@ -1,0 +1,326 @@
+package dev.gathering.client;
+
+import dev.gathering.client.GatheringSprites.Element;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+
+/**
+ * The little menu that opens where you right-clicked.
+ * <p>Right-click doing one fixed thing is fine until there are two things it could sensibly
+ * do, and then it is a guess about which one you meant. A menu says what the options are,
+ * which matters most where the options differ by format: "make this a commander" and "move
+ * this to the sideboard" are the same gesture for two different kinds of deck, and picking
+ * one to be the default picks a format to be the real one.
+ * <p>Draws itself and answers clicks; it holds no state beyond what is on it, so a screen
+ * opens one, forwards clicks to it, and drops it.
+ * <p>Client-only.
+ */
+public final class ContextMenu {
+
+    /**
+     * How far in from the menu's own frame its writing and its rows sit.
+     * <p>Asked of the panel rather than written down: the looks do not agree on how thick a frame
+     * is, and the four built around a drawn one have theirs twice as thick as the rest - so four
+     * pixels put the words on the border, which the owner reported on Ember. Used for the menu's
+     * size as well as for the writing in it, so the row somebody clicks is the row they read.
+     */
+    private static int padding() {
+        return GatheringSprites.textInsetFor(GatheringSprites.Element.PANEL);
+    }
+    /**
+     * How tall a row is at the size the menu shipped at.
+     * <p>Never used directly: a player may ask for larger controls or larger text, and a row
+     * has to hold both. {@code MenuFit} turns this into the height a row actually gets.
+     */
+    private static final int ROW_HEIGHT = 12;
+
+    private static final int MIN_WIDTH = 70;
+    private static final int SCREEN_EDGE = 4;
+
+    private static final int TEXT = 0xFFE8E4DC;
+    private static final int HOVERED = 0xFFFFFFFF;
+    private static final int DISABLED = 0xFF6E6A66;
+
+    /** The key written at the end of a row: present, and quieter than the verb. */
+    private static final int SHORTCUT = 0xFF8A8378;
+
+    /** How much clear space sits between a verb and its key. */
+    private static final int SHORTCUT_GAP = 10;
+
+    private final List<Entry> entries;
+    private final int x;
+    private final int y;
+    private final int width;
+    private final int height;
+
+    /** How many entries fit in one column before the menu has to start another. */
+    private final int perColumn;
+
+    private final int columnWidth;
+
+    /**
+     * How tall a row is in this menu.
+     * <p>Worked out once, when the menu is built, and then used by the drawing and the
+     * hit-testing alike. Asked again each time, it could answer differently halfway through a
+     * frame if a setting changed - and a menu drawn at one height and picked at another is a
+     * menu where clicking a verb does a different one.
+     */
+    private final int rowHeight;
+
+    /**
+     * The one size everything in this menu is drawn at.
+     * <p>Decided when the menu opens and used by the measuring, the drawing and the
+     * hit-testing alike - see {@code MenuFit}. A menu that measured at one size and drew at
+     * another was 792 pixels wide in a 427-pixel viewport, with half its actions off the edge.
+     */
+    private final float scale;
+
+    private ContextMenu(
+            List<Entry> entries, int x, int y, int width, int height,
+            int perColumn, int columnWidth, int rowHeight, float scale) {
+        this.entries = List.copyOf(entries);
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.perColumn = Math.max(1, perColumn);
+        this.columnWidth = Math.max(1, columnWidth);
+        this.rowHeight = Math.max(1, rowHeight);
+        this.scale = scale;
+    }
+
+    /**
+     * Opens a menu at a point, nudged so it stays on screen.
+     * <p>Flipped rather than clamped when it would run off, the way every menu does: a menu
+     * that slides sideways to fit ends up under the cursor that opened it.
+     */
+    public static ContextMenu at(
+            Font font, int pointX, int pointY, int screenWidth, int screenHeight, List<Entry> entries) {
+        return at(font, pointX, pointY, screenWidth, screenHeight, 0, entries);
+    }
+
+    /**
+     * The same, on a screen with something across the top of it that must stay readable.
+     * <p>The board has a strip along its top carrying every seat's life and whose turn it is,
+     * and a menu opened near the top of the window was clamped to the window rather than to
+     * the strip - so the first entry of a long menu sat over the life totals. Given the strip's
+     * foot, the menu starts below it and is measured against what is left.
+     */
+    public static ContextMenu at(
+            Font font, int pointX, int pointY, int screenWidth, int screenHeight,
+            int topEdge, List<Entry> entries) {
+        int highest = Math.max(SCREEN_EDGE, topEdge);
+        // The widest row at one to one. MenuFit decides what size that becomes: it honours the
+        // asked text size where there is room, wraps into columns when there is not, and only
+        // then shrinks - uniformly, so the menu is one size rather than one size per row.
+        int widest = 0;
+        for (Entry entry : entries) {
+            if (!entry.isRule()) {
+                int shortcut = entry.shortcut() == null
+                        ? 0
+                        : font.width(entry.shortcut()) + SHORTCUT_GAP;
+                widest = Math.max(widest, font.width(entry.label()) + shortcut);
+            }
+        }
+
+        // A menu taller than the screen has nowhere to go: flipping it up runs off the top
+        // instead of the bottom, and clamping it hides the rows that fall off the end. A card
+        // has a lot of things you can do to it, and at a GUI scale of two on a small window
+        // the list is taller than the window. So it wraps into columns, which is what a long
+        // menu does everywhere else and never costs an entry.
+        int room = Math.max(1, screenHeight - highest - SCREEN_EDGE - padding() * 2);
+        dev.gathering.core.ui.MenuFit fit = dev.gathering.core.ui.MenuFit.of(
+                entries.size(), widest, font.lineHeight,
+                screenWidth - SCREEN_EDGE * 2, room,
+                ROW_HEIGHT, ClientSettings.controlScale(), GuiText.askedScale(),
+                padding(), MIN_WIDTH);
+        int rows = fit.rowHeight();
+        int columnWidth = fit.columnWidth();
+        // Spread evenly rather than filling the first column and leaving a stub.
+        int perColumn = fit.perColumn(entries.size());
+
+        int width = fit.width();
+        int height = fit.height(entries.size(), padding());
+
+        int left = pointX;
+        if (left + width > screenWidth - SCREEN_EDGE) {
+            left = pointX - width;
+        }
+        int top = pointY;
+        if (top + height > screenHeight - SCREEN_EDGE) {
+            top = pointY - height;
+        }
+        return new ContextMenu(entries,
+                Math.max(SCREEN_EDGE, Math.min(left, screenWidth - SCREEN_EDGE - width)),
+                Math.max(highest, Math.min(top, screenHeight - SCREEN_EDGE - height)),
+                width, height, perColumn, columnWidth, rows, fit.scale());
+    }
+
+    public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+        GatheringSprites.panel(graphics, x, y, width, height);
+
+        for (int index = 0; index < entries.size(); index++) {
+            Entry entry = entries.get(index);
+            int left = x + (index / perColumn) * columnWidth;
+            int row = y + padding() + (index % perColumn) * rowHeight;
+            if (entry.isRule()) {
+                GatheringSprites.draw(graphics, Element.MENU_RULE,
+                        left + padding(), row + rowHeight / 2, columnWidth - padding() * 2, 1);
+                continue;
+            }
+            boolean hovered = entry.enabled() && index == indexAt(mouseX, mouseY);
+            if (hovered) {
+                GatheringSprites.highlight(graphics, left + 2, row, columnWidth - 4, rowHeight);
+            }
+            // The row under the cursor brightens as well as lighting up, so a menu read at a
+            // glance still says which line a click would take.
+            int color = entry.enabled() ? (hovered ? HOVERED : TEXT) : DISABLED;
+            int shortcutWidth = entry.shortcut() == null
+                    ? 0
+                    : font.width(entry.shortcut()) + SHORTCUT_GAP;
+            // At the menu's own size, not fitted per line: the column was measured for this
+            // size, so every row gets it and the menu reads as one thing.
+            GuiText.drawExactly(graphics, font, entry.label(),
+                    left + padding(), row + 2, scale, color);
+            if (entry.shortcut() != null) {
+                GuiText.drawExactly(graphics, font, entry.shortcut(),
+                        left + columnWidth - padding() - Math.round(shortcutWidth * scale)
+                                + Math.round(SHORTCUT_GAP * scale),
+                        row + 2, scale, SHORTCUT);
+            }
+        }
+    }
+
+    /**
+     * Which entry a point is on, or -1.
+     * <p>One answer shared by the drawing and the clicking, so a row cannot light up under the
+     * cursor and then run a different entry when it is clicked.
+     */
+    private int indexAt(int pointX, int pointY) {
+        if (pointX < x || pointX >= x + width || pointY < y + padding()) {
+            return -1;
+        }
+        int column = (pointX - x) / columnWidth;
+        int row = (pointY - y - padding()) / rowHeight;
+        if (row < 0 || row >= perColumn) {
+            return -1;
+        }
+        int index = column * perColumn + row;
+        return index < entries.size() ? index : -1;
+    }
+
+    /**
+     * Runs whatever was clicked.
+     *
+     * @return true if the click belonged to this menu, whether or not it did anything - a
+     *         click on a disabled row is still a click on the menu and must not fall through
+     *         to whatever is underneath it
+     */
+    public boolean mouseClicked(int mouseX, int mouseY) {
+        if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height) {
+            return false;
+        }
+        int index = indexAt(mouseX, mouseY);
+        if (index >= 0) {
+            Entry entry = entries.get(index);
+            if (entry.enabled()) {
+                // The same click a button makes. Without it there is no way to tell a menu
+                // entry that ran from one that was a pixel outside the row.
+                GatheringButtons.clickSound();
+                entry.action().run();
+            }
+        }
+        return true;
+    }
+
+    /** Whether the menu has an entry with this label. For the scripted run, as below. */
+    boolean has(String label) {
+        for (Entry entry : entries) {
+            if (!entry.isRule() && entry.label().getString().equalsIgnoreCase(label)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Runs the entry with this label, or says there was none.
+     * <p>For the scripted run, so it can take a menu entry the way a player takes it rather
+     * than calling what the entry would have called - which would pass just as happily with
+     * the entry missing from the menu.
+     */
+    boolean press(String label) {
+        for (Entry entry : entries) {
+            if (!entry.isRule() && entry.enabled()
+                    && entry.label().getString().equalsIgnoreCase(label)) {
+                entry.action().run();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * One line of the menu, and the key that does the same thing without opening it.
+     * <p>The shortcut is written on the row rather than left in a list somewhere, because a
+     * menu is where a player finds out what a verb is called and it is the only moment they
+     * are looking straight at it. A key nobody is shown is a key nobody presses.
+     */
+    public record Entry(
+            String id, Component label, Component shortcut, boolean enabled, Runnable action) {
+
+        public static Entry of(Component label, Runnable action) {
+            return new Entry(null, label, null, true, action);
+        }
+
+        /** The same, plus the key that does it without opening a menu at all. */
+        public static Entry of(Component label, Component shortcut, Runnable action) {
+            return new Entry(null, label, shortcut, true, action);
+        }
+
+        /**
+         * A row that is one of the catalogue's verbs, and says which.
+         * <p>The id is what lets the palette be a search over the menus themselves rather than
+         * a second list of verbs beside them: it finds the rows the player could reach by
+         * right-clicking right now and runs the very same {@link Runnable}. A row built any
+         * other way has no id and the palette does not carry it - which is not a limitation
+         * but the point. The rows without one are the rows whose label carries a card name, a
+         * token name or a player name, and none of those belongs in a search box.
+         */
+        public static Entry named(
+                String id, Component label, Component shortcut, Runnable action) {
+            return new Entry(id, label, shortcut, true, action);
+        }
+
+        /** Shown but not selectable, so the option's absence is visible rather than mysterious. */
+        public static Entry disabled(Component label) {
+            return new Entry(null, label, null, false, () -> { });
+        }
+
+        /**
+         * A rule between two groups of entries.
+         * <p>A menu of fourteen verbs in one column is fourteen things to read before finding
+         * the one you meant. The verbs fall into groups on their own - things you do to a card
+         * where it lies, and places you send it - and a line between them is the whole of what
+         * it takes to see that without reading.
+         * <p>An entry rather than a separate list, so it takes part in the column wrapping and
+         * the row arithmetic like everything else. It is never selectable and a click on it is
+         * still a click on the menu, which is what stops a rule from being a hole.
+         */
+        public static Entry rule() {
+            return new Entry(null, Component.empty(), null, false, () -> { });
+        }
+
+        boolean isRule() {
+            return !enabled && label.getString().isEmpty();
+        }
+    }
+
+    /** A builder, because most callers add entries conditionally. */
+    public static List<Entry> entries() {
+        return new ArrayList<>();
+    }
+}

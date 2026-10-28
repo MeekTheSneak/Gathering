@@ -1,0 +1,12 @@
+{
+  "parent": "gathering:first_pack",
+  "display": {
+    "icon": { "id": "gathering:collection" },
+    "title": { "translate": "advancements.gathering.set_complete.title" },
+    "description": { "translate": "advancements.gathering.set_complete.description" },
+    "frame": "challenge"
+  },
+  "criteria": {
+    "completed": { "trigger": "minecraft:impossible" }
+  }
+}
