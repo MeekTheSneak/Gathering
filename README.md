@@ -6,8 +6,9 @@ Sit down at a table in Minecraft and play a card game with real decks: real card
 can see, up to eight players at one board, and no rules engine. You move the cards and you decide
 what happens.
 
-> **Unofficial Fan Content.** Not approved or endorsed by Wizards of the Coast. Portions of the
-> materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
+> Gathering is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed
+> by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the
+> Coast LLC.
 >
 > NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.
 >
@@ -18,6 +19,7 @@ what happens.
 
 | | |
 |---|---|
+| **Download** | [Gathering on CurseForge](https://www.curseforge.com/minecraft/mc-mods/gathering) |
 | **Minecraft** | 1.21.1 |
 | **Loaders** | NeoForge 21.1.1+, or Fabric Loader 0.15.11+ with Fabric API 0.102.0+ |
 | **Players** | Singleplayer, LAN, or a dedicated server |
@@ -86,7 +88,7 @@ what happens.
 
 ## Installation
 
-1. Download the jar for your loader from CurseForge: [search for Gathering](https://www.curseforge.com/minecraft/search?search=gathering).
+1. Download the jar for your loader from [Gathering on CurseForge](https://www.curseforge.com/minecraft/mc-mods/gathering).
 2. Put it in the `mods` folder. On Fabric, put Fabric API there too.
 3. On a server, do the same on the server and on every player's game.
 
